@@ -616,8 +616,20 @@ export const RemediationExecution = () => {
             if (match?.workflowJobId) resolvedJobId = match.workflowJobId;
           }
 
+          // Find the assessment scan this remediation is based on
+          const scanRecord = resolvedJobId
+            ? scans.find(s => s.workflowJobId === resolvedJobId)
+            : scans.find(s => s.id === jobId);
+          let findingsScanId: string | undefined;
+          if (scanRecord) {
+            const assessmentScan = scans
+              .filter(s => s.profileId === scanRecord.profileId && s.scanner !== 'remediation' && s.status === 'completed')
+              .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0];
+            findingsScanId = assessmentScan?.id;
+          }
+
           const [findings, jobStatus] = await Promise.all([
-            api.getFindings().catch(() => []),
+            (findingsScanId ? api.getFindings(findingsScanId) : api.getFindings()).catch(() => []),
             resolvedJobId ? api.getJobStatus(resolvedJobId).catch(() => null) : Promise.resolve(null),
           ]);
 
@@ -646,10 +658,6 @@ export const RemediationExecution = () => {
             }
           }
 
-          // Resolve inventory + profile from the scan record
-          const scanRecord = resolvedJobId
-            ? scans.find(s => s.workflowJobId === resolvedJobId)
-            : scans.find(s => s.id === jobId);
           if (scanRecord) {
             inventoryIdRef.current = scanRecord.inventoryId;
             complianceProfileIdRef.current = scanRecord.profileId;
