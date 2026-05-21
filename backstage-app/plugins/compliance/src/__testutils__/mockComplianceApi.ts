@@ -120,6 +120,26 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     failCount: 2,
     totalCount: 3,
   },
+  {
+    ruleId: 'sshd_disable_root_login',
+    stigId: 'V-257850',
+    title: 'Disable SSH Root Login',
+    description: 'SSH root login must be disabled.',
+    fixText: 'Set PermitRootLogin to no in /etc/ssh/sshd_config',
+    checkText: 'Verify PermitRootLogin is set to no.',
+    severity: 'CAT_I',
+    category: 'SSH',
+    disruption: 'low',
+    parameters: [],
+    hosts: [
+      { host: 'web-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
+      { host: 'web-02.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
+      { host: 'db-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
+    ],
+    passCount: 3,
+    failCount: 0,
+    totalCount: 3,
+  },
 ];
 
 export const MOCK_DASHBOARD_STATS: DashboardStats = {

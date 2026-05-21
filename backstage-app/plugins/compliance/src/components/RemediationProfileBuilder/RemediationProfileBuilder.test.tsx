@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { RemediationProfileBuilder } from './RemediationProfileBuilder';
 import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
@@ -38,34 +38,85 @@ describe('RemediationProfileBuilder', () => {
     });
   });
 
-  it('displays the summary bar with rule counts', async () => {
+  it('displays the summary bar with rule counts including compliant', async () => {
     await renderBuilder();
     await waitFor(() => {
       expect(screen.getByText(/rules with failures/)).toBeInTheDocument();
     });
+    // The summary bar shows a "compliant" count (text split across elements with <strong>)
+    expect(screen.getByText((_, element) =>
+      element?.tagName === 'P' && /\d+\s*compliant/.test(element.textContent || '') || false
+    )).toBeInTheDocument();
     // "selected" and "skipped" text appear in summary bar and per-group headers
     expect(screen.getAllByText(/selected/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/skipped/)).toBeInTheDocument();
     expect(screen.getByText(/hosts affected/)).toBeInTheDocument();
   });
 
-  it('displays bulk action buttons', async () => {
+  it('displays bulk action buttons including Select All Failed', async () => {
     await renderBuilder();
     await waitFor(() => {
       expect(screen.getByText('Select All')).toBeInTheDocument();
     });
+    expect(screen.getByText('Select All Failed')).toBeInTheDocument();
     expect(screen.getByText('CAT I Only')).toBeInTheDocument();
     expect(screen.getByText('CAT I + II')).toBeInTheDocument();
     expect(screen.getByText('Clear All')).toBeInTheDocument();
   });
 
-  it('displays severity group headers', async () => {
+  it('displays view toggle buttons defaulting to By Status', async () => {
     await renderBuilder();
-    // The severity group headers use the long labels: "CAT I — Critical", etc.
+    await waitFor(() => {
+      expect(screen.getByTestId('view-by-status')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('view-by-category')).toBeInTheDocument();
+  });
+
+  it('shows failed rules section and collapsed passing rules section in status view', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByTestId('failed-rules-header')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('passing-rules-header')).toBeInTheDocument();
+    // Failed rules should be visible
+    expect(screen.getByText('Set SSH Client Alive Interval')).toBeInTheDocument();
+    expect(screen.getByText('Set Password Minimum Length')).toBeInTheDocument();
+    // Passing rule is in the DOM but hidden (MUI Collapse uses CSS, not DOM removal).
+    // Verify the collapse wrapper has height 0 / is not expanded.
+    const passingRuleEl = screen.getByText('Disable SSH Root Login');
+    const collapseWrapper = passingRuleEl.closest('.MuiCollapse-root');
+    expect(collapseWrapper).toHaveClass('MuiCollapse-hidden');
+  });
+
+  it('expands passing rules section when clicked', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByTestId('passing-rules-header')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('passing-rules-header'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Disable SSH Root Login')).toBeInTheDocument();
+    });
+    // Shows the informational note
+    expect(screen.getByText(/These rules are currently compliant/)).toBeInTheDocument();
+  });
+
+  it('switches to category view and shows severity group headers', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByTestId('view-by-category')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('view-by-category'));
+
     await waitFor(() => {
       expect(screen.getByText('CAT I — Critical')).toBeInTheDocument();
     });
     expect(screen.getByText('CAT II — Medium')).toBeInTheDocument();
+    // In category view, all rules should be visible (including passing)
+    expect(screen.getByText('Disable SSH Root Login')).toBeInTheDocument();
   });
 
   it('displays the apply remediation button', async () => {
@@ -96,10 +147,10 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText('Clear All')).toBeInTheDocument();
     });
 
-    // After Clear All, the skipped count should match total failed findings
+    // After Clear All, the skipped count should match total findings (3: 2 failed + 1 passing)
     fireEvent.click(screen.getByText('Clear All'));
     await waitFor(() => {
-      expect(screen.getByText(/skipped/)).toHaveTextContent('2');
+      expect(screen.getByText(/skipped/)).toHaveTextContent('3');
     });
 
     // After Select All, the skipped count should be 0
@@ -107,6 +158,73 @@ describe('RemediationProfileBuilder', () => {
     await waitFor(() => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('0');
     });
+  });
+
+  it('Select All Failed only enables failed rules', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByText('Select All Failed')).toBeInTheDocument();
+    });
+
+    // Clear all first
+    fireEvent.click(screen.getByText('Clear All'));
+    await waitFor(() => {
+      expect(screen.getByText(/skipped/)).toHaveTextContent('3');
+    });
+
+    // Select All Failed should enable only 2 (failed) rules
+    fireEvent.click(screen.getByText('Select All Failed'));
+    await waitFor(() => {
+      // 2 failed rules selected + 1 passing rule still disabled = 1 skipped
+      const selectedEl = screen.getAllByText(/selected/).find(el => {
+        const parent = el.closest('.MuiTypography-root');
+        return parent && parent.textContent?.match(/^\d+ selected$/);
+      });
+      // We check the summary bar count
+      expect(screen.getByText(/skipped/)).toHaveTextContent('1');
+    });
+  });
+
+  it('passing rules are disabled by default for new remediations', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByTestId('passing-rules-header')).toBeInTheDocument();
+    });
+
+    // The passing rules header should show 0 selected
+    const passingHeader = screen.getByTestId('passing-rules-header');
+    expect(within(passingHeader).getByText(/0\/1 selected/)).toBeInTheDocument();
+  });
+
+  it('persists selections when switching between views', async () => {
+    await renderBuilder();
+    await waitFor(() => {
+      expect(screen.getByText('Select All')).toBeInTheDocument();
+    });
+
+    // Select All
+    fireEvent.click(screen.getByText('Select All'));
+    await waitFor(() => {
+      expect(screen.getByText(/skipped/)).toHaveTextContent('0');
+    });
+
+    // Switch to category view
+    fireEvent.click(screen.getByTestId('view-by-category'));
+    await waitFor(() => {
+      expect(screen.getByText('CAT I — Critical')).toBeInTheDocument();
+    });
+
+    // Selections should persist - still 0 skipped
+    expect(screen.getByText(/skipped/)).toHaveTextContent('0');
+
+    // Switch back to status view
+    fireEvent.click(screen.getByTestId('view-by-status'));
+    await waitFor(() => {
+      expect(screen.getByTestId('failed-rules-header')).toBeInTheDocument();
+    });
+
+    // Selections should still persist
+    expect(screen.getByText(/skipped/)).toHaveTextContent('0');
   });
 
   it('calls getFindings with the jobId from route params', async () => {
