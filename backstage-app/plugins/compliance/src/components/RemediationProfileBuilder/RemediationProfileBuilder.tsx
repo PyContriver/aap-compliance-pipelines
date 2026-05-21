@@ -96,13 +96,23 @@ export const RemediationProfileBuilder = () => {
     return () => { cancelled = true; };
   }, [api, isEditMode, remediationId]);
 
+  const [resolvedProfileId, setResolvedProfileId] = useState<string>('');
+
   useEffect(() => {
     if (isEditMode) return;
     let cancelled = false;
-    api.getFindings(jobId)
-      .then(data => { if (!cancelled) setAllFindings(data); })
-      .catch(err => { console.error('Failed to load findings:', err); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    Promise.all([
+      api.getFindings(jobId),
+      api.getCartridges().catch(() => []),
+    ]).then(([data, cartridges]) => {
+      if (cancelled) return;
+      setAllFindings(data);
+      if (cartridges.length > 0) setResolvedProfileId(cartridges[0].id);
+    }).catch(err => {
+      console.error('Failed to load findings:', err);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [api, jobId, isEditMode]);
 
@@ -160,7 +170,7 @@ export const RemediationProfileBuilder = () => {
     try {
       const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selectionsRef.current[f.ruleId]?.enabled ?? false, parameters: selectionsRef.current[f.ruleId]?.parameters ?? {}, scope: selectionsRef.current[f.ruleId]?.scope }));
       const effectiveScanId = isEditMode ? (editProfile?.scanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
-      const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || 'rhel9-stig', scanId: effectiveScanId, selections: allSelections });
+      const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections });
       if (!savedProfileIdRef.current) { setSavedProfileId(saved.id); }
       setAutoSaveStatus('saved');
     } catch (err) { setAutoSaveStatus('error'); setSaveError(err instanceof Error ? err.message : 'Auto-save failed'); }
@@ -375,7 +385,7 @@ export const RemediationProfileBuilder = () => {
             try {
               const enabledSelections = allFindings.filter(f => selections[f.ruleId]?.enabled).map(f => ({ ruleId: f.ruleId, enabled: true, scope: selections[f.ruleId].scope ?? 'failed_only' as const, parameters: selections[f.ruleId].parameters }));
               const effectiveScanId = isEditMode ? (editProfile?.scanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
-              const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName || editProfile?.name || 'Remediation', description: profileDescription || editProfile?.description || '', complianceProfileId: editProfile?.complianceProfileId || 'rhel9-stig', scanId: effectiveScanId, selections: enabledSelections });
+              const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName || editProfile?.name || 'Remediation', description: profileDescription || editProfile?.description || '', complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: enabledSelections });
               const params = new URLSearchParams(); params.set('profileId', saved.id); params.set('scanId', effectiveScanId);
               navigate(`/compliance/execute/${effectiveScanId}?${params.toString()}`);
             } catch (err) { setSaveError(err instanceof Error ? err.message : 'Failed to prepare remediation'); setLaunching(false); }

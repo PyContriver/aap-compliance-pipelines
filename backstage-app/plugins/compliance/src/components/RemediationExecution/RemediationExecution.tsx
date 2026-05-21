@@ -487,8 +487,8 @@ export const RemediationExecution = () => {
 
   // Track the compliance profile and inventory used by this remediation
   // so we can auto-launch a verification scan without the wizard.
-  const complianceProfileIdRef = useRef<string>('rhel9-stig');
-  const inventoryIdRef = useRef<number>(1);
+  const complianceProfileIdRef = useRef<string>('');
+  const inventoryIdRef = useRef<number>(0);
 
   // Launch a verification scan using the same profile/inventory as the remediation.
   const launchVerificationScan = useCallback(async () => {
