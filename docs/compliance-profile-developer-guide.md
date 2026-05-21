@@ -875,6 +875,17 @@ For Tier 1 RHEL STIG, the remediation playbook imports the ComplianceAsCode (CaC
   ansible.builtin.import_playbook: /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
 ```
 
+### CaC Title Matching Convention
+
+The portal's remediation execution view groups Ansible tasks by compliance rule using a title-matching algorithm. For CaC playbooks (scap-security-guide), each task's name starts with the rule title (e.g., "Set SSH Client Alive Interval - Configure sshd_config"). The portal detects these "anchor" tasks by comparing the task name against known rule titles, then assigns all subsequent tasks to that rule until a new anchor is found.
+
+**Requirements for proper task-to-rule grouping:**
+1. Ansible role names should match rule IDs (e.g., role `sshd_set_idle_timeout` for rule `sshd_set_idle_timeout`). The portal checks `event_data.role` first.
+2. Tasks should be tagged with the rule ID. The portal checks `event_data.task_tags` second.
+3. As a fallback, task names should start with the rule title. This is the CaC convention and requires that rule titles in the compliance profile YAML match the CaC task name prefixes exactly.
+
+If none of these match, tasks appear in an "unassigned" group. For custom (non-CaC) playbooks, use tags on every task to ensure correct grouping.
+
 For compliance profiles that cannot use CaC playbooks (Windows, network devices, custom frameworks), provide per-rule roles:
 
 ```yaml

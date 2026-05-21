@@ -65,6 +65,11 @@ Profiles are registered in the compliance plugin settings and can be shared acro
 
 The compliance pipelines plugin consists of three packages:
 
-* *Frontend plugin* (`@aap-compliance/plugin`): Provides the user interface with six tabs -- Overview, Profiles, New Scan, Results, Remediations, and Settings.
-* *Backend plugin* (`@aap-compliance/backend`): REST API that communicates with {ControllerName}, manages scan state, and stores remediation profiles in a local database.
+* *Frontend plugin* (`@aap-compliance/plugin`): Provides the user interface with six tabs -- Overview, Profiles, New Scan, Results, Remediations, and Settings. Key features include:
+** *CSV and JSON export* -- Export findings from any scan result for auditors or integration with external tools.
+** *Verification comparison view* -- After remediation, compare before-and-after compliance scores with side-by-side gauges showing pass-rate improvement.
+** *Dual view modes* -- View findings organized by status (pass/fail) or by category (Access Control, Audit, etc.) for flexible analysis.
+** *Insights pattern* -- Remediation profiles auto-save as you configure them, with inline naming that removes manual save steps.
+** *Data retention settings* -- Configure how long scan findings are retained, with manual cleanup support for immediate space reclamation.
+* *Backend plugin* (`@aap-compliance/backend`): REST API that communicates with {ControllerName}, manages scan state, and stores remediation profiles in a local database. The backend implements automatic data retention cleanup on startup and exposes settings and cleanup endpoints for administrative control.
 * *Common package* (`@aap-compliance/common`): Shared TypeScript types for profiles, findings, and API contracts.

@@ -28,7 +28,9 @@ import type {
 
 /** Interface for the compliance backend API. */
 export interface ComplianceApi {
-  getHealth(): Promise<{ status: string; dataSource: string }>;
+  getHealth(): Promise<{ status: string; dataSource: string; retentionDays?: number }>;
+  updateSettings(settings: { retentionDays: number }): Promise<{ retentionDays: number }>;
+  runCleanup(): Promise<{ deleted: number; retentionDays: number }>;
   getProfiles(): Promise<ComplianceProfile[]>;
   getInventories(): Promise<Array<{ id: number; name: string; hostCount: number }>>;
   getWorkflowTemplates(nameFilter?: string): Promise<Array<{ id: number; name: string; description: string }>>;

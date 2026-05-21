@@ -90,6 +90,14 @@ function createMockService() {
       elapsed: 0,
       name: 'compliance-scan',
     }),
+    getJobStatus: jest.fn().mockResolvedValue({
+      id: 42,
+      status: 'pending',
+      finished: null,
+      failed: false,
+      elapsed: 0,
+      name: 'compliance-remediate',
+    }),
     getWorkflowNodes: jest.fn().mockResolvedValue([]),
     getJobEvents: jest.fn().mockResolvedValue([]),
     getDashboardStats: jest.fn().mockResolvedValue({
@@ -142,6 +150,9 @@ function createMockDatabase() {
     getFindingsByScanId: jest.fn().mockResolvedValue([]),
     getScanByWorkflowJobId: jest.fn().mockResolvedValue(null),
     getPreviousScan: jest.fn().mockResolvedValue(null),
+    cleanupOldFindings: jest.fn().mockResolvedValue(0),
+    getLatestFindings: jest.fn().mockResolvedValue([]),
+    updateScanStatus: jest.fn().mockResolvedValue(undefined),
     listCartridges: jest.fn().mockResolvedValue([]),
     saveCartridge: jest.fn().mockResolvedValue({
       id: 'cart-1',

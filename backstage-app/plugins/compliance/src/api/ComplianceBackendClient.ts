@@ -118,7 +118,20 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getHealth() {
-    return this.request<{ status: string; dataSource: string }>('/health');
+    return this.request<{ status: string; dataSource: string; retentionDays?: number }>('/health');
+  }
+
+  updateSettings(settings: { retentionDays: number }) {
+    return this.request<{ retentionDays: number }>('/settings', {
+      method: 'POST',
+      body: settings,
+    });
+  }
+
+  runCleanup() {
+    return this.request<{ deleted: number; retentionDays: number }>('/cleanup', {
+      method: 'POST',
+    });
   }
 
   getProfiles() {

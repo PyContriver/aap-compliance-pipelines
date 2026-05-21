@@ -110,8 +110,8 @@ const DataRetentionSettings = () => {
 
   useEffect(() => {
     api.getHealth().then(h => {
-      if ((h as Record<string, unknown>).retentionDays) {
-        setRetentionDays((h as Record<string, unknown>).retentionDays as number);
+      if (h.retentionDays) {
+        setRetentionDays(h.retentionDays);
       }
     }).catch(() => {});
   }, [api]);
@@ -120,11 +120,7 @@ const DataRetentionSettings = () => {
     setSaving(true);
     setSaved(false);
     try {
-      await fetch('/api/compliance/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ retentionDays }),
-      });
+      await api.updateSettings({ retentionDays });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -138,8 +134,7 @@ const DataRetentionSettings = () => {
     setCleaning(true);
     setCleanupResult(null);
     try {
-      const resp = await fetch('/api/compliance/cleanup', { method: 'POST' });
-      const data = await resp.json();
+      const data = await api.runCleanup();
       setCleanupResult(`Cleaned up ${data.deleted ?? 0} old findings`);
     } catch {
       setCleanupResult('Cleanup failed');

@@ -248,7 +248,9 @@ export const MOCK_SCANS: ComplianceScan[] = [
  */
 export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
   return {
-    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
+    getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock', retentionDays: 90 }),
+    updateSettings: jest.fn().mockResolvedValue({ retentionDays: 90 }),
+    runCleanup: jest.fn().mockResolvedValue({ deleted: 0, retentionDays: 90 }),
     getProfiles: jest.fn().mockResolvedValue(MOCK_PROFILES),
     getInventories: jest.fn().mockResolvedValue(MOCK_INVENTORIES),
     getWorkflowTemplates: jest.fn().mockResolvedValue([

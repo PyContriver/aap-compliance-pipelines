@@ -75,10 +75,10 @@ The results list shows all completed scans with the following information:
 +
 Click a scan result to open the detailed results viewer. The results viewer displays:
 +
-* Per-rule findings organized by severity (High, Medium, Low)
+* Per-rule findings organized by severity (High, Medium, Low), viewable in two modes: *By Status* (pass/fail grouping) or *By Category* (Access Control, Audit, etc.)
 * Pass, fail, error, and not-applicable counts
-* Per-host breakdown of findings
-* Links to the full XCCDF report
+* Per-host breakdown of findings with actual vs. expected values
+* *Export* button to download findings as CSV (for auditors and spreadsheets) or JSON (for tool integration)
 
 . Build a remediation profile.
 +
@@ -111,14 +111,15 @@ Remediation modifies the configuration of target hosts. Review the selected rule
 
 . Run a verification scan.
 +
-After the remediation completes, return to the *New Scan* tab and launch a verification scan against the same hosts and compliance profile.
+After the remediation completes, click *Run Verification Scan* from the remediation completion view, or return to the *New Scan* tab and launch a verification scan against the same hosts and compliance profile.
 +
-Compare the verification scan results with the original scan to confirm that the remediated rules now pass.
+The verification scan results include a *comparison view* that displays side-by-side gauges showing the pass rate before and after remediation.
 
 .Verification
 
-* In the *Results* tab, confirm that the verification scan shows an improved pass rate compared to the initial assessment scan.
+* In the *Results* tab, confirm that the verification scan shows an improved pass rate compared to the initial assessment scan. The comparison gauges display the before and after scores automatically.
 * For each rule that was remediated, verify that the finding status changed from *fail* to *pass* in the verification scan results.
+* Optionally, export the verification scan findings as CSV or JSON using the *Export* button for audit documentation.
 
 [role="_additional-resources"]
 .Additional resources
