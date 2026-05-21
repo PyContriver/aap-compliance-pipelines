@@ -970,6 +970,17 @@ export class ComplianceService {
     try {
       const scans = await this.database.getRecentScans(10);
       const profiles = await this.database.listCartridges();
+
+      // Resolve inventory names from Controller
+      const inventoryNameMap = new Map<number, string>();
+      try {
+        const inventories = await this.getInventories();
+        for (const inv of inventories) {
+          inventoryNameMap.set(inv.id, inv.name);
+        }
+      } catch {
+        // Controller unavailable — fall back to "Inventory N"
+      }
       const completedScans = scans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
 
       const hostsSet = new Set<string>();
@@ -1022,7 +1033,7 @@ export class ComplianceService {
           return {
             id: scan.id,
             profileName: profileNameMap.get(scan.profileId) || scan.profileId,
-            inventoryName: `Inventory ${scan.inventoryId}`,
+            inventoryName: inventoryNameMap.get(scan.inventoryId) || `Inventory ${scan.inventoryId}`,
             passRate,
             timestamp: scan.completedAt || scan.startedAt,
             status: scan.status,
