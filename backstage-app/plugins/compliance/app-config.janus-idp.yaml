@@ -1,7 +1,7 @@
 ---
 dynamicPlugins:
   frontend:
-    aap-compliance.plugin-compliance:
+    aap-compliance-plugin-compliance:
       dynamicRoutes:
         - importName: CompliancePage
           path: /compliance

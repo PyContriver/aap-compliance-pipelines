@@ -88,7 +88,10 @@ export class ComplianceBackendClient implements ComplianceApi {
     if (this.aapAuthApi) {
       try {
         return await this.aapAuthApi.getAccessToken();
-      } catch {
+      } catch (_err) {
+        // AAP auth provider unavailable — fall back to service token.
+        // This is expected in standalone dev mode where the Portal's
+        // auth-backend-module-rhaap-provider is not registered.
         return undefined;
       }
     }
@@ -226,8 +229,9 @@ export class ComplianceBackendClient implements ComplianceApi {
       return await this.request<RemediationProfile>(
         `/remediation-profiles/${encodeURIComponent(id)}`,
       );
-    } catch (err) {
-      console.error(`Failed to load remediation profile ${id}:`, err);
+    } catch (_err) {
+      // 404 is expected when a profile has been deleted or does not exist.
+      // The caller handles null gracefully (displays "not found" UI).
       return null;
     }
   }

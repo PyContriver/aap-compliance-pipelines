@@ -120,6 +120,7 @@ const ComplianceRouter = () => {
           <ComplianceErrorBoundary>
             <Routes>
               <Route path="/" element={<ComplianceDashboard />} />
+              <Route path="/profiles/all" element={<ProfileBrowser />} />
               <Route path="/profiles/:profileId" element={<ProfileBrowser />} />
               <Route path="/scan" element={<ScanLauncher />} />
               <Route path="/results" element={<ScanHistory />} />

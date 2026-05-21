@@ -198,8 +198,10 @@ export async function createRouter(
               scan.status = newStatus as typeof scan.status;
               scan.completedAt = status.finished ?? new Date().toISOString();
             }
-          } catch {
-            // Controller unavailable — keep current status
+          } catch (_err) {
+            // Controller unavailable — keep current scan status.
+            // This is expected when the lab is offline or the token
+            // has expired. The scan record retains its last-known status.
           }
         }
       }
