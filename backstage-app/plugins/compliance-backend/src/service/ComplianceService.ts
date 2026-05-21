@@ -1007,22 +1007,30 @@ export class ComplianceService {
 
       const profileNameMap = new Map(profiles.map(p => [p.id, p.displayName]));
 
-      // Include ALL recent scans (not just completed) so remediation runs
-      // and in-progress scans appear in the Recent Activity section.
-      const recentScans = scans.slice(0, 5).map(scan => {
-        const stats = profileStats.get(scan.profileId);
-        const total = stats ? stats.pass + stats.fail : 0;
-        return {
-          id: scan.id,
-          profileName: profileNameMap.get(scan.profileId) || scan.profileId,
-          inventoryName: `Inventory ${scan.inventoryId}`,
-          passRate: total > 0 ? Math.round((stats!.pass / total) * 100) : 0,
-          timestamp: scan.completedAt || scan.startedAt,
-          status: scan.status,
-          scanType: scan.scanType,
-          scanner: scan.scanner,
-        };
-      });
+      // Include ALL recent scans with per-scan pass rates.
+      const recentScansRaw = scans.slice(0, 8);
+      const recentScans = await Promise.all(
+        recentScansRaw.map(async scan => {
+          let passRate = 0;
+          if (scan.status === 'completed' && scan.scanner !== 'remediation') {
+            const scanFindings = await this.database!.getFindingsByScanId(scan.id);
+            if (scanFindings.length > 0) {
+              const pass = scanFindings.filter(f => f.status === 'pass').length;
+              passRate = Math.round((pass / scanFindings.length) * 100);
+            }
+          }
+          return {
+            id: scan.id,
+            profileName: profileNameMap.get(scan.profileId) || scan.profileId,
+            inventoryName: `Inventory ${scan.inventoryId}`,
+            passRate,
+            timestamp: scan.completedAt || scan.startedAt,
+            status: scan.status,
+            scanType: scan.scanType,
+            scanner: scan.scanner,
+          };
+        }),
+      );
 
       const frameworkScores = Array.from(profileStats.entries()).map(([pid, stats]) => {
         const total = stats.pass + stats.fail;
