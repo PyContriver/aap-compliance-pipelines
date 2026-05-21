@@ -127,6 +127,7 @@ const ComplianceRouter = () => {
               <Route path="/remediation/:jobId" element={<RemediationProfileBuilder />} />
               <Route path="/remediation-edit/:remediationId" element={<RemediationProfileBuilder />} />
               <Route path="/execute/:jobId" element={<RemediationExecution />} />
+              <Route path="/remediation-result/:jobId" element={<RemediationExecution />} />
               <Route path="/remediations" element={<RemediationsList />} />
               <Route path="/settings" element={<CartridgeSettings />} />
             </Routes>

@@ -195,7 +195,11 @@ export const ActiveJobsBanner = () => {
           className={classes.banner}
           onClick={() => {
             const id = job.scan.workflowJobId ?? job.scan.id;
-            navigate(`/compliance/results/${id}`);
+            if (job.scan.scanner === 'remediation') {
+              navigate(`/compliance/remediation-result/${id}`);
+            } else {
+              navigate(`/compliance/results/${id}`);
+            }
           }}
         >
           <Box className={classes.statusSection}>

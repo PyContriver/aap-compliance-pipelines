@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import {
   InfoCard,
   Breadcrumbs,
@@ -465,6 +465,8 @@ export const RemediationExecution = () => {
   const api = useApi(complianceApiRef);
   const { jobId } = useParams<{ jobId: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const isViewMode = location.pathname.includes('remediation-result');
   const [phase, setPhase] = useState<ExecutionPhase>('launching');
   const [progress, setProgress] = useState(0);
   const [tasks, setTasks] = useState<RemediationTask[]>([]);
@@ -587,8 +589,32 @@ export const RemediationExecution = () => {
   }, [api, remediationProfileId, scanId]);
 
   useEffect(() => {
-    launchRemediation();
-  }, [launchRemediation]);
+    if (isViewMode && jobId) {
+      // View mode: don't launch, just start polling the existing job
+      const numericId = Number(jobId);
+      if (!Number.isNaN(numericId)) {
+        setWorkflowJobId(numericId);
+        setPhase('running');
+      } else {
+        // Non-numeric jobId — look up from scan record
+        api.getScans().then(scans => {
+          const match = scans.find(s => s.id === jobId);
+          if (match?.workflowJobId) {
+            setWorkflowJobId(match.workflowJobId);
+            setPhase('running');
+          }
+        }).catch(() => {});
+      }
+      // Load findings for rule grouping
+      api.getFindings().then(findings => {
+        const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
+        findings.forEach(f => fMap.set(f.ruleId, f));
+        setFindingsMap(fMap);
+      }).catch(() => {});
+    } else {
+      launchRemediation();
+    }
+  }, [launchRemediation, isViewMode, jobId, api]);
 
   // Derive known rule IDs from selections for task matching
   const knownRuleIds = useMemo(

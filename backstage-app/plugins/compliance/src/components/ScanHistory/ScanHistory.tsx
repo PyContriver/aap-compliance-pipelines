@@ -188,7 +188,7 @@ export const ScanHistory = () => {
                   onClick={() => {
                     const jobId = scan.workflowJobId ?? scan.id;
                     if (scan.scanner === 'remediation') {
-                      navigate(`/compliance/remediations`);
+                      navigate(`/compliance/remediation-result/${scan.workflowJobId ?? scan.id}`);
                     } else {
                       navigate(`/compliance/results/${jobId}`);
                     }

@@ -358,10 +358,24 @@ export const ComplianceDashboard = () => {
                     key={scan.id}
                     className={classes.scanRow}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`results/${scan.id}`)}
+                    onClick={() => {
+                      if (scan.scanner === 'remediation') {
+                        navigate(`remediation-result/${scan.id}`);
+                      } else {
+                        navigate(`results/${scan.id}`);
+                      }
+                    }}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter') navigate(`results/${scan.id}`); }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        if (scan.scanner === 'remediation') {
+                          navigate(`remediation-result/${scan.id}`);
+                        } else {
+                          navigate(`results/${scan.id}`);
+                        }
+                      }
+                    }}
                   >
                     <div>
                       <Box display="flex" alignItems="center" style={{ gap: 6 }}>
