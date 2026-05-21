@@ -297,6 +297,38 @@ BACKEND_SECRET=
 AUTH_SIGNING_KEY=
 ----
 
+. Configure RBAC for production deployment.
++
+When deploying to the Ansible Portal (RHDH), enable RBAC enforcement by setting the auth mode and adding the compliance plugin to the permission evaluation list.
++
+In your `.env` file, set:
++
+[source,bash]
+----
+COMPLIANCE_AUTH_MODE=production
+----
++
+In your `app-config.yaml`, add `compliance` to the RBAC plugins list:
++
+[source,yaml]
+----
+compliance:
+  authMode: ${COMPLIANCE_AUTH_MODE:-development}
+
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - catalog
+      - scaffolder
+      - permission
+      - compliance
+----
++
+The compliance plugin uses the same two-tier permission model as the self-service plugin. Users in the `aap-admins` group (AAP superusers) can perform all actions. All other authenticated users have read-only access.
++
+Additionally, the plugin passes each user's AAP OAuth2 token to {ControllerName} API calls, so AAP's native RBAC controls which inventories, workflow templates, and credentials the user can access.
+
 . Start the Backstage application in live mode:
 +
 [source,bash]
