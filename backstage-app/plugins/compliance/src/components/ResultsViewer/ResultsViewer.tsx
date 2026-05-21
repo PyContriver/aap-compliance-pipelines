@@ -575,15 +575,13 @@ export const ResultsViewer = () => {
         >
           Back to Overview
         </Button>
-        {isVerification && (
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => navigate('/compliance/remediations')}
-          >
-            Edit Remediations
-          </Button>
-        )}
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={() => navigate('/compliance/remediations')}
+        >
+          Edit Remediations
+        </Button>
         <Button
           variant="contained"
           color="primary"
