@@ -206,7 +206,7 @@ export const ScanProgress = ({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [api, workflowJobId, visible, isTerminal]);
+  }, [api, workflowJobId, visible, isTerminal, nodeIds, steps]);
 
   const terminal = ['successful', 'failed', 'error', 'canceled'];
   const isFailed = overallStatus === 'failed' || overallStatus === 'error' || overallStatus === 'canceled';

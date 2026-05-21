@@ -187,27 +187,26 @@ export async function createRouter(
 
     // Auto-update stale running/pending records by checking Controller
     if (service.getDataSource() === 'live') {
-      for (const scan of scans) {
-        if ((scan.status === 'running' || scan.status === 'pending') && scan.workflowJobId) {
-          try {
-            const isRemediation = scan.scanner === 'remediation';
-            const status = isRemediation
-              ? await service.getJobStatus(scan.workflowJobId, userToken)
-              : await service.getWorkflowJobStatus(scan.workflowJobId, userToken);
-            const terminal = ['successful', 'failed', 'error', 'canceled'];
-            if (terminal.includes(status.status)) {
-              const newStatus = status.status === 'successful' ? 'completed' : 'failed';
-              await database.updateScanStatus(scan.id, newStatus, status.finished ?? new Date().toISOString());
-              scan.status = newStatus as typeof scan.status;
-              scan.completedAt = status.finished ?? new Date().toISOString();
-            }
-          } catch (_err) {
-            // Controller unavailable — keep current scan status.
-            // This is expected when the lab is offline or the token
-            // has expired. The scan record retains its last-known status.
+      const staleScans = scans.filter(
+        s => (s.status === 'running' || s.status === 'pending') && s.workflowJobId,
+      );
+      await Promise.all(staleScans.map(async scan => {
+        try {
+          const isRemediation = scan.scanner === 'remediation';
+          const status = isRemediation
+            ? await service.getJobStatus(scan.workflowJobId!, userToken)
+            : await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
+          const terminal = ['successful', 'failed', 'error', 'canceled'];
+          if (terminal.includes(status.status)) {
+            const newStatus = status.status === 'successful' ? 'completed' : 'failed';
+            await database.updateScanStatus(scan.id, newStatus, status.finished ?? new Date().toISOString());
+            scan.status = newStatus as typeof scan.status;
+            scan.completedAt = status.finished ?? new Date().toISOString();
           }
+        } catch {
+          // Controller unavailable — keep current scan status.
         }
-      }
+      }));
     }
 
     res.json(scans);
@@ -249,6 +248,11 @@ export async function createRouter(
     }
     if (body.workflowTemplateId !== undefined && body.workflowTemplateId !== null && !isPositiveInteger(body.workflowTemplateId)) {
       res.status(400).json({ error: 'workflowTemplateId must be a positive integer when provided' });
+      return;
+    }
+    const validScanTypes = ['assessment', 'verification'];
+    if (body.scanType && !validScanTypes.includes(body.scanType)) {
+      res.status(400).json({ error: `scanType must be one of: ${validScanTypes.join(', ')}` });
       return;
     }
 

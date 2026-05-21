@@ -273,7 +273,7 @@ export const ResultsViewer = () => {
     fetchFindings();
 
     return () => { cancelled = true; clearTimeout(timeoutId); };
-  }, [api, jobId]);
+  }, [api, jobId, isWorkflowPoll]);
 
   const totalHosts = findings[0]?.totalCount || 0;
   const rulesWithFailures = findings.filter(f => f.failCount > 0).length;
