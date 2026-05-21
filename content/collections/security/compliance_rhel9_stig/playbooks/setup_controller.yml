@@ -109,6 +109,10 @@
         state: present
 
     # ── Job Templates ───────────────────────────────────────────────
+    # IMPORTANT: All child JTs must have ask_inventory_on_launch: true
+    # so the workflow's inventory override propagates to each node.
+    # Without this, child JTs ignore the inventory passed at workflow
+    # launch and use their own hardcoded default instead.
     controller_templates:
       - name: compliance-gather-facts
         organization: "{{ compliance_org }}"
@@ -119,6 +123,7 @@
           - "{{ compliance_credential }}"
         become_enabled: true
         use_fact_cache: true
+        ask_inventory_on_launch: true
         description: "Gather compliance-relevant facts from target hosts"
         state: present
 
@@ -128,6 +133,7 @@
         project: "{{ compliance_project }}"
         playbook: "{{ playbook_evaluate }}"
         use_fact_cache: true
+        ask_inventory_on_launch: true
         description: "Evaluate gathered facts against STIG rules"
         state: present
 
@@ -139,14 +145,22 @@
         credentials:
           - "{{ compliance_credential }}"
         become_enabled: true
+        ask_inventory_on_launch: true
+        ask_tags_on_launch: true
+        ask_variables_on_launch: true
         description: "Apply CaC STIG remediation to target hosts"
         state: present
 
     # ── Workflow Job Template ───────────────────────────────────────
+    # IMPORTANT: ask_inventory_on_launch must be true so the plugin
+    # can pass the user-selected inventory at launch time.
+    # Workflow nodes must NOT set inventory (inventory: null) so they
+    # inherit the workflow-level inventory override.
     controller_workflows:
       - name: compliance-pipeline-rhel9-stig
         organization: "{{ compliance_org }}"
         description: "RHEL 9 STIG compliance pipeline: Gather Facts -> Evaluate -> Remediate"
+        ask_inventory_on_launch: true
         state: present
         simplified_workflow_nodes:
           - identifier: gather-facts
@@ -155,6 +169,7 @@
               type: job_template
               organization:
                 name: "{{ compliance_org }}"
+            inventory:              # null = inherit from workflow
             success_nodes:
               - evaluate
 
@@ -164,6 +179,7 @@
               type: job_template
               organization:
                 name: "{{ compliance_org }}"
+            inventory:              # null = inherit from workflow
             success_nodes:
               - remediate
 
@@ -173,6 +189,7 @@
               type: job_template
               organization:
                 name: "{{ compliance_org }}"
+            inventory:              # null = inherit from workflow
 
   pre_tasks:
     - name: Validate required variables
@@ -252,11 +269,12 @@
           Project:       {{ compliance_project }}
 
           Job Templates:
-            - compliance-gather-facts   (become: yes, fact cache: yes)
-            - compliance-evaluate       (fact cache: yes)
-            - compliance-remediate      (become: yes)
+            - compliance-gather-facts   (become: yes, fact cache: yes, ask_inventory: yes)
+            - compliance-evaluate       (fact cache: yes, ask_inventory: yes)
+            - compliance-remediate      (become: yes, ask_inventory: yes, ask_tags: yes)
 
           Workflow:
-            - compliance-pipeline-rhel9-stig
+            - compliance-pipeline-rhel9-stig  (ask_inventory: yes)
               Gather Facts -> Evaluate -> Remediate
+              (all nodes inherit inventory from workflow)
 ...

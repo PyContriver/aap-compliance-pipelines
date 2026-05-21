@@ -1,4 +1,9 @@
 ---
+# IMPORTANT: All job templates must have ask_inventory_on_launch: true
+# so the workflow's inventory override propagates to each node.
+# The remediation JT also needs ask_tags_on_launch: true because the
+# plugin launches it directly (not via workflow) with job_tags for
+# selective rule remediation.
 controller_templates:
   - name: compliance-scan-rhel9-stig
     organization: compliance-prototype
@@ -21,6 +26,7 @@ controller_templates:
     playbook: playbooks/remediate-rhel9-stig.yml
     ask_inventory_on_launch: true
     ask_limit_on_launch: true
+    ask_tags_on_launch: true
     ask_variables_on_launch: true
     survey_enabled: false
 

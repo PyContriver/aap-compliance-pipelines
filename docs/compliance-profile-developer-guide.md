@@ -783,11 +783,13 @@ controller_workflows:
     description: "<Platform> <Framework> Compliance Pipeline"
     organization: compliance
     survey_enabled: true
+    ask_inventory_on_launch: true    # REQUIRED: plugin passes inventory at launch
     workflow_nodes:
       - identifier: gather
         unified_job_template:
           name: compliance-gather-<platform>-<framework>
           type: job_template
+        inventory:                   # null = inherit from workflow
         success_nodes:
           - scan
         failure_nodes: []
@@ -796,6 +798,7 @@ controller_workflows:
         unified_job_template:
           name: compliance-scan-<platform>-<framework>
           type: job_template
+        inventory:                   # null = inherit from workflow
         success_nodes:
           - normalize
         failure_nodes: []
@@ -804,6 +807,7 @@ controller_workflows:
         unified_job_template:
           name: compliance-normalize-<platform>-<framework>
           type: job_template
+        inventory:                   # null = inherit from workflow
         success_nodes:
           - report
         failure_nodes: []
@@ -812,6 +816,7 @@ controller_workflows:
         unified_job_template:
           name: compliance-report
           type: job_template
+        inventory:                   # null = inherit from workflow
         success_nodes: []
         failure_nodes: []
 ```
@@ -843,6 +848,7 @@ controller_templates:
     playbook: playbooks/remediate.yml
     ask_inventory_on_launch: true
     ask_limit_on_launch: true
+    ask_tags_on_launch: true
     ask_variables_on_launch: true
     survey_enabled: false
 
@@ -855,6 +861,77 @@ controller_templates:
     playbook: playbooks/scan.yml
     ask_inventory_on_launch: true
 ```
+
+### AAP Controller Resource Configuration (Critical)
+
+The compliance plugin depends on specific AAP Controller resource settings to function correctly. Misconfiguring these settings is the most common cause of "scan runs against wrong hosts" or "remediation applies to all rules instead of selected ones."
+
+#### Inventory Propagation
+
+The plugin passes the user-selected inventory to the workflow template at launch time via `POST /api/controller/v2/workflow_job_templates/{id}/launch/` with `{"inventory": <id>}`. For this to work, three settings must be correct:
+
+1. **Workflow template**: `ask_inventory_on_launch: true` -- allows the plugin to override the default inventory at launch time.
+2. **All child job templates**: `ask_inventory_on_launch: true` -- allows each workflow node to accept an inventory override from the workflow.
+3. **Workflow nodes**: `inventory: null` (or omitted) -- tells each node to inherit the inventory from the workflow rather than using the JT's default.
+
+If any of these are wrong, the workflow will silently use the JT's hardcoded default inventory instead of the one the user selected in the portal.
+
+```
+Plugin selects inventory "prod-rhel9"
+  |
+  v
+Workflow (ask_inventory_on_launch: true)
+  receives inventory override = "prod-rhel9"
+  |
+  +---> Node: gather-facts (inventory: null)
+  |       inherits "prod-rhel9" from workflow
+  |       JT has ask_inventory_on_launch: true -> accepts it
+  |
+  +---> Node: evaluate (inventory: null)
+  |       inherits "prod-rhel9" from workflow
+  |
+  +---> Node: remediate (inventory: null)
+          inherits "prod-rhel9" from workflow
+```
+
+#### Remediation: Direct JT Launch with job_tags
+
+The plugin launches the remediation JT **directly** (not through the workflow) because AAP workflow-level `job_tags` do not propagate to child job templates. The remediation JT must have:
+
+- `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
+- `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
+- `ask_inventory_on_launch: true` -- allows inventory override (same as workflow nodes)
+
+The plugin launches remediation via `POST /api/controller/v2/job_templates/{id}/launch/` with:
+
+```json
+{
+  "inventory": 42,
+  "job_tags": "sshd_set_idle_timeout,accounts_tmout,sshd_disable_root_login",
+  "extra_vars": {
+    "var_sshd_set_keepalive": 600,
+    "var_accounts_tmout": 900
+  }
+}
+```
+
+#### Workflow Template Resolution
+
+The plugin resolves the workflow template in two ways:
+
+1. **Compliance profile registration** -- The admin maps a workflow template ID in the Settings page. The plugin uses this ID directly.
+2. **Name search fallback** -- If the ID is not set, the plugin searches for workflow templates matching the compliance profile's naming convention (e.g., `compliance-pipeline-rhel9-stig`).
+
+#### Configuration Checklist
+
+| Resource | Setting | Value | Why |
+|----------|---------|-------|-----|
+| Workflow template | `ask_inventory_on_launch` | `true` | Plugin passes user-selected inventory |
+| All child JTs | `ask_inventory_on_launch` | `true` | Accept inventory from workflow |
+| Workflow nodes | `inventory` | `null` | Inherit from workflow, not from JT default |
+| Remediation JT | `ask_tags_on_launch` | `true` | Plugin passes selected rules as job_tags |
+| Remediation JT | `ask_variables_on_launch` | `true` | Plugin passes parameter overrides |
+| Remediation JT | `ask_inventory_on_launch` | `true` | Plugin passes inventory for direct launch |
 
 ### Remediation Playbook Pattern
 
@@ -1117,7 +1194,10 @@ Use this checklist when building a new compliance profile. Every item must be sa
 
 - [ ] `extensions/patterns/aap_config/workflow.yml` with `infra.aap_configuration` YAML
 - [ ] `extensions/patterns/aap_config/job_templates.yml` with template definitions
-- [ ] Job templates have `ask_inventory_on_launch: true` and `ask_limit_on_launch: true`
+- [ ] Workflow template has `ask_inventory_on_launch: true`
+- [ ] All child job templates have `ask_inventory_on_launch: true`
+- [ ] Workflow nodes have `inventory: null` (inherit from workflow)
+- [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
 - [ ] Scan results pushed to Backstage backend API or written to Controller artifacts
 

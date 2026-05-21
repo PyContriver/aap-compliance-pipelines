@@ -204,6 +204,17 @@ This provides implicit organization/team scoping without Backstage-level org pol
 2. Title MUST match the CaC task name prefix (see `CONTRIBUTING.md` section below)
 3. The compliance_evaluate module will pick it up automatically
 
+### New or modified AAP Controller resources
+
+When adding or modifying workflow templates, job templates, or workflow nodes:
+
+1. All child JTs must have `ask_inventory_on_launch: true` -- the plugin passes the user-selected inventory to the workflow, and this setting allows it to propagate to each node
+2. Workflow templates must have `ask_inventory_on_launch: true`
+3. Workflow nodes must NOT set an inventory (set `inventory: null`) -- they should inherit from the workflow
+4. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
+5. Update both copies of `setup_controller.yml` (in `collections/` and `content/collections/`)
+6. Update `content/extensions/patterns/.../aap_config/controller_job_templates.yml` if applicable
+
 ### CaC Title Matching Convention
 
 Rule titles in the YAML must match ComplianceAsCode playbook task name prefixes exactly.

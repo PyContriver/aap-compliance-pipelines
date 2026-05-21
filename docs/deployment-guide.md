@@ -113,6 +113,53 @@ ansible:
     token: ${AAP_API_TOKEN}
 ```
 
+## AAP Controller Resource Requirements
+
+The compliance plugin requires specific AAP Controller resource configuration. Without these settings, inventory selection and selective remediation will not work correctly.
+
+### Provisioning Resources
+
+Run the setup playbook to create all required Controller resources with correct settings:
+
+```bash
+ansible-playbook collections/ansible_collections/security/compliance_rhel9_stig/playbooks/setup_controller.yml \
+  -e controller_host=https://aap.example.com \
+  -e controller_username=admin \
+  -e controller_password='changeme' \
+  -e target_host=192.168.1.100 \
+  -e target_ssh_user=root \
+  -e target_ssh_password='changeme'
+```
+
+### Required Settings
+
+The following settings are **mandatory** for the plugin to function:
+
+| Resource | Setting | Value | Purpose |
+|----------|---------|-------|---------|
+| Workflow job template | `ask_inventory_on_launch` | `true` | Allows the plugin to pass the user-selected inventory |
+| All child job templates | `ask_inventory_on_launch` | `true` | Allows inventory override to propagate from workflow |
+| Workflow nodes | `inventory` | `null` / unset | Nodes inherit inventory from workflow instead of JT default |
+| Remediation JT | `ask_tags_on_launch` | `true` | Plugin passes selected rules as `job_tags` |
+| Remediation JT | `ask_variables_on_launch` | `true` | Plugin passes parameter overrides as `extra_vars` |
+
+### Workflow Structure
+
+The plugin expects a 3-node workflow: `gather-facts` -> `evaluate` -> `remediate`.
+
+- **Scans** are launched via the workflow template (`POST /workflow_job_templates/{id}/launch/`)
+- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`) because workflow-level `job_tags` do not propagate to child JTs in AAP
+
+### Verifying Configuration
+
+After provisioning, verify the settings in the AAP Controller UI:
+
+1. Navigate to **Templates** and open the workflow job template
+2. Confirm "Prompt on launch" is checked for Inventory
+3. Open each child JT and confirm "Prompt on launch" is checked for Inventory
+4. Open the remediation JT and confirm "Prompt on launch" is checked for Inventory, Job Tags, and Variables
+5. Open the workflow visualizer and confirm no node has a hardcoded inventory override
+
 ## Configuration
 
 ### App Config Settings
