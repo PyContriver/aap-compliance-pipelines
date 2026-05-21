@@ -6,40 +6,68 @@
  *
  * All data flows through the backend -- the frontend never decides
  * mock vs live. The backend's ComplianceService handles the toggle.
+ *
+ * Follows the upstream RHDH pattern (e.g., AnsibleApiClient in
+ * @ansible/plugin-backstage-self-service): discoveryApi + fetchApi
+ * are injected via constructor, discoveryApi resolves the backend
+ * URL from app-config.yaml, and fetchApi auto-attaches Backstage
+ * identity tokens.
  */
-import type { ComplianceProfile, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest } from '@aap-compliance/common';
+import type { ComplianceProfile, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, ComplianceScan, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest } from '@aap-compliance/common';
+import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import type { ComplianceApi } from './complianceApiRef';
+/** @public */
+export interface AapAuthApi {
+    getAccessToken(): Promise<string>;
+}
 /**
  * Default implementation of ComplianceApi.
  *
- * Uses direct fetch() for the prototype. In a production RHDH
- * deployment, this would use Backstage's fetchApiRef to attach
- * identity tokens and handle proxy routing automatically.
+ * Uses Backstage's discoveryApi to resolve the backend URL and
+ * fetchApi to make requests with automatic identity token injection.
  *
- * AAP token flow:
- * When the auth-backend-module-rhaap-provider is integrated, the
- * user's AAP OAuth2 token would be obtained via rhAapAuthApiRef
- * and passed to every mutating request (scan, remediate, etc.).
- * For now, getAapToken() returns undefined and the backend falls
- * back to the service token from app-config.yaml.
+ * AAP token flow (Option C):
+ *   - When running inside the Ansible Portal (RHDH), the aapAuthApi
+ *     is injected via constructor and provides the user's AAP OAuth2
+ *     access token. This token is passed to every mutating request
+ *     via the x-aap-token header, enabling per-user AAP RBAC.
+ *   - When running standalone (dev mode), aapAuthApi is undefined
+ *     and the backend falls back to the service token from app-config.
  */
 export declare class ComplianceBackendClient implements ComplianceApi {
+    private readonly discoveryApi;
+    private readonly fetchApi;
+    private readonly aapAuthApi?;
+    constructor(options: {
+        discoveryApi: DiscoveryApi;
+        fetchApi: FetchApi;
+        aapAuthApi?: AapAuthApi;
+    });
     /**
      * Obtain the user's AAP OAuth2 access token.
      *
-     * When the auth-backend-module-rhaap-provider is integrated, this
-     * would call rhAapAuthApiRef.getAccessToken() — exactly as the
-     * upstream self-service plugin does in Home.tsx and AAPTokenField.
-     *
-     * Returns undefined until the auth module is wired up, which
-     * causes the backend to fall back to the service token.
+     * When aapAuthApi is provided (Portal context), delegates to it.
+     * When not provided (standalone dev), returns undefined and the
+     * backend falls back to the service token from app-config.yaml.
      */
     private getAapToken;
+    private request;
     getHealth(): Promise<{
         status: string;
         dataSource: string;
+        retentionDays?: number;
+    }>;
+    updateSettings(settings: {
+        retentionDays: number;
+    }): Promise<{
+        retentionDays: number;
+    }>;
+    runCleanup(): Promise<{
+        deleted: number;
+        retentionDays: number;
     }>;
     getProfiles(): Promise<ComplianceProfile[]>;
+    getScans(): Promise<ComplianceScan[]>;
     getInventories(): Promise<{
         id: number;
         name: string;
@@ -52,14 +80,18 @@ export declare class ComplianceBackendClient implements ComplianceApi {
     }[]>;
     launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
     getFindings(scanId?: string): Promise<MultiHostFinding[]>;
+    getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;
     getWorkflowStatus(jobId: number): Promise<WorkflowJobStatus>;
+    getJobStatus(jobId: number): Promise<WorkflowJobStatus>;
     getWorkflowNodes(jobId: number): Promise<WorkflowNode[]>;
     getJobEvents(jobId: number): Promise<JobEvent[]>;
     launchRemediation(body: LaunchRemediationRequest): Promise<LaunchRemediationResponse>;
     getDashboardStats(): Promise<DashboardStats>;
     getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
     getRemediationProfiles(): Promise<RemediationProfile[]>;
+    getRemediationProfile(id: string): Promise<RemediationProfile | null>;
     saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
+    deleteRemediationProfile(id: string): Promise<void>;
     getCartridges(): Promise<ComplianceCartridge[]>;
     saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
     deleteCartridge(id: string): Promise<void>;

@@ -1,9 +1,19 @@
-import type { ComplianceProfile, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest } from '@aap-compliance/common';
+import type { ComplianceProfile, ComplianceScan, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest } from '@aap-compliance/common';
 /** Interface for the compliance backend API. */
 export interface ComplianceApi {
     getHealth(): Promise<{
         status: string;
         dataSource: string;
+        retentionDays?: number;
+    }>;
+    updateSettings(settings: {
+        retentionDays: number;
+    }): Promise<{
+        retentionDays: number;
+    }>;
+    runCleanup(): Promise<{
+        deleted: number;
+        retentionDays: number;
     }>;
     getProfiles(): Promise<ComplianceProfile[]>;
     getInventories(): Promise<Array<{
@@ -16,16 +26,21 @@ export interface ComplianceApi {
         name: string;
         description: string;
     }>>;
+    getScans(): Promise<ComplianceScan[]>;
     launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
     getFindings(scanId?: string): Promise<MultiHostFinding[]>;
+    getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;
     getWorkflowStatus(jobId: number): Promise<WorkflowJobStatus>;
+    getJobStatus(jobId: number): Promise<WorkflowJobStatus>;
     getWorkflowNodes(jobId: number): Promise<WorkflowNode[]>;
     getJobEvents(jobId: number): Promise<JobEvent[]>;
     launchRemediation(body: LaunchRemediationRequest): Promise<LaunchRemediationResponse>;
     getDashboardStats(): Promise<DashboardStats>;
     getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
     getRemediationProfiles(): Promise<RemediationProfile[]>;
+    getRemediationProfile(id: string): Promise<RemediationProfile | null>;
     saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
+    deleteRemediationProfile(id: string): Promise<void>;
     getCartridges(): Promise<ComplianceCartridge[]>;
     saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
     deleteCartridge(id: string): Promise<void>;

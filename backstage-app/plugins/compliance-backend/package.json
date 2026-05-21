@@ -44,6 +44,7 @@
   },
   "files": [
     "dist",
+    "migrations",
     "dist-dynamic/*.*",
     "dist-dynamic/dist/**",
     "dist-dynamic/alpha/*"

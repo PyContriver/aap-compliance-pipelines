@@ -54,12 +54,13 @@ export const complianceBackendPlugin = createBackendPlugin({
         // ─── Database ───────────────────────────────────────────
         const dbClient = await database.getClient();
 
-        // Run migrations
-        const migrationsDir = require('path').resolve(
-          __dirname,
-          'database',
-          'migrations',
-        );
+        // Run migrations — check package-root migrations/ first (dist-dynamic),
+        // then fall back to compiled database/migrations/ (local dev).
+        const path = require('path');
+        const fs = require('fs');
+        const packageMigrations = path.resolve(__dirname, '..', 'migrations');
+        const compiledMigrations = path.resolve(__dirname, 'database', 'migrations');
+        const migrationsDir = fs.existsSync(packageMigrations) ? packageMigrations : compiledMigrations;
         await dbClient.migrate.latest({
           directory: migrationsDir,
           tableName: 'compliance_knex_migrations',

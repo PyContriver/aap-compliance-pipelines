@@ -217,10 +217,6 @@ export const ResultsViewer = () => {
       );
       if (match?.scanType) {
         setScanType(match.scanType);
-        // For verification scans, collapse findings by default
-        if (match.scanType === 'verification') {
-          setFindingsExpanded(false);
-        }
       }
     }).catch(err => {
       console.error('Failed to load scan metadata for scan type:', err);
@@ -232,6 +228,9 @@ export const ResultsViewer = () => {
     if (scanType !== 'verification' || !jobId) return;
     api.getPreviousFindings(jobId).then(data => {
       setPreviousFindings(data);
+      if (data.length > 0) {
+        setFindingsExpanded(false);
+      }
     }).catch(err => {
       console.error('Failed to load previous findings for comparison:', err);
     });
@@ -593,8 +592,8 @@ export const ResultsViewer = () => {
         </Button>
       </Box>
 
-      {/* Findings Table — collapsed by default for verification scans */}
-      {isVerification && previousFindings.length > 0 && (
+      {/* Findings Table — collapsed by default for verification scans with comparison data */}
+      {isVerification && (
         <div
           className={classes.findingsCollapseTrigger}
           onClick={() => setFindingsExpanded(!findingsExpanded)}

@@ -122,8 +122,8 @@ export class ComplianceDatabase {
       scanType: (row.scan_type as ComplianceScan['scanType']) || 'assessment',
       workflowJobId: row.workflow_job_id as number | null,
       status: row.status as ComplianceScan['status'],
-      startedAt: String(row.started_at),
-      completedAt: row.completed_at ? String(row.completed_at) : null,
+      startedAt: row.started_at instanceof Date ? row.started_at.toISOString() : String(row.started_at),
+      completedAt: row.completed_at instanceof Date ? row.completed_at.toISOString() : (row.completed_at ? String(row.completed_at) : null),
     };
   }
 
@@ -284,7 +284,7 @@ export class ComplianceDatabase {
     return {
       id: row.id as string,
       profileId: row.profile_id as string,
-      timestamp: String(row.timestamp),
+      timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : String(row.timestamp),
       totalHosts: row.total_hosts as number,
       totalRules: row.total_rules as number,
       passCount: row.pass_count as number,
@@ -370,8 +370,8 @@ export class ComplianceDatabase {
       scanId: (row.scan_id as string) || undefined,
       targetInventory: '',
       selections,
-      createdAt: String(row.created_at),
-      updatedAt: String(row.updated_at),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 
@@ -449,8 +449,8 @@ export class ComplianceDatabase {
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',
-      createdAt: String(row.created_at),
-      updatedAt: String(row.updated_at),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 }
