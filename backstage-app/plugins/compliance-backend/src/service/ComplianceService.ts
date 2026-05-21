@@ -804,6 +804,7 @@ export class ComplianceService {
       failed: result.failed,
       elapsed: result.elapsed,
       name: `job-${result.id}`,
+      job_tags: result.job_tags || undefined,
     };
   }
 

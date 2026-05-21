@@ -109,6 +109,8 @@ export interface WorkflowJobStatus {
   failed: boolean;
   elapsed: number;
   name: string;
+  /** Comma-separated list of Ansible tags applied to this job (e.g. "sshd_set_idle_timeout,no_empty_passwords"). */
+  job_tags?: string;
 }
 
 /** Controller workflow node (subset of AWX API). */

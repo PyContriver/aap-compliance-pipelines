@@ -45,6 +45,21 @@ export const complianceBackendPlugin = createBackendPlugin({
 
         const complianceDb = new ComplianceDatabase(dbClient);
 
+        // ─── Data retention cleanup ────────────────────────────
+        const retentionDays = config.getOptionalNumber('compliance.retentionDays') ?? 90;
+        try {
+          const cleanedUp = await complianceDb.cleanupOldFindings(retentionDays);
+          if (cleanedUp > 0) {
+            logger.info(
+              `Data retention: cleaned up ${cleanedUp} findings older than ${retentionDays} days`,
+            );
+          }
+        } catch (cleanupError) {
+          logger.warn(
+            `Data retention cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        }
+
         // ─── Service ────────────────────────────────────────────
         const service = new ComplianceService(config, logger);
         service.setDatabase(complianceDb);

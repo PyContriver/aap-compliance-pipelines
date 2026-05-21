@@ -608,28 +608,42 @@ export const RemediationExecution = () => {
       // Load findings for rule grouping + resolve context for verification scan
       const loadContext = async () => {
         try {
-          const [findings, scans] = await Promise.all([
+          const jId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
+
+          const [findings, scans, jobStatus] = await Promise.all([
             api.getFindings().catch(() => []),
             api.getScans().catch(() => []),
+            jId ? api.getJobStatus(jId).catch(() => null) : Promise.resolve(null),
           ]);
 
           const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
           findings.forEach(f => fMap.set(f.ruleId, f));
           setFindingsMap(fMap);
 
-          // Derive selections from all findings (enable all for grouping display)
+          // Derive selections from findings, filtered by job_tags if available.
+          // job_tags tells us exactly which rules the remediation applied.
           if (findings.length > 0) {
-            setSelections(findings.map(f => ({
-              ruleId: f.ruleId,
-              enabled: true,
-              parameters: {},
-            })));
+            const jobTags = jobStatus?.job_tags;
+            if (jobTags) {
+              const tagSet = new Set(jobTags.split(',').map(t => t.trim()).filter(Boolean));
+              setSelections(findings.map(f => ({
+                ruleId: f.ruleId,
+                enabled: tagSet.has(f.ruleId),
+                parameters: {},
+              })));
+            } else {
+              // No job_tags (full run or unavailable) — enable all
+              setSelections(findings.map(f => ({
+                ruleId: f.ruleId,
+                enabled: true,
+                parameters: {},
+              })));
+            }
           }
 
           // Resolve inventory + profile from the scan record
-          const resolvedJobId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
-          const scanRecord = resolvedJobId
-            ? scans.find(s => s.workflowJobId === resolvedJobId)
+          const scanRecord = jId
+            ? scans.find(s => s.workflowJobId === jId)
             : scans.find(s => s.id === jobId);
           if (scanRecord) {
             inventoryIdRef.current = scanRecord.inventoryId;

@@ -3,6 +3,11 @@
  *
  * Supports CSV and JSON export formats. Uses browser-native download
  * (Blob + anchor click) -- no server-side export needed.
+ *
+ * TODO: Add CKL (STIG Viewer) export format. CKL is an XML format with
+ * a specific schema used by DISA's STIG Viewer tool. The schema requires
+ * a CHECKLIST root element with ASSET and STIGS children, where each
+ * finding maps to a VULN element with STATUS, FINDING_DETAILS, etc.
  */
 import React, { useState } from 'react';
 import {
@@ -43,9 +48,11 @@ function escapeCSVField(value: string): string {
 
 function buildCSV(findings: MultiHostFinding[]): string {
   const headers = [
+    'Rule ID',
     'STIG ID',
     'Title',
     'Severity',
+    'Category',
     'Host',
     'Status',
     'Actual Value',
@@ -57,9 +64,11 @@ function buildCSV(findings: MultiHostFinding[]): string {
   for (const finding of findings) {
     for (const host of finding.hosts) {
       const row = [
+        escapeCSVField(finding.ruleId),
         escapeCSVField(finding.stigId),
         escapeCSVField(finding.title),
         escapeCSVField(finding.severity),
+        escapeCSVField(finding.category || ''),
         escapeCSVField(host.host),
         escapeCSVField(host.status),
         escapeCSVField(host.actualValue),

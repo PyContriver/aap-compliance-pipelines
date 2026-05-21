@@ -127,6 +127,37 @@ export class ComplianceDatabase {
     };
   }
 
+  // ─── Data retention ─────────────────────────────────────────────────
+
+  /**
+   * Delete findings from scans older than the specified number of days.
+   *
+   * Keeps the scan records (for history) but removes the findings data
+   * to prevent unbounded table growth. Returns the number of findings
+   * deleted.
+   */
+  async cleanupOldFindings(retentionDays: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const cutoffISO = cutoff.toISOString();
+
+    // Find scans older than the retention cutoff
+    const oldScanIds = await this.db('compliance_scans')
+      .where('started_at', '<', cutoffISO)
+      .select('id');
+
+    if (oldScanIds.length === 0) return 0;
+
+    const ids = oldScanIds.map(row => row.id as string);
+
+    // Delete findings belonging to those scans
+    const deleted = await this.db('compliance_findings')
+      .whereIn('scan_id', ids)
+      .delete();
+
+    return deleted;
+  }
+
   // ─── Findings ───────────────────────────────────────────────────────
 
   async saveScanResults(

@@ -618,6 +618,129 @@ describe('ComplianceDatabase', () => {
     });
   });
 
+  // ─── cleanupOldFindings ──────────────────────────────────────────
+
+  describe('cleanupOldFindings', () => {
+    it('deletes findings from scans older than the retention period', async () => {
+      // Create an old scan (200 days ago)
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 200);
+      const oldResult = await complianceDb.saveScanResults(
+        {
+          profileId: 'rhel9-stig',
+          inventoryId: 1,
+          scanner: 'oscap',
+          scanType: 'assessment',
+          workflowJobId: 1,
+          status: 'completed',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+        },
+        [
+          {
+            ruleId: 'old-rule-1',
+            stigId: 'RHEL-09-001',
+            host: 'host1',
+            status: 'fail',
+            severity: 'high',
+            actualValue: 'off',
+            expectedValue: 'on',
+            evidence: null,
+          },
+          {
+            ruleId: 'old-rule-2',
+            stigId: 'RHEL-09-002',
+            host: 'host1',
+            status: 'pass',
+            severity: 'medium',
+            actualValue: 'on',
+            expectedValue: 'on',
+            evidence: null,
+          },
+        ],
+      );
+
+      // Create a recent scan (today)
+      const recentResult = await complianceDb.saveScanResults(
+        {
+          profileId: 'rhel9-stig',
+          inventoryId: 1,
+          scanner: 'oscap',
+          scanType: 'assessment',
+          workflowJobId: 2,
+          status: 'completed',
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+        },
+        [
+          {
+            ruleId: 'recent-rule',
+            stigId: 'RHEL-09-003',
+            host: 'host1',
+            status: 'pass',
+            severity: 'low',
+            actualValue: 'on',
+            expectedValue: 'on',
+            evidence: null,
+          },
+        ],
+      );
+
+      // Cleanup findings older than 90 days
+      const deleted = await complianceDb.cleanupOldFindings(90);
+      expect(deleted).toBe(2);
+
+      // Old findings should be gone
+      const oldFindings = await complianceDb.getFindingsByScanId(oldResult.scanId);
+      expect(oldFindings).toHaveLength(0);
+
+      // Recent findings should still exist
+      const recentFindings = await complianceDb.getFindingsByScanId(recentResult.scanId);
+      expect(recentFindings).toHaveLength(1);
+      expect(recentFindings[0].ruleId).toBe('recent-rule');
+
+      // Scan records should still exist (for history)
+      const scans = await complianceDb.getRecentScans(10);
+      expect(scans).toHaveLength(2);
+    });
+
+    it('returns 0 when no old findings exist', async () => {
+      // Create a recent scan
+      await complianceDb.saveScanResults(
+        {
+          profileId: 'rhel9-stig',
+          inventoryId: 1,
+          scanner: 'oscap',
+          scanType: 'assessment',
+          workflowJobId: 1,
+          status: 'completed',
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+        },
+        [
+          {
+            ruleId: 'rule-1',
+            stigId: 'RHEL-09-001',
+            host: 'host1',
+            status: 'pass',
+            severity: 'low',
+            actualValue: 'on',
+            expectedValue: 'on',
+            evidence: null,
+          },
+        ],
+      );
+
+      const deleted = await complianceDb.cleanupOldFindings(90);
+      expect(deleted).toBe(0);
+    });
+
+    it('returns 0 when database is empty', async () => {
+      const deleted = await complianceDb.cleanupOldFindings(90);
+      expect(deleted).toBe(0);
+    });
+  });
+
   // ─── getLatestFindings ───────────────────────────────────────────
 
   describe('getLatestFindings', () => {
