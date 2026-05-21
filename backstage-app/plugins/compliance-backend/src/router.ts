@@ -395,13 +395,12 @@ export async function createRouter(
     }
 
     try {
-      // Resolve the current scan — try by ID first, then by workflowJobId
-      let currentScan = await database.getScanByWorkflowJobId(
-        Number(scanId),
-      );
-      if (!currentScan) {
-        const scans = await database.getRecentScans(200);
-        currentScan = scans.find(s => s.id === scanId) ?? null;
+      // Resolve the current scan — try by scan UUID first, then by workflowJobId
+      let currentScan: Awaited<ReturnType<typeof database.getScanByWorkflowJobId>> = null;
+      const scans = await database.getRecentScans(200);
+      currentScan = scans.find(s => s.id === scanId) ?? null;
+      if (!currentScan && /^\d+$/.test(scanId)) {
+        currentScan = await database.getScanByWorkflowJobId(Number(scanId));
       }
 
       if (!currentScan) {
