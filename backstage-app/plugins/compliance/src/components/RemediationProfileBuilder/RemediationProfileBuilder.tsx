@@ -257,7 +257,19 @@ export const RemediationProfileBuilder = () => {
                 <Typography variant="body2" color="textSecondary">{failedGroupEnabled}/{failedFindings.length} selected</Typography>
               </Box>
             </div>
-            {failedFindings.map(finding => renderFinding(finding))}
+            {(['CAT_I', 'CAT_II', 'CAT_III'] as FindingSeverity[]).map(sev => {
+              const sevFindings = failedFindings.filter(f => f.severity === sev);
+              if (sevFindings.length === 0) return null;
+              return (
+                <React.Fragment key={sev}>
+                  <Box display="flex" alignItems="center" style={{ gap: 8, marginTop: 8, marginBottom: 4, paddingLeft: 8 }}>
+                    <Chip label={severityLabel[sev]} size="small" className={`${classes.severityChip} ${getSeverityClass(sev)}`} />
+                    <Typography variant="caption" color="textSecondary">{sevFindings.length} rules</Typography>
+                  </Box>
+                  {sevFindings.map(finding => renderFinding(finding))}
+                </React.Fragment>
+              );
+            })}
           </>
         )}
 

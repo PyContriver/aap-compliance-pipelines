@@ -524,10 +524,22 @@ export const RemediationExecution = () => {
         const profile = await api.getRemediationProfile(remediationProfileId);
         if (profile && profile.selections.length > 0) {
           loadedSelections = profile.selections;
-          // Capture the compliance profile ID for the verification scan
           if (profile.complianceProfileId) {
             complianceProfileIdRef.current = profile.complianceProfileId;
           }
+        }
+      }
+
+      // Resolve inventory ID from scan history or cartridge
+      if (inventoryIdRef.current === 0) {
+        try {
+          const scans = await api.getScans();
+          const relevantScan = scans.find(s => s.scanner === 'oscap' && s.status === 'completed');
+          if (relevantScan) {
+            inventoryIdRef.current = relevantScan.inventoryId;
+          }
+        } catch {
+          // Fall through — will fail with validation error
         }
       }
 
