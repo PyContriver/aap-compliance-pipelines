@@ -2,10 +2,24 @@
  * Express router for the compliance backend plugin.
  *
  * All routes are prefixed with /api/compliance by the plugin registration.
+ *
+ * Permission model (Option A+C):
+ *   - Read-only endpoints: open to all authenticated users (auth handled
+ *     by httpRouter auth policies in plugin.ts).
+ *   - Mutating endpoints: gated by catalogEntityCreatePermission when
+ *     httpAuth and permissions services are provided (production mode).
+ *     When omitted (development mode), permission checks are skipped.
+ *   - AAP layer: per-user AAP tokens passed via x-aap-token header.
  */
 import express from 'express';
 import Router from 'express-promise-router';
-import { LoggerService } from '@backstage/backend-plugin-api';
+import {
+  HttpAuthService,
+  LoggerService,
+  PermissionsService,
+} from '@backstage/backend-plugin-api';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
@@ -21,6 +35,10 @@ export interface RouterOptions {
   logger: LoggerService;
   service: ComplianceService;
   database: ComplianceDatabase;
+  /** Provided in production mode for permission enforcement. */
+  httpAuth?: HttpAuthService;
+  /** Provided in production mode for permission enforcement. */
+  permissions?: PermissionsService;
 }
 
 // ─── Token extraction ─────────────────────────────────────────────────
@@ -63,10 +81,55 @@ function isArray(val: unknown): val is unknown[] {
   return Array.isArray(val);
 }
 
+// ─── Permission enforcement ──────────────────────────────────────────
+
+/**
+ * Check whether the request is authorized for the given permission.
+ *
+ * When httpAuth and permissions services are available (production mode),
+ * extracts credentials from the request and evaluates the permission
+ * via the Backstage permissions framework. Returns true if allowed.
+ *
+ * When the services are not provided (development mode), always returns
+ * true so that standalone dev works without auth infrastructure.
+ */
+async function requirePermission(
+  req: express.Request,
+  res: express.Response,
+  httpAuth?: HttpAuthService,
+  permissions?: PermissionsService,
+): Promise<boolean> {
+  // Development mode: no auth services, skip permission check
+  if (!httpAuth || !permissions) {
+    return true;
+  }
+
+  try {
+    const credentials = await httpAuth.credentials(req);
+    const [decision] = await permissions.authorize(
+      [{ permission: catalogEntityCreatePermission }],
+      { credentials },
+    );
+
+    if (decision.result !== AuthorizeResult.ALLOW) {
+      res.status(403).json({
+        error: 'Forbidden: this action requires admin permissions',
+      });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(403).json({ error: `Authorization failed: ${msg}` });
+    return false;
+  }
+}
+
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { logger, service, database } = options;
+  const { logger, service, database, httpAuth, permissions } = options;
   const router = Router();
   router.use(express.json());
 
@@ -82,7 +145,9 @@ export async function createRouter(
     });
   });
 
-  router.post('/settings', (req, res) => {
+  router.post('/settings', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     if (req.body.retentionDays && typeof req.body.retentionDays === 'number') {
       retentionDays = Math.max(7, Math.min(365, req.body.retentionDays));
       logger.info(`Data retention updated to ${retentionDays} days`);
@@ -90,7 +155,9 @@ export async function createRouter(
     res.json({ retentionDays });
   });
 
-  router.post('/cleanup', async (_req, res) => {
+  router.post('/cleanup', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     try {
       const deleted = await database.cleanupOldFindings(retentionDays);
       logger.info(`Manual cleanup: removed ${deleted} findings older than ${retentionDays} days`);
@@ -161,6 +228,8 @@ export async function createRouter(
   // ─── Scan ───────────────────────────────────────────────────────────
 
   router.post('/scan', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const body = req.body;
     const userToken = getUserAapToken(req);
 
@@ -435,6 +504,8 @@ export async function createRouter(
   // ─── Remediation ────────────────────────────────────────────────────
 
   router.post('/remediate', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const body = req.body;
     const userToken = getUserAapToken(req);
 
@@ -568,6 +639,8 @@ export async function createRouter(
   });
 
   router.post('/remediation-profiles', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const body = req.body;
 
     // Validate required fields
@@ -600,6 +673,8 @@ export async function createRouter(
   });
 
   router.delete('/remediation-profiles/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const { id } = req.params;
     try {
       const deleted = await service.deleteRemediationProfile(id);
@@ -633,6 +708,8 @@ export async function createRouter(
   });
 
   router.post('/cartridges', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const body = req.body;
 
     // Validate required fields
@@ -673,6 +750,8 @@ export async function createRouter(
   });
 
   router.delete('/cartridges/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const { id } = req.params;
     try {
       const deleted = await database.deleteCartridge(id);

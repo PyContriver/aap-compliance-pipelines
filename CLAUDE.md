@@ -25,9 +25,25 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run 190 tests across 11 suites
+yarn test             # Run 201 tests across 11 suites
 yarn build            # Build all packages
 ```
+
+## Dynamic Plugin Packaging
+
+Plugins are packaged for Portal/RHDH via `@red-hat-developer-hub/cli` (`rhdh-cli`).
+Matches the `ansible-rhdh-plugins` downstream patterns exactly.
+
+```bash
+# Export backend (embeds compliance-common)
+yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
+
+# Export frontend (Scalprum format)
+yarn workspace @aap-compliance/plugin-compliance export-dynamic
+```
+
+Registration configs: `plugins/*/app-config.janus-idp.yaml`
+Full guide: `docs/deployment-guide.md`
 
 ## Terminology
 
@@ -42,4 +58,4 @@ yarn build            # Build all packages
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 190 tests across 11 suites (frontend + backend + database)
+- 201 tests across 11 suites (frontend + backend + database)

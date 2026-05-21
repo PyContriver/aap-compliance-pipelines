@@ -5,6 +5,16 @@
  *   - Database migrations (Knex)
  *   - ComplianceService (mock/live toggle)
  *   - REST router at /api/compliance/*
+ *
+ * Auth model (Option A+C):
+ *   - Backstage layer: httpAuth + permissions service gate mutating
+ *     endpoints behind catalogEntityCreatePermission (admin tier).
+ *     Read-only endpoints are open to all authenticated users.
+ *   - AAP layer: per-user AAP OAuth2 tokens are passed through to
+ *     Controller API calls via x-aap-token header. AAP RBAC decides
+ *     what inventories/JTs/credentials the user can access.
+ *   - Development mode: compliance.authMode = 'development' marks all
+ *     routes unauthenticated so ./bin/start.sh mock works without auth.
  */
 import {
   coreServices,
@@ -24,9 +34,22 @@ export const complianceBackendPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
         httpRouter: coreServices.httpRouter,
         database: coreServices.database,
+        httpAuth: coreServices.httpAuth,
+        permissions: coreServices.permissions,
       },
-      async init({ logger, config, httpRouter, database }) {
+      async init({ logger, config, httpRouter, database, httpAuth, permissions }) {
         logger.info('Initializing compliance backend plugin');
+
+        // ─── Auth mode ──────────────────────────────────────────
+        //
+        // 'development' (default): all routes unauthenticated — for
+        //   standalone dev shell with guest auth (./bin/start.sh mock).
+        // 'production': only /health is unauthenticated. All other
+        //   routes require Backstage auth. Mutating endpoints are
+        //   additionally gated by catalogEntityCreatePermission via
+        //   the permissions service in the router.
+        const authMode = config.getOptionalString('compliance.authMode') ?? 'development';
+        logger.info(`Compliance auth mode: ${authMode}`);
 
         // ─── Database ───────────────────────────────────────────
         const dbClient = await database.getClient();
@@ -68,59 +91,57 @@ export const complianceBackendPlugin = createBackendPlugin({
         );
 
         // ─── Router ─────────────────────────────────────────────
+        //
+        // In production mode, pass httpAuth and permissions to the
+        // router so it can enforce catalogEntityCreatePermission on
+        // mutating endpoints. In development mode, omit them so that
+        // the router skips permission checks entirely.
         const router = await createRouter({
           logger,
           service,
           database: complianceDb,
+          ...(authMode === 'production' ? { httpAuth, permissions } : {}),
         });
 
         httpRouter.use(router);
 
         // ─── Auth Policies ───────────────────────────────────────
-        //
-        // PROTOTYPE PHASE: All routes are marked unauthenticated so that
-        // Backstage guest-auth works out of the box. Each route is listed
-        // explicitly so the production upgrade path is clear.
-        //
-        // PRODUCTION UPGRADE (TODO):
-        //   1. Install auth-backend-module-rhaap-provider for AAP Gateway OAuth2.
-        //   2. Remove every addAuthPolicy call below — the Backstage httpRouter
-        //      will enforce JWT validation automatically.
-        //   3. Add 'compliance' to permission.rbac.pluginsWithPermission in
-        //      app-config so that @backstage-community/plugin-rbac-backend
-        //      gates access.
-        //   4. For mutating endpoints (POST /scan, POST /cartridges,
-        //      DELETE /cartridges/:id, POST /remediate, POST /remediation-profiles),
-        //      integrate @backstage/plugin-permission-node and gate behind
-        //      catalogEntityCreatePermission (or a custom compliance permission).
-        //   5. Frontend already passes x-aap-token header via
-        //      ComplianceBackendClient; per-request AAP tokens are wired
-        //      through getUserAapToken() in router.ts.
 
-        // --- Read-only endpoints ---
-        httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/profiles', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/findings', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/cartridges', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/inventories', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/dashboard', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/posture', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/workflow-templates', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/workflow-status', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/workflow-nodes', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/job-events', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/job-status', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/controller', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/previous-findings', allow: 'unauthenticated' });
+        if (authMode === 'development') {
+          // Development mode: all routes unauthenticated for guest-auth.
+          // This is the standalone dev shell path (./bin/start.sh mock).
 
-        // --- Mutating endpoints (TODO: gate behind permissions in production) ---
-        httpRouter.addAuthPolicy({ path: '/scan', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/remediate', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/remediation-profiles', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
-        httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
+          // --- Read-only endpoints ---
+          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/profiles', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/findings', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/cartridges', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/inventories', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/dashboard', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/posture', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/workflow-templates', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/workflow-status', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/workflow-nodes', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/job-events', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/job-status', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/controller', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/previous-findings', allow: 'unauthenticated' });
+
+          // --- Mutating endpoints ---
+          httpRouter.addAuthPolicy({ path: '/scan', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/remediate', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/remediation-profiles', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
+        } else {
+          // Production mode: only /health is unauthenticated.
+          // All other routes require Backstage auth (JWT validation).
+          // Mutating endpoints are additionally gated by
+          // catalogEntityCreatePermission in the router.
+          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
+        }
       },
     });
   },

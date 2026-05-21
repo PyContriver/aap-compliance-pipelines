@@ -5,6 +5,12 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { RemediationsList } from './RemediationsList';
 
+// Mock usePermission to allow admin actions by default
+const permissionMock = jest.requireMock('@backstage/plugin-permission-react');
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: () => ({ allowed: true, loading: false }),
+}));
+
 function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
     getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),

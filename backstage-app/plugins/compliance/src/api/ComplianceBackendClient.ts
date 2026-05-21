@@ -35,6 +35,17 @@ import type {
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import type { ComplianceApi } from './complianceApiRef';
 
+// ─── AAP Auth API interface ─────────────────────────────────────────
+//
+// Minimal interface matching what rhAapAuthApiRef provides in the
+// downstream self-service plugin. Defined here to avoid a hard
+// dependency on @ansible/plugin-backstage-self-service.
+
+/** @public */
+export interface AapAuthApi {
+  getAccessToken(): Promise<string>;
+}
+
 // ─── ComplianceBackendClient ─────────────────────────────────────────
 
 /**
@@ -43,41 +54,45 @@ import type { ComplianceApi } from './complianceApiRef';
  * Uses Backstage's discoveryApi to resolve the backend URL and
  * fetchApi to make requests with automatic identity token injection.
  *
- * AAP token flow:
- * When the auth-backend-module-rhaap-provider is integrated, the
- * user's AAP OAuth2 token would be obtained via rhAapAuthApiRef
- * and passed to every mutating request (scan, remediate, etc.).
- * For now, getAapToken() returns undefined and the backend falls
- * back to the service token from app-config.yaml.
+ * AAP token flow (Option C):
+ *   - When running inside the Ansible Portal (RHDH), the aapAuthApi
+ *     is injected via constructor and provides the user's AAP OAuth2
+ *     access token. This token is passed to every mutating request
+ *     via the x-aap-token header, enabling per-user AAP RBAC.
+ *   - When running standalone (dev mode), aapAuthApi is undefined
+ *     and the backend falls back to the service token from app-config.
  */
 export class ComplianceBackendClient implements ComplianceApi {
   private readonly discoveryApi: DiscoveryApi;
   private readonly fetchApi: FetchApi;
+  private readonly aapAuthApi?: AapAuthApi;
 
-  constructor(options: { discoveryApi: DiscoveryApi; fetchApi: FetchApi }) {
+  constructor(options: {
+    discoveryApi: DiscoveryApi;
+    fetchApi: FetchApi;
+    aapAuthApi?: AapAuthApi;
+  }) {
     this.discoveryApi = options.discoveryApi;
     this.fetchApi = options.fetchApi;
+    this.aapAuthApi = options.aapAuthApi;
   }
 
   /**
    * Obtain the user's AAP OAuth2 access token.
    *
-   * When the auth-backend-module-rhaap-provider is integrated, this
-   * would call rhAapAuthApiRef.getAccessToken() — exactly as the
-   * upstream self-service plugin does in Home.tsx and AAPTokenField.
-   *
-   * Returns undefined until the auth module is wired up, which
-   * causes the backend to fall back to the service token.
+   * When aapAuthApi is provided (Portal context), delegates to it.
+   * When not provided (standalone dev), returns undefined and the
+   * backend falls back to the service token from app-config.yaml.
    */
   private async getAapToken(): Promise<string | undefined> {
-    try {
-      // TODO: When auth module is integrated, replace with:
-      //   const rhAapAuthApi = ... // injected via constructor
-      //   return await rhAapAuthApi.getAccessToken();
-      return undefined;
-    } catch {
-      return undefined;
+    if (this.aapAuthApi) {
+      try {
+        return await this.aapAuthApi.getAccessToken();
+      } catch {
+        return undefined;
+      }
     }
+    return undefined;
   }
 
   private async request<T>(

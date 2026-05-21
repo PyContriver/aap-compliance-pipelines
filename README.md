@@ -2,6 +2,17 @@
 
 A Backstage-based compliance management prototype for Ansible Automation Platform. Provides self-service compliance scanning, results analysis, and selective remediation for RHEL infrastructure.
 
+## Deployment Options
+
+The compliance plugins support two deployment modes:
+
+| Mode | Use Case | How |
+|------|----------|-----|
+| **Standalone** | Local development, demos, UX reviews | `cd backstage-app && ./bin/start.sh mock` |
+| **Portal / RHDH** | Production deployment as dynamic plugins | Build with `export-dynamic`, install in RHDH |
+
+For Portal/RHDH installation instructions, see [docs/deployment-guide.md](docs/deployment-guide.md).
+
 ## Prerequisites
 
 - Node.js 20 or 22

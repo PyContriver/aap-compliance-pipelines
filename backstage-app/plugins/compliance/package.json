@@ -4,6 +4,11 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts"
+  },
   "backstage": {
     "role": "frontend-plugin",
     "pluginId": "compliance",
@@ -11,6 +16,7 @@
       "@aap-compliance/plugin-compliance"
     ]
   },
+  "sideEffects": false,
   "dependencies": {
     "@aap-compliance/common": "workspace:^",
     "@backstage/core-components": "^0.18.9",
@@ -33,7 +39,11 @@
   },
   "scripts": {
     "build": "backstage-cli package build",
-    "test": "backstage-cli package test"
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "rhdh-cli plugin export"
   },
   "devDependencies": {
     "@backstage/cli": "^0.34.6",
@@ -45,5 +55,9 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "typescript": "~5.8.0"
-  }
+  },
+  "files": [
+    "dist",
+    "dist-scalprum"
+  ]
 }

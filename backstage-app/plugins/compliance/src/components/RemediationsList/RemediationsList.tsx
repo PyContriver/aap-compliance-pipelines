@@ -5,6 +5,8 @@ import {
   Progress,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
   Typography,
   Button,
@@ -23,6 +25,7 @@ import {
   DialogContent,
   DialogActions,
   makeStyles,
+  Tooltip,
 } from '@material-ui/core';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import VisibilityIcon from '@material-ui/icons/Visibility';
@@ -61,6 +64,12 @@ export const RemediationsList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Admin permission gate: reuse catalogEntityCreatePermission following
+  // the self-service plugin pattern (two-tier: admin vs read-only).
+  const { allowed: isAdmin } = usePermission({
+    permission: catalogEntityCreatePermission,
+  });
 
   useEffect(() => {
     Promise.all([
@@ -190,13 +199,17 @@ export const RemediationsList = () => {
                       >
                         <PlayArrowIcon fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        size="small"
-                        title="Delete this remediation"
-                        onClick={() => setDeleteTarget(r)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      <Tooltip title={isAdmin ? 'Delete this remediation' : 'Admin permission required'}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={!isAdmin}
+                            onClick={() => setDeleteTarget(r)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -54,7 +54,58 @@ The compliance plugin reads its configuration from the Backstage `app-config.yam
 |Number of days to retain scan findings before automatic cleanup. Findings older than this threshold are deleted on plugin startup. Scan records (metadata) are preserved for history. Can also be adjusted at runtime from the *Settings* tab.
 |Optional
 |`90`
+
+|`compliance.authMode`
+|Controls how the plugin enforces authentication and authorization. Set to `development` for standalone development with guest auth (all routes unauthenticated). Set to `production` for full RBAC enforcement via Backstage permissions and AAP token pass-through.
+|Optional
+|`development`
 |===
+
+=== RBAC permissions
+
+When `compliance.authMode` is set to `production`, the compliance plugin enforces a two-tier permission model following the self-service plugin pattern.
+
+[cols="2,3,2", options="header"]
+|===
+|Role
+|Permissions
+|Backstage group
+
+|Admin
+|Launch scans, apply remediations, manage compliance profiles, manage remediations, configure settings, run cleanup
+|`group:default/aap-admins` (AAP superusers)
+
+|Operator (read-only)
+|View dashboard, findings, scan history, posture trends, compliance profiles, remediation profiles, export data
+|All authenticated users
+|===
+
+The admin tier is gated by the `catalogEntityCreatePermission` from `@backstage/plugin-catalog-common`. This is the same permission used by the self-service plugin, so existing RBAC policy files (such as `default-rbac-policy.csv`) apply without modification.
+
+Mutating endpoints that require admin permission:
+
+* `POST /scan` -- launch a compliance scan
+* `POST /remediate` -- apply remediation
+* `POST /cartridges` -- register a compliance profile
+* `DELETE /cartridges/:id` -- remove a compliance profile
+* `POST /remediation-profiles` -- save a remediation
+* `DELETE /remediation-profiles/:id` -- delete a remediation
+* `POST /settings` -- update data retention settings
+* `POST /cleanup` -- run manual data cleanup
+
+To enable RBAC enforcement, add `compliance` to the list of plugins with permission evaluation in your `app-config.yaml`:
+
+[source,yaml]
+----
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - catalog
+      - scaffolder
+      - permission
+      - compliance
+----
 
 === Backend
 

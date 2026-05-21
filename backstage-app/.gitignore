@@ -2,6 +2,9 @@
 sqlite-data
 node_modules/
 dist/
+dist-types/
+dist-scalprum/
+plugins/*/dist-dynamic/*
 coverage/
 .env
 .env.*

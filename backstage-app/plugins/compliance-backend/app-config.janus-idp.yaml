@@ -1,0 +1,4 @@
+---
+dynamicPlugins:
+  backend:
+    aap-compliance.plugin-compliance-backend: {}
