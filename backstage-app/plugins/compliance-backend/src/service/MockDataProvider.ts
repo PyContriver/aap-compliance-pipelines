@@ -327,10 +327,16 @@ export class MockDataProvider {
     const now = Date.now();
     const day = 86_400_000;
     return [
-      { id: '1', profileId: 'rhel9-stig', timestamp: new Date(now - 30 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 250, failCount: 116, compliancePct: 68 },
-      { id: '2', profileId: 'rhel9-stig', timestamp: new Date(now - 20 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 265, failCount: 101, compliancePct: 72 },
-      { id: '3', profileId: 'rhel9-stig', timestamp: new Date(now - 10 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 274, failCount: 92, compliancePct: 75 },
-      { id: '4', profileId: 'rhel9-stig', timestamp: new Date(now - 2 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 285, failCount: 81, compliancePct: 78 },
+      { id: '1',  profileId: 'rhel9-stig', timestamp: new Date(now - 30 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 165, failCount: 201, compliancePct: 45 },
+      { id: '2',  profileId: 'rhel9-stig', timestamp: new Date(now - 27 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 176, failCount: 190, compliancePct: 48 },
+      { id: '3',  profileId: 'rhel9-stig', timestamp: new Date(now - 24 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 190, failCount: 176, compliancePct: 52 },
+      { id: '4',  profileId: 'rhel9-stig', timestamp: new Date(now - 21 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 201, failCount: 165, compliancePct: 55 },
+      { id: '5',  profileId: 'rhel9-stig', timestamp: new Date(now - 18 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 216, failCount: 150, compliancePct: 59 },
+      { id: '6',  profileId: 'rhel9-stig', timestamp: new Date(now - 14 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 227, failCount: 139, compliancePct: 62 },
+      { id: '7',  profileId: 'rhel9-stig', timestamp: new Date(now - 10 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 238, failCount: 128, compliancePct: 65 },
+      { id: '8',  profileId: 'rhel9-stig', timestamp: new Date(now - 7 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 249, failCount: 117, compliancePct: 68 },
+      { id: '9',  profileId: 'rhel9-stig', timestamp: new Date(now - 3 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 256, failCount: 110, compliancePct: 70 },
+      { id: '10', profileId: 'rhel9-stig', timestamp: new Date(now - 1 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 264, failCount: 102, compliancePct: 72 },
     ];
   }
 

@@ -170,6 +170,7 @@ function createMockDatabase() {
     }),
     deleteCartridge: jest.fn().mockResolvedValue(true),
     getPostureSnapshots: jest.fn().mockResolvedValue([]),
+    savePostureSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
     listRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),

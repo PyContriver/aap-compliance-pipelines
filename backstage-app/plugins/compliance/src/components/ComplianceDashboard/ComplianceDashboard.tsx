@@ -15,6 +15,7 @@ import {
   LinearProgress,
   Chip,
   Box,
+  Tooltip,
   makeStyles,
 } from '@material-ui/core';
 import PlayCircleFilledIcon from '@material-ui/icons/PlayCircleFilled';
@@ -23,9 +24,10 @@ import HistoryIcon from '@material-ui/icons/History';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import BuildIcon from '@material-ui/icons/Build';
+import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import { ComplianceGauge } from './ComplianceGauge';
 import { complianceApiRef } from '../../api';
-import type { DashboardStats } from '@aap-compliance/common';
+import type { DashboardStats, PostureSnapshot } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   section: {
@@ -123,23 +125,201 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 700,
     flexShrink: 0,
   },
+  trendContainer: {
+    position: 'relative' as const,
+    width: '100%',
+    height: 200,
+  },
+  trendEmpty: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 160,
+    color: theme.palette.text.secondary,
+  },
 }));
+
+// ─── Posture Trend Chart (inline SVG) ─────────────────────────────────
+
+const TREND_COLORS = {
+  line: '#0066CC',
+  fill: 'rgba(0, 102, 204, 0.08)',
+  dot: '#0066CC',
+  grid: '#e0e0e0',
+  axis: '#6a6e73',
+};
+
+interface PostureTrendChartProps {
+  data: PostureSnapshot[];
+}
+
+const PostureTrendChart: React.FC<PostureTrendChartProps> = ({ data }) => {
+  // Take up to 20 most recent data points
+  const points = data.slice(-20);
+  if (points.length < 2) return null;
+
+  const width = 800;
+  const height = 180;
+  const padLeft = 40;
+  const padRight = 16;
+  const padTop = 16;
+  const padBottom = 32;
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+
+  // Y axis: compliance percentage (dynamic range with padding)
+  const pcts = points.map(p => p.compliancePct);
+  const minPct = Math.max(0, Math.floor(Math.min(...pcts) / 5) * 5 - 5);
+  const maxPct = Math.min(100, Math.ceil(Math.max(...pcts) / 5) * 5 + 5);
+  const range = maxPct - minPct || 1;
+
+  // X positions evenly spaced
+  const xStep = chartW / (points.length - 1);
+
+  const toX = (i: number) => padLeft + i * xStep;
+  const toY = (pct: number) => padTop + chartH - ((pct - minPct) / range) * chartH;
+
+  // Build polyline points string
+  const polylinePoints = points
+    .map((p, i) => `${toX(i)},${toY(p.compliancePct)}`)
+    .join(' ');
+
+  // Build fill polygon (area under the line)
+  const areaPoints = [
+    `${toX(0)},${toY(minPct)}`,
+    ...points.map((p, i) => `${toX(i)},${toY(p.compliancePct)}`),
+    `${toX(points.length - 1)},${toY(minPct)}`,
+  ].join(' ');
+
+  // Y axis grid lines (every 10%)
+  const yTicks: number[] = [];
+  for (let v = Math.ceil(minPct / 10) * 10; v <= maxPct; v += 10) {
+    yTicks.push(v);
+  }
+
+  // X axis labels (show first, middle, last dates)
+  const formatDate = (ts: string) => {
+    const d = new Date(ts);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  const xLabels: Array<{ i: number; label: string }> = [];
+  if (points.length <= 6) {
+    points.forEach((p, i) => xLabels.push({ i, label: formatDate(p.timestamp) }));
+  } else {
+    xLabels.push({ i: 0, label: formatDate(points[0].timestamp) });
+    const mid = Math.floor(points.length / 2);
+    xLabels.push({ i: mid, label: formatDate(points[mid].timestamp) });
+    xLabels.push({ i: points.length - 1, label: formatDate(points[points.length - 1].timestamp) });
+  }
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ width: '100%', height: 'auto', maxHeight: 220 }}
+      role="img"
+      aria-label="Compliance score trend chart"
+    >
+      {/* Y axis grid lines */}
+      {yTicks.map(v => (
+        <g key={`y-${v}`}>
+          <line
+            x1={padLeft}
+            y1={toY(v)}
+            x2={width - padRight}
+            y2={toY(v)}
+            stroke={TREND_COLORS.grid}
+            strokeWidth={0.5}
+            strokeDasharray="4,3"
+          />
+          <text
+            x={padLeft - 6}
+            y={toY(v)}
+            textAnchor="end"
+            dominantBaseline="central"
+            fill={TREND_COLORS.axis}
+            fontSize="11"
+            fontFamily='"Red Hat Text", sans-serif'
+          >
+            {v}%
+          </text>
+        </g>
+      ))}
+
+      {/* Area fill */}
+      <polygon points={areaPoints} fill={TREND_COLORS.fill} />
+
+      {/* Trend line */}
+      <polyline
+        points={polylinePoints}
+        fill="none"
+        stroke={TREND_COLORS.line}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+
+      {/* Data points */}
+      {points.map((p, i) => (
+        <Tooltip
+          key={p.id}
+          title={`${new Date(p.timestamp).toLocaleDateString()} - ${p.compliancePct}% (${p.passCount} pass / ${p.failCount} fail)`}
+          arrow
+          placement="top"
+        >
+          <circle
+            cx={toX(i)}
+            cy={toY(p.compliancePct)}
+            r={4}
+            fill="#fff"
+            stroke={TREND_COLORS.dot}
+            strokeWidth={2}
+            style={{ cursor: 'pointer' }}
+          />
+        </Tooltip>
+      ))}
+
+      {/* X axis labels */}
+      {xLabels.map(({ i, label }) => (
+        <text
+          key={`x-${i}`}
+          x={toX(i)}
+          y={height - 6}
+          textAnchor="middle"
+          fill={TREND_COLORS.axis}
+          fontSize="11"
+          fontFamily='"Red Hat Text", sans-serif'
+        >
+          {label}
+        </text>
+      ))}
+    </svg>
+  );
+};
 
 export const ComplianceDashboard = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getDashboardStats()
-      .then(data => setStats(data))
-      .catch(err => {
-        // Keep null stats on error -- will show welcome state
+    Promise.all([
+      api.getDashboardStats().catch(err => {
         console.error('Failed to load dashboard stats:', err);
-      })
-      .finally(() => setLoading(false));
+        return null;
+      }),
+      api.getPostureHistory(undefined, 90).catch(err => {
+        console.error('Failed to load posture history:', err);
+        return [] as PostureSnapshot[];
+      }),
+    ]).then(([dashboardStats, history]) => {
+      setStats(dashboardStats);
+      setPostureHistory(history);
+    }).finally(() => setLoading(false));
   }, [api]);
 
   // Determine if this is an "empty" state (no scan history)
@@ -290,6 +470,35 @@ export const ComplianceDashboard = () => {
             </InfoCard>
           </div>
         </div>
+      </div>
+
+      {/* Compliance Score Trend */}
+      <div className={classes.section}>
+        <InfoCard
+          title="Compliance Score Trend"
+          action={
+            <Chip
+              icon={<TrendingUpIcon />}
+              label="Last 90 days"
+              variant="outlined"
+              size="small"
+            />
+          }
+        >
+          {postureHistory.length < 2 ? (
+            <div className={classes.trendEmpty}>
+              <TrendingUpIcon style={{ fontSize: 48, opacity: 0.3, marginBottom: 8 }} />
+              <Typography variant="body2">
+                Run more scans to see compliance trends
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                At least two completed scans are needed to display a trend line
+              </Typography>
+            </div>
+          ) : (
+            <PostureTrendChart data={postureHistory} />
+          )}
+        </InfoCard>
       </div>
 
       {/* Quick Actions + Recent Activity */}

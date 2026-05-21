@@ -266,6 +266,27 @@ export async function createRouter(
               }
 
               if (parsed.length > 0) {
+                // Save a posture snapshot for trend tracking
+                try {
+                  const passCount = parsed.filter(f => f.status === 'pass').length;
+                  const failCount = parsed.filter(f => f.status === 'fail').length;
+                  const uniqueHosts = new Set(parsed.map(f => f.host)).size;
+                  const uniqueRules = new Set(parsed.map(f => f.ruleId)).size;
+                  const total = passCount + failCount;
+                  await database.savePostureSnapshot({
+                    profileId: dbScan?.profileId ?? scanId,
+                    timestamp: new Date().toISOString(),
+                    totalHosts: uniqueHosts,
+                    totalRules: uniqueRules,
+                    passCount,
+                    failCount,
+                    compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
+                  });
+                  logger.info(`Saved posture snapshot for profile=${dbScan?.profileId ?? scanId}`);
+                } catch (snapshotError) {
+                  logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
+                }
+
                 const freshFindings = await database.getFindingsByScanId(dbScanId);
                 if (freshFindings.length > 0) {
                   res.json(service.aggregateFindings(freshFindings));
