@@ -90,9 +90,9 @@ function loadRulesMetadata(): Map<string, RuleMetadata> {
   } catch (err) {
     // Rules files not found — enrichment will be skipped.
     // This is expected when running without the collections directory.
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Rules metadata not loaded (collections directory not found):', err);
-    }
+    // Rules files not available — this is expected in dev/mock mode.
+    // The logger is not accessible in this static helper; the caller
+    // logs the loaded count instead.
   }
   return map;
 }

@@ -718,9 +718,7 @@ export const RemediationExecution = () => {
   // Group tasks by rule
   const ruleGroups = useMemo(() => {
     const groups = groupTasksByRule(tasks, selections, findingsMap);
-    if (tasks.length > 0) {
-      console.log(`[RemediationExecution] groupTasksByRule: ${tasks.length} tasks, ${selections.length} selections, ${findingsMap.size} findings → ${groups.length} groups (prereq: ${groups.find(g => g.ruleId === 'pre-requisite')?.tasks.length ?? 0})`);
-    }
+    // Debug logging removed — use browser DevTools if needed
     return groups;
   }, [tasks, selections, findingsMap]);
 
