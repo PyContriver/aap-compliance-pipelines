@@ -1,6 +1,9 @@
 /**
  * Migration: Cartridge Registry
  *
+ * IMPORTANT: When modifying this file, also update the compiled JS copy
+ * at ../../migrations/20260429_002_cartridge_registry.js (used by dist-dynamic packaging).
+ *
  * Creates the compliance_cartridge_registry table to store mappings
  * between compliance frameworks and Controller resources (workflow
  * templates, execution environments, remediation playbook paths).

@@ -14,6 +14,17 @@ import type {
   SaveCartridgeRequest,
 } from '@aap-compliance/common';
 
+function toISOString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  return '';
+}
+
+function toISOStringOrNull(value: unknown): string | null {
+  if (value == null) return null;
+  return toISOString(value);
+}
+
 export class ComplianceDatabase {
   constructor(private readonly db: Knex) {}
 
@@ -46,6 +57,12 @@ export class ComplianceDatabase {
       update.completed_at = completedAt;
     }
     await this.db('compliance_scans').where('id', scanId).update(update);
+  }
+
+  async getScanById(id: string): Promise<ComplianceScan | null> {
+    const row = await this.db('compliance_scans').where('id', id).first();
+    if (!row) return null;
+    return this.mapScanRow(row);
   }
 
   async getScanByWorkflowJobId(workflowJobId: number): Promise<ComplianceScan | null> {
@@ -122,8 +139,8 @@ export class ComplianceDatabase {
       scanType: (row.scan_type as ComplianceScan['scanType']) || 'assessment',
       workflowJobId: row.workflow_job_id as number | null,
       status: row.status as ComplianceScan['status'],
-      startedAt: row.started_at instanceof Date ? row.started_at.toISOString() : String(row.started_at),
-      completedAt: row.completed_at instanceof Date ? row.completed_at.toISOString() : (row.completed_at ? String(row.completed_at) : null),
+      startedAt: toISOString(row.started_at),
+      completedAt: toISOStringOrNull(row.completed_at),
     };
   }
 
@@ -284,7 +301,7 @@ export class ComplianceDatabase {
     return {
       id: row.id as string,
       profileId: row.profile_id as string,
-      timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : String(row.timestamp),
+      timestamp: toISOString(row.timestamp),
       totalHosts: row.total_hosts as number,
       totalRules: row.total_rules as number,
       passCount: row.pass_count as number,
@@ -370,8 +387,8 @@ export class ComplianceDatabase {
       scanId: (row.scan_id as string) || undefined,
       targetInventory: '',
       selections,
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+      createdAt: toISOString(row.created_at),
+      updatedAt: toISOString(row.updated_at),
     };
   }
 
@@ -449,8 +466,8 @@ export class ComplianceDatabase {
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+      createdAt: toISOString(row.created_at),
+      updatedAt: toISOString(row.updated_at),
     };
   }
 }

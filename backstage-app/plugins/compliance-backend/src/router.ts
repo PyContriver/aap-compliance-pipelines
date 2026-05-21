@@ -35,6 +35,8 @@ export interface RouterOptions {
   logger: LoggerService;
   service: ComplianceService;
   database: ComplianceDatabase;
+  /** Default retention from app-config.yaml compliance.retentionDays */
+  configRetentionDays?: number;
   /** Provided in production mode for permission enforcement. */
   httpAuth?: HttpAuthService;
   /** Provided in production mode for permission enforcement. */
@@ -129,13 +131,14 @@ async function requirePermission(
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { logger, service, database, httpAuth, permissions } = options;
+  const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
   router.use(express.json());
 
   // ─── Health ─────────────────────────────────────────────────────────
 
-  let retentionDays = 90;
+  // Per-process override; defaults to config value or 90 days.
+  let retentionDays = configRetentionDays ?? 90;
 
   router.get('/health', (_req, res) => {
     res.json({
@@ -396,9 +399,7 @@ export async function createRouter(
 
     try {
       // Resolve the current scan — try by scan UUID first, then by workflowJobId
-      let currentScan: Awaited<ReturnType<typeof database.getScanByWorkflowJobId>> = null;
-      const scans = await database.getRecentScans(200);
-      currentScan = scans.find(s => s.id === scanId) ?? null;
+      let currentScan = await database.getScanById(scanId);
       if (!currentScan && /^\d+$/.test(scanId)) {
         currentScan = await database.getScanByWorkflowJobId(Number(scanId));
       }

@@ -16,6 +16,8 @@
  *   - Development mode: compliance.authMode = 'development' marks all
  *     routes unauthenticated so ./bin/start.sh mock works without auth.
  */
+import * as path from 'path';
+import * as fs from 'fs';
 import {
   coreServices,
   createBackendPlugin,
@@ -56,8 +58,6 @@ export const complianceBackendPlugin = createBackendPlugin({
 
         // Run migrations — check package-root migrations/ first (dist-dynamic),
         // then fall back to compiled database/migrations/ (local dev).
-        const path = require('path');
-        const fs = require('fs');
         const packageMigrations = path.resolve(__dirname, '..', 'migrations');
         const compiledMigrations = path.resolve(__dirname, 'database', 'migrations');
         const migrationsDir = fs.existsSync(packageMigrations) ? packageMigrations : compiledMigrations;
@@ -101,6 +101,7 @@ export const complianceBackendPlugin = createBackendPlugin({
           logger,
           service,
           database: complianceDb,
+          configRetentionDays: retentionDays,
           ...(authMode === 'production' ? { httpAuth, permissions } : {}),
         });
 

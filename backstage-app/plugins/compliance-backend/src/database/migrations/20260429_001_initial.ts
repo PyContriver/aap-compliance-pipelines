@@ -1,6 +1,9 @@
 /**
  * Initial database schema for the compliance backend plugin.
  *
+ * IMPORTANT: When modifying this file, also update the compiled JS copy
+ * at ../../migrations/20260429_001_initial.js (used by dist-dynamic packaging).
+ *
  * Creates four tables:
  *   - compliance_scans: records of scan executions
  *   - compliance_findings: per-host, per-rule finding rows

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   InfoCard,
   Breadcrumbs,
@@ -459,14 +459,13 @@ const HostChips: React.FC<{
   );
 };
 
-export const RemediationExecution = () => {
+export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
   const { jobId } = useParams<{ jobId: string }>();
   const [searchParams] = useSearchParams();
-  const location = useLocation();
-  const isViewMode = location.pathname.includes('remediation-result');
+  const isViewMode = viewMode ?? false;
   const [phase, setPhase] = useState<ExecutionPhase>('launching');
   const [progress, setProgress] = useState(0);
   const [tasks, setTasks] = useState<RemediationTask[]>([]);

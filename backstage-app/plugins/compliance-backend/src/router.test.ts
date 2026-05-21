@@ -148,6 +148,7 @@ function createMockDatabase() {
       },
     ]),
     getFindingsByScanId: jest.fn().mockResolvedValue([]),
+    getScanById: jest.fn().mockResolvedValue(null),
     getScanByWorkflowJobId: jest.fn().mockResolvedValue(null),
     getPreviousScan: jest.fn().mockResolvedValue(null),
     cleanupOldFindings: jest.fn().mockResolvedValue(0),
@@ -920,6 +921,95 @@ describe('compliance backend router', () => {
         'compliance',
         undefined,
       );
+    });
+  });
+
+  describe('GET /previous-findings', () => {
+    it('returns 400 when scanId is missing', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        path: '/previous-findings',
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns empty array when scan not found', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        path: '/previous-findings?scanId=nonexistent-uuid',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('resolves scan by UUID and returns previous findings', async () => {
+      const { app, database: db } = await createApp();
+      const currentScan = {
+        id: 'scan-verify-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'verification' as const,
+        workflowJobId: 100,
+        status: 'completed' as const,
+        startedAt: '2026-05-01T12:00:00.000Z',
+        completedAt: '2026-05-01T12:05:00.000Z',
+      };
+      const previousScan = {
+        ...currentScan,
+        id: 'scan-assess-1',
+        scanType: 'assessment' as const,
+        workflowJobId: 99,
+        startedAt: '2026-05-01T10:00:00.000Z',
+        completedAt: '2026-05-01T10:05:00.000Z',
+      };
+      const storedFindings = [
+        { id: 'f1', scanId: 'scan-assess-1', ruleId: 'r1', stigId: 'V-001', host: 'host1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null },
+      ];
+
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(currentScan);
+      (db.getPreviousScan as jest.Mock).mockResolvedValueOnce(previousScan);
+      (db.getFindingsByScanId as jest.Mock).mockResolvedValueOnce(storedFindings);
+
+      const res = await testRequest(app, {
+        path: '/previous-findings?scanId=scan-verify-1',
+      });
+      expect(res.status).toBe(200);
+      expect(db.getScanById).toHaveBeenCalledWith('scan-verify-1');
+      expect(db.getPreviousScan).toHaveBeenCalledWith(currentScan);
+    });
+
+    it('falls back to workflowJobId for numeric scanId', async () => {
+      const { app, database: db } = await createApp();
+      const scan = {
+        id: 'scan-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'verification' as const,
+        workflowJobId: 42,
+        status: 'completed' as const,
+        startedAt: '2026-05-01T12:00:00.000Z',
+        completedAt: '2026-05-01T12:05:00.000Z',
+      };
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(null);
+      (db.getScanByWorkflowJobId as jest.Mock).mockResolvedValueOnce(scan);
+      (db.getPreviousScan as jest.Mock).mockResolvedValueOnce(null);
+
+      const res = await testRequest(app, {
+        path: '/previous-findings?scanId=42',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+      expect(db.getScanByWorkflowJobId).toHaveBeenCalledWith(42);
+    });
+
+    it('does not call getScanByWorkflowJobId for UUID scanId', async () => {
+      const { app, database: db } = await createApp();
+      await testRequest(app, {
+        path: '/previous-findings?scanId=abc-def-123',
+      });
+      expect(db.getScanByWorkflowJobId).not.toHaveBeenCalled();
     });
   });
 });
