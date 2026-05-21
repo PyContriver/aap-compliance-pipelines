@@ -411,6 +411,8 @@ describe('ComplianceService', () => {
         expect.any(Object),
         undefined,
         undefined,
+        undefined,
+        1,
       );
       expect(mockDb.getCartridge).not.toHaveBeenCalled();
       expect(mockListWorkflowJobTemplates).not.toHaveBeenCalled();
@@ -444,6 +446,8 @@ describe('ComplianceService', () => {
         expect.any(Object),
         undefined,
         undefined,
+        undefined,
+        1,
       );
       expect(mockListWorkflowJobTemplates).not.toHaveBeenCalled();
     });
@@ -467,6 +471,8 @@ describe('ComplianceService', () => {
         expect.any(Object),
         undefined,
         undefined,
+        undefined,
+        1,
       );
     });
 

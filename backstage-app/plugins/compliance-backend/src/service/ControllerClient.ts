@@ -195,6 +195,7 @@ export class ControllerClient {
     token?: string,
     limit?: string,
     jobTags?: string,
+    inventoryId?: number,
   ): Promise<{ id: number; workflow_job: number; status: string }> {
     const body: Record<string, unknown> = {};
     if (extraVars) {
@@ -205,6 +206,9 @@ export class ControllerClient {
     }
     if (jobTags) {
       body.job_tags = jobTags;
+    }
+    if (inventoryId) {
+      body.inventory = inventoryId;
     }
     return this.executePostRequest(
       `api/controller/v2/workflow_job_templates/${workflowId}/launch/`,

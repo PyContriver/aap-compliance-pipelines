@@ -268,6 +268,8 @@ export class ComplianceService {
       extraVars,
       token,
       request.limit,
+      undefined,
+      request.inventoryId,
     );
 
     const workflowJobId = launch.workflow_job ?? launch.id;
