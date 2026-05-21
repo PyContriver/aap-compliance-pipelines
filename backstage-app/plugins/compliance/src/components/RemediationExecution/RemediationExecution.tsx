@@ -605,36 +605,35 @@ export const RemediationExecution = () => {
           }
         }).catch(() => {});
       }
-      // Load findings + job tags for rule grouping
+      // Load findings for rule grouping + resolve context for verification scan
       const loadContext = async () => {
         try {
-          const findings = await api.getFindings().catch(() => []);
+          const [findings, scans] = await Promise.all([
+            api.getFindings().catch(() => []),
+            api.getScans().catch(() => []),
+          ]);
+
           const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
           findings.forEach(f => fMap.set(f.ruleId, f));
           setFindingsMap(fMap);
 
-          // Get job tags from the Controller to know which rules were applied
-          const jId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
-          if (jId) {
-            const status = await api.getJobStatus(jId).catch(() => null);
-            if (status) {
-              // Derive selections from findings — if we don't have job_tags,
-              // treat all findings as selected (full remediation run)
-              const derivedSelections: RemediationSelection[] = findings.map(f => ({
-                ruleId: f.ruleId,
-                enabled: true,
-                parameters: {},
-              }));
-              setSelections(derivedSelections);
+          // Derive selections from all findings (enable all for grouping display)
+          if (findings.length > 0) {
+            setSelections(findings.map(f => ({
+              ruleId: f.ruleId,
+              enabled: true,
+              parameters: {},
+            })));
+          }
 
-              // Also resolve inventory for verification scan
-              const scans = await api.getScans().catch(() => []);
-              const scanRecord = scans.find(s => s.workflowJobId === jId);
-              if (scanRecord) {
-                inventoryIdRef.current = scanRecord.inventoryId;
-                complianceProfileIdRef.current = scanRecord.profileId;
-              }
-            }
+          // Resolve inventory + profile from the scan record
+          const resolvedJobId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
+          const scanRecord = resolvedJobId
+            ? scans.find(s => s.workflowJobId === resolvedJobId)
+            : scans.find(s => s.id === jobId);
+          if (scanRecord) {
+            inventoryIdRef.current = scanRecord.inventoryId;
+            complianceProfileIdRef.current = scanRecord.profileId;
           }
         } catch {
           // Context loading is best-effort
@@ -717,10 +716,13 @@ export const RemediationExecution = () => {
   }, [api, workflowJobId, knownRuleIds]);
 
   // Group tasks by rule
-  const ruleGroups = useMemo(
-    () => groupTasksByRule(tasks, selections, findingsMap),
-    [tasks, selections, findingsMap],
-  );
+  const ruleGroups = useMemo(() => {
+    const groups = groupTasksByRule(tasks, selections, findingsMap);
+    if (tasks.length > 0) {
+      console.log(`[RemediationExecution] groupTasksByRule: ${tasks.length} tasks, ${selections.length} selections, ${findingsMap.size} findings → ${groups.length} groups (prereq: ${groups.find(g => g.ruleId === 'pre-requisite')?.tasks.length ?? 0})`);
+    }
+    return groups;
+  }, [tasks, selections, findingsMap]);
 
   // Auto-expand rules that are currently running
   useEffect(() => {
