@@ -605,7 +605,9 @@ export const ComplianceDashboard = () => {
                       </Typography>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {isRemediation ? (
+                      {scan.status === 'failed' ? (
+                        <StatusError />
+                      ) : isRemediation ? (
                         <StatusOK />
                       ) : scan.passRate >= 80 ? (
                         <StatusOK />
@@ -615,7 +617,7 @@ export const ComplianceDashboard = () => {
                         <StatusError />
                       )}
                       <Typography variant="subtitle2">
-                        {isRemediation ? scan.status : `${scan.passRate}%`}
+                        {scan.status === 'failed' ? 'Failed' : isRemediation ? scan.status : `${scan.passRate}%`}
                       </Typography>
                     </div>
                   </div>

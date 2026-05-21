@@ -93,6 +93,7 @@ export interface ScanProgressProps {
   workflowJobId: number;
   profileName?: string;
   onComplete?: () => void;
+  onFailed?: (status: string) => void;
   scanType?: 'assessment' | 'verification' | 'remediation';
 }
 
@@ -100,6 +101,7 @@ export const ScanProgress = ({
   workflowJobId,
   profileName,
   onComplete,
+  onFailed,
   scanType = 'assessment',
 }: ScanProgressProps) => {
   const classes = useStyles();
@@ -114,6 +116,8 @@ export const ScanProgress = ({
   const completeFired = useRef(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onFailedRef = useRef(onFailed);
+  onFailedRef.current = onFailed;
 
   // Independent 1s tick for smooth elapsed display
   const isTerminal = ['successful', 'failed', 'error', 'canceled'].includes(overallStatus);
@@ -184,7 +188,11 @@ export const ScanProgress = ({
         const terminal = ['successful', 'failed', 'error', 'canceled'];
         if (terminal.includes(status.status) && !completeFired.current) {
           completeFired.current = true;
-          onCompleteRef.current?.();
+          if (status.status === 'successful') {
+            onCompleteRef.current?.();
+          } else {
+            onFailedRef.current?.(status.status);
+          }
         }
       } catch {
         // API not available — will retry on next poll interval
@@ -201,7 +209,8 @@ export const ScanProgress = ({
   }, [api, workflowJobId, visible, isTerminal]);
 
   const terminal = ['successful', 'failed', 'error', 'canceled'];
-  if (terminal.includes(overallStatus) && nodes.every(n => terminal.includes(n.status))) {
+  const isFailed = overallStatus === 'failed' || overallStatus === 'error' || overallStatus === 'canceled';
+  if (overallStatus === 'successful' && nodes.every(n => terminal.includes(n.status))) {
     return null;
   }
 
@@ -213,12 +222,12 @@ export const ScanProgress = ({
       <Paper className={classes.paper} variant="outlined">
         <Box className={classes.header}>
           <Typography variant="subtitle1">
-            <StatusRunning /> {scanType === 'verification' ? 'Verification Scan' : scanType === 'remediation' ? 'Remediation' : 'Assessment Scan'}{profileName ? `: ${profileName}` : ''}
+            {isFailed ? <StatusError /> : <StatusRunning />} {scanType === 'verification' ? 'Verification Scan' : scanType === 'remediation' ? 'Remediation' : 'Assessment Scan'}{profileName ? `: ${profileName}` : ''}
           </Typography>
           <Chip
             size="small"
-            label={overallStatus}
-            color={overallStatus === 'running' ? 'primary' : 'default'}
+            label={isFailed ? `Scan ${overallStatus}` : overallStatus}
+            color={isFailed ? 'secondary' : overallStatus === 'running' ? 'primary' : 'default'}
           />
         </Box>
 

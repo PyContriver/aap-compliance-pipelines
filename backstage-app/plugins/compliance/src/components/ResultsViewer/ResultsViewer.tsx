@@ -208,7 +208,7 @@ export const ResultsViewer = () => {
   const [scanType, setScanType] = useState<'assessment' | 'verification'>('assessment');
   const [findingsExpanded, setFindingsExpanded] = useState(true);
 
-  // Determine scan type from scan history
+  // Determine scan type and status from scan history
   useEffect(() => {
     if (!jobId) return;
     api.getScans().then(scans => {
@@ -217,6 +217,9 @@ export const ResultsViewer = () => {
       );
       if (match?.scanType) {
         setScanType(match.scanType);
+      }
+      if (match?.status === 'failed') {
+        setScanFailed('failed');
       }
     }).catch(err => {
       console.error('Failed to load scan metadata for scan type:', err);
@@ -375,16 +378,24 @@ export const ResultsViewer = () => {
     return () => clearTimeout(t);
   }, [loading, isWorkflowPoll]);
 
+  const [scanFailed, setScanFailed] = useState<string | null>(null);
+
   const triggerFetch = useCallback(() => {
     api.getFindings(jobId).then(data => {
       if (data.length > 0) {
         setFindings(data);
-        setLoading(false);
       }
+      setLoading(false);
     }).catch(err => {
       console.error('Failed to fetch findings after scan completion:', err);
+      setLoading(false);
     });
   }, [api, jobId]);
+
+  const handleScanFailed = useCallback((status: string) => {
+    setScanFailed(status);
+    setLoading(false);
+  }, []);
 
   if (loading) {
     if (showProgress && isWorkflowPoll && jobId) {
@@ -393,10 +404,8 @@ export const ResultsViewer = () => {
           <ScanProgress
             workflowJobId={Number(jobId)}
             onComplete={triggerFetch}
+            onFailed={handleScanFailed}
           />
-          <Typography variant="body2" align="center" color="textSecondary">
-            Scan is running — results will appear automatically when complete.
-          </Typography>
         </Box>
       );
     }
@@ -407,6 +416,53 @@ export const ResultsViewer = () => {
           Loading scan results...
         </Typography>
       </Box>
+    );
+  }
+
+  // Scan failed — show error state with the failed progress view
+  if (scanFailed) {
+    return (
+      <>
+        <Breadcrumbs>
+          <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
+            Compliance
+          </Typography>
+          <Typography>Scan Failed</Typography>
+        </Breadcrumbs>
+
+        <Box mt={2} />
+
+        {isWorkflowPoll && jobId && (
+          <ScanProgress
+            workflowJobId={Number(jobId)}
+            onComplete={triggerFetch}
+            onFailed={handleScanFailed}
+          />
+        )}
+
+        <Box mt={2} />
+
+        <InfoCard title="Scan Failed">
+          <Box p={3} textAlign="center">
+            <ErrorIcon style={{ fontSize: 64, color: '#C9190B', marginBottom: 16 }} />
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              The compliance scan did not complete successfully
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              The workflow ended with status: <strong>{scanFailed}</strong>. This is typically caused by unreachable
+              hosts, missing credentials, or misconfigured inventory. Check the AAP Controller job log for details.
+            </Typography>
+            <Box display="flex" justifyContent="center" style={{ gap: 8 }}>
+              <Button variant="outlined" onClick={() => navigate('/compliance')}>
+                Back to Overview
+              </Button>
+              <Button variant="contained" color="primary" onClick={() => navigate('/compliance/scan')}>
+                Try Again
+              </Button>
+            </Box>
+          </Box>
+        </InfoCard>
+      </>
     );
   }
 
