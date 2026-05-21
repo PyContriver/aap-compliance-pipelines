@@ -98,6 +98,7 @@ export class ComplianceDatabase {
       .where('profile_id', currentScan.profileId)
       .where('scan_type', 'assessment')
       .where('status', 'completed')
+      .where('scanner', 'oscap')
       .where('started_at', '<', currentScan.startedAt)
       .orderBy('started_at', 'desc')
       .first();

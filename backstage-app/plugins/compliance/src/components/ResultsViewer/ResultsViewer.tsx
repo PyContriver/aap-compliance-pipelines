@@ -570,13 +570,28 @@ export const ResultsViewer = () => {
       <Box display="flex" justifyContent="flex-end" mb={2} style={{ gap: 8 }}>
         <ExportButton findings={filtered} profileName={jobId} />
         <Button
+          variant="outlined"
+          onClick={() => navigate('/compliance')}
+        >
+          Back to Overview
+        </Button>
+        {isVerification && (
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => navigate('/compliance/remediations')}
+          >
+            Edit Remediations
+          </Button>
+        )}
+        <Button
           variant="contained"
           color="primary"
           size="large"
           startIcon={<BuildIcon />}
           onClick={() => navigate(`/compliance/remediation/${jobId}`)}
         >
-          Build Remediation ({rulesWithFailures} rules with failures)
+          {isVerification ? 'Build New Remediation' : 'Build Remediation'} ({rulesWithFailures} rules with failures)
         </Button>
       </Box>
 
