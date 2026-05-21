@@ -100,6 +100,87 @@ const EMPTY_FORM: SaveCartridgeRequest = {
   scanTags: '',
 };
 
+const DataRetentionSettings = () => {
+  const api = useApi(complianceApiRef);
+  const [retentionDays, setRetentionDays] = useState(90);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getHealth().then(h => {
+      if ((h as Record<string, unknown>).retentionDays) {
+        setRetentionDays((h as Record<string, unknown>).retentionDays as number);
+      }
+    }).catch(() => {});
+  }, [api]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetch('/api/compliance/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retentionDays }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      // Best effort
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    setCleaning(true);
+    setCleanupResult(null);
+    try {
+      const resp = await fetch('/api/compliance/cleanup', { method: 'POST' });
+      const data = await resp.json();
+      setCleanupResult(`Cleaned up ${data.deleted ?? 0} old findings`);
+    } catch {
+      setCleanupResult('Cleanup failed');
+    } finally {
+      setCleaning(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="body2" color="textSecondary" paragraph>
+        Configure how long scan findings are retained. Older findings are automatically
+        cleaned up on startup. Scan records are preserved for history.
+      </Typography>
+      <Box display="flex" alignItems="center" style={{ gap: 16 }}>
+        <TextField
+          label="Retention Period (days)"
+          type="number"
+          variant="outlined"
+          size="small"
+          value={retentionDays}
+          onChange={e => setRetentionDays(Number(e.target.value))}
+          inputProps={{ min: 7, max: 365 }}
+          style={{ width: 200 }}
+        />
+        <Button variant="outlined" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
+        </Button>
+        <Button variant="outlined" color="secondary" onClick={handleCleanup} disabled={cleaning}>
+          {cleaning ? 'Cleaning...' : 'Run Cleanup Now'}
+        </Button>
+      </Box>
+      {cleanupResult && (
+        <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>
+          {cleanupResult}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
 export const CartridgeSettings = () => {
   const classes = useStyles();
   const navigate = useNavigate();
@@ -511,6 +592,12 @@ export const CartridgeSettings = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Data Retention ─────────────────────────────────────────── */}
+      <Box mt={4} />
+      <InfoCard title="Data Management">
+        <DataRetentionSettings />
+      </InfoCard>
 
       {/* ── Delete Confirmation Dialog ───────────────────────────────── */}
 

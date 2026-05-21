@@ -72,11 +72,34 @@ export async function createRouter(
 
   // ─── Health ─────────────────────────────────────────────────────────
 
+  let retentionDays = 90;
+
   router.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
       dataSource: service.getDataSource(),
+      retentionDays,
     });
+  });
+
+  router.post('/settings', (req, res) => {
+    if (req.body.retentionDays && typeof req.body.retentionDays === 'number') {
+      retentionDays = Math.max(7, Math.min(365, req.body.retentionDays));
+      logger.info(`Data retention updated to ${retentionDays} days`);
+    }
+    res.json({ retentionDays });
+  });
+
+  router.post('/cleanup', async (_req, res) => {
+    try {
+      const deleted = await database.cleanupOldFindings(retentionDays);
+      logger.info(`Manual cleanup: removed ${deleted} findings older than ${retentionDays} days`);
+      res.json({ deleted, retentionDays });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Cleanup failed: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
   });
 
   // ─── Profiles ───────────────────────────────────────────────────────

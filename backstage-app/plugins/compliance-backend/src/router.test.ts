@@ -207,7 +207,7 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/health' });
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({
+      expect(res.body).toMatchObject({
         status: 'ok',
         dataSource: 'mock',
       });

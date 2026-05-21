@@ -119,6 +119,8 @@ export const complianceBackendPlugin = createBackendPlugin({
         httpRouter.addAuthPolicy({ path: '/remediate', allow: 'unauthenticated' });
         httpRouter.addAuthPolicy({ path: '/remediation-profiles', allow: 'unauthenticated' });
         httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
+        httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
+        httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
       },
     });
   },
