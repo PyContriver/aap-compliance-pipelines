@@ -608,12 +608,17 @@ export const RemediationExecution = () => {
       // Load findings for rule grouping + resolve context for verification scan
       const loadContext = async () => {
         try {
-          const jId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
+          // Resolve numeric job ID — might be a UUID from the route
+          const scans = await api.getScans().catch(() => []);
+          let resolvedJobId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
+          if (!resolvedJobId) {
+            const match = scans.find(s => s.id === jobId);
+            if (match?.workflowJobId) resolvedJobId = match.workflowJobId;
+          }
 
-          const [findings, scans, jobStatus] = await Promise.all([
+          const [findings, jobStatus] = await Promise.all([
             api.getFindings().catch(() => []),
-            api.getScans().catch(() => []),
-            jId ? api.getJobStatus(jId).catch(() => null) : Promise.resolve(null),
+            resolvedJobId ? api.getJobStatus(resolvedJobId).catch(() => null) : Promise.resolve(null),
           ]);
 
           const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
@@ -642,8 +647,8 @@ export const RemediationExecution = () => {
           }
 
           // Resolve inventory + profile from the scan record
-          const scanRecord = jId
-            ? scans.find(s => s.workflowJobId === jId)
+          const scanRecord = resolvedJobId
+            ? scans.find(s => s.workflowJobId === resolvedJobId)
             : scans.find(s => s.id === jobId);
           if (scanRecord) {
             inventoryIdRef.current = scanRecord.inventoryId;
