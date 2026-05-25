@@ -5,7 +5,7 @@ Self-contained prototype for an AAP compliance vertical — Backstage plugin + R
 ## Structure
 
 - `backstage-app/` — Backstage application with compliance plugins
-  - `plugins/compliance/` — Frontend plugin (7 views: overview, profiles, scan, results, remediations, settings)
+  - `plugins/compliance/` — Frontend plugin (6 tabs, 12 routes: overview, profiles, scan, results, remediations, settings)
   - `plugins/compliance-backend/` — Backend plugin (REST API, Controller client, DB)
   - `plugins/compliance-common/` — Shared types
 - `content/` — Compliance content packaged as Ansible Pattern (SDP-0005/0009)
@@ -25,7 +25,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run 201 tests across 11 suites
+yarn test             # Run 206 tests across 11 suites
 yarn build            # Build all packages
 ```
 
@@ -58,4 +58,4 @@ Full guide: `docs/deployment-guide.md`
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 201 tests across 11 suites (frontend + backend + database)
+- 206 tests across 11 suites (frontend + backend + database)

@@ -15,7 +15,7 @@ aap-compliance-pipelines/
     packages/app/                # Dev-only frontend app shell
     packages/backend/            # Dev-only backend app shell
     plugins/
-      compliance/                # Frontend plugin (7 views, React/MUI)
+      compliance/                # Frontend plugin (6 tabs, 12 routes, React/MUI)
       compliance-backend/        # Backend plugin (REST API, DB, Controller client)
       compliance-common/         # Shared TypeScript types
     bin/start.sh                 # Dev launcher (mock/live modes)
@@ -59,7 +59,7 @@ yarn test                    # All tests
 yarn test --coverage         # With coverage report
 ```
 
-Target: all tests passing. Current: 201 tests across 11 suites.
+Target: all tests passing. Current: 206 tests across 11 suites.
 
 ## Branching and Workflow
 
