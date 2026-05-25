@@ -747,6 +747,8 @@ ansible-builder build -f execution-environment.yml -t compliance-<platform>-<fra
 
 The compliance profile must define a Controller workflow with these stages. Each stage maps to a job template. The workflow uses `infra.aap_configuration` YAML format for declarative setup.
 
+> **Note:** The full pipeline defines 7 stages for maximum flexibility. The reference implementation (`security.compliance_rhel9_stig`) uses a simplified 3-node workflow: **Gather → Evaluate → Remediate**. In this model, Gather combines fact collection and scanning, Evaluate handles normalization and policy evaluation, and verification is triggered as a separate scan from the UI. New profiles can implement any subset of stages — the plugin requires only that the workflow produces CFF-format findings.
+
 ### Pipeline Stages
 
 ```
