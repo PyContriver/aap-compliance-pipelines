@@ -87,6 +87,51 @@ main ←── feature branches (PRs only)
 | `feature/oscap-scanner` | Replace custom evaluate module with oscap xccdf eval | Planned |
 | `feature/tier2-adapter` | Tenable/Insights scanner adapter PoC | Planned |
 
+### Testing Environments
+
+| Environment | Role | URL |
+|---|---|---|
+| **Local** | Development + testing | `http://localhost:3000` (frontend), `:7007` (backend) |
+| **Netrunner Portal** | Staging + demo | `https://dev-portal-netrunner.demoredhat.com/` |
+
+- **Local** always runs the feature branch code (source, hot reload, SQLite, guest auth)
+- **Netrunner** always runs the latest `main` (dist-dynamic tarballs, PostgreSQL, RHAAP OAuth)
+- Feature branches are tested locally before merging to main
+- After merge to main, deploy to netrunner (CI or manual)
+
+### Pre-merge Checklist
+
+Before creating a PR, verify:
+
+1. `yarn test` passes (all 206+ tests)
+2. `yarn build` succeeds
+3. Mock mode works (`./bin/start.sh mock`)
+4. If touching backend: `export-dynamic` produces valid tarball
+5. If touching Controller resources: tested against live AAP (home lab or netrunner)
+6. If touching DB schema: migration up + down tested on both SQLite and PostgreSQL
+
+### What Gets Tested Where
+
+| Test Type | Local | Netrunner |
+|---|---|---|
+| Unit tests (`yarn test`) | Every commit | Via CI on PR |
+| Mock mode UI | Yes | No |
+| Live scan end-to-end | Yes (home lab) | Yes (netrunner AAP) |
+| PostgreSQL compatibility | No (SQLite) | Yes |
+| Dynamic plugin loading (Scalprum) | No | Yes |
+| RBAC / OAuth | No (guest auth) | Yes |
+| Multi-user testing | No | Yes (massimo, craig, ganesh) |
+
+### Post-merge Deploy to Netrunner
+
+1. Build dist-dynamic: `export-dynamic` for both plugins
+2. Pack tarballs: `npm pack` in each `dist-dynamic/` directory
+3. Compute integrity hashes: `openssl dgst -sha512 -binary < file.tgz | base64`
+4. Upload tarballs to Portal: `scp` to `/var/lib/portal/compliance-plugins/`
+5. Update `dynamic-plugins.override.yaml` with new integrity hashes
+6. Remove old extracted dirs and restart: `sudo systemctl restart portal.service`
+7. Verify: health endpoint + smoke test UI
+
 ## Deployment Models
 
 ### 1. Standalone (Local Development)
