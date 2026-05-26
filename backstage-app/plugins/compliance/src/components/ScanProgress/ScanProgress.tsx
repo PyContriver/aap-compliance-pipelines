@@ -50,8 +50,8 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const STEPS = ['Scan', 'Normalize'];
-const NODE_IDS = ['run-oscap', 'normalize'];
+const STEPS = ['Scanning'];
+const NODE_IDS = ['run-oscap'];
 
 interface NodeStatus {
   identifier: string;

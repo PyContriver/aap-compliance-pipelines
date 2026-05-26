@@ -132,4 +132,46 @@
           Exit code: {{ _scan_result.rc }}
           (0=all pass, 2=some fail).
           {{ 'OpenSCAP removed (was installed by this scan).' if (_oscap_was_missing | default(false) | bool) else 'OpenSCAP was pre-installed, left in place.' }}
+
+# ── Play 2: Normalize XCCDF results on execution node ─────────────
+# This play runs in the same job as the scan, so fetched files are
+# available on the local filesystem.
+
+- name: "Compliance: Normalize XCCDF results"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    fetch_dest_dir: /tmp/compliance-results
+    output_file: /tmp/compliance_report.json
+
+  tasks:
+    - name: Find all fetched XCCDF result files
+      ansible.builtin.find:
+        paths: "{{ fetch_dest_dir }}"
+        patterns: "xccdf-results-*.xml"
+      register: _result_files
+
+    - name: Fail if no results found
+      ansible.builtin.fail:
+        msg: >-
+          No XCCDF result files found in {{ fetch_dest_dir }}.
+          Ensure the scan play completed successfully.
+      when: _result_files.files | length == 0
+
+    - name: Normalize XCCDF results to Common Findings Format
+      security.compliance_rhel9_stig.normalize_xccdf:
+        results_files: "{{ _result_files.files | map(attribute='path') | list }}"
+        output_file: "{{ output_file }}"
+      register: _normalized
+
+    - name: Display summary
+      ansible.builtin.debug:
+        msg: >-
+          Normalized {{ _normalized.hosts_processed }} hosts,
+          {{ _normalized.total_findings }} findings
+          ({{ _normalized.summary.pass }} pass,
+          {{ _normalized.summary.fail }} fail).
+          Output: {{ output_file }}
 ...
