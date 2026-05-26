@@ -8,9 +8,10 @@ Self-contained prototype for an AAP compliance vertical — Backstage plugin + R
   - `plugins/compliance/` — Frontend plugin (6 tabs, 12 routes: overview, profiles, scan, results, remediations, settings)
   - `plugins/compliance-backend/` — Backend plugin (REST API, Controller client, DB)
   - `plugins/compliance-common/` — Shared types
+- `collections/` — Ansible collection: OpenSCAP scan, XCCDF normalizer, CaC remediation
 - `content/` — Compliance content packaged as Ansible Pattern (SDP-0005/0009)
 - `scripts/` — Lab seed/clean playbooks
-- `docs/` — Design docs and research
+- `docs/` — Design docs, AsciiDoc modules, developer guide
 
 ## Lab Connection
 
@@ -49,9 +50,24 @@ Full guide: `docs/deployment-guide.md`
 
 - "Compliance profile" = registered standard mapped to a 2-node assessment workflow + EE (Settings tab)
 - "Remediation" = saved rule selections + parameter overrides (Remediations tab)
-- "Assessment workflow" = 2-node workflow (gather -> evaluate), read-only, never modifies hosts
+- "Assessment workflow" = 2-node workflow (run-oscap -> normalize), read-only, never modifies hosts
 - "Remediation JT" = standalone job template launched directly (not via workflow) with job_tags
+- "CFF" = Common Findings Format, the JSON schema all scanners normalize to
 - AAP 2.6 terms: "automation controller" (lowercase), "workflow job template", "platform gateway"
+
+## Scanner Architecture
+
+Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide for 366 STIG rules:
+
+1. `run_oscap.yml` (Node 1, targets): installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up
+2. `normalize.yml` (Node 2, EE): `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON
+3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
+
+Key files in the EE:
+- `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (copied to targets)
+- `/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml` — CaC remediation playbook
+
+Deprecated modules (`compliance_gather`, `compliance_evaluate`) and playbooks (`gather_facts.yml`, `evaluate.yml`) are retained but no longer the primary path.
 
 ## Engineering Standards
 

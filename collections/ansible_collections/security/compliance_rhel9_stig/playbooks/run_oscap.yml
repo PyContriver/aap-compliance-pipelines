@@ -1,0 +1,131 @@
+---
+# Compliance: Run OpenSCAP STIG scan on target hosts
+#
+# This playbook installs OpenSCAP (if not present), copies the SCAP
+# datastream from the EE, runs the evaluation, fetches results back
+# to the execution node, and cleans up. If OpenSCAP was installed by
+# this playbook, it is removed after the scan.
+#
+# This is Node 1 of the 2-node assessment workflow:
+#   Node 1: run_oscap.yml (targets) → Node 2: normalize.yml (execution node)
+#
+# The datastream file (ssg-rhel9-ds.xml, ~15MB) is copied from the EE
+# to the target at scan time and removed afterward. The target host
+# does not need scap-security-guide installed.
+#
+# Variables:
+#   compliance_profile: XCCDF profile to evaluate against
+#     (default: xccdf_org.ssgproject.content_profile_stig)
+#   ssg_datastream_ee_path: path to datastream inside the EE
+#     (default: /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml)
+#   target_results_dir: temp directory on targets for scan results
+#     (default: /tmp/compliance-scan)
+#   fetch_dest_dir: directory on execution node for fetched results
+#     (default: /tmp/compliance-results)
+
+- name: "Compliance: OpenSCAP STIG scan"
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: false
+
+  vars:
+    compliance_profile: "{{ profile | default('xccdf_org.ssgproject.content_profile_stig') }}"
+    ssg_datastream_ee_path: /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+    ssg_datastream_target_path: /tmp/ssg-rhel9-ds.xml
+    target_results_dir: /tmp/compliance-scan
+    fetch_dest_dir: /tmp/compliance-results
+
+  tasks:
+    # ── Install OpenSCAP (if not present) ──────────────────────────
+    - name: Check if OpenSCAP is installed
+      ansible.builtin.command: rpm -q openscap-scanner
+      register: _oscap_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install OpenSCAP scanner
+      ansible.builtin.dnf:
+        name: openscap-scanner
+        state: present
+      when: _oscap_check.rc != 0
+
+    - name: Record whether we installed oscap (for cleanup)
+      ansible.builtin.set_fact:
+        _oscap_was_missing: "{{ _oscap_check.rc != 0 }}"
+
+    # ── Copy datastream from EE to target ──────────────────────────
+    # The EE has scap-security-guide installed. We copy the datastream
+    # XML to the target rather than installing the RPM.
+    #
+    # Alternative: install scap-security-guide on the target directly:
+    #   - name: Install scap-security-guide on target
+    #     ansible.builtin.dnf:
+    #       name: scap-security-guide
+    #       state: present
+    #     when: _oscap_check.rc != 0
+    - name: Copy SCAP datastream to target
+      ansible.builtin.copy:
+        src: "{{ ssg_datastream_ee_path }}"
+        dest: "{{ ssg_datastream_target_path }}"
+        mode: '0644'
+
+    # ── Run OpenSCAP evaluation ────────────────────────────────────
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ target_results_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Run OpenSCAP XCCDF evaluation
+      ansible.builtin.command:
+        cmd: >-
+          oscap xccdf eval
+          --profile {{ compliance_profile }}
+          --results {{ target_results_dir }}/xccdf-results.xml
+          {{ ssg_datastream_target_path }}
+      register: _scan_result
+      # oscap exit codes: 0=all pass, 2=some fail (both valid)
+      failed_when: _scan_result.rc not in [0, 2]
+      changed_when: false
+
+    # ── Fetch results back to execution node ───────────────────────
+    - name: Create local results directory
+      ansible.builtin.file:
+        path: "{{ fetch_dest_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+    - name: Fetch XCCDF results from target
+      ansible.builtin.fetch:
+        src: "{{ target_results_dir }}/xccdf-results.xml"
+        dest: "{{ fetch_dest_dir }}/xccdf-results-{{ inventory_hostname }}.xml"
+        flat: true
+
+    # ── Cleanup on target ──────────────────────────────────────────
+    - name: Remove scan results from target
+      ansible.builtin.file:
+        path: "{{ target_results_dir }}"
+        state: absent
+
+    - name: Remove datastream from target
+      ansible.builtin.file:
+        path: "{{ ssg_datastream_target_path }}"
+        state: absent
+
+    - name: Remove OpenSCAP if we installed it
+      ansible.builtin.dnf:
+        name: openscap-scanner
+        state: absent
+      when: _oscap_was_missing | default(false) | bool
+
+    - name: Report scan status
+      ansible.builtin.debug:
+        msg: >-
+          OpenSCAP scan complete on {{ inventory_hostname }}.
+          Exit code: {{ _scan_result.rc }}
+          (0=all pass, 2=some fail).
+          {{ 'OpenSCAP removed (was installed by this scan).' if (_oscap_was_missing | default(false) | bool) else 'OpenSCAP was pre-installed, left in place.' }}
+...

@@ -1,0 +1,226 @@
+:_mod-docs-content-type: REFERENCE
+
+[id="ref-oscap-requirements_{context}"]
+
+= OpenSCAP scan requirements
+
+[role="_abstract"]
+The following tables describe the requirements for running OpenSCAP-based compliance scans with the `security.compliance_rhel9_stig` collection.
+
+== Target host requirements
+
+Target hosts are the RHEL 9 systems that are scanned by `oscap xccdf eval`. OpenSCAP is installed ephemerally at scan time if not already present.
+
+[cols="2,3,1", options="header"]
+|===
+|Requirement
+|Description
+|Mandatory
+
+|Operating system
+|RHEL 9.x (any minor version)
+|Yes
+
+|SSH access
+|SSH connectivity from {ControllerName} execution nodes via Receptor mesh
+|Yes
+
+|Become privileges
+|`sudo` or equivalent privilege escalation for the SSH user
+|Yes
+
+|`openscap-scanner` package
+|Installed at runtime by the scan playbook if not present. Removed after the scan if it was installed by the playbook.
+|No (auto-installed)
+
+|`scap-security-guide` package
+|Not required on targets. The SCAP datastream is copied from the {ExecEnvShort} at scan time.
+|No
+
+|Disk space
+|Approximately 20 MB temporary space in `/tmp` for the datastream copy and results XML
+|Yes
+
+|Network access
+|Access to a package repository (such as `dnf` repos) if `openscap-scanner` is not pre-installed
+|Conditional
+|===
+
+== {ExecEnvShort} requirements
+
+The compliance {ExecEnvShort} runs on execution nodes and must include all scanner dependencies. It is built with `ansible-builder` from the {ExecEnvShort} definition file.
+
+=== System packages
+
+[cols="2,3,1", options="header"]
+|===
+|Package
+|Purpose
+|Required
+
+|`openscap-scanner`
+|Provides the `oscap` CLI binary (not used directly in the EE, but included for offline environments)
+|Optional
+
+|`scap-security-guide`
+|Provides the XCCDF datastream (`ssg-rhel9-ds.xml`) and CaC remediation playbook (`rhel9-playbook-stig.yml`)
+|Yes
+|===
+
+=== Key file paths in the {ExecEnvShort}
+
+[cols="2,3", options="header"]
+|===
+|Path
+|Purpose
+
+|`/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml`
+|SCAP datastream copied to target hosts at scan time. Contains 366 STIG rule definitions, check content, and fix text.
+
+|`/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml`
+|ComplianceAsCode (CaC) remediation playbook imported by `remediate.yml`. Each task is tagged with its rule ID for selective execution via `job_tags`.
+|===
+
+=== Ansible collections
+
+[cols="2,2,1", options="header"]
+|===
+|Collection
+|Minimum version
+|Purpose
+
+|`ansible.posix`
+|1.5.0
+|POSIX utilities used by remediation roles
+
+|`redhat.rhel_system_roles`
+|1.0.0
+|RHEL system configuration roles used by CaC remediation
+|===
+
+=== Python packages
+
+[cols="2,3", options="header"]
+|===
+|Package
+|Purpose
+
+|`lxml`
+|XML parsing (fallback; the module uses `xml.etree.ElementTree` from the standard library)
+|===
+
+=== Base image
+
+The {ExecEnvShort} must use the {PlatformNameShort} minimal base image:
+
+[source]
+----
+registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
+----
+
+== {ControllerName} resource requirements
+
+=== Job templates
+
+[cols="2,1,2,2", options="header"]
+|===
+|Job template
+|Job type
+|Playbook
+|Key settings
+
+|`compliance-run-oscap`
+|Run
+|`run_oscap.yml`
+|`ask_inventory_on_launch: true`, machine credential with become
+
+|`compliance-normalize`
+|Run
+|`normalize.yml`
+|`ask_inventory_on_launch: true`
+
+|`compliance-remediate`
+|Run
+|`remediate.yml`
+|`ask_inventory_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
+|===
+
+=== Workflow job template
+
+[cols="2,3", options="header"]
+|===
+|Setting
+|Value
+
+|Name
+|`compliance-rhel9-stig-workflow`
+
+|`ask_inventory_on_launch`
+|`true` (required -- the plugin passes the user-selected inventory)
+|===
+
+==== Workflow nodes
+
+[cols="1,2,2", options="header"]
+|===
+|Node
+|Job template
+|Inventory setting
+
+|1
+|`compliance-run-oscap`
+|Inherit from workflow (do not set a fixed inventory)
+
+|2
+|`compliance-normalize`
+|Inherit from workflow (do not set a fixed inventory)
+|===
+
+[IMPORTANT]
+====
+The remediation job template is **not** a workflow node. It is launched directly by the Backstage plugin as a standalone job template with `job_tags` for selective rule execution.
+====
+
+== OpenSCAP exit codes
+
+The `oscap xccdf eval` command returns these exit codes, all of which are handled by the scan playbook:
+
+[cols="1,3,1", options="header"]
+|===
+|Exit code
+|Meaning
+|Playbook behavior
+
+|0
+|All rules passed evaluation
+|Success
+
+|2
+|Some rules failed evaluation
+|Success (expected for most systems)
+
+|1
+|Error during evaluation (invalid datastream, permissions, etc.)
+|Task failure
+|===
+
+== Network and firewall requirements
+
+[cols="2,3,1", options="header"]
+|===
+|Connection
+|Purpose
+|Direction
+
+|Execution node to target hosts
+|SSH (port 22) via Receptor mesh for running `oscap xccdf eval`
+|Outbound from execution node
+
+|Target hosts to package repository
+|`dnf install openscap-scanner` if the package is not pre-installed
+|Outbound from target host
+
+|Backstage backend to {PlatformNameShort} gateway
+|REST API calls (`/api/controller/v2/`) for launching workflows and reading job events
+|Outbound from Backstage backend
+|===

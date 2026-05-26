@@ -1,0 +1,12 @@
+---
+major_changes:
+  - "Replace custom compliance_gather + compliance_evaluate modules with OpenSCAP-based scanning pipeline. The new run_oscap.yml playbook installs oscap ephemerally on targets, runs oscap xccdf eval with the scap-security-guide STIG datastream, fetches XCCDF XML results, and cleans up. The normalize_xccdf module converts XCCDF results to Common Findings Format (CFF) JSON with full rule metadata extracted from the datastream. This gives 366 STIG rules (up from 20), guaranteed scan/remediation alignment with CaC, and self-contained metadata without bundled rules YAML."
+
+breaking_changes:
+  - "Workflow node identifiers changed from gather-facts/evaluate to run-oscap/normalize. Existing Controller workflow templates must be updated via setup_controller.yml or manually renamed."
+  - "Job template names changed from compliance-gather-facts/compliance-evaluate to compliance-run-oscap/compliance-normalize."
+
+deprecated_features:
+  - "compliance_gather module is deprecated. Use run_oscap.yml playbook instead."
+  - "compliance_evaluate module is deprecated. Use normalize.yml playbook with normalize_xccdf module instead."
+...
