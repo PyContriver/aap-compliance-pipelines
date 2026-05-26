@@ -58,8 +58,8 @@
     compliance_scm_branch: main
 
     # Playbook paths (relative to project root)
-    playbook_gather_facts: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml"
-    playbook_evaluate: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml"
+    playbook_run_oscap: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml"
+    playbook_normalize: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml"
     playbook_remediate: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml"
 
     # ── Organization (gateway_organizations for AAP 2.5+) ───────────
@@ -114,27 +114,25 @@
     # Without this, child JTs ignore the inventory passed at workflow
     # launch and use their own hardcoded default instead.
     controller_templates:
-      - name: compliance-gather-facts
+      - name: compliance-run-oscap
         organization: "{{ compliance_org }}"
         inventory: "{{ compliance_inventory }}"
         project: "{{ compliance_project }}"
-        playbook: "{{ playbook_gather_facts }}"
+        playbook: "{{ playbook_run_oscap }}"
         credentials:
           - "{{ compliance_credential }}"
         become_enabled: true
-        use_fact_cache: true
         ask_inventory_on_launch: true
-        description: "Gather compliance-relevant facts from target hosts"
+        description: "Run OpenSCAP STIG scan on target hosts (install, scan, fetch, cleanup)"
         state: present
 
-      - name: compliance-evaluate
+      - name: compliance-normalize
         organization: "{{ compliance_org }}"
         inventory: "{{ compliance_inventory }}"
         project: "{{ compliance_project }}"
-        playbook: "{{ playbook_evaluate }}"
-        use_fact_cache: true
+        playbook: "{{ playbook_normalize }}"
         ask_inventory_on_launch: true
-        description: "Evaluate gathered facts against STIG rules"
+        description: "Normalize XCCDF results to Common Findings Format on execution node"
         state: present
 
       - name: compliance-remediate
@@ -157,7 +155,7 @@
     # Workflow nodes must NOT set inventory (inventory: null) so they
     # inherit the workflow-level inventory override.
     #
-    # The workflow is 2 nodes: gather-facts → evaluate.
+    # The workflow is 2 nodes: run-oscap → normalize.
     # Remediation is NOT part of the assessment workflow — it is launched
     # as a direct JT by the plugin with job_tags for scoped rule selection.
     # This separation ensures assessments never modify hosts and keeps
@@ -165,23 +163,23 @@
     controller_workflows:
       - name: compliance-pipeline-rhel9-stig
         organization: "{{ compliance_org }}"
-        description: "RHEL 9 STIG compliance pipeline: Gather Facts -> Evaluate"
+        description: "RHEL 9 STIG compliance pipeline: OpenSCAP Scan -> Normalize"
         ask_inventory_on_launch: true
         state: present
         simplified_workflow_nodes:
-          - identifier: gather-facts
+          - identifier: run-oscap
             unified_job_template:
-              name: compliance-gather-facts
+              name: compliance-run-oscap
               type: job_template
               organization:
                 name: "{{ compliance_org }}"
             inventory:              # null = inherit from workflow
             success_nodes:
-              - evaluate
+              - normalize
 
-          - identifier: evaluate
+          - identifier: normalize
             unified_job_template:
-              name: compliance-evaluate
+              name: compliance-normalize
               type: job_template
               organization:
                 name: "{{ compliance_org }}"
@@ -265,13 +263,13 @@
           Project:       {{ compliance_project }}
 
           Job Templates:
-            - compliance-gather-facts   (become: yes, fact cache: yes, ask_inventory: yes)
-            - compliance-evaluate       (fact cache: yes, ask_inventory: yes)
+            - compliance-run-oscap      (become: yes, ask_inventory: yes)
+            - compliance-normalize      (ask_inventory: yes)
             - compliance-remediate      (become: yes, ask_inventory: yes, ask_tags: yes)
 
           Workflow (2-node assessment, read-only):
             - compliance-pipeline-rhel9-stig  (ask_inventory: yes)
-              Gather Facts -> Evaluate
+              OpenSCAP Scan -> Normalize
               (all nodes inherit inventory from workflow)
               Remediation is a separate direct JT launch (not a workflow node)
 ...

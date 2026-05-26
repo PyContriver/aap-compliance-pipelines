@@ -500,48 +500,50 @@ export class ComplianceService {
       `Fetching results for workflow job ${workflowJobId} (scan ${scanId})`,
     );
 
-    // Step 1: Get workflow nodes to find the evaluate job
+    // Step 1: Get workflow nodes to find the normalize job
     const nodesResponse = await this.controllerClient.getWorkflowNodes(
       workflowJobId,
       token,
     );
     const nodes = nodesResponse.results;
 
-    // Find the evaluate node — look for identifier containing "evaluate",
-    // or fall back to a job name containing "evaluate"
-    const evaluateNode = nodes.find(
+    // Find the normalize node — look for identifier containing "normalize",
+    // then fall back to "evaluate" for backward compatibility with old workflows
+    const normalizeNode = nodes.find(
       n =>
+        n.identifier?.toLowerCase().includes('normaliz') ||
+        n.summary_fields?.job?.name?.toLowerCase().includes('normaliz') ||
         n.identifier?.toLowerCase().includes('evaluat') ||
         n.summary_fields?.job?.name?.toLowerCase().includes('evaluat'),
     );
 
-    if (!evaluateNode?.summary_fields?.job?.id) {
+    if (!normalizeNode?.summary_fields?.job?.id) {
       this.logger.warn(
-        `No evaluate node found in workflow ${workflowJobId}. ` +
+        `No normalize/evaluate node found in workflow ${workflowJobId}. ` +
         `Nodes: ${nodes.map(n => `${n.identifier}(${n.summary_fields?.job?.name ?? 'no-job'})`).join(', ')}`,
       );
       return [];
     }
 
-    const evaluateJobId = evaluateNode.summary_fields.job.id;
+    const normalizeJobId = normalizeNode.summary_fields.job.id;
     this.logger.info(
-      `Found evaluate job ${evaluateJobId} (node: ${evaluateNode.identifier})`,
+      `Found normalize job ${normalizeJobId} (node: ${normalizeNode.identifier})`,
     );
 
-    // Step 2: Fetch runner_on_ok events from the evaluate job
+    // Step 2: Fetch runner_on_ok events from the normalize job
     const eventsResponse = await this.controllerClient.getRunnerOkEvents(
-      evaluateJobId,
+      normalizeJobId,
       token,
     );
     const events = eventsResponse.results;
     this.logger.info(
-      `Retrieved ${events.length} runner_on_ok events from evaluate job ${evaluateJobId}`,
+      `Retrieved ${events.length} runner_on_ok events from normalize job ${normalizeJobId}`,
     );
 
     // Step 3: Parse findings from job events
     const findings = this.parseJobEvents(events, scanId);
     this.logger.info(
-      `Parsed ${findings.length} findings from evaluate job ${evaluateJobId}`,
+      `Parsed ${findings.length} findings from normalize job ${normalizeJobId}`,
     );
 
     // Step 4: Try to persist to the database (non-fatal if it fails)
@@ -567,7 +569,7 @@ export class ComplianceService {
   }
 
   /**
-   * Parse job events from the evaluate job into StoredFinding rows.
+   * Parse job events from the normalize job into StoredFinding rows.
    *
    * Supports two tracks:
    *   - Track A: compliance_evaluate module output with findings[] array
@@ -718,6 +720,10 @@ export class ComplianceService {
       });
     }
 
+    // Try to load rule metadata for enrichment. With oscap, metadata
+    // comes from the XCCDF datastream via the normalizer. The rules YAML
+    // is a fallback for local dev / mock mode. If neither is available,
+    // findings display with rule_id as the title.
     const rules = this.getRulesMetadata();
     const results: MultiHostFinding[] = [];
     for (const [ruleId, entry] of byRule) {
