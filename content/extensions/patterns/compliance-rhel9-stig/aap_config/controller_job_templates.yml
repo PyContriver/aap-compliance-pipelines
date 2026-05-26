@@ -21,6 +21,7 @@ controller_templates:
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content
+    execution_environment: "Compliance STIG RHEL 9"
     playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml
     credentials:
       - compliance-lab-ssh
@@ -34,6 +35,7 @@ controller_templates:
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content
+    execution_environment: "Compliance STIG RHEL 9"
     playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml
     ask_inventory_on_launch: true
 
@@ -43,6 +45,7 @@ controller_templates:
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content
+    execution_environment: "Compliance STIG RHEL 9"
     playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml
     credentials:
       - compliance-lab-ssh
