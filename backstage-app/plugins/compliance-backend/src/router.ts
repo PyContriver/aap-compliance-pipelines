@@ -198,22 +198,7 @@ export async function createRouter(
             : await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
           const terminal = ['successful', 'failed', 'error', 'canceled'];
           if (terminal.includes(status.status)) {
-            let newStatus: string;
-            if (status.status === 'successful') {
-              newStatus = 'completed';
-            } else if (!isRemediation) {
-              // For assessment/verification scans, the workflow may fail because
-              // the remediate node failed while gather+evaluate succeeded. Check
-              // if findings were produced — if so, the scan is completed.
-              const nodes = await service.getWorkflowNodes(scan.workflowJobId!, userToken).catch(() => []);
-              const evaluateOk = nodes.some(
-                (n: { identifier: string; status: string }) =>
-                  n.identifier === 'evaluate' && n.status === 'successful',
-              );
-              newStatus = evaluateOk ? 'completed' : 'failed';
-            } else {
-              newStatus = 'failed';
-            }
+            const newStatus = status.status === 'successful' ? 'completed' : 'failed';
             await database.updateScanStatus(scan.id, newStatus, status.finished ?? new Date().toISOString());
             scan.status = newStatus as typeof scan.status;
             scan.completedAt = status.finished ?? new Date().toISOString();

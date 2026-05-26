@@ -156,10 +156,16 @@
     # can pass the user-selected inventory at launch time.
     # Workflow nodes must NOT set inventory (inventory: null) so they
     # inherit the workflow-level inventory override.
+    #
+    # The workflow is 2 nodes: gather-facts → evaluate.
+    # Remediation is NOT part of the assessment workflow — it is launched
+    # as a direct JT by the plugin with job_tags for scoped rule selection.
+    # This separation ensures assessments never modify hosts and keeps
+    # remediation as a deliberate, user-initiated (or EDA-triggered) action.
     controller_workflows:
       - name: compliance-pipeline-rhel9-stig
         organization: "{{ compliance_org }}"
-        description: "RHEL 9 STIG compliance pipeline: Gather Facts -> Evaluate -> Remediate"
+        description: "RHEL 9 STIG compliance pipeline: Gather Facts -> Evaluate"
         ask_inventory_on_launch: true
         state: present
         simplified_workflow_nodes:
@@ -176,16 +182,6 @@
           - identifier: evaluate
             unified_job_template:
               name: compliance-evaluate
-              type: job_template
-              organization:
-                name: "{{ compliance_org }}"
-            inventory:              # null = inherit from workflow
-            success_nodes:
-              - remediate
-
-          - identifier: remediate
-            unified_job_template:
-              name: compliance-remediate
               type: job_template
               organization:
                 name: "{{ compliance_org }}"

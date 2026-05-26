@@ -188,13 +188,7 @@ export const ScanProgress = ({
         const terminal = ['successful', 'failed', 'error', 'canceled'];
         if (terminal.includes(status.status) && !completeFired.current) {
           completeFired.current = true;
-          // The workflow may report 'failed' because the remediate node
-          // failed, even though gather+evaluate succeeded and produced
-          // findings. Check if the evaluate node completed successfully
-          // before declaring the scan failed.
-          const evaluateNode = parsedNodes.find(n => n.identifier === nodeIds[1]);
-          const evaluateOk = evaluateNode?.status === 'successful';
-          if (status.status === 'successful' || evaluateOk) {
+          if (status.status === 'successful') {
             onCompleteRef.current?.();
           } else {
             onFailedRef.current?.(status.status);

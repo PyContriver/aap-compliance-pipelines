@@ -4,14 +4,21 @@
 # This playbook imports the ComplianceAsCode (CaC) remediation playbook
 # from the scap-security-guide RPM inside the Execution Environment.
 #
-# Scoping:
-#   The compliance dashboard launches this JT directly (not through the
-#   workflow) with native AAP job_tags to scope remediation to selected
-#   rules. The CaC playbook's tasks are tagged per rule ID, so AAP's
-#   built-in --tags filtering applies automatically.
+# IMPORTANT: This playbook is launched DIRECTLY as a standalone job
+# template — NOT as part of the assessment workflow. The compliance
+# dashboard resolves the remediate JT from the workflow template and
+# launches it directly with native AAP job_tags to scope remediation
+# to selected rules.
 #
-#   No wrapper logic is needed — the JT has ask_tags_on_launch: true,
-#   and the Controller passes --tags at the CLI level.
+# The assessment workflow (gather → evaluate) does NOT include a
+# remediate node. This separation ensures assessment scans never
+# apply changes to hosts, and remediation is always a deliberate,
+# user-initiated action.
+#
+# Scoping:
+#   The JT has ask_tags_on_launch: true. The dashboard passes selected
+#   rule IDs as job_tags. AAP's built-in --tags filtering applies
+#   automatically to the CaC playbook's per-rule tagged tasks.
 #
 # Parameter overrides:
 #   CaC variables (e.g., var_accounts_tmout: 900) are passed as
