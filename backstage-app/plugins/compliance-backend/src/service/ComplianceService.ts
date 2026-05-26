@@ -61,8 +61,9 @@ interface RuleMetadata {
 
 function loadRulesMetadata(): Map<string, RuleMetadata> {
   const map = new Map<string, RuleMetadata>();
-  // Check package-root rules/ first (dist-dynamic), then collections path (local dev)
-  const packageRules = path.resolve(__dirname, '..', 'rules');
+  // Check package-root rules/ first (dist-dynamic: __dirname is dist/service/,
+  // so ../../rules/ reaches package root), then collections path (local dev)
+  const packageRules = path.resolve(__dirname, '..', '..', 'rules');
   const collectionsRules = path.resolve(
     __dirname, '..', '..', '..', '..', '..',
     'collections', 'ansible_collections', 'security', 'compliance_rhel9_stig', 'rules',
