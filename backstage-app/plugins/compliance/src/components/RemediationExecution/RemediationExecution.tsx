@@ -1060,7 +1060,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                               variant="caption"
                               className={classes.ruleProgressLabel}
                             >
-                              {!hasTasks && ruleStatus === 'completed' ? 'Already Compliant' : `${pct}%`}
+                              {!hasTasks && ruleStatus === 'completed' ? 'Compliant' : `${pct}%`}
                             </Typography>
                           </div>
                         </div>

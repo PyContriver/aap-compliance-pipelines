@@ -1,12 +1,16 @@
 ---
 # DISA STIG for RHEL 9 — Rule Definitions
 #
-# IMPORTANT: Rule titles MUST match the CaC (ComplianceAsCode) remediation
-# playbook's task name prefixes. The compliance dashboard uses title-prefix
-# matching to group remediation tasks under their parent rule.
+# IMPORTANT: Rule IDs MUST match the ComplianceAsCode (CaC) remediation
+# playbook's task tag names exactly. The compliance plugin passes rule IDs
+# as job_tags when launching remediation, and CaC filters tasks by tag.
 #
-# Convention: CaC tasks follow the pattern "Rule Title - Subtask Description".
-# The title field here must match the "Rule Title" portion exactly.
+# Rule titles MUST match the CaC playbook's task name prefixes for the
+# remediation execution view to group tasks under their parent rule.
+#
+# Convention: CaC rule IDs are the directory names under
+# github.com/ComplianceAsCode/content/linux_os/guide/.
+# CaC tasks follow the pattern "Rule Title - Subtask Description".
 #
 # Source: /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
 # Reference: https://github.com/ComplianceAsCode/content
@@ -21,7 +25,7 @@ profile:
     Rules evaluated centrally against agentlessly gathered facts.
 
 rules:
-  - id: sshd_set_idle_timeout
+  - id: sshd_set_keepalive_0
     stig_id: V-257844
     title: Set SSH Client Alive Interval
     severity: high
@@ -118,7 +122,7 @@ rules:
       params:
         name: auditd
 
-  - id: grub2_password
+  - id: grub2_uefi_password
     stig_id: V-257785
     title: Set Boot Loader Password in grub2
     severity: high
@@ -156,7 +160,7 @@ rules:
       params:
         name: ctrl-alt-del
 
-  - id: sysctl_accept_redirects
+  - id: sysctl_net_ipv4_conf_all_accept_redirects
     stig_id: V-257800
     title: Disable Accepting ICMP Redirects
     severity: medium
@@ -171,7 +175,7 @@ rules:
         key: net.ipv4.conf.all.accept_redirects
         value: "0"
 
-  - id: mount_tmp_noexec
+  - id: mount_option_tmp_noexec
     stig_id: V-257793
     title: Add noexec Option to /tmp
     severity: medium
@@ -206,7 +210,7 @@ rules:
         type: string
         default: "You are accessing a U.S. Government Information System..."
 
-  - id: selinux_enforcing
+  - id: selinux_state
     stig_id: V-257786
     title: Ensure SELinux State is Enforcing
     severity: high
@@ -232,7 +236,7 @@ rules:
       params:
         name: rsyslog
 
-  - id: audit_chmod
+  - id: audit_rules_dac_modification_chmod
     stig_id: V-257910
     title: Record Events that Modify the System's Discretionary Access Controls - chmod
     severity: medium
@@ -284,7 +288,7 @@ rules:
           - {label: FIPS, value: FIPS}
           - {label: "FIPS:OSPP", value: "FIPS:OSPP"}
 
-  - id: passwd_permissions
+  - id: file_permissions_etc_passwd
     stig_id: V-257820
     title: Verify Permissions on passwd File
     severity: medium
@@ -299,7 +303,7 @@ rules:
         path: /etc/passwd
         max_mode: "0644"
 
-  - id: shadow_permissions
+  - id: file_permissions_etc_shadow
     stig_id: V-257821
     title: Verify Permissions on shadow File
     severity: medium
@@ -314,7 +318,7 @@ rules:
         path: /etc/shadow
         max_mode: "0000"
 
-  - id: package_telnet_not_installed
+  - id: package_telnet_removed
     stig_id: V-257835
     title: Uninstall telnet Package
     severity: high
