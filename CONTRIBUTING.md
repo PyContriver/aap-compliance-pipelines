@@ -63,11 +63,7 @@ Target: all tests passing. Current: 206 tests across 11 suites.
 
 ## Branching and Workflow
 
-### Current (prototype phase)
-
-Direct pushes to `main` are acceptable for the primary developer. This will change when more contributors join.
-
-### Future (multi-developer)
+Branch protection is enabled on `main` for both GitHub and GitLab.
 
 ```
 main ←── feature branches (PRs only)
@@ -78,11 +74,18 @@ main ←── feature branches (PRs only)
   └── Tags (v0.1.0, v0.2.0) for production Portal deployment
 ```
 
-- **No direct pushes to `main`** — PRs only
+- **No direct pushes to `main`** — PRs only, branch protection enforced
 - **Every PR must pass tests** — CI enforces this
 - **Feature branches**: `feature/description` or `claude/description`
 - **Commit messages**: imperative mood, describe what changed and why
 - **Co-authored commits**: include `Co-Authored-By:` for AI-assisted work
+
+### Active Feature Branches
+
+| Branch | Purpose | Status |
+|--------|---------|--------|
+| `feature/oscap-scanner` | Replace custom evaluate module with oscap xccdf eval | Planned |
+| `feature/tier2-adapter` | Tenable/Insights scanner adapter PoC | Planned |
 
 ## Deployment Models
 
