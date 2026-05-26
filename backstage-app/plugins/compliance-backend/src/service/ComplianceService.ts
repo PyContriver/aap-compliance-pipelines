@@ -61,10 +61,13 @@ interface RuleMetadata {
 
 function loadRulesMetadata(): Map<string, RuleMetadata> {
   const map = new Map<string, RuleMetadata>();
-  const rulesDir = path.resolve(
+  // Check package-root rules/ first (dist-dynamic), then collections path (local dev)
+  const packageRules = path.resolve(__dirname, '..', 'rules');
+  const collectionsRules = path.resolve(
     __dirname, '..', '..', '..', '..', '..',
     'collections', 'ansible_collections', 'security', 'compliance_rhel9_stig', 'rules',
   );
+  const rulesDir = fs.existsSync(packageRules) ? packageRules : collectionsRules;
   try {
     const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
     for (const file of files) {
