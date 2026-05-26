@@ -55,8 +55,8 @@ security.compliance_<platform>_<framework>/
     normalize_<scanner>.py              # Scanner output --> Common Findings Format
 
   playbooks/                            # Pipeline-stage playbooks
-    run_oscap.yml                       # Run scanner on targets, fetch results (Node 1)
-    normalize.yml                       # Transform results to CFF (Node 2)
+    run_oscap.yml                       # Scan targets + normalize in one JT (2 plays)
+    normalize.yml                       # Standalone normalize utility (debugging, Tier 2 reuse)
     remediate.yml                       # Apply selective remediation (standalone JT)
 
   docs/                                 # Collection documentation
@@ -746,31 +746,33 @@ ansible-builder build -f execution-environment.yml -t compliance-<platform>-<fra
 
 The compliance profile must define a Controller workflow with these stages. Each stage maps to a job template. The workflow uses `infra.aap_configuration` YAML format for declarative setup.
 
-> **Note:** The full pipeline defines 7 stages for maximum flexibility. The reference implementation (`security.compliance_rhel9_stig`) uses a **2-node assessment workflow: Gather → Evaluate**. Remediation is launched as a separate, standalone job template (not part of the workflow) with `job_tags` for scoped rule selection. This separation ensures assessments never modify hosts. In this model, Gather combines fact collection and scanning, Evaluate handles normalization and policy evaluation, and verification is triggered as a separate assessment scan from the UI. New profiles can implement any subset of stages — the plugin requires only that the workflow produces CFF-format findings.
+> **Note:** The full pipeline defines 7 stages for maximum flexibility. The reference implementation (`security.compliance_rhel9_stig`) uses a **single JT** (`run_oscap.yml`) with two plays: Play 1 scans targets, Play 2 normalizes on localhost (same container). Remediation is launched as a separate, standalone job template (not part of the assessment) with `job_tags` for scoped rule selection. This separation ensures assessments never modify hosts. Verification is triggered as a separate assessment scan from the UI. New profiles can implement any subset of stages -- the plugin requires only that the JT produces CFF-format findings.
 
 ### Pipeline Stages
 
-The reference implementation uses a **2-node assessment workflow** with OpenSCAP:
+The reference implementation uses a **single assessment JT** with OpenSCAP:
 
 ```
-  +------------+     +------------+
-  | Run OpenSCAP|---->| Normalize  |     (2-node assessment workflow)
-  | (targets)  |     | (EE)       |
-  +------------+     +------------+
-                           |
-                    CFF JSON findings
-                           |
-                           v
-                    +------------+
-                    | Remediate  |     (separate standalone JT)
-                    | (targets)  |
-                    +------------+
+  +-----------------------------------+
+  | compliance-run-oscap (single JT)  |
+  |                                   |
+  |  Play 1: OpenSCAP scan (targets)  |
+  |  Play 2: Normalize (localhost)    |
+  +-----------------------------------+
+                    |
+             CFF JSON findings
+                    |
+                    v
+             +------------+
+             | Remediate  |     (separate standalone JT)
+             | (targets)  |
+             +------------+
 ```
 
-| Node | Purpose | Runs On | Playbook |
-|------|---------|---------|----------|
-| **1. Run OpenSCAP** | Install oscap, copy datastream, scan, fetch XCCDF XML | Target hosts | `playbooks/run_oscap.yml` |
-| **2. Normalize** | Parse XCCDF XML, extract metadata, produce CFF JSON | Execution node (localhost) | `playbooks/normalize.yml` |
+| Stage | Purpose | Runs On | Playbook |
+|-------|---------|---------|----------|
+| **Assessment (Play 1)** | Install oscap, copy datastream, scan, fetch XCCDF XML | Target hosts | `playbooks/run_oscap.yml` (Play 1) |
+| **Assessment (Play 2)** | Parse XCCDF XML, extract metadata, produce CFF JSON | localhost (same container) | `playbooks/run_oscap.yml` (Play 2) |
 | **Remediate** | Apply CaC remediation scoped by `job_tags` (standalone JT) | Target hosts | `playbooks/remediate.yml` |
 
 For profiles using different scanners, the full pipeline supports up to 7 stages:
@@ -783,45 +785,13 @@ For profiles using different scanners, the full pipeline supports up to 7 stages
 | **4. Remediate** | Execute approved remediations (behind approval gate) | Target hosts | `playbooks/remediate.yml` |
 | **5. Verify** | Re-scan to confirm remediation effectiveness | Target hosts | (re-run scan playbook) |
 
-### Workflow Definition
+### Assessment JT (Tier 1 Pattern)
 
-The assessment workflow goes in `extensions/patterns/aap_config/workflow.yml` using `infra.aap_configuration` format. The **recommended pattern is 2 nodes** (run-oscap -> normalize). Remediation is always a separate, standalone job template -- never a workflow node. This ensures assessments are read-only and the gap between assess and remediate is available for human review, EDA policy evaluation, or future AI-driven decision-making.
+For Tier 1 scanners (OpenSCAP), the assessment is a **single job template** running `run_oscap.yml`. This playbook contains two plays: Play 1 scans targets via SSH, Play 2 normalizes results on localhost. Both plays run in the same container, so fetched XCCDF XML files are available to the normalize step without cross-container file sharing.
 
-```yaml
----
-# Assessment workflow: 2 nodes (run-oscap -> normalize)
-# Remediation is a separate JT launched directly -- NOT a workflow node.
-# This separation ensures scans never modify hosts and enables three
-# operating modes:
-#   1. Human-supervised: workflow -> human reviews -> launches remediate JT
-#   2. EDA-automated: workflow -> EDA rulebook -> conditionally launches remediate JT
-#   3. Future autonomous: workflow -> AI agent -> decides remediation scope
-controller_workflows:
-  - name: compliance-pipeline-<platform>-<framework>
-    description: "<Platform> <Framework> Assessment Pipeline"
-    organization: compliance
-    survey_enabled: true
-    ask_inventory_on_launch: true    # REQUIRED: plugin passes inventory at launch
-    workflow_nodes:
-      - identifier: run-oscap
-        unified_job_template:
-          name: compliance-run-oscap-<platform>-<framework>
-          type: job_template
-        inventory:                   # null = inherit from workflow
-        success_nodes:
-          - normalize
-        failure_nodes: []
+No workflow is needed for Tier 1 assessment. Remediation is always a separate, standalone job template -- never combined with assessment. This ensures assessments are read-only and the gap between assess and remediate is available for human review, EDA policy evaluation, or future AI-driven decision-making.
 
-      - identifier: normalize
-        unified_job_template:
-          name: compliance-normalize-<platform>-<framework>
-          type: job_template
-        inventory:                   # null = inherit from workflow
-        success_nodes: []
-        failure_nodes: []
-```
-
-> **Why not 3 nodes (scan -> normalize -> remediate)?** Ansible's `import_playbook` doesn't support `when` conditions, so there is no clean way to conditionally skip remediation in a workflow. A 3-node workflow eliminates the decision point between assess and remediate -- which is exactly where the intelligence lives (human judgment, EDA policy rules, or AI agent logic). The 2-node assessment workflow + separate remediation JT is the correct pattern for all modes.
+> **Why a single JT instead of a multi-node workflow?** AAP workflow nodes run in separate containers. The scan play fetches XCCDF result files from targets to the execution node, but a second workflow node cannot access those files because it runs in a different container. Combining scan and normalize into one JT (two plays) solves this. Tier 2 scanners (API-based) do not have this problem because they fetch results via API on localhost, so multi-node workflows remain valid for Tier 2/3 profiles.
 
 ### Job Template Definitions
 
@@ -870,41 +840,30 @@ The compliance plugin depends on specific AAP Controller resource settings to fu
 
 #### Inventory Propagation
 
-The plugin passes the user-selected inventory to the workflow template at launch time via `POST /api/controller/v2/workflow_job_templates/{id}/launch/` with `{"inventory": <id>}`. For this to work, three settings must be correct:
-
-1. **Workflow template**: `ask_inventory_on_launch: true` -- allows the plugin to override the default inventory at launch time.
-2. **All child job templates**: `ask_inventory_on_launch: true` -- allows each workflow node to accept an inventory override from the workflow.
-3. **Workflow nodes**: `inventory: null` (or omitted) -- tells each node to inherit the inventory from the workflow rather than using the JT's default.
-
-If any of these are wrong, the workflow will silently use the JT's hardcoded default inventory instead of the one the user selected in the portal.
+The plugin passes the user-selected inventory to the assessment JT at launch time via `POST /api/controller/v2/job_templates/{id}/launch/` with `{"inventory": <id>}`. The JT must have `ask_inventory_on_launch: true` to accept this override.
 
 ```
 Plugin selects inventory "prod-rhel9"
   |
   v
-Workflow (ask_inventory_on_launch: true)       # 2-node assessment workflow
+Assessment JT: compliance-run-oscap (ask_inventory_on_launch: true)
   receives inventory override = "prod-rhel9"
-  |
-  +---> Node: gather-facts (inventory: null)
-  |       inherits "prod-rhel9" from workflow
-  |       JT has ask_inventory_on_launch: true -> accepts it
-  |
-  +---> Node: evaluate (inventory: null)
-          inherits "prod-rhel9" from workflow
+  Play 1: scans targets in "prod-rhel9"
+  Play 2: normalizes on localhost (same container)
 
-Remediation is NOT a workflow node — it is launched as a separate
-direct JT call with the same inventory override (see below).
+Remediation is a separate direct JT call with the same
+inventory override (see below).
 ```
 
 #### Remediation: Direct JT Launch with job_tags
 
-The plugin launches the remediation JT **directly** (not through the workflow). The assessment workflow is strictly 2 nodes (gather -> evaluate) and never modifies hosts. This separation is the correct architecture for all operating modes:
+The plugin launches the remediation JT **directly** (not through the assessment JT). The assessment JT runs `run_oscap.yml` (scan + normalize) and never modifies hosts. This separation is the correct architecture for all operating modes:
 
-- **Human-supervised**: workflow (gather -> evaluate) -> human reviews findings -> human launches remediate JT with selected rules as job_tags
-- **EDA-automated**: workflow (gather -> evaluate) -> EDA rulebook evaluates findings -> conditionally launches remediate JT based on policy
-- **Future autonomous**: same pattern — the decision point between assess and remediate is where intelligence lives
+- **Human-supervised**: assessment JT -> human reviews findings -> human launches remediate JT with selected rules as job_tags
+- **EDA-automated**: assessment JT -> EDA rulebook evaluates findings -> conditionally launches remediate JT based on policy
+- **Future autonomous**: same pattern -- the decision point between assess and remediate is where intelligence lives
 
-Additional technical reasons: Ansible's `import_playbook` doesn't support `when` conditions (no clean way to conditionally skip remediation in a 3-node workflow), and AAP workflow-level `job_tags` do not propagate to child job templates. The remediation JT must have:
+The remediation JT must have:
 
 - `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
@@ -925,20 +884,18 @@ The plugin launches remediation via `POST /api/controller/v2/job_templates/{id}/
 }
 ```
 
-#### Workflow Template Resolution
+#### Assessment JT Resolution
 
-The plugin resolves the workflow template in two ways:
+The plugin resolves the assessment job template in two ways:
 
-1. **Compliance profile registration** -- The admin maps a workflow template ID in the Settings page. The plugin uses this ID directly.
-2. **Name search fallback** -- If the ID is not set, the plugin searches for workflow templates matching the compliance profile's naming convention (e.g., `compliance-pipeline-rhel9-stig`).
+1. **Compliance profile registration** -- The admin maps a job template ID in the Settings page. The plugin uses this ID directly.
+2. **Name search fallback** -- If the ID is not set, the plugin searches for job templates matching the compliance profile's naming convention (e.g., `compliance-run-oscap`).
 
 #### Configuration Checklist
 
 | Resource | Setting | Value | Why |
 |----------|---------|-------|-----|
-| Workflow template | `ask_inventory_on_launch` | `true` | Plugin passes user-selected inventory |
-| All child JTs | `ask_inventory_on_launch` | `true` | Accept inventory from workflow |
-| Workflow nodes | `inventory` | `null` | Inherit from workflow, not from JT default |
+| Assessment JT | `ask_inventory_on_launch` | `true` | Plugin passes user-selected inventory |
 | Remediation JT | `ask_tags_on_launch` | `true` | Plugin passes selected rules as job_tags |
 | Remediation JT | `ask_variables_on_launch` | `true` | Plugin passes parameter overrides |
 | Remediation JT | `ask_inventory_on_launch` | `true` | Plugin passes inventory for direct launch |
@@ -1091,7 +1048,7 @@ When a compliance profile collection is installed, an administrator registers it
 | **Display name** | Manual entry | Human-readable name (e.g., "RHEL 9 DISA STIG") |
 | **Compliance standard identifier** | Manual entry | Machine identifier (e.g., `rhel9-stig-v2r8`) |
 | **Execution Environment** | AAP Gateway API dropdown | The EE built from the compliance profile's `ee/execution-environment.yml` |
-| **Workflow job template** | AAP Gateway API dropdown | The workflow provisioned from `extensions/patterns/aap_config/workflow.yml` |
+| **Assessment job template** | AAP Gateway API dropdown | The JT running `run_oscap.yml` (scan + normalize) |
 | **Remediation playbook path** | From collection | Path to the remediation playbook inside the EE |
 | **Scanner tier** | Manual selection | 1 (built-in), 2 (BYOS), or 3 (hybrid) |
 | **Scan tags** | Optional | Tags for organizing compliance profiles in the UI |
@@ -1138,9 +1095,7 @@ A well-built compliance profile must ensure that scanners are swappable without 
 | Common Findings JSON schema | NO (same schema) |
 | Remediation roles | NO |
 | Dashboard views and filters | NO |
-| Workflow (top-level) | YES -- different workflow per scanner |
-| Scan job template | YES -- different scan/fetch job |
-| Normalize job template | YES -- different normalizer |
+| Assessment job template | YES -- different scan/normalize JT per scanner |
 | Execution Environment | YES -- different dependencies |
 | Credentials | YES -- different credential type |
 | Remediate job template | NO |
@@ -1242,8 +1197,8 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 | `collections/ansible_collections/security/compliance_rhel9_stig/galaxy.yml` | Collection metadata |
 | `collections/ansible_collections/security/compliance_rhel9_stig/meta/runtime.yml` | Ansible version requirements |
 | `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF (366 rules) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Scan stage: install oscap, scan, fetch results (Node 1) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Normalize stage: XCCDF XML to CFF JSON (Node 2) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment JT: scan targets (Play 1) + normalize on localhost (Play 2) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Standalone normalize utility (debugging, Tier 2 reuse) |
 | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation: imports CaC playbook (standalone JT) |
 | `collections/ansible_collections/security/compliance_rhel9_stig/docs/architecture.md` | Pipeline architecture and data flow |
 | `collections/ansible_collections/security/compliance_rhel9_stig/docs/playbook-reference.md` | Playbook variables and usage examples |

@@ -1,23 +1,22 @@
 ---
 # AAP Controller Job Templates for RHEL 9 STIG Compliance
 #
-# Architecture: 2-node assessment workflow (run-oscap → normalize)
-# with a standalone remediation JT launched directly.
+# Architecture: single assessment JT (run_oscap.yml with 2 plays)
+# plus a standalone remediation JT launched directly.
 #
-# All JTs must have ask_inventory_on_launch: true so the workflow's
-# inventory override propagates. Remediation JT also needs
-# ask_tags_on_launch for scoped rule selection via CaC job_tags.
+# The assessment JT (compliance-run-oscap) runs scan + normalize in
+# one container. No workflow needed -- Play 1 scans targets, Play 2
+# normalizes on localhost.
 #
-# Assessment workflow:
-#   Node 1: compliance-run-oscap — oscap xccdf eval on targets (read-only)
-#   Node 2: compliance-normalize — XCCDF XML → CFF JSON on execution node
+# The normalize JT is retained as a standalone utility for debugging
+# and Tier 2 scanner reuse.
 #
-# Remediation: launched directly (not via workflow) with job_tags
+# Remediation: launched directly (not via assessment) with job_tags
 # for human-supervised, EDA-automated, or autonomous modes.
 controller_templates:
   - name: compliance-run-oscap
     organization: compliance-prototype
-    description: "Run OpenSCAP STIG scan on RHEL 9 targets (install, scan, fetch, cleanup)"
+    description: "OpenSCAP STIG assessment: scan targets + normalize results (single JT, 2 plays)"
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content
@@ -31,7 +30,7 @@ controller_templates:
 
   - name: compliance-normalize
     organization: compliance-prototype
-    description: "Normalize XCCDF results to Common Findings Format on execution node"
+    description: "Standalone normalize utility (debugging, Tier 2 reuse) — not needed for standard assessment"
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content

@@ -48,9 +48,9 @@ Full guide: `docs/deployment-guide.md`
 
 ## Terminology
 
-- "Compliance profile" = registered standard mapped to a 2-node assessment workflow + EE (Settings tab)
+- "Compliance profile" = registered standard mapped to an assessment JT + EE (Settings tab)
 - "Remediation" = saved rule selections + parameter overrides (Remediations tab)
-- "Assessment workflow" = 2-node workflow (run-oscap -> normalize), read-only, never modifies hosts
+- "Assessment JT" = single job template running `run_oscap.yml` (scan targets + normalize on localhost in one JT), read-only, never modifies hosts
 - "Remediation JT" = standalone job template launched directly (not via workflow) with job_tags
 - "CFF" = Common Findings Format, the JSON schema all scanners normalize to
 - AAP 2.6 terms: "automation controller" (lowercase), "workflow job template", "platform gateway"
@@ -59,8 +59,8 @@ Full guide: `docs/deployment-guide.md`
 
 Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide for 366 STIG rules:
 
-1. `run_oscap.yml` (Node 1, targets): installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up
-2. `normalize.yml` (Node 2, EE): `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON
+1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON.
+2. `normalize.yml` (standalone utility): same normalization logic as Play 2 above, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
 
 Key files in the EE:

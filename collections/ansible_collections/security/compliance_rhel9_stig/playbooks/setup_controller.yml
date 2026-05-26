@@ -125,7 +125,7 @@
           - "{{ compliance_credential }}"
         become_enabled: true
         ask_inventory_on_launch: true
-        description: "Run OpenSCAP STIG scan on target hosts (install, scan, fetch, cleanup)"
+        description: "OpenSCAP STIG assessment: scan targets + normalize results (single JT, 2 plays)"
         state: present
 
       - name: compliance-normalize
@@ -135,7 +135,7 @@
         playbook: "{{ playbook_normalize }}"
         execution_environment: "{{ compliance_ee }}"
         ask_inventory_on_launch: true
-        description: "Normalize XCCDF results to Common Findings Format on execution node"
+        description: "Standalone normalize utility (debugging, Tier 2 reuse) — not needed for standard assessment"
         state: present
 
       - name: compliance-remediate
@@ -153,21 +153,19 @@
         description: "Apply CaC STIG remediation to target hosts"
         state: present
 
-    # ── Workflow Job Template ───────────────────────────────────────
-    # IMPORTANT: ask_inventory_on_launch must be true so the plugin
-    # can pass the user-selected inventory at launch time.
-    # Workflow nodes must NOT set inventory (inventory: null) so they
-    # inherit the workflow-level inventory override.
+    # ── Workflow Job Template (legacy / Tier 2 pattern) ──────────────
+    # For Tier 1 (OpenSCAP), the assessment is a single JT
+    # (compliance-run-oscap) with 2 plays — no workflow needed.
+    # This workflow is retained for backward compatibility and as a
+    # template for Tier 2 scanners where multi-node workflows are valid
+    # (API-based scanners run on localhost, no cross-container file issues).
     #
-    # The workflow is 2 nodes: run-oscap → normalize.
-    # Remediation is NOT part of the assessment workflow — it is launched
+    # Remediation is NOT part of the assessment — it is launched
     # as a direct JT by the plugin with job_tags for scoped rule selection.
-    # This separation ensures assessments never modify hosts and keeps
-    # remediation as a deliberate, user-initiated (or EDA-triggered) action.
     controller_workflows:
       - name: compliance-pipeline-rhel9-stig
         organization: "{{ compliance_org }}"
-        description: "RHEL 9 STIG compliance pipeline: OpenSCAP Scan -> Normalize"
+        description: "RHEL 9 STIG compliance pipeline (legacy workflow — use compliance-run-oscap JT directly)"
         ask_inventory_on_launch: true
         state: present
         simplified_workflow_nodes:
@@ -178,16 +176,7 @@
               organization:
                 name: "{{ compliance_org }}"
             inventory:              # null = inherit from workflow
-            success_nodes:
-              - normalize
-
-          - identifier: normalize
-            unified_job_template:
-              name: compliance-normalize
-              type: job_template
-              organization:
-                name: "{{ compliance_org }}"
-            inventory:              # null = inherit from workflow
+            success_nodes: []
 
   pre_tasks:
     - name: Validate required variables
@@ -267,13 +256,11 @@
           Project:       {{ compliance_project }}
 
           Job Templates:
-            - compliance-run-oscap      (become: yes, ask_inventory: yes)
-            - compliance-normalize      (ask_inventory: yes)
+            - compliance-run-oscap      (assessment: scan + normalize, become: yes, ask_inventory: yes)
+            - compliance-normalize      (standalone utility, ask_inventory: yes)
             - compliance-remediate      (become: yes, ask_inventory: yes, ask_tags: yes)
 
-          Workflow (2-node assessment, read-only):
-            - compliance-pipeline-rhel9-stig  (ask_inventory: yes)
-              OpenSCAP Scan -> Normalize
-              (all nodes inherit inventory from workflow)
-              Remediation is a separate direct JT launch (not a workflow node)
+          Assessment (single JT, read-only):
+            - compliance-run-oscap runs scan (Play 1) + normalize (Play 2) in one container
+            - Remediation is a separate direct JT launch
 ...

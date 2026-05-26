@@ -6,8 +6,8 @@ Detailed usage for each playbook in the `security.compliance_rhel9_stig` collect
 
 Run OpenSCAP XCCDF evaluation on target hosts.
 
-**Runs on:** Target hosts (RHEL 9)
-**Workflow node:** Node 1 of 2-node assessment workflow
+**Runs on:** Target hosts (RHEL 9) via Play 1; localhost via Play 2 (same container)
+**Role:** Assessment JT (scan + normalize in one job)
 
 ### Variables
 
@@ -69,7 +69,7 @@ The `oscap xccdf eval` command uses these exit codes:
 Normalize fetched XCCDF results to Common Findings Format JSON.
 
 **Runs on:** Execution node (localhost)
-**Workflow node:** Node 2 of 2-node assessment workflow
+**Role:** Standalone utility (debugging, Tier 2 reuse). In production, normalization is handled by Play 2 of `run_oscap.yml`.
 
 ### Variables
 

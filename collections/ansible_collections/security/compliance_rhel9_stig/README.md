@@ -6,7 +6,7 @@ OpenSCAP-based scanning with 366 STIG rules, centralized normalization to Common
 
 ## Architecture
 
-The collection uses a 2-node assessment workflow that separates scanning from normalization:
+The collection uses a single job template (`run_oscap.yml`) with two plays that scan targets and normalize results in one container:
 
 ```
 Target hosts (RHEL 9)              Execution node (EE)
@@ -24,11 +24,13 @@ Target hosts (RHEL 9)              Execution node (EE)
 +--------------------------+       +---------------------------+
 ```
 
-**Node 1** (`run_oscap.yml`): Runs on target hosts via SSH. Installs `openscap-scanner` ephemerally if not present, copies the SCAP datastream from the EE, runs `oscap xccdf eval`, fetches results back, and cleans up.
+**Play 1** (targets, in `run_oscap.yml`): Runs on target hosts via SSH. Installs `openscap-scanner` ephemerally if not present, copies the SCAP datastream from the EE, runs `oscap xccdf eval`, fetches results back, and cleans up.
 
-**Node 2** (`normalize.yml`): Runs on the execution node (localhost). Parses XCCDF result XML, extracts all rule metadata (title, description, fix_text, severity, stig_id) directly from the datastream, strips XCCDF prefixes so rule IDs match CaC remediation tags, and outputs CFF JSON.
+**Play 2** (localhost, in `run_oscap.yml`): Runs on the execution node in the same container. Parses XCCDF result XML, extracts all rule metadata (title, description, fix_text, severity, stig_id) directly from the datastream, strips XCCDF prefixes so rule IDs match CaC remediation tags, and outputs CFF JSON.
 
-**Remediation** (`remediate.yml`): Launched as a separate job template (not part of the workflow). Imports the CaC playbook from `scap-security-guide` and uses AAP `job_tags` for selective rule execution.
+**`normalize.yml`**: Standalone utility containing the same normalization logic as Play 2. Available for debugging, re-processing saved XML, and Tier 2 scanner reuse.
+
+**Remediation** (`remediate.yml`): Launched as a separate job template (not part of the assessment). Imports the CaC playbook from `scap-security-guide` and uses AAP `job_tags` for selective rule execution.
 
 ## Requirements
 
@@ -50,19 +52,15 @@ ansible-galaxy collection install security.compliance_rhel9_stig
 
 ## Quick Start
 
-### 1. Run OpenSCAP scan on targets
+### 1. Run OpenSCAP scan and normalize (single command)
 
 ```yaml
 ansible-playbook security.compliance_rhel9_stig.run_oscap -i inventory
 ```
 
-### 2. Normalize results to CFF JSON
+This runs both the scan (Play 1, on targets) and normalization (Play 2, on localhost) in one job.
 
-```yaml
-ansible-playbook security.compliance_rhel9_stig.normalize
-```
-
-### 3. Remediate selected findings
+### 2. Remediate selected findings
 
 ```yaml
 ansible-playbook security.compliance_rhel9_stig.remediate -i inventory \
@@ -72,19 +70,18 @@ ansible-playbook security.compliance_rhel9_stig.remediate -i inventory \
 
 ### In AAP Controller
 
-The 2-node workflow is configured as:
+A single JT runs the full assessment:
 
-1. **JT `compliance-run-oscap`** -- runs `run_oscap.yml` on targets with SSH creds + become
-2. **JT `compliance-normalize`** -- runs `normalize.yml` on execution node (localhost)
+- **JT `compliance-run-oscap`** -- runs `run_oscap.yml` with SSH creds + become. Play 1 scans targets, Play 2 normalizes on localhost (same container).
 
-Remediation is launched as a standalone JT with `ask_tags_on_launch: true` and `ask_variables_on_launch: true`. The Backstage plugin passes selected rule IDs as `job_tags`.
+Remediation is launched as a separate standalone JT with `ask_tags_on_launch: true` and `ask_variables_on_launch: true`. The Backstage plugin passes selected rule IDs as `job_tags`.
 
 ## Playbooks
 
 | Playbook | Runs On | Description |
 |----------|---------|-------------|
-| `run_oscap.yml` | Target hosts | Install oscap, copy datastream, scan, fetch results, cleanup |
-| `normalize.yml` | Execution node | Parse XCCDF XML, produce CFF JSON, set `compliance_report` fact |
+| `run_oscap.yml` | Targets + localhost | Play 1: install oscap, scan, fetch. Play 2: normalize to CFF JSON |
+| `normalize.yml` | Execution node | Standalone normalize utility (debugging, Tier 2 reuse) |
 | `remediate.yml` | Target hosts | Import CaC STIG playbook, scoped by `job_tags` |
 
 ## Modules
