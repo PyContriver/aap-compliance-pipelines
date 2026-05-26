@@ -9,6 +9,7 @@ import {
   Box,
   Typography,
   LinearProgress,
+  CircularProgress,
   Stepper,
   Step,
   StepLabel,
@@ -63,7 +64,7 @@ function nodeStatusIcon(status: string) {
   switch (status) {
     case 'successful': return <StatusOK />;
     case 'failed': case 'error': return <StatusError />;
-    case 'running': case 'waiting': return <StatusRunning />;
+    case 'running': case 'waiting': return <CircularProgress size={20} thickness={4} />;
     default: return <StatusPending />;
   }
 }
@@ -220,7 +221,7 @@ export const ScanProgress = ({
       <Paper className={classes.paper} variant="outlined">
         <Box className={classes.header}>
           <Typography variant="subtitle1">
-            {isFailed ? <StatusError /> : <StatusRunning />} {scanType === 'verification' ? 'Verification Scan' : scanType === 'remediation' ? 'Remediation' : 'Assessment Scan'}{profileName ? `: ${profileName}` : ''}
+            {isFailed ? <StatusError /> : <CircularProgress size={18} thickness={4} style={{ marginRight: 8 }} />} {scanType === 'verification' ? 'Verification Scan' : scanType === 'remediation' ? 'Remediation' : 'Assessment Scan'}{profileName ? `: ${profileName}` : ''}
           </Typography>
           <Chip
             size="small"
