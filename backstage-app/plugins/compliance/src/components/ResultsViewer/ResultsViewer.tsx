@@ -390,8 +390,7 @@ export const ResultsViewer = () => {
   }, [api, jobId]);
 
   const handleScanFailed = useCallback((status: string) => {
-    // Try to fetch findings anyway — the evaluate node may have succeeded
-    // even though the overall workflow failed (e.g. remediate node failed).
+    // Try to fetch findings anyway — the workflow may have partially succeeded.
     api.getFindings(jobId).then(data => {
       if (data.length > 0) {
         setFindings(data);

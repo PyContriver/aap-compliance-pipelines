@@ -145,10 +145,10 @@ The following settings are **mandatory** for the plugin to function:
 
 ### Workflow Structure
 
-The plugin expects a 3-node workflow: `gather-facts` -> `evaluate` -> `remediate`.
+The plugin expects a 2-node workflow: `gather-facts` -> `evaluate`.
 
-- **Scans** are launched via the workflow template (`POST /workflow_job_templates/{id}/launch/`)
-- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`) because workflow-level `job_tags` do not propagate to child JTs in AAP
+- **Scans** (assessment and verification) are launched via the workflow template (`POST /workflow_job_templates/{id}/launch/`)
+- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the workflow. This ensures assessments never modify hosts and remediation is always a deliberate action
 
 ### Verifying Configuration
 

@@ -350,35 +350,16 @@ export class ComplianceService {
     profileId: string,
     token?: string,
   ): Promise<number> {
-    if (this.database) {
-      const cartridge = await this.database.getCartridge(profileId);
-      if (cartridge?.workflowTemplateId) {
-        try {
-          const nodes = await this.controllerClient!.getWorkflowTemplateNodes(
-            cartridge.workflowTemplateId,
-            token,
-          );
-          const remediateNode = nodes.results.find(
-            n => n.identifier === 'remediate' ||
-              n.summary_fields?.unified_job_template?.name?.toLowerCase().includes('remediate'),
-          );
-          const jtId = remediateNode?.summary_fields?.unified_job_template?.id;
-          if (jtId) {
-            this.logger.info(`Resolved remediate JT ${jtId} from workflow template ${cartridge.workflowTemplateId}`);
-            return jtId;
-          }
-        } catch {
-          // Fall through to name search
-        }
-      }
-    }
-
+    // The remediate JT is a standalone job template, not part of the
+    // assessment workflow (which is gather → evaluate only). Resolution
+    // order: (1) name-based search on Controller, (2) cartridge registry.
     const result = await this.controllerClient!.listJobTemplates('compliance-remediate', token);
     if (result.results.length > 0) {
+      this.logger.info(`Resolved remediate JT ${result.results[0].id} via name search`);
       return result.results[0].id;
     }
 
-    throw new Error('No compliance remediate job template found');
+    throw new Error('No compliance remediate job template found. Ensure a JT named "compliance-remediate" exists.');
   }
 
   // ─── Remediation ────────────────────────────────────────────────────

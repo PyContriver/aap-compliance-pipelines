@@ -50,10 +50,8 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const SCAN_STEPS = ['Gather Facts', 'Evaluate'];
-const SCAN_NODE_IDS = ['gather-facts', 'evaluate'];
-const FULL_STEPS = ['Gather Facts', 'Evaluate', 'Remediate'];
-const FULL_NODE_IDS = ['gather-facts', 'evaluate', 'remediate'];
+const STEPS = ['Gather Facts', 'Evaluate'];
+const NODE_IDS = ['gather-facts', 'evaluate'];
 
 interface NodeStatus {
   identifier: string;
@@ -106,8 +104,8 @@ export const ScanProgress = ({
 }: ScanProgressProps) => {
   const classes = useStyles();
   const api = useApi(complianceApiRef);
-  const steps = scanType === 'assessment' || scanType === 'verification' ? SCAN_STEPS : FULL_STEPS;
-  const nodeIds = scanType === 'assessment' || scanType === 'verification' ? SCAN_NODE_IDS : FULL_NODE_IDS;
+  const steps = STEPS;
+  const nodeIds = NODE_IDS;
   const [nodes, setNodes] = useState<NodeStatus[]>([]);
   const [overallStatus, setOverallStatus] = useState('pending');
   const [serverElapsed, setServerElapsed] = useState(0);
