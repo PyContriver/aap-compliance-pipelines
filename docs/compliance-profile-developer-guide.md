@@ -293,7 +293,7 @@ This is THE contract. Every normalizer must produce output conforming to this sc
   "definitions": {
     "finding": {
       "type": "object",
-      "required": ["rule_id", "title", "status", "severity"],
+      "required": ["rule_id", "title", "status", "severity", "description", "check_text", "fix_text", "category"],
       "properties": {
         "rule_id": {
           "type": "string",
@@ -549,6 +549,14 @@ Every compliance profile MUST include a normalizer module. The normalizer is the
 5. **Preserve the original scanner rule ID** in `evidence.scanner_rule_id`
 6. **Populate `actual_value` and `expected_value`** in the evidence object
 7. **Support `check_mode`** (parse without writing output, for dry-run validation)
+8. **Include full rule metadata** in every finding: `title`, `description`, `check_text`, `fix_text`, `category`, `severity`, and `parameters` (if the rule supports parameter overrides)
+
+> **IMPORTANT: The plugin does not enrich findings.** It displays exactly what it receives via the CFF pipeline. All metadata — descriptions, check/fix text, parameter definitions — must be populated by the findings source:
+>
+> - **Tier 1 (built-in evaluate module)**: The evaluate module reads the rules YAML and includes full metadata in its output. The framework author provides the rules YAML; the evaluate module handles enrichment automatically.
+> - **Tier 2 (external scanner + normalizer)**: The normalizer must map scanner output to CFF AND populate all metadata fields. External scanners often provide their own descriptions (e.g., Tenable findings include rich descriptions); the normalizer maps these to CFF fields. For metadata the scanner doesn't provide, the normalizer can read from a supplementary rules YAML or mapping file included in the collection.
+>
+> This design keeps compliance profiles self-contained: adding a new profile to Controller (Git project + workflow + JTs) makes it work end-to-end without repackaging or redeploying the plugin.
 
 ### Implementation Pattern
 
