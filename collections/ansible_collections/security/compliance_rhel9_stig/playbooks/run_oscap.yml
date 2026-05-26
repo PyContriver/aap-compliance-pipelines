@@ -15,8 +15,10 @@
 # does not need scap-security-guide installed.
 #
 # Variables:
-#   compliance_profile: XCCDF profile to evaluate against
+#   oscap_profile: XCCDF profile to evaluate against
 #     (default: xccdf_org.ssgproject.content_profile_stig)
+#     NOTE: This is intentionally named oscap_profile (not compliance_profile)
+#     to avoid collision with the backend's compliance_profile extra_var (UUID).
 #   ssg_datastream_ee_path: path to datastream inside the EE
 #     (default: /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml)
 #   target_results_dir: temp directory on targets for scan results
@@ -161,14 +163,18 @@
           Ensure the scan play completed successfully.
       when: _result_files.files | length == 0
 
-    # Process one host at a time so each event fits in Controller's
-    # job event storage. Processing all hosts in one call produces
-    # a payload too large for the event data (366 rules × N hosts).
-    - name: Normalize XCCDF results per host
+    # Normalize each host's XCCDF results individually. Each loop
+    # iteration produces a runner_on_ok event with ~366 findings for
+    # that host. The backend iterates over ALL events to collect
+    # findings from every host. This avoids Controller's event size
+    # limit which truncates payloads with 4000+ findings.
+    - name: Evaluate compliance for each host
       security.compliance_rhel9_stig.normalize_xccdf:
         results_files:
           - "{{ item.path }}"
-        output_file: "{{ fetch_dest_dir }}/findings-{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}.json"
+        output_file: "{{ fetch_dest_dir }}/findings-{{ _host_label }}.json"
+      vars:
+        _host_label: "{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}"
       loop: "{{ _result_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
@@ -178,5 +184,4 @@
       ansible.builtin.debug:
         msg: >-
           Normalized {{ _result_files.files | length }} hosts.
-          Results written to {{ fetch_dest_dir }}/
 ...

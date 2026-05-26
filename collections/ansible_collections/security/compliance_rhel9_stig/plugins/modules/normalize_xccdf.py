@@ -269,16 +269,30 @@ def main():
         with open(output_file, 'w') as f:
             json.dump(report, f, indent=2)
 
+    # Return slim findings for Controller job events (stripped of heavy
+    # metadata fields like description/fix_text that bloat the payload).
+    # The full findings are in the output file for direct consumption.
+    # Controller truncates event data when module output exceeds ~200KB.
+    slim_findings = [
+        {
+            'rule_id': f['rule_id'],
+            'stig_id': f.get('stig_id', ''),
+            'title': f.get('title', f['rule_id']),
+            'severity': f['severity'],
+            'status': f['status'],
+            'host': f['host'],
+            'evidence': f'OpenSCAP: {f["status"]}',
+        }
+        for f in all_findings
+    ]
+
     module.exit_json(
         changed=not module.check_mode,
         hosts_processed=hosts_processed,
         total_findings=len(all_findings),
         summary=summary,
         output_file=output_file,
-        findings=all_findings,
-        ansible_facts={
-            'compliance_report': report,
-        },
+        findings=slim_findings,
     )
 
 
