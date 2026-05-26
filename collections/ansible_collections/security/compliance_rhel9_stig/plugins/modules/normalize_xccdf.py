@@ -183,10 +183,16 @@ def parse_xccdf_results(filepath):
 
         meta = rule_meta.get(rule_id, {})
 
+        # Strip XCCDF prefix to get CaC-compatible rule ID
+        # e.g., xccdf_org.ssgproject.content_rule_sshd_set_keepalive_0 → sshd_set_keepalive_0
+        short_rule_id = re.sub(
+            r'^xccdf_org\.ssgproject\.content_rule_', '', rule_id,
+        )
+
         finding = {
-            'rule_id': rule_id,
+            'rule_id': short_rule_id,
             'stig_id': meta.get('stig_id', ''),
-            'title': meta.get('title', rule_id),
+            'title': meta.get('title', short_rule_id),
             'description': meta.get('description', ''),
             'severity': SEVERITY_MAP.get(severity_attr, 'CAT_II'),
             'status': STATUS_MAP.get(status_text, 'error'),
@@ -269,6 +275,10 @@ def main():
         total_findings=len(all_findings),
         summary=summary,
         output_file=output_file,
+        findings=all_findings,
+        ansible_facts={
+            'compliance_report': report,
+        },
     )
 
 
