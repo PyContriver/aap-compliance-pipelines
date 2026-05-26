@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backstage-app/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backstage-app/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backstage-app
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build all packages
+        run: yarn build
+
+      - name: Run tests
+        run: yarn test --watchAll=false --ci
+
+  export-dynamic:
+    name: Export Dynamic Plugins
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build all packages
+        run: yarn build
+
+      - name: Export backend plugin
+        run: npx --yes @red-hat-developer-hub/cli plugin export --embed-package @aap-compliance/common
+        working-directory: backstage-app/plugins/compliance-backend
+
+      - name: Export frontend plugin
+        run: npx --yes @red-hat-developer-hub/cli plugin export
+        working-directory: backstage-app/plugins/compliance
+
+      - name: Pack tarballs
+        run: |
+          cd plugins/compliance-backend/dist-dynamic && npm pack
+          cd ../../compliance/dist-dynamic && npm pack
+
+      - name: Compute integrity hashes
+        run: |
+          echo "## Plugin Tarballs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for tgz in plugins/*/dist-dynamic/*.tgz; do
+            hash=$(openssl dgst -sha512 -binary < "$tgz" | base64)
+            name=$(basename "$tgz")
+            echo "**$name**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "sha512-$hash" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: Upload backend tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-backend-dynamic
+          path: backstage-app/plugins/compliance-backend/dist-dynamic/*.tgz
+
+      - name: Upload frontend tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-frontend-dynamic
+          path: backstage-app/plugins/compliance/dist-dynamic/*.tgz

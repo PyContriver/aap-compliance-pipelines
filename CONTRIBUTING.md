@@ -61,6 +61,33 @@ yarn test --coverage         # With coverage report
 
 Target: all tests passing. Current: 206 tests across 11 suites.
 
+## CI/CD Pipelines
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Trigger | What it does |
+|----------|---------|-------------|
+| **`ci.yml`** | Push/PR to `main` (backstage-app paths) | Runs tests, builds, exports dist-dynamic tarballs, uploads as artifacts with integrity hashes |
+| **`build-ee.yml`** | Push to `main` (collections paths) | Builds custom Execution Environment with scap-security-guide, pushes to ghcr.io |
+
+### CI workflow (`ci.yml`)
+
+Matches the downstream `ansible-rhdh-plugins` pattern with concurrency groups.
+
+**Test job** (every push/PR):
+- Node 20, Yarn 4 (Corepack)
+- `yarn install --immutable` → `yarn build` → `yarn test --watchAll=false --ci`
+
+**Export job** (main branch + manual dispatch only):
+- Exports both plugins via `@red-hat-developer-hub/cli plugin export`
+- Packs tarballs and computes SHA-512 integrity hashes
+- Uploads tarballs as GitHub artifacts for Portal deployment
+- Integrity hashes printed to job summary for copy-paste
+
+### EE build workflow (`build-ee.yml`)
+
+Builds the compliance EE from `ee-minimal-rhel9` base with `scap-security-guide` installed. Pushes to `ghcr.io/cross-logic/compliance-stig-rhel9`. Requires `REDHAT_REGISTRY_USER` and `REDHAT_REGISTRY_TOKEN` secrets.
+
 ## Branching and Workflow
 
 Branch protection is enabled on `main` for both GitHub and GitLab.
