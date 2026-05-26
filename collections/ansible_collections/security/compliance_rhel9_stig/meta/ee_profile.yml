@@ -1,21 +1,31 @@
 ---
 # Execution Environment Profile: DISA STIG for RHEL 9
-# Used by the AAP EE Builder to construct a compliance-ready EE.
+# Used by the AAP EE Builder (or Portal EE Build Experience) to construct
+# a compliance-ready EE.
 #
-# The scap-security-guide RPM includes:
-#   - SCAP data streams for OpenSCAP scanning (/usr/share/xml/scap/ssg/content/)
-#   - Pre-rendered Ansible remediation playbooks (/usr/share/scap-security-guide/ansible/)
-#   - XCCDF/OVAL content for 300+ STIG rules
+# This EE includes:
+#   openscap-scanner — the oscap binary used by run_oscap.yml to evaluate
+#     targets. The binary is also copied to targets at scan time if not
+#     pre-installed (install, scan, remove pattern).
+#   scap-security-guide — provides:
+#     - SCAP data streams for OpenSCAP (/usr/share/xml/scap/ssg/content/)
+#       The datastream (ssg-rhel9-ds.xml) is copied from the EE to targets
+#       at scan time. Targets do NOT need this RPM installed.
+#     - Pre-rendered Ansible remediation playbooks
+#       (/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml)
+#     - XCCDF/OVAL content for 366 STIG V2R8 rules
 #
-# This RPM is maintained by Red Hat as part of RHEL.
-# DISA quarterly updates -> Red Hat RPM update -> rebuild EE -> new content.
+# Content lifecycle:
+#   DISA quarterly updates -> Red Hat RPM update -> rebuild EE -> new content.
+#   No plugin redeploy needed — content is self-contained in the EE.
 #
-# Build:
+# Build locally:
 #   cd collections/ansible_collections/security/compliance_rhel9_stig
 #   ansible-builder build -f meta/ee_profile.yml -t compliance-stig-rhel9:latest -v3
 #
-# Or use the build script:
-#   ./scripts/build-ee.sh
+# Build via Portal EE Build Experience:
+#   Upload this file as the EE definition in the Portal UI.
+#   The Portal will build and register the EE automatically.
 
 version: 3
 

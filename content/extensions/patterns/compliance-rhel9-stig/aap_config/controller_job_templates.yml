@@ -1,46 +1,54 @@
 ---
-# IMPORTANT: All job templates must have ask_inventory_on_launch: true
-# so the workflow's inventory override propagates to each node.
+# AAP Controller Job Templates for RHEL 9 STIG Compliance
 #
-# The assessment workflow is 2 nodes: gather -> evaluate (read-only).
-# Remediation is NOT a workflow node — it is launched as a separate
-# direct JT with job_tags for scoped rule selection. This ensures
-# assessments never modify hosts and enables human review, EDA policy
-# evaluation, or AI-driven decision-making between assess and remediate.
+# Architecture: 2-node assessment workflow (run-oscap → normalize)
+# with a standalone remediation JT launched directly.
 #
-# The remediation JT needs ask_tags_on_launch: true because the plugin
-# launches it directly (not via workflow) with job_tags.
+# All JTs must have ask_inventory_on_launch: true so the workflow's
+# inventory override propagates. Remediation JT also needs
+# ask_tags_on_launch for scoped rule selection via CaC job_tags.
+#
+# Assessment workflow:
+#   Node 1: compliance-run-oscap — oscap xccdf eval on targets (read-only)
+#   Node 2: compliance-normalize — XCCDF XML → CFF JSON on execution node
+#
+# Remediation: launched directly (not via workflow) with job_tags
+# for human-supervised, EDA-automated, or autonomous modes.
 controller_templates:
-  - name: compliance-scan-rhel9-stig
+  - name: compliance-run-oscap
     organization: compliance-prototype
-    description: "Scan RHEL 9 hosts against DISA STIG V2R8 using OpenSCAP"
-    job_type: check
-    inventory: compliance-rhel9-inventory
-    project: compliance-content
-    playbook: playbooks/scan-rhel9-stig.yml
-    ask_inventory_on_launch: true
-    ask_limit_on_launch: true
-    survey_enabled: true
-    survey_spec: "{{ lookup('file', 'template_surveys/scan-survey.yml') | from_yaml }}"
-
-  - name: compliance-remediate-rhel9-stig
-    organization: compliance-prototype
-    description: "Remediate selected STIG findings on RHEL 9 hosts"
+    description: "Run OpenSCAP STIG scan on RHEL 9 targets (install, scan, fetch, cleanup)"
     job_type: run
     inventory: compliance-rhel9-inventory
     project: compliance-content
-    playbook: playbooks/remediate-rhel9-stig.yml
+    playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml
+    credentials:
+      - compliance-lab-ssh
+    become_enabled: true
+    ask_inventory_on_launch: true
+    ask_limit_on_launch: true
+
+  - name: compliance-normalize
+    organization: compliance-prototype
+    description: "Normalize XCCDF results to Common Findings Format on execution node"
+    job_type: run
+    inventory: compliance-rhel9-inventory
+    project: compliance-content
+    playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml
+    ask_inventory_on_launch: true
+
+  - name: compliance-remediate
+    organization: compliance-prototype
+    description: "Apply CaC STIG remediation to selected rules on RHEL 9 hosts"
+    job_type: run
+    inventory: compliance-rhel9-inventory
+    project: compliance-content
+    playbook: collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml
+    credentials:
+      - compliance-lab-ssh
+    become_enabled: true
     ask_inventory_on_launch: true
     ask_limit_on_launch: true
     ask_tags_on_launch: true
     ask_variables_on_launch: true
-    survey_enabled: false
-
-  - name: compliance-verify-rhel9-stig
-    organization: compliance-prototype
-    description: "Verification re-scan after remediation"
-    job_type: check
-    inventory: compliance-rhel9-inventory
-    project: compliance-content
-    playbook: playbooks/scan-rhel9-stig.yml
-    ask_inventory_on_launch: true
+...
