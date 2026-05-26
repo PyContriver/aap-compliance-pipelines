@@ -297,7 +297,7 @@ This is THE contract. Every normalizer must produce output conforming to this sc
       "properties": {
         "rule_id": {
           "type": "string",
-          "description": "Primary rule identifier within the collection (e.g., sshd_set_idle_timeout)"
+          "description": "Primary rule identifier — MUST match CaC remediation playbook tag name (e.g., sshd_set_keepalive_0)"
         },
         "stig_id": {
           "type": "string",
@@ -496,7 +496,7 @@ All normalizers must map scanner-specific severity to the common format:
 
 ```json
 {
-  "rule_id": "sshd_set_idle_timeout",
+  "rule_id": "sshd_set_keepalive_0",
   "stig_id": "V-257844",
   "cis_id": "",
   "cce_id": "CCE-90270-6",
@@ -512,7 +512,7 @@ All normalizers must map scanner-specific severity to the common format:
     "actual_value": "0",
     "expected_value": "600",
     "message": "ClientAliveInterval is set to 0. Expected 600.",
-    "scanner_rule_id": "xccdf_org.ssgproject.content_rule_sshd_set_idle_timeout",
+    "scanner_rule_id": "xccdf_org.ssgproject.content_rule_sshd_set_keepalive_0",
     "raw_output": ""
   },
   "parameters": [
@@ -901,12 +901,14 @@ Additional technical reasons: Ansible's `import_playbook` doesn't support `when`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
 - `ask_inventory_on_launch: true` -- allows inventory override (same as workflow nodes)
 
+> **CRITICAL: Rule IDs must match CaC tag names exactly.** The rule `id` field in the rules YAML is passed directly as `job_tags` to the remediation JT. The CaC playbook filters tasks by these tags. If a rule ID doesn't match a CaC tag, no remediation tasks will run for that rule. CaC tag names are the directory names under `ComplianceAsCode/content/linux_os/guide/` (e.g., `mount_option_tmp_noexec`, not `mount_tmp_noexec`). Always verify rule IDs against the CaC source before shipping a profile.
+
 The plugin launches remediation via `POST /api/controller/v2/job_templates/{id}/launch/` with:
 
 ```json
 {
   "inventory": 42,
-  "job_tags": "sshd_set_idle_timeout,accounts_tmout,sshd_disable_root_login",
+  "job_tags": "sshd_set_keepalive_0,accounts_tmout,sshd_disable_root_login",
   "extra_vars": {
     "var_sshd_set_keepalive": 600,
     "var_accounts_tmout": 900
