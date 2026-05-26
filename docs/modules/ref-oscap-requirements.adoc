@@ -145,40 +145,32 @@ registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
 |`ask_inventory_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
 |===
 
-=== Workflow job template
+=== Assessment architecture
 
-[cols="2,3", options="header"]
-|===
-|Setting
-|Value
-
-|Name
-|`compliance-rhel9-stig-workflow`
-
-|`ask_inventory_on_launch`
-|`true` (required -- the plugin passes the user-selected inventory)
-|===
-
-==== Workflow nodes
+The assessment uses a single job template (`compliance-run-oscap`) running `run_oscap.yml` with two plays in one JT. No workflow is needed for Tier 1 assessment.
 
 [cols="1,2,2", options="header"]
 |===
-|Node
-|Job template
-|Inventory setting
+|Play
+|Runs on
+|Purpose
 
-|1
-|`compliance-run-oscap`
-|Inherit from workflow (do not set a fixed inventory)
+|Play 1
+|Target hosts
+|Install oscap, copy datastream, scan, fetch XCCDF XML back to execution node
 
-|2
-|`compliance-normalize`
-|Inherit from workflow (do not set a fixed inventory)
+|Play 2
+|localhost (same container)
+|Normalize XCCDF XML to CFF JSON via `normalize_xccdf` module
 |===
+
+Both plays run in the same container, so Play 1's fetched files are available to Play 2. A multi-node workflow would fail because each workflow node runs in a separate container and fetched files are not shared between nodes.
+
+The `compliance-normalize` JT exists as a standalone utility for debugging and Tier 2 scanner reuse, but it is not part of the standard assessment.
 
 [IMPORTANT]
 ====
-The remediation job template is **not** a workflow node. It is launched directly by the Backstage plugin as a standalone job template with `job_tags` for selective rule execution.
+The remediation job template is launched directly by the Backstage plugin as a standalone job template with `job_tags` for selective rule execution. It is not part of the assessment.
 ====
 
 == OpenSCAP exit codes
