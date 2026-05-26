@@ -34,11 +34,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Enable Corepack and Yarn 4
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install
 
       - name: Build all packages
         run: yarn build
@@ -60,11 +62,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Enable Corepack and Yarn 4
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install
 
       - name: Build all packages
         run: yarn build
