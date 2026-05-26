@@ -218,9 +218,6 @@ export const ResultsViewer = () => {
       if (match?.scanType) {
         setScanType(match.scanType);
       }
-      if (match?.status === 'failed') {
-        setScanFailed('failed');
-      }
     }).catch(err => {
       console.error('Failed to load scan metadata for scan type:', err);
     });
@@ -393,9 +390,20 @@ export const ResultsViewer = () => {
   }, [api, jobId]);
 
   const handleScanFailed = useCallback((status: string) => {
-    setScanFailed(status);
-    setLoading(false);
-  }, []);
+    // Try to fetch findings anyway — the evaluate node may have succeeded
+    // even though the overall workflow failed (e.g. remediate node failed).
+    api.getFindings(jobId).then(data => {
+      if (data.length > 0) {
+        setFindings(data);
+      } else {
+        setScanFailed(status);
+      }
+      setLoading(false);
+    }).catch(() => {
+      setScanFailed(status);
+      setLoading(false);
+    });
+  }, [api, jobId]);
 
   if (loading) {
     if (showProgress && isWorkflowPoll && jobId) {
