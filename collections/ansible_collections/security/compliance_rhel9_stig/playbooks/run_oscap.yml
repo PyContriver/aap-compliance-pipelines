@@ -29,7 +29,11 @@
   gather_facts: false
 
   vars:
-    compliance_profile: "{{ profile | default('xccdf_org.ssgproject.content_profile_stig') }}"
+    # The XCCDF profile to evaluate against. This is the oscap profile ID
+    # from the datastream, NOT the compliance plugin's cartridge UUID.
+    # The backend sends compliance_profile as an extra_var (cartridge UUID)
+    # which we intentionally ignore here.
+    oscap_profile: "{{ oscap_xccdf_profile | default('xccdf_org.ssgproject.content_profile_stig') }}"
     ssg_datastream_ee_path: /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
     ssg_datastream_target_path: /tmp/ssg-rhel9-ds.xml
     target_results_dir: /tmp/compliance-scan
@@ -80,7 +84,7 @@
       ansible.builtin.command:
         cmd: >-
           oscap xccdf eval
-          --profile {{ compliance_profile }}
+          --profile {{ oscap_profile }}
           --results {{ target_results_dir }}/xccdf-results.xml
           {{ ssg_datastream_target_path }}
       register: _scan_result
