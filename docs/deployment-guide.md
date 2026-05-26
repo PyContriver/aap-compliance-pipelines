@@ -156,12 +156,12 @@ The following settings are **mandatory** for the plugin to function:
 | Remediation JT | `ask_tags_on_launch` | `true` | Plugin passes selected rules as `job_tags` |
 | Remediation JT | `ask_variables_on_launch` | `true` | Plugin passes parameter overrides as `extra_vars` |
 
-### Workflow Structure
+### Assessment Structure
 
-The plugin expects a 2-node workflow: `gather-facts` -> `evaluate`.
+The plugin expects a single assessment JT (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets, Play 2 normalizes on localhost (same container).
 
-- **Scans** (assessment and verification) are launched via the 2-node workflow template (`POST /workflow_job_templates/{id}/launch/`). The workflow is read-only and never modifies hosts.
-- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the workflow. The gap between assess and remediate is where intelligence lives: human review in supervised mode, EDA policy evaluation in automated mode, or AI agent decisions in future autonomous mode. This is the correct architecture for all operating modes.
+- **Scans** (assessment and verification) are launched via the assessment JT (`POST /job_templates/{id}/launch/`). The JT is read-only and never modifies hosts.
+- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the assessment. The gap between assess and remediate is where intelligence lives: human review in supervised mode, EDA policy evaluation in automated mode, or AI agent decisions in future autonomous mode. This is the correct architecture for all operating modes.
 
 ### Verifying Configuration
 

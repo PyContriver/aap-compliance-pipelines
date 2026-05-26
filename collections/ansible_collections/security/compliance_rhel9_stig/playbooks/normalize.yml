@@ -1,11 +1,10 @@
 ---
 # Compliance: Normalize OpenSCAP XCCDF results to Common Findings Format
 #
-# This playbook runs on the execution node (localhost) after run_oscap.yml
-# has fetched XCCDF result XML files from target hosts.
-#
-# This is Node 2 of the 2-node assessment workflow:
-#   Node 1: run_oscap.yml (targets) → Node 2: normalize.yml (execution node)
+# Standalone utility for normalizing XCCDF results outside the main
+# scan pipeline. Useful for debugging, re-processing saved XML, and
+# Tier 2 scanner reuse. In production, normalization is handled by
+# Play 2 of run_oscap.yml (same container, no file-sharing issues).
 #
 # The normalize_xccdf module:
 #   - Parses each host's XCCDF XML results

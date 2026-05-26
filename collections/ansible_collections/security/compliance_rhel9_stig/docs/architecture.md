@@ -27,22 +27,23 @@ Target hosts (RHEL 9)              Execution node (EE)
                                    +-----------------+
 ```
 
-## 2-Node Assessment Workflow
+## Single-JT Assessment
 
-The assessment workflow uses two job templates chained in a Controller workflow:
+The assessment uses a single job template (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays in one JT:
 
-| Node | Job Template | Runs On | Playbook | Purpose |
-|------|-------------|---------|----------|---------|
-| 1 | `compliance-run-oscap` | Target hosts | `run_oscap.yml` | Scan with oscap, fetch XCCDF XML back |
-| 2 | `compliance-normalize` | Execution node | `normalize.yml` | Parse XML, output CFF JSON |
+| Play | Runs On | Purpose |
+|------|---------|---------|
+| Play 1 | Target hosts | Scan with oscap, fetch XCCDF XML back to execution node |
+| Play 2 | localhost (same container) | Parse XML, output CFF JSON |
 
-Remediation is **not** a workflow node. It is a separate JT launched directly by the Backstage plugin with `job_tags` for scoped rule selection.
+Remediation is **not** part of the assessment. It is a separate JT launched directly by the Backstage plugin with `job_tags` for scoped rule selection.
 
-### Why 2 Nodes?
+### Why a Single JT with 2 Plays?
 
 1. **oscap must run on the target** -- it inspects local system state (file permissions, service configs, kernel parameters).
-2. **Normalization runs on the EE** -- it parses XML with Python's `xml.etree.ElementTree`, needs the datastream for rule metadata lookup, and writes findings as an Ansible fact for the backend to consume.
-3. **Separation prevents data loss** -- if oscap runs on 50 hosts but normalization fails, the fetched XML files are preserved for debugging.
+2. **Normalization runs on localhost** -- it parses XML with Python's `xml.etree.ElementTree`, needs the datastream for rule metadata lookup, and writes findings as an Ansible fact for the backend to consume.
+3. **Same container** -- both plays run in the same container, so Play 1's fetched XCCDF XML files are available to Play 2 on the local filesystem. A multi-node workflow would fail because each workflow node runs in a separate container and fetched files are not shared.
+4. **Separation preserves data** -- if oscap runs on 50 hosts but normalization fails, the fetched XML files are preserved for debugging.
 
 ### Why Remediation Is Separate
 
@@ -56,7 +57,7 @@ A 3-node workflow would eliminate this decision point.
 
 ## Data Flow Detail
 
-### Step 1: OpenSCAP on Targets (`run_oscap.yml`)
+### Play 1: OpenSCAP on Targets (`run_oscap.yml`, Play 1)
 
 The playbook runs on each target host:
 
@@ -70,9 +71,9 @@ The playbook runs on each target host:
 5. **Fetch results** -- `fetch` module copies results XML to `/tmp/compliance-results/xccdf-results-<hostname>.xml` on the EE
 6. **Cleanup** -- Remove datastream and results from target; remove `openscap-scanner` if we installed it
 
-### Step 2: Normalize on EE (`normalize.yml`)
+### Play 2: Normalize on localhost (`run_oscap.yml`, Play 2)
 
-The playbook runs on `localhost` (the execution node):
+Play 2 runs on `localhost` in the same container as Play 1:
 
 1. **Find result files** -- Glob for `xccdf-results-*.xml` in the results directory
 2. **Call `normalize_xccdf` module** -- Parses each XML file:
@@ -85,9 +86,9 @@ The playbook runs on `localhost` (the execution node):
 3. **Set `compliance_report` fact** -- The backend reads this from job events
 4. **Write JSON artifact** -- `/tmp/compliance_report.json`
 
-### Step 3: Plugin Consumption
+### Plugin Consumption
 
-The Backstage backend polls Controller for job events from the normalize job. It reads the `compliance_report` Ansible fact, which contains CFF-compliant findings. The frontend renders these findings with no knowledge of the underlying scanner.
+The Backstage backend polls Controller for job events from the assessment job. It reads the `compliance_report` Ansible fact from Play 2's normalize task, which contains CFF-compliant findings. The frontend renders these findings with no knowledge of the underlying scanner.
 
 ## OpenSCAP Integration Details
 

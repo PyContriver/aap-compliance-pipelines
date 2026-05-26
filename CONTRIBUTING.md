@@ -318,7 +318,7 @@ This enables the remediation execution view to group tasks under their parent ru
 | Decision | Rationale |
 |----------|-----------|
 | Scanner orchestrator, not scanner | We orchestrate pluggable scanners via Common Findings Format |
-| 2-node assessment workflow (run-oscap -> normalize), direct JT for remediation | Assessment is read-only by design; the gap between assess and remediate is where intelligence lives (human review, EDA policy, future AI agent). Also: `import_playbook` doesn't support `when` conditions, and workflow-level `job_tags` don't propagate to child JTs |
+| Single assessment JT (run_oscap.yml with 2 plays: scan + normalize), direct JT for remediation | Assessment is read-only by design; both plays run in the same container so fetched files are available to normalize. The gap between assess and remediate is where intelligence lives (human review, EDA policy, future AI agent) |
 | CaC title matching | Sequential title-prefix matching groups remediation tasks by rule |
 | Two-tier RBAC + AAP pass-through | Matches downstream, AAP RBAC provides implicit org scoping |
 | SQLite for dev, PostgreSQL for production | Knex migrations handle both |
