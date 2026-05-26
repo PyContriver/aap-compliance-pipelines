@@ -1,13 +1,14 @@
 ---
 # Compliance: Run OpenSCAP STIG scan on target hosts
 #
-# This playbook installs OpenSCAP (if not present), copies the SCAP
-# datastream from the EE, runs the evaluation, fetches results back
-# to the execution node, and cleans up. If OpenSCAP was installed by
-# this playbook, it is removed after the scan.
+# This playbook contains 2 plays in a single job template:
+#   Play 1 (targets): installs OpenSCAP (if not present), copies the SCAP
+#     datastream from the EE, runs the evaluation, fetches results back
+#     to the execution node, and cleans up.
+#   Play 2 (localhost): normalizes fetched XCCDF XML to CFF JSON.
 #
-# This is Node 1 of the 2-node assessment workflow:
-#   Node 1: run_oscap.yml (targets) → Node 2: normalize.yml (execution node)
+# Both plays run in the same container, so fetched files are available
+# to the normalize step without cross-container file sharing.
 #
 # The datastream file (ssg-rhel9-ds.xml, ~15MB) is copied from the EE
 # to the target at scan time and removed afterward. The target host
@@ -160,18 +161,22 @@
           Ensure the scan play completed successfully.
       when: _result_files.files | length == 0
 
-    - name: Normalize XCCDF results to Common Findings Format
+    # Process one host at a time so each event fits in Controller's
+    # job event storage. Processing all hosts in one call produces
+    # a payload too large for the event data (366 rules × N hosts).
+    - name: Normalize XCCDF results per host
       security.compliance_rhel9_stig.normalize_xccdf:
-        results_files: "{{ _result_files.files | map(attribute='path') | list }}"
-        output_file: "{{ output_file }}"
+        results_files:
+          - "{{ item.path }}"
+        output_file: "{{ fetch_dest_dir }}/findings-{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}.json"
+      loop: "{{ _result_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
       register: _normalized
 
     - name: Display summary
       ansible.builtin.debug:
         msg: >-
-          Normalized {{ _normalized.hosts_processed }} hosts,
-          {{ _normalized.total_findings }} findings
-          ({{ _normalized.summary.pass }} pass,
-          {{ _normalized.summary.fail }} fail).
-          Output: {{ output_file }}
+          Normalized {{ _result_files.files | length }} hosts.
+          Results written to {{ fetch_dest_dir }}/
 ...
