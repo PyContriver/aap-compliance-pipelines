@@ -507,10 +507,13 @@ export class ComplianceService {
     );
     const nodes = nodesResponse.results;
 
-    // Find the normalize node — look for identifier containing "normalize",
-    // then fall back to "evaluate" for backward compatibility with old workflows
+    // Find the node that produces findings. With the oscap pipeline this is
+    // run-oscap (single node that scans + normalizes). Fall back to normalize
+    // or evaluate for backward compatibility with older workflow layouts.
     const normalizeNode = nodes.find(
       n =>
+        n.identifier?.toLowerCase().includes('run-oscap') ||
+        n.summary_fields?.job?.name?.toLowerCase().includes('run-oscap') ||
         n.identifier?.toLowerCase().includes('normaliz') ||
         n.summary_fields?.job?.name?.toLowerCase().includes('normaliz') ||
         n.identifier?.toLowerCase().includes('evaluat') ||
