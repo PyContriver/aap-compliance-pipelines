@@ -52,6 +52,7 @@
     compliance_org: compliance-prototype
     compliance_inventory: compliance-rhel9-inventory
     compliance_credential: compliance-lab-ssh
+    compliance_ee: "Compliance STIG RHEL 9"
     compliance_project: compliance-profile
     # GitHub (public) or GitLab (Red Hat internal) — override via -e compliance_scm_url=...
     compliance_scm_url: "https://github.com/cross-logic/aap-compliance-pipelines.git"
@@ -119,6 +120,7 @@
         inventory: "{{ compliance_inventory }}"
         project: "{{ compliance_project }}"
         playbook: "{{ playbook_run_oscap }}"
+        execution_environment: "{{ compliance_ee }}"
         credentials:
           - "{{ compliance_credential }}"
         become_enabled: true
@@ -131,6 +133,7 @@
         inventory: "{{ compliance_inventory }}"
         project: "{{ compliance_project }}"
         playbook: "{{ playbook_normalize }}"
+        execution_environment: "{{ compliance_ee }}"
         ask_inventory_on_launch: true
         description: "Normalize XCCDF results to Common Findings Format on execution node"
         state: present
@@ -140,6 +143,7 @@
         inventory: "{{ compliance_inventory }}"
         project: "{{ compliance_project }}"
         playbook: "{{ playbook_remediate }}"
+        execution_environment: "{{ compliance_ee }}"
         credentials:
           - "{{ compliance_credential }}"
         become_enabled: true
