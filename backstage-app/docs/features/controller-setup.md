@@ -1,5 +1,10 @@
 # Automation Controller Setup for Compliance Pipeline
 
+> **IMPORTANT (2026-05-26):** This guide was written for the original 3-JT workflow architecture (gather-facts, evaluate, remediate). The current architecture uses a **single assessment JT** (`compliance-run-oscap` running `run_oscap.yml` with 2 plays) and a **separate remediation JT** (`compliance-remediate` launched directly with `job_tags`). The manual setup steps 6a, 6b, and step 7 below describe the legacy pattern. For the current architecture, see:
+> - [Deployment Guide](../../../docs/deployment-guide.md) -- current AAP resource requirements
+> - [ADR-003](../../../specs/compliance-pipelines/decisions/ADR-003-single-assessment-jt.md) -- why single JT instead of workflow
+> - [ADR-004](../../../specs/compliance-pipelines/decisions/ADR-004-oscap-replaces-custom-evaluate.md) -- why oscap replaces custom evaluate
+
 This guide covers how to configure the automation controller in Ansible
 Automation Platform (AAP) with the resources required to run the RHEL 9 STIG
 compliance pipeline. You can provision these resources automatically with the
@@ -43,10 +48,10 @@ The compliance pipeline requires the following resources in the automation contr
 | Host | User-provided (e.g., `192.168.128.128`) | The RHEL 9 system to scan |
 | Machine Credential | `compliance-lab-ssh` | SSH authentication with sudo |
 | Project | `compliance-content` | Git project pointing to the compliance repo |
-| Job Template | `compliance-gather-facts` | Collects compliance-relevant facts |
-| Job Template | `compliance-evaluate` | Evaluates facts against STIG rules |
-| Job Template | `compliance-remediate` | Applies CaC STIG remediation |
-| Workflow Job Template | `compliance-pipeline-rhel9-stig` | Chains all three steps |
+| Job Template | `compliance-run-oscap` | OpenSCAP assessment: scan targets (Play 1) + normalize on localhost (Play 2) |
+| Job Template | `compliance-remediate` | Applies CaC STIG remediation (standalone, launched with job_tags) |
+
+> **Note:** The legacy JTs (`compliance-gather-facts`, `compliance-evaluate`) and workflow (`compliance-pipeline-rhel9-stig`) are deprecated. The current architecture uses a single assessment JT with 2 plays instead of a multi-node workflow. See [ADR-003](../../../specs/compliance-pipelines/decisions/ADR-003-single-assessment-jt.md) and [ADR-004](../../../specs/compliance-pipelines/decisions/ADR-004-oscap-replaces-custom-evaluate.md).
 
 ---
 
@@ -104,8 +109,9 @@ The playbook runs seven steps in sequence:
 3. Creates the `compliance-content` project and waits for the initial Git sync
 4. Creates the `compliance-rhel9-inventory` inventory
 5. Adds the target host to the inventory
-6. Creates three job templates (gather-facts, evaluate, remediate)
-7. Creates the `compliance-pipeline-rhel9-stig` workflow job template
+6. Creates the assessment JT (`compliance-run-oscap`) and remediation JT (`compliance-remediate`)
+
+> **Note:** The setup playbook may also create legacy JTs (`compliance-gather-facts`, `compliance-evaluate`) and the workflow (`compliance-pipeline-rhel9-stig`) for backward compatibility. These are no longer used by the plugin -- the current architecture uses a single assessment JT with 2 plays.
 
 A summary message is displayed on completion listing all created resources.
 
@@ -308,7 +314,7 @@ chain from left to right: Gather Facts, Evaluate, Remediate.
 ### Step 8: Add a Compliance Profile in the Plugin (Optional)
 
 If you are using the Backstage compliance plugin, add a compliance profile so the
-UI can launch the workflow:
+UI can launch scans:
 
 1. Open the Compliance plugin in Backstage.
 2. Navigate to the **Settings** tab.
@@ -318,7 +324,7 @@ UI can launch the workflow:
    - **Compliance Standard**: `DISA STIG`
    - **Standard Version**: `V2R8`
    - **Target Platform**: `RHEL 9`
-   - **Workflow Job Template**: Select `compliance-pipeline-rhel9-stig`
+   - **Assessment Job Template**: Select `compliance-run-oscap`
 5. Click **Save**.
 
 ---
@@ -334,23 +340,20 @@ After completing either automated or manual setup, verify that everything works:
    a successful sync.
 3. Click into the project and verify the **Last Updated** timestamp is recent.
 
-### 2. Launch a Test Workflow
+### 2. Launch a Test Assessment
 
 1. Navigate to **Resources** > **Templates**.
-2. Find `compliance-pipeline-rhel9-stig` and click the rocket icon to launch it.
-3. If prompted, accept the defaults and click **Launch**.
-4. Monitor the workflow progress in the visualizer:
-   - **Gather Facts** should complete first (green border).
-   - **Evaluate** should start automatically and complete (green border).
-   - **Remediate** should start automatically and complete (green border).
+2. Find `compliance-run-oscap` and click the rocket icon to launch it.
+3. Select the `compliance-rhel9-inventory` inventory and click **Launch**.
+4. Monitor the job progress:
+   - **Play 1** (scan): OpenSCAP installs, scans targets, fetches XCCDF XML results.
+   - **Play 2** (normalize): Parses XCCDF XML on localhost, produces CFF JSON findings.
 
 ### 3. Review Job Output
 
-1. Click on each completed node in the workflow visualizer to view its job
-   output.
-2. **Gather Facts**: Should show facts being collected from the target host.
-3. **Evaluate**: Should show a compliance summary with pass/fail/error counts.
-4. **Remediate**: Should show remediation tasks being applied.
+1. Click on the completed job to view its output.
+2. **Play 1 (scan)**: Should show oscap installing, scanning, and fetching results from each target host.
+3. **Play 2 (normalize)**: Should show the `normalize_xccdf` module processing XCCDF files and producing findings with 366 STIG rules per host.
 
 ### 4. Verify from the Backstage Plugin (if configured)
 
@@ -407,7 +410,7 @@ git config --global --add safe.directory '*'
 
 ### SSH connection refused or timeout
 
-**Symptom**: The `compliance-gather-facts` or `compliance-remediate` job fails
+**Symptom**: The `compliance-run-oscap` or `compliance-remediate` job fails
 with `Connection refused` or `Connection timed out`.
 
 **Resolution**:
@@ -444,19 +447,15 @@ with `Connection refused` or `Connection timed out`.
    sudo -l -U <target_ssh_user>
    ```
 
-### Evaluate job fails with "compliance_facts not found"
+### Evaluate job fails with "compliance_facts not found" (Legacy)
+
+> **Note:** This issue applies to the deprecated `compliance-evaluate` JT. The current architecture uses `compliance-run-oscap` which does not depend on the fact cache.
 
 **Symptom**: The `compliance-evaluate` job fails because
 `hostvars[host]['compliance_facts']` is undefined.
 
 **Resolution**: This happens when `compliance-gather-facts` did not run
-successfully, or when the fact cache has expired between runs.
-
-1. Re-run the full workflow rather than launching `compliance-evaluate` in
-   isolation.
-2. In the automation controller settings, check the fact cache timeout under
-   **Settings** > **Jobs** > **Per-Host Ansible Fact Cache Timeout** and
-   increase it if needed (default is 0, meaning no expiration).
+successfully, or when the fact cache has expired between runs. With the current architecture, use `compliance-run-oscap` instead -- it runs scan and normalize in the same JT without fact cache dependency.
 
 ### Workflow node shows "Error" without job output
 
@@ -488,26 +487,42 @@ default.
 
 ## Appendix: Resource Reference
 
-### Playbook Paths
+### Playbook Paths (Current Architecture)
 
 These paths are relative to the project root
 (`aap-compliance-pipelines/`):
+
+| Job Template | Playbook Path | Notes |
+|---|---|---|
+| compliance-run-oscap | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment: scan targets (Play 1) + normalize on localhost (Play 2) |
+| compliance-remediate | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Standalone, launched with job_tags |
+| compliance-normalize (utility) | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Debugging and Tier 2 reuse only |
+
+### Current Architecture
+
+```
++-----------------------------------+
+| compliance-run-oscap (single JT)  |
+|                                   |
+|  Play 1: OpenSCAP scan (targets)  |
+|  Play 2: Normalize (localhost)    |
++-----------------------------------+
+                  |
+           CFF JSON findings
+                  |
+                  v
+           +------------+
+           | Remediate  |     (separate standalone JT, launched with job_tags)
+           | (targets)  |
+           +------------+
+```
+
+### Legacy Playbook Paths (Deprecated)
 
 | Job Template | Playbook Path |
 |---|---|
 | compliance-gather-facts | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` |
 | compliance-evaluate | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` |
-| compliance-remediate | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` |
-
-### Workflow Topology
-
-```
-+-----------------------+     +---------------------+     +---------------------+
-| compliance-gather-    |     | compliance-evaluate |     | compliance-         |
-| facts                 +---->+                     +---->+ remediate           |
-| (become, fact cache)  |  ok | (fact cache)        |  ok | (become)            |
-+-----------------------+     +---------------------+     +---------------------+
-```
 
 ### Setup Playbook Variables Reference
 

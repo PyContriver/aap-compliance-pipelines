@@ -15,7 +15,7 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 1. Scanner orchestrator, not scanner — our value is UX, orchestration, and the remediation builder
 2. Compliance profile model — pluggable scanner registration (Tier 1: OpenSCAP/PowerSTIG, Tier 2: BYOS Qualys/Tenable, Tier 3: hybrid)
 3. CaC content consumption — selective remediation via Ansible `--tags` + `--extra-vars` + `--limit`
-4. Controller workflow as pipeline — uses AAP's existing workflow engine (gather, evaluate, remediate nodes), not a new pipeline runtime
+4. Single assessment JT (run_oscap.yml with 2 plays: scan + normalize in one container), direct remediation JT with job_tags — changed from multi-node workflow because AAP workflow nodes run in separate containers (see ADR-003, ADR-009)
 5. All API calls through Gateway — no direct Controller access (aligns with AAP 2.7+ architecture)
 
 ## Technical Context
