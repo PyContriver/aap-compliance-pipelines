@@ -308,10 +308,19 @@ export class ControllerClient {
     jobId: number,
     token?: string,
   ): Promise<PaginatedResponse<JobEvent>> {
-    const results = await this.fetchAllPages<JobEvent>(
-      `api/controller/v2/jobs/${jobId}/job_events/?event=runner_on_ok&page_size=200`,
-      token,
-    );
+    // Fetch both runner_on_ok and runner_item_on_ok events.
+    // Loop iterations (e.g., per-host normalize) produce runner_item_on_ok.
+    const [okEvents, itemEvents] = await Promise.all([
+      this.fetchAllPages<JobEvent>(
+        `api/controller/v2/jobs/${jobId}/job_events/?event=runner_on_ok&page_size=200`,
+        token,
+      ),
+      this.fetchAllPages<JobEvent>(
+        `api/controller/v2/jobs/${jobId}/job_events/?event=runner_item_on_ok&page_size=200`,
+        token,
+      ),
+    ]);
+    const results = [...okEvents, ...itemEvents];
     return { count: results.length, next: null, previous: null, results };
   }
 
