@@ -224,9 +224,20 @@ Create the following three job templates by navigating to *Templates* > *Add* > 
 |Enabled
 |===
 
-. Create a workflow job template to chain the scan-remediate-verify cycle.
+. Understand the assessment architecture.
 +
-Navigate to *Templates* > *Add* > *Add Workflow Job Template* and set the following values:
+The assessment uses a **single job template** (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets via SSH, Play 2 normalizes results on localhost. Both plays run in the same container, so no workflow is needed for Tier 1 (OpenSCAP) assessment.
++
+[NOTE]
+====
+AAP workflow nodes run in separate containers. The scan play fetches XCCDF result files from targets to the execution node, but a second workflow node cannot access those files. Combining scan and normalize into one JT (two plays) solves this.
+====
++
+Remediation is launched as a **separate, standalone job template** -- not part of the assessment. The gap between assess and remediate is where intelligence lives: human review, EDA policy evaluation, or future AI-driven decisions.
+
+. Create a remediation job template.
++
+Navigate to *Templates* > *Add* > *Add Job Template* and set the following values:
 +
 [cols="1,2", options="header"]
 |===
@@ -234,40 +245,43 @@ Navigate to *Templates* > *Add* > *Add Workflow Job Template* and set the follow
 |Value
 
 |Name
-|`compliance-rhel9-stig-workflow`
+|`compliance-remediate`
 
-|Organization
-|`compliance-prototype`
+|Job Type
+|Run
+
+|Inventory
+|`compliance-rhel9-inventory`
+
+|Project
+|`compliance-content`
+
+|Playbook
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
+
+|Execution Environment
+|`Compliance STIG RHEL 9`
+
+|Credentials
+|Machine credential with SSH + become access
 
 |Prompt on Launch: Inventory
 |Enabled
 
-|Prompt on Launch: Limit
+|Prompt on Launch: Job Tags
 |Enabled
 
 |Prompt on Launch: Variables
 |Enabled
 |===
 +
-Open the *Visualizer* and add the following nodes in sequence:
-+
-.. *Node 1*: `compliance-scan-rhel9-stig` (always runs)
-.. *Node 2*: `compliance-remediate-rhel9-stig` (runs on success of Node 1)
-.. *Node 3*: `compliance-verify-rhel9-stig` (runs on success of Node 2)
-
-. Enable launch-time prompts on the workflow template.
-+
-Ensure the following prompts are enabled on the workflow job template so that the Backstage plugin can pass parameters at launch time:
-+
-* *Prompt on Launch: Variables* -- allows the plugin to pass rule selections and remediation parameters.
-* *Prompt on Launch: Limit* -- allows the plugin to scope scans to specific hosts.
-* *Prompt on Launch: Inventory* -- allows the plugin to target different inventories.
+The Backstage plugin passes selected rule IDs as `job_tags` and parameter overrides as `extra_vars` when launching remediation.
 
 . Create an API token for the Backstage plugin.
 +
 Navigate to your user profile in {ControllerName} and select *Tokens* > *Add*.
 +
-Set the *Scope* to *Write* and note the generated token value. The Backstage plugin uses this token to launch workflows and retrieve results.
+Set the *Scope* to *Write* and note the generated token value. The Backstage plugin uses this token to launch job templates and retrieve results.
 +
 [IMPORTANT]
 ====
@@ -327,7 +341,7 @@ permission:
 +
 The compliance plugin uses the same two-tier permission model as the self-service plugin. Users in the `aap-admins` group (AAP superusers) can perform all actions. All other authenticated users have read-only access.
 +
-Additionally, the plugin passes each user's AAP OAuth2 token to {ControllerName} API calls, so AAP's native RBAC controls which inventories, workflow templates, and credentials the user can access.
+Additionally, the plugin passes each user's AAP OAuth2 token to {ControllerName} API calls, so AAP's native RBAC controls which inventories, job templates, and credentials the user can access.
 
 . Start the Backstage application in live mode:
 +
@@ -341,9 +355,9 @@ The start script launches both the backend (port 7007) and frontend (port 3000) 
 .Verification
 
 * Open `http://localhost:3000` in a web browser and navigate to the *Compliance* section.
-* Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the workflow template and {ExecEnvShort} you created.
+* Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the assessment job template and {ExecEnvShort} you created.
 * Go to the *New Scan* tab and launch a test scan against a single host.
-* Verify that the scan appears in the *Results* tab and that findings are displayed after the workflow completes.
+* Verify that the scan appears in the *Results* tab and that findings are displayed after the job completes.
 
 [role="_additional-resources"]
 .Additional resources

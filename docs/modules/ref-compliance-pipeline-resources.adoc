@@ -75,84 +75,63 @@ Add target RHEL 9 hosts to this inventory. Each host must be accessible over the
 |Playbook
 |Execution Environment
 |Prompt: Inventory
-|Prompt: Variables
+|Key Settings
 
-|`compliance-scan-rhel9-stig`
-|Check
-|`playbooks/scan-rhel9-stig.yml`
-|`Compliance STIG RHEL 9`
-|Enabled
-|No
-
-|`compliance-remediate-rhel9-stig`
+|`compliance-run-oscap`
 |Run
-|`playbooks/remediate-rhel9-stig.yml`
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
-|Enabled
+|Machine credential with become. Single JT with 2 plays: scan targets (Play 1) + normalize on localhost (Play 2).
 
-|`compliance-verify-rhel9-stig`
-|Check
-|`playbooks/scan-rhel9-stig.yml`
+|`compliance-normalize`
+|Run
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
-|No
+|Standalone utility for debugging and Tier 2 reuse. Not needed for standard assessment.
+
+|`compliance-remediate`
+|Run
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
+|`Compliance STIG RHEL 9`
+|Enabled
+|`ask_tags_on_launch: true`, `ask_variables_on_launch: true`. Machine credential with become.
 |===
 
 All job templates use the following common settings:
 
-* *Project*: `compliance-content`
+* *Project*: `compliance-content` (or `compliance-profile`)
 * *Inventory*: `compliance-rhel9-inventory` (default; overridable at launch)
 * *Organization*: `compliance-prototype`
-* *Prompt on Launch: Limit*: Enabled (allows scoping to specific hosts)
 
-== Workflow job template
+== Assessment architecture
 
-[cols="1,2", options="header"]
+The assessment uses a **single job template** (`compliance-run-oscap`) running `run_oscap.yml` with two plays in one JT. No workflow is needed for Tier 1 (OpenSCAP) assessment.
+
+[cols="1,2,2", options="header"]
 |===
-|Field
-|Value
-
-|Name
-|`compliance-rhel9-stig-workflow`
-
-|Organization
-|`compliance-prototype`
-
-|Prompt on Launch: Inventory
-|Enabled
-
-|Prompt on Launch: Limit
-|Enabled
-
-|Prompt on Launch: Variables
-|Enabled
-|===
-
-=== Workflow node chain
-
-[cols="1,2,2,2", options="header"]
-|===
-|Node
-|Job Template
-|Condition
+|Play
+|Runs On
 |Purpose
 
-|1
-|`compliance-scan-rhel9-stig`
-|Always
-|Run OpenSCAP evaluation against DISA STIG profile
+|Play 1
+|Target hosts (via SSH)
+|Install oscap, copy datastream from EE, run `oscap xccdf eval`, fetch XCCDF XML back, cleanup
 
-|2
-|`compliance-remediate-rhel9-stig`
-|On success of Node 1
-|Apply selected remediation rules
-
-|3
-|`compliance-verify-rhel9-stig`
-|On success of Node 2
-|Re-scan to verify remediation results
+|Play 2
+|localhost (same container)
+|Normalize XCCDF XML to CFF JSON via `normalize_xccdf` module (per-host processing)
 |===
+
+Both plays run in the same container, so Play 1's fetched files are available to Play 2. A multi-node workflow would fail because each workflow node runs in a separate container and fetched files are not shared between nodes.
+
+Remediation is launched as a **separate, standalone job template** with `job_tags` for selective rule execution. It is not part of the assessment.
+
+[NOTE]
+====
+A legacy workflow job template (`compliance-pipeline-rhel9-stig`) exists with a single node pointing to `compliance-run-oscap`. This is retained for backward compatibility and as a template for Tier 2 scanners where multi-node workflows are valid (API-based scanners run on localhost, no cross-container file sharing issues).
+====
 
 == Execution environment
 
@@ -206,29 +185,21 @@ The compliance pipelines Backstage plugin communicates with {ControllerName} thr
 |Method
 |Purpose
 
-|`/api/controller/v2/workflow_job_templates/`
+|`/api/controller/v2/job_templates/`
 |GET
-|List workflow job templates available for compliance scans
+|List job templates available for compliance scans and remediation
 
-|`/api/controller/v2/workflow_job_templates/<id>/launch/`
+|`/api/controller/v2/job_templates/<id>/launch/`
 |POST
-|Launch a compliance scan workflow with extra variables, limit, and job tags
-
-|`/api/controller/v2/workflow_jobs/<id>/`
-|GET
-|Check the status of a running or completed workflow job
-
-|`/api/controller/v2/workflow_jobs/<id>/workflow_nodes/`
-|GET
-|Retrieve the status of individual nodes in a workflow run
+|Launch an assessment scan or remediation job with inventory, extra variables, limit, and job tags
 
 |`/api/controller/v2/jobs/<id>/`
 |GET
-|Check the status of an individual job within a workflow
+|Check the status of a running or completed job
 
 |`/api/controller/v2/jobs/<id>/job_events/`
 |GET
-|Retrieve job events including scan findings parsed from runner output
+|Retrieve job events including scan findings (CFF JSON from `compliance_report` fact)
 
 |`/api/controller/v2/jobs/<id>/stdout/`
 |GET

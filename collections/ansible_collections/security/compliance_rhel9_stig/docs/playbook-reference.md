@@ -14,7 +14,7 @@ Run OpenSCAP XCCDF evaluation on target hosts.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `target_hosts` | `all` | Host pattern for targeting |
-| `compliance_profile` | `xccdf_org.ssgproject.content_profile_stig` | XCCDF profile ID |
+| `oscap_profile` | `xccdf_org.ssgproject.content_profile_stig` | XCCDF profile ID (named `oscap_profile` to avoid collision with backend's `compliance_profile` extra_var) |
 | `ssg_datastream_ee_path` | `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` | Datastream path inside the EE |
 | `ssg_datastream_target_path` | `/tmp/ssg-rhel9-ds.xml` | Temporary datastream path on targets |
 | `target_results_dir` | `/tmp/compliance-scan` | Temp directory on targets for scan output |
@@ -38,7 +38,7 @@ ansible-playbook security.compliance_rhel9_stig.run_oscap -i inventory \
 ```yaml
 # Use a different XCCDF profile
 ansible-playbook security.compliance_rhel9_stig.run_oscap -i inventory \
-    -e 'compliance_profile=xccdf_org.ssgproject.content_profile_cis'
+    -e 'oscap_profile=xccdf_org.ssgproject.content_profile_cis'
 ...
 ```
 

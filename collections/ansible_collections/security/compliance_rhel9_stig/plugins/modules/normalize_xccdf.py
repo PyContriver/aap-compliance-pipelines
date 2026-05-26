@@ -173,7 +173,10 @@ def parse_xccdf_results(filepath):
                 'stig_id': stig_id,
             }
 
-    # Process rule-results
+    # Process rule-results — skip not_applicable and notselected rules
+    # as they don't contribute to compliance scores and bloat the DB
+    SKIP_STATUSES = {'notapplicable', 'notselected', 'notchecked'}
+
     for rule_result in test_result.iter(f'{{{ns}}}rule-result' if ns else 'rule-result'):
         rule_id = rule_result.get('idref', '')
         severity_attr = rule_result.get('severity', 'medium')
@@ -181,10 +184,12 @@ def parse_xccdf_results(filepath):
         result_el = rule_result.find(f'{{{ns}}}result' if ns else 'result')
         status_text = result_el.text.lower() if result_el is not None and result_el.text else 'unknown'
 
+        if status_text in SKIP_STATUSES:
+            continue
+
         meta = rule_meta.get(rule_id, {})
 
         # Strip XCCDF prefix to get CaC-compatible rule ID
-        # e.g., xccdf_org.ssgproject.content_rule_sshd_set_keepalive_0 → sshd_set_keepalive_0
         short_rule_id = re.sub(
             r'^xccdf_org\.ssgproject\.content_rule_', '', rule_id,
         )

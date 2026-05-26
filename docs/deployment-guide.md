@@ -150,15 +150,15 @@ The following settings are **mandatory** for the plugin to function:
 
 | Resource | Setting | Value | Purpose |
 |----------|---------|-------|---------|
-| Workflow job template | `ask_inventory_on_launch` | `true` | Allows the plugin to pass the user-selected inventory |
-| All child job templates | `ask_inventory_on_launch` | `true` | Allows inventory override to propagate from workflow |
-| Workflow nodes | `inventory` | `null` / unset | Nodes inherit inventory from workflow instead of JT default |
+| Assessment JT (`compliance-run-oscap`) | `ask_inventory_on_launch` | `true` | Allows the plugin to pass the user-selected inventory |
+| Assessment JT | `execution_environment` | `Compliance STIG RHEL 9` | Must use the compliance EE with oscap and scap-security-guide |
 | Remediation JT | `ask_tags_on_launch` | `true` | Plugin passes selected rules as `job_tags` |
 | Remediation JT | `ask_variables_on_launch` | `true` | Plugin passes parameter overrides as `extra_vars` |
+| Remediation JT | `ask_inventory_on_launch` | `true` | Plugin passes inventory for direct launch |
 
 ### Assessment Structure
 
-The plugin expects a single assessment JT (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets, Play 2 normalizes on localhost (same container).
+The plugin expects a single assessment JT (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets, Play 2 normalizes on localhost (same container). No workflow is needed -- both plays run in the same container so fetched files are available to the normalize step.
 
 - **Scans** (assessment and verification) are launched via the assessment JT (`POST /job_templates/{id}/launch/`). The JT is read-only and never modifies hosts.
 - **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the assessment. The gap between assess and remediate is where intelligence lives: human review in supervised mode, EDA policy evaluation in automated mode, or AI agent decisions in future autonomous mode. This is the correct architecture for all operating modes.
@@ -167,11 +167,10 @@ The plugin expects a single assessment JT (`compliance-run-oscap`) running `run_
 
 After provisioning, verify the settings in the AAP Controller UI:
 
-1. Navigate to **Templates** and open the workflow job template
+1. Navigate to **Templates** and open the assessment JT (`compliance-run-oscap`)
 2. Confirm "Prompt on launch" is checked for Inventory
-3. Open each child JT and confirm "Prompt on launch" is checked for Inventory
+3. Confirm the Execution Environment is set to `Compliance STIG RHEL 9`
 4. Open the remediation JT and confirm "Prompt on launch" is checked for Inventory, Job Tags, and Variables
-5. Open the workflow visualizer and confirm no node has a hardcoded inventory override
 
 ## Configuration
 
@@ -214,7 +213,7 @@ All API routes are marked `unauthenticated` in the backend. This is intentional 
 
 In Portal, authentication is handled by the existing `auth-backend-module-rhaap-provider` plugin, which provides AAP Gateway OAuth2 login. The compliance plugin does not bundle its own auth -- it relies on the Portal auth stack.
 
-For AAP API authorization, each user's AAP token is passed via the `x-aap-token` header. AAP's native RBAC determines what inventories, workflow templates, and credentials the user can access.
+For AAP API authorization, each user's AAP token is passed via the `x-aap-token` header. AAP's native RBAC determines what inventories, job templates, and credentials the user can access.
 
 RBAC enforcement in Backstage uses the two-tier model:
 - **Backstage layer**: `@backstage-community/plugin-rbac-backend` gates access based on user groups (`aap-admins` vs authenticated users)

@@ -280,19 +280,19 @@ With the migration to OpenSCAP-based scanning, compliance rules are no longer ha
 To add support for a new compliance framework or profile:
 
 1. Identify the XCCDF profile ID (e.g., `xccdf_org.ssgproject.content_profile_cis`)
-2. Pass it via the `compliance_profile` variable in `run_oscap.yml`
+2. Pass it via the `oscap_profile` variable in `run_oscap.yml`
 3. The normalizer handles the rest -- no rules YAML changes needed
 
 The deprecated `compliance_evaluate` module and `rules/stig_rhel9_v2r8.yml` are retained for backward compatibility but are no longer the primary scanning path.
 
 ### New or modified AAP Controller resources
 
-When adding or modifying workflow templates, job templates, or workflow nodes:
+When adding or modifying job templates:
 
-1. All child JTs must have `ask_inventory_on_launch: true` -- the plugin passes the user-selected inventory to the workflow, and this setting allows it to propagate to each node
-2. Workflow templates must have `ask_inventory_on_launch: true`
-3. Workflow nodes must NOT set an inventory (set `inventory: null`) -- they should inherit from the workflow
-4. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
+1. The assessment JT (`compliance-run-oscap`) must have `ask_inventory_on_launch: true` -- the plugin passes the user-selected inventory at launch time
+2. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
+3. All JTs must specify `execution_environment` -- the compliance EE with oscap and scap-security-guide (JTs using the default EE will fail because it lacks oscap)
+4. Use `oscap_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
 5. Update both copies of `setup_controller.yml` (in `collections/` and `content/collections/`)
 6. Update `content/extensions/patterns/.../aap_config/controller_job_templates.yml` if applicable
 
