@@ -19,7 +19,7 @@ aap-compliance-pipelines/
       compliance-backend/        # Backend plugin (REST API, DB, Controller client)
       compliance-common/         # Shared TypeScript types
     bin/start.sh                 # Dev launcher (mock/live modes)
-  collections/                   # Ansible collection (modules, rules, playbooks)
+  collections/                   # Ansible collection (oscap playbooks, normalizer, remediation)
   docs/                          # AsciiDoc + deployment guide
   .github/workflows/             # CI (EE build, plugin packaging)
 ```
@@ -111,7 +111,7 @@ main ←── feature branches (PRs only)
 
 | Branch | Purpose | Status |
 |--------|---------|--------|
-| `feature/oscap-scanner` | Replace custom evaluate module with oscap xccdf eval | Planned |
+| `feature/oscap-scanner` | Replace custom evaluate module with oscap xccdf eval | Merged |
 | `feature/tier2-adapter` | Tenable/Insights scanner adapter PoC | Planned |
 
 ### Testing Environments
@@ -273,11 +273,17 @@ This provides implicit organization/team scoping without Backstage-level org pol
 3. Add tab in `TABS` array if it's a top-level view
 4. Add tests in `ComponentName.test.tsx`
 
-### New compliance rule
+### New compliance rules
 
-1. Add to `collections/.../rules/stig_rhel9_v2r8.yml`
-2. Title MUST match the CaC task name prefix (see `CONTRIBUTING.md` section below)
-3. The compliance_evaluate module will pick it up automatically
+With the migration to OpenSCAP-based scanning, compliance rules are no longer hand-authored in YAML. The `oscap xccdf eval` command evaluates all 366 STIG rules from the SCAP Security Guide datastream (`ssg-rhel9-ds.xml`). The `normalize_xccdf` module extracts rule metadata (title, description, fix_text, severity, stig_id) directly from the XCCDF datastream.
+
+To add support for a new compliance framework or profile:
+
+1. Identify the XCCDF profile ID (e.g., `xccdf_org.ssgproject.content_profile_cis`)
+2. Pass it via the `compliance_profile` variable in `run_oscap.yml`
+3. The normalizer handles the rest -- no rules YAML changes needed
+
+The deprecated `compliance_evaluate` module and `rules/stig_rhel9_v2r8.yml` are retained for backward compatibility but are no longer the primary scanning path.
 
 ### New or modified AAP Controller resources
 
@@ -312,7 +318,7 @@ This enables the remediation execution view to group tasks under their parent ru
 | Decision | Rationale |
 |----------|-----------|
 | Scanner orchestrator, not scanner | We orchestrate pluggable scanners via Common Findings Format |
-| 2-node assessment workflow (gather -> evaluate), direct JT for remediation | Assessment is read-only by design; the gap between assess and remediate is where intelligence lives (human review, EDA policy, future AI agent). Also: `import_playbook` doesn't support `when` conditions, and workflow-level `job_tags` don't propagate to child JTs |
+| 2-node assessment workflow (run-oscap -> normalize), direct JT for remediation | Assessment is read-only by design; the gap between assess and remediate is where intelligence lives (human review, EDA policy, future AI agent). Also: `import_playbook` doesn't support `when` conditions, and workflow-level `job_tags` don't propagate to child JTs |
 | CaC title matching | Sequential title-prefix matching groups remediation tasks by rule |
 | Two-tier RBAC + AAP pass-through | Matches downstream, AAP RBAC provides implicit org scoping |
 | SQLite for dev, PostgreSQL for production | Knex migrations handle both |

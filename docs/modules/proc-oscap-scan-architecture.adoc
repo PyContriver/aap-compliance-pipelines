@@ -1,0 +1,164 @@
+:_mod-docs-content-type: PROCEDURE
+
+[id="proc-oscap-scan-architecture_{context}"]
+
+= Running an OpenSCAP compliance scan
+
+[role="_abstract"]
+
+Run an OpenSCAP-based compliance scan against RHEL 9 target hosts using the 2-node assessment workflow. The scan executes `oscap xccdf eval` on each target host, fetches the XCCDF result XML back to the execution node, and normalizes the results to Common Findings Format (CFF) JSON for display in the compliance plugin.
+
+The assessment workflow consists of two job template nodes:
+
+* *Node 1* (`run_oscap.yml`): Runs on target hosts. Installs OpenSCAP if missing, copies the SCAP datastream from the {ExecEnvShort}, runs the evaluation, fetches results, and cleans up.
+* *Node 2* (`normalize.yml`): Runs on the execution node. Parses XCCDF XML, extracts rule metadata from the datastream, and produces CFF JSON.
+
+Remediation is launched separately as a standalone job template, not as part of this workflow.
+
+.Prerequisites
+
+* {PlatformNameShort} {PlatformVers} or later is deployed and accessible.
+* The compliance {ExecEnvShort} is built and registered in {ControllerName}. The {ExecEnvShort} must include `scap-security-guide` and `openscap-scanner`.
+* Target hosts are running RHEL 9 and are registered in an inventory accessible to {ControllerName}.
+* SSH credentials with `become` privileges are configured for the target hosts.
+* The compliance content project is synced in {ControllerName}.
+
+.Procedure
+
+. Verify the {ExecEnvShort} contains the required SCAP content.
++
+The compliance {ExecEnvShort} must contain the SCAP datastream and the CaC remediation playbook. Verify these files exist in the image:
++
+[source,bash]
+----
+podman run --rm compliance-stig-rhel9:latest \
+  ls /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml \
+     /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
+----
++
+If either file is missing, rebuild the {ExecEnvShort} with `scap-security-guide` in the system dependencies.
+
+. Create the scan job template in {ControllerName}.
++
+Navigate to *Templates* > *Add* > *Add Job Template* and set the following values:
++
+[cols="1,2", options="header"]
+|===
+|Field
+|Value
+
+|Name
+|`compliance-run-oscap`
+
+|Job Type
+|Run
+
+|Inventory
+|`compliance-rhel9-inventory`
+
+|Project
+|`compliance-content`
+
+|Playbook
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
+
+|Execution Environment
+|`Compliance STIG RHEL 9`
+
+|Credentials
+|Machine credential with SSH + become access
+
+|Prompt on Launch: Inventory
+|Enabled
+|===
+
+. Create the normalize job template.
++
+Navigate to *Templates* > *Add* > *Add Job Template* and set the following values:
++
+[cols="1,2", options="header"]
+|===
+|Field
+|Value
+
+|Name
+|`compliance-normalize`
+
+|Job Type
+|Run
+
+|Inventory
+|`compliance-rhel9-inventory`
+
+|Project
+|`compliance-content`
+
+|Playbook
+|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml`
+
+|Execution Environment
+|`Compliance STIG RHEL 9`
+
+|Prompt on Launch: Inventory
+|Enabled
+|===
+
+. Create the assessment workflow.
++
+Navigate to *Templates* > *Add* > *Add Workflow Job Template* and set the following values:
++
+[cols="1,2", options="header"]
+|===
+|Field
+|Value
+
+|Name
+|`compliance-rhel9-stig-workflow`
+
+|Organization
+|`compliance-prototype`
+
+|Prompt on Launch: Inventory
+|Enabled
+|===
++
+Open the *Visualizer* and add the following nodes:
++
+.. *Node 1*: `compliance-run-oscap` (always runs). Set inventory to *Prompt* (inherits from workflow).
+.. *Node 2*: `compliance-normalize` (runs on success of Node 1). Set inventory to *Prompt* (inherits from workflow).
++
+[IMPORTANT]
+====
+Do not set a fixed inventory on the workflow nodes. Each node must inherit the inventory from the workflow launch so that the Backstage plugin can pass the user-selected inventory at runtime.
+====
+
+. Launch a test scan.
++
+Navigate to *Templates*, locate `compliance-rhel9-stig-workflow`, and click *Launch*. Select a target inventory and click *Launch*.
++
+Monitor the workflow job. Node 1 runs `oscap xccdf eval` on each target host. Node 2 normalizes the results to CFF JSON.
+
+. Verify the scan results.
++
+After the workflow completes, navigate to the Node 2 job output and verify that the normalize task reports the expected number of findings:
++
+[source]
+----
+Normalized 3 hosts, 1098 findings (840 pass, 216 fail, 0 error, 42 N/A).
+----
++
+The compliance plugin reads the `compliance_report` Ansible fact from job events and displays findings in the Results tab.
+
+.Verification
+
+* The workflow completes with both nodes showing a successful status.
+* The normalize job output shows the expected host count and finding totals.
+* Findings appear in the compliance plugin Results tab with rule metadata (title, description, fix text, severity, STIG ID).
+* Rule IDs in the findings match CaC remediation tags (for example, `sshd_set_keepalive_0`, `accounts_tmout`).
+
+[role="_additional-resources"]
+.Additional resources
+
+* xref:ref-oscap-requirements_{context}[OpenSCAP scan requirements]
+* xref:ref-compliance-pipeline-resources_{context}[Compliance pipeline {ControllerName} resources]
+* xref:con-about-compliance-pipelines_{context}[About compliance pipelines]

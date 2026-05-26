@@ -44,7 +44,7 @@ Does the customer already have a compliance scanner?
 
 ### Tier 1 Structure
 
-A Tier 1 compliance profile ships the scanner itself. This is the reference structure based on the existing `security.compliance_rhel9_stig` collection.
+A Tier 1 compliance profile ships the scanner itself. This is the reference structure based on the existing `security.compliance_rhel9_stig` collection, which uses OpenSCAP as the scanner.
 
 ```
 security.compliance_<platform>_<framework>/
@@ -52,22 +52,17 @@ security.compliance_<platform>_<framework>/
   meta/runtime.yml                      # Ansible version requirements
 
   plugins/modules/                      # Custom Ansible modules
-    compliance_gather.py                # Agentless fact collection (single round-trip)
-    compliance_evaluate.py              # Centralized rule evaluation (runs on localhost)
     normalize_<scanner>.py              # Scanner output --> Common Findings Format
 
   playbooks/                            # Pipeline-stage playbooks
-    gather.yml                          # Collect facts from targets
-    scan.yml                            # Execute scanner (or evaluate rules)
-    normalize.yml                       # Transform results to CFF
-    remediate.yml                       # Apply selective remediation
-    report.yml                          # Generate reports
-    verify.yml                          # Re-scan after remediation
-    scanner/                            # Scanner lifecycle
-      install_scanner.yml               # Install scanner on targets
-      run_scan.yml                      # Execute the scan
-      fetch_results.yml                 # Retrieve scanner output
-      uninstall_scanner.yml             # Remove scanner (ephemeral mode)
+    run_oscap.yml                       # Run scanner on targets, fetch results (Node 1)
+    normalize.yml                       # Transform results to CFF (Node 2)
+    remediate.yml                       # Apply selective remediation (standalone JT)
+
+  docs/                                 # Collection documentation
+    architecture.md                     # Pipeline diagram and data flow
+    playbook-reference.md               # Playbook variables and usage
+    module-reference.md                 # Module parameters and return values
 
   ee/
     execution-environment.yml           # EE Builder definition (ansible-builder v3)
@@ -82,19 +77,13 @@ security.compliance_<platform>_<framework>/
       metadata.yml                      # Portal metadata
       backstage_template.yml            # Software Template for one-click setup
 
-  files/
-    rules/                              # Track A evaluation rules (YAML)
-      <framework>_<platform>_<version>.yml
-    profiles/                           # Profile definitions (selected rules + refinements)
-      <framework>_<version>.yml
-    mappings/                           # Scanner rule ID mappings
-      xccdf_to_rule.yml                 # XCCDF rule ID --> our rule_id
-
   tests/
     unit/                               # Unit tests for custom modules
     integration/                        # Integration test targets
     sanity/                             # Ansible sanity test ignores
 ```
+
+> **Note:** The reference implementation previously included `compliance_gather.py` and `compliance_evaluate.py` modules with hand-written checks for 20 rules. These have been replaced by OpenSCAP-based scanning (`oscap xccdf eval`) which provides 366 STIG rules with metadata from the XCCDF datastream. The old modules are deprecated but retained in the collection for backward compatibility.
 
 ### Tier 2 Structure
 
@@ -553,7 +542,7 @@ Every compliance profile MUST include a normalizer module. The normalizer is the
 
 > **IMPORTANT: The plugin does not enrich findings.** It displays exactly what it receives via the CFF pipeline. All metadata — descriptions, check/fix text, parameter definitions — must be populated by the findings source:
 >
-> - **Tier 1 (built-in evaluate module)**: The evaluate module reads the rules YAML and includes full metadata in its output. The framework author provides the rules YAML; the evaluate module handles enrichment automatically.
+> - **Tier 1 (OpenSCAP + normalizer)**: The `normalize_xccdf` module extracts all rule metadata (title, description, fix_text, severity, stig_id) directly from the XCCDF datastream. No external rules YAML is needed -- the SCAP Security Guide datastream contains complete metadata for all 366 STIG rules.
 > - **Tier 2 (external scanner + normalizer)**: The normalizer must map scanner output to CFF AND populate all metadata fields. External scanners often provide their own descriptions (e.g., Tenable findings include rich descriptions); the normalizer maps these to CFF fields. For metadata the scanner doesn't provide, the normalizer can read from a supplementary rules YAML or mapping file included in the collection.
 >
 > This design keeps compliance profiles self-contained: adding a new profile to Controller (Git project + workflow + JTs) makes it work end-to-end without repackaging or redeploying the plugin.
@@ -618,10 +607,12 @@ if __name__ == '__main__':
 
 ### Reference Implementation
 
-See the existing OpenSCAP normalizer at:
+See the OpenSCAP normalizer at:
 `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py`
 
-This module parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata from the Benchmark element, maps severity and status, and writes the CFF JSON output.
+This module parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host.
+
+For detailed module documentation, see `collections/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md`.
 
 ### Tier 2 Adapter Considerations
 
@@ -759,36 +750,46 @@ The compliance profile must define a Controller workflow with these stages. Each
 
 ### Pipeline Stages
 
+The reference implementation uses a **2-node assessment workflow** with OpenSCAP:
+
 ```
-  +----------+     +---------+     +------------+     +----------+
-  |  Gather  |---->|  Scan   |---->| Normalize  |---->| Evaluate |
-  +----------+     +---------+     +------------+     +----------+
-                                                           |
-                                   (optional, Track A)     |
-                                                           v
-  +----------+     +----------+     +---------+
-  |  Verify  |<----|Remediate |<----|  Report  |
-  +----------+     +----------+     +---------+
-                   (approval gate)
+  +------------+     +------------+
+  | Run OpenSCAP|---->| Normalize  |     (2-node assessment workflow)
+  | (targets)  |     | (EE)       |
+  +------------+     +------------+
+                           |
+                    CFF JSON findings
+                           |
+                           v
+                    +------------+
+                    | Remediate  |     (separate standalone JT)
+                    | (targets)  |
+                    +------------+
 ```
+
+| Node | Purpose | Runs On | Playbook |
+|------|---------|---------|----------|
+| **1. Run OpenSCAP** | Install oscap, copy datastream, scan, fetch XCCDF XML | Target hosts | `playbooks/run_oscap.yml` |
+| **2. Normalize** | Parse XCCDF XML, extract metadata, produce CFF JSON | Execution node (localhost) | `playbooks/normalize.yml` |
+| **Remediate** | Apply CaC remediation scoped by `job_tags` (standalone JT) | Target hosts | `playbooks/remediate.yml` |
+
+For profiles using different scanners, the full pipeline supports up to 7 stages:
 
 | Stage | Purpose | Runs On | Playbook |
 |-------|---------|---------|----------|
-| **1. Gather** | Collect compliance facts from targets | Target hosts | `playbooks/gather.yml` |
-| **2. Scan** | Execute scanner or evaluate rules | Targets (Tier 1) or localhost (Tier 2) | `playbooks/scan.yml` or `playbooks/fetch_<scanner>.yml` |
-| **3. Normalize** | Transform scanner output to CFF JSON | localhost | `playbooks/normalize.yml` |
-| **4. Evaluate** | Apply policy rules to findings (optional, for Track A) | localhost | `playbooks/evaluate.yml` |
-| **5. Report** | Push results to Backstage backend or write to Controller artifacts | localhost | `playbooks/report.yml` |
-| **6. Remediate** | Execute approved remediations (behind approval gate) | Target hosts | `playbooks/remediate.yml` |
-| **7. Verify** | Re-scan to confirm remediation effectiveness | Target hosts | `playbooks/verify.yml` |
+| **1. Scan** | Execute scanner on targets or fetch from API | Targets (Tier 1) or localhost (Tier 2) | `playbooks/run_oscap.yml` or `playbooks/fetch_<scanner>.yml` |
+| **2. Normalize** | Transform scanner output to CFF JSON | localhost | `playbooks/normalize.yml` |
+| **3. Report** | Push results to Backstage backend or write to Controller artifacts | localhost | `playbooks/report.yml` |
+| **4. Remediate** | Execute approved remediations (behind approval gate) | Target hosts | `playbooks/remediate.yml` |
+| **5. Verify** | Re-scan to confirm remediation effectiveness | Target hosts | (re-run scan playbook) |
 
 ### Workflow Definition
 
-The assessment workflow goes in `extensions/patterns/aap_config/workflow.yml` using `infra.aap_configuration` format. The **recommended pattern is 2 nodes** (gather -> evaluate). Remediation is always a separate, standalone job template -- never a workflow node. This ensures assessments are read-only and the gap between assess and remediate is available for human review, EDA policy evaluation, or future AI-driven decision-making.
+The assessment workflow goes in `extensions/patterns/aap_config/workflow.yml` using `infra.aap_configuration` format. The **recommended pattern is 2 nodes** (run-oscap -> normalize). Remediation is always a separate, standalone job template -- never a workflow node. This ensures assessments are read-only and the gap between assess and remediate is available for human review, EDA policy evaluation, or future AI-driven decision-making.
 
 ```yaml
 ---
-# Assessment workflow: 2 nodes (gather -> evaluate)
+# Assessment workflow: 2 nodes (run-oscap -> normalize)
 # Remediation is a separate JT launched directly -- NOT a workflow node.
 # This separation ensures scans never modify hosts and enables three
 # operating modes:
@@ -802,25 +803,25 @@ controller_workflows:
     survey_enabled: true
     ask_inventory_on_launch: true    # REQUIRED: plugin passes inventory at launch
     workflow_nodes:
-      - identifier: gather
+      - identifier: run-oscap
         unified_job_template:
-          name: compliance-gather-<platform>-<framework>
+          name: compliance-run-oscap-<platform>-<framework>
           type: job_template
         inventory:                   # null = inherit from workflow
         success_nodes:
-          - evaluate
+          - normalize
         failure_nodes: []
 
-      - identifier: evaluate
+      - identifier: normalize
         unified_job_template:
-          name: compliance-evaluate-<platform>-<framework>
+          name: compliance-normalize-<platform>-<framework>
           type: job_template
         inventory:                   # null = inherit from workflow
         success_nodes: []
         failure_nodes: []
 ```
 
-> **Why not 3 nodes (gather -> evaluate -> remediate)?** Ansible's `import_playbook` doesn't support `when` conditions, so there is no clean way to conditionally skip remediation in a workflow. A 3-node workflow eliminates the decision point between assess and remediate -- which is exactly where the intelligence lives (human judgment, EDA policy rules, or AI agent logic). The 2-node assessment workflow + separate remediation JT is the correct pattern for all modes.
+> **Why not 3 nodes (scan -> normalize -> remediate)?** Ansible's `import_playbook` doesn't support `when` conditions, so there is no clean way to conditionally skip remediation in a workflow. A 3-node workflow eliminates the decision point between assess and remediate -- which is exactly where the intelligence lives (human judgment, EDA policy rules, or AI agent logic). The 2-node assessment workflow + separate remediation JT is the correct pattern for all modes.
 
 ### Job Template Definitions
 
@@ -1148,7 +1149,7 @@ A well-built compliance profile must ensure that scanners are swappable without 
 
 Multiple scanners for the same profile are useful for:
 
-- **Pre-assessment + Audit:** Run `compliance_evaluate` daily (fast, agentless) and OpenSCAP monthly (audit-grade XCCDF output for auditors).
+- **Pre-assessment + Audit:** Run OpenSCAP scans daily (fast, ephemeral oscap install) for continuous posture monitoring, and export XCCDF results for audit-grade evidence on demand.
 - **Scanner comparison:** Run two scanners against the same hosts to identify scanner-specific gaps.
 - **Migration:** Run both scanners in parallel during a transition until the new scanner is validated.
 
@@ -1234,20 +1235,29 @@ Use this checklist when building a new compliance profile. Every item must be sa
 
 ## Appendix: Reference Implementation
 
-The `security.compliance_rhel9_stig` collection in this repository is the reference Tier 1 compliance profile. Key files to study:
+The `security.compliance_rhel9_stig` collection in this repository is the reference Tier 1 compliance profile. It uses OpenSCAP with 366 STIG rules from `scap-security-guide`. Key files to study:
 
 | File | Purpose |
 |------|---------|
 | `collections/ansible_collections/security/compliance_rhel9_stig/galaxy.yml` | Collection metadata |
 | `collections/ansible_collections/security/compliance_rhel9_stig/meta/runtime.yml` | Ansible version requirements |
-| `collections/ansible_collections/security/compliance_rhel9_stig/meta/ee_profile.yml` | EE Builder definition |
-| `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/compliance_gather.py` | Agentless fact collection |
-| `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/compliance_evaluate.py` | Centralized rule evaluation |
-| `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF |
-| `collections/ansible_collections/security/compliance_rhel9_stig/rules/stig_rhel9_v2r8.yml` | Rule definitions (20 rules) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` | Gather stage playbook |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` | Evaluate stage playbook |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation (imports CaC) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF (366 rules) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Scan stage: install oscap, scan, fetch results (Node 1) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Normalize stage: XCCDF XML to CFF JSON (Node 2) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation: imports CaC playbook (standalone JT) |
+| `collections/ansible_collections/security/compliance_rhel9_stig/docs/architecture.md` | Pipeline architecture and data flow |
+| `collections/ansible_collections/security/compliance_rhel9_stig/docs/playbook-reference.md` | Playbook variables and usage examples |
+| `collections/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md` | normalize_xccdf module documentation |
 | `content/extensions/patterns/compliance-rhel9-stig/metadata.yml` | Pattern discovery metadata |
 | `content/extensions/patterns/compliance-rhel9-stig/ee/execution-environment.yml` | EE definition |
 | `content/extensions/patterns/compliance-rhel9-stig/aap_config/controller_job_templates.yml` | Job template definitions |
+
+### Deprecated Files (retained for backward compatibility)
+
+| File | Status |
+|------|--------|
+| `plugins/modules/compliance_gather.py` | Deprecated -- replaced by `run_oscap.yml` |
+| `plugins/modules/compliance_evaluate.py` | Deprecated -- replaced by `oscap xccdf eval` + `normalize_xccdf` |
+| `playbooks/gather_facts.yml` | Deprecated -- replaced by `run_oscap.yml` |
+| `playbooks/evaluate.yml` | Deprecated -- replaced by `normalize.yml` |
+| `rules/stig_rhel9_v2r8.yml` | Deprecated -- metadata now comes from XCCDF datastream |
