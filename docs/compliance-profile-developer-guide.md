@@ -776,13 +776,20 @@ The compliance profile must define a Controller workflow with these stages. Each
 
 ### Workflow Definition
 
-The workflow goes in `extensions/patterns/aap_config/workflow.yml` using `infra.aap_configuration` format:
+The assessment workflow goes in `extensions/patterns/aap_config/workflow.yml` using `infra.aap_configuration` format. The **recommended pattern is 2 nodes** (gather -> evaluate). Remediation is always a separate, standalone job template -- never a workflow node. This ensures assessments are read-only and the gap between assess and remediate is available for human review, EDA policy evaluation, or future AI-driven decision-making.
 
 ```yaml
 ---
+# Assessment workflow: 2 nodes (gather -> evaluate)
+# Remediation is a separate JT launched directly -- NOT a workflow node.
+# This separation ensures scans never modify hosts and enables three
+# operating modes:
+#   1. Human-supervised: workflow -> human reviews -> launches remediate JT
+#   2. EDA-automated: workflow -> EDA rulebook -> conditionally launches remediate JT
+#   3. Future autonomous: workflow -> AI agent -> decides remediation scope
 controller_workflows:
   - name: compliance-pipeline-<platform>-<framework>
-    description: "<Platform> <Framework> Compliance Pipeline"
+    description: "<Platform> <Framework> Assessment Pipeline"
     organization: compliance
     survey_enabled: true
     ask_inventory_on_launch: true    # REQUIRED: plugin passes inventory at launch
@@ -793,35 +800,19 @@ controller_workflows:
           type: job_template
         inventory:                   # null = inherit from workflow
         success_nodes:
-          - scan
+          - evaluate
         failure_nodes: []
 
-      - identifier: scan
+      - identifier: evaluate
         unified_job_template:
-          name: compliance-scan-<platform>-<framework>
-          type: job_template
-        inventory:                   # null = inherit from workflow
-        success_nodes:
-          - normalize
-        failure_nodes: []
-
-      - identifier: normalize
-        unified_job_template:
-          name: compliance-normalize-<platform>-<framework>
-          type: job_template
-        inventory:                   # null = inherit from workflow
-        success_nodes:
-          - report
-        failure_nodes: []
-
-      - identifier: report
-        unified_job_template:
-          name: compliance-report
+          name: compliance-evaluate-<platform>-<framework>
           type: job_template
         inventory:                   # null = inherit from workflow
         success_nodes: []
         failure_nodes: []
 ```
+
+> **Why not 3 nodes (gather -> evaluate -> remediate)?** Ansible's `import_playbook` doesn't support `when` conditions, so there is no clean way to conditionally skip remediation in a workflow. A 3-node workflow eliminates the decision point between assess and remediate -- which is exactly where the intelligence lives (human judgment, EDA policy rules, or AI agent logic). The 2-node assessment workflow + separate remediation JT is the correct pattern for all modes.
 
 ### Job Template Definitions
 
@@ -882,7 +873,7 @@ If any of these are wrong, the workflow will silently use the JT's hardcoded def
 Plugin selects inventory "prod-rhel9"
   |
   v
-Workflow (ask_inventory_on_launch: true)
+Workflow (ask_inventory_on_launch: true)       # 2-node assessment workflow
   receives inventory override = "prod-rhel9"
   |
   +---> Node: gather-facts (inventory: null)
@@ -890,15 +881,21 @@ Workflow (ask_inventory_on_launch: true)
   |       JT has ask_inventory_on_launch: true -> accepts it
   |
   +---> Node: evaluate (inventory: null)
-  |       inherits "prod-rhel9" from workflow
-  |
-  +---> Node: remediate (inventory: null)
           inherits "prod-rhel9" from workflow
+
+Remediation is NOT a workflow node — it is launched as a separate
+direct JT call with the same inventory override (see below).
 ```
 
 #### Remediation: Direct JT Launch with job_tags
 
-The plugin launches the remediation JT **directly** (not through the workflow) because AAP workflow-level `job_tags` do not propagate to child job templates. The remediation JT must have:
+The plugin launches the remediation JT **directly** (not through the workflow). The assessment workflow is strictly 2 nodes (gather -> evaluate) and never modifies hosts. This separation is the correct architecture for all operating modes:
+
+- **Human-supervised**: workflow (gather -> evaluate) -> human reviews findings -> human launches remediate JT with selected rules as job_tags
+- **EDA-automated**: workflow (gather -> evaluate) -> EDA rulebook evaluates findings -> conditionally launches remediate JT based on policy
+- **Future autonomous**: same pattern — the decision point between assess and remediate is where intelligence lives
+
+Additional technical reasons: Ansible's `import_playbook` doesn't support `when` conditions (no clean way to conditionally skip remediation in a 3-node workflow), and AAP workflow-level `job_tags` do not propagate to child job templates. The remediation JT must have:
 
 - `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
@@ -937,7 +934,7 @@ The plugin resolves the workflow template in two ways:
 
 ### Remediation Playbook Pattern
 
-The remediation playbook must support selective execution via `--tags`, `--extra-vars`, and `--limit`. This is how the portal translates user decisions from the Remediation Builder into Controller job parameters.
+The remediation playbook is always launched as a **standalone job template** -- never as a workflow node. It must support selective execution via `--tags`, `--extra-vars`, and `--limit`. This is how the portal translates user decisions from the Remediation Builder into Controller job parameters.
 
 For Tier 1 RHEL STIG, the remediation playbook imports the ComplianceAsCode (CaC) playbook from `scap-security-guide`:
 

@@ -1,9 +1,15 @@
 ---
 # IMPORTANT: All job templates must have ask_inventory_on_launch: true
 # so the workflow's inventory override propagates to each node.
-# The remediation JT also needs ask_tags_on_launch: true because the
-# plugin launches it directly (not via workflow) with job_tags for
-# selective rule remediation.
+#
+# The assessment workflow is 2 nodes: gather -> evaluate (read-only).
+# Remediation is NOT a workflow node — it is launched as a separate
+# direct JT with job_tags for scoped rule selection. This ensures
+# assessments never modify hosts and enables human review, EDA policy
+# evaluation, or AI-driven decision-making between assess and remediate.
+#
+# The remediation JT needs ask_tags_on_launch: true because the plugin
+# launches it directly (not via workflow) with job_tags.
 controller_templates:
   - name: compliance-scan-rhel9-stig
     organization: compliance-prototype

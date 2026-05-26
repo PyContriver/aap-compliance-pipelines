@@ -147,8 +147,8 @@ The following settings are **mandatory** for the plugin to function:
 
 The plugin expects a 2-node workflow: `gather-facts` -> `evaluate`.
 
-- **Scans** (assessment and verification) are launched via the workflow template (`POST /workflow_job_templates/{id}/launch/`)
-- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the workflow. This ensures assessments never modify hosts and remediation is always a deliberate action
+- **Scans** (assessment and verification) are launched via the 2-node workflow template (`POST /workflow_job_templates/{id}/launch/`). The workflow is read-only and never modifies hosts.
+- **Remediation** is launched directly against the remediation JT (`POST /job_templates/{id}/launch/`), not through the workflow. The gap between assess and remediate is where intelligence lives: human review in supervised mode, EDA policy evaluation in automated mode, or AI agent decisions in future autonomous mode. This is the correct architecture for all operating modes.
 
 ### Verifying Configuration
 

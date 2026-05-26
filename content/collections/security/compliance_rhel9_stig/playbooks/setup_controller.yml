@@ -269,8 +269,9 @@
             - compliance-evaluate       (fact cache: yes, ask_inventory: yes)
             - compliance-remediate      (become: yes, ask_inventory: yes, ask_tags: yes)
 
-          Workflow:
+          Workflow (2-node assessment, read-only):
             - compliance-pipeline-rhel9-stig  (ask_inventory: yes)
-              Gather Facts -> Evaluate -> Remediate
+              Gather Facts -> Evaluate
               (all nodes inherit inventory from workflow)
+              Remediation is a separate direct JT launch (not a workflow node)
 ...

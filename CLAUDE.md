@@ -47,8 +47,10 @@ Full guide: `docs/deployment-guide.md`
 
 ## Terminology
 
-- "Compliance profile" = registered standard mapped to workflow + EE (Settings tab)
+- "Compliance profile" = registered standard mapped to a 2-node assessment workflow + EE (Settings tab)
 - "Remediation" = saved rule selections + parameter overrides (Remediations tab)
+- "Assessment workflow" = 2-node workflow (gather -> evaluate), read-only, never modifies hosts
+- "Remediation JT" = standalone job template launched directly (not via workflow) with job_tags
 - AAP 2.6 terms: "automation controller" (lowercase), "workflow job template", "platform gateway"
 
 ## Engineering Standards
