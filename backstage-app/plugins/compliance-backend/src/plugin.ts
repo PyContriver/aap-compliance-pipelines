@@ -141,7 +141,11 @@ export const complianceBackendPlugin = createBackendPlugin({
         } else {
           // Production mode: only /health and /findings/ingest are unauthenticated.
           // /findings/ingest must be reachable from the EE (playbook POSTs findings
-          // directly after normalization). Auth is via AAP token in x-aap-token header.
+          // directly after normalization). The playbook cannot authenticate as a
+          // Backstage user, so this endpoint is unauthenticated at the Backstage
+          // layer. Security is enforced via per-scan ingest tokens stored in the
+          // database (ADR-010): each scan generates a unique token at creation time,
+          // and the ingest endpoint rejects requests without a valid matching token.
           httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
         }

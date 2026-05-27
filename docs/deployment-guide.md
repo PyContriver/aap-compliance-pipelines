@@ -207,7 +207,7 @@ auth:
       dangerouslyAllowOutsideDevelopment: true
 ```
 
-All API routes are marked `unauthenticated` in the backend. This is intentional for the prototype phase.
+All API routes are marked `unauthenticated` in the backend. This is the default for local development with guest auth. For production deployment, set `compliance.authMode: production` to enable full RBAC enforcement.
 
 ### Production (Portal/RHDH)
 

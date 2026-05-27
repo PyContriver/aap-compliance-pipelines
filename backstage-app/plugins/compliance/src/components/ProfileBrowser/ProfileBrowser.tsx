@@ -58,11 +58,11 @@ interface DisplayProfile {
   categories: Array<{ name: string; count: number }>;
   severity: { catI: number; catII: number; catIII: number };
   icon: React.ReactElement;
-  /** True when this profile was loaded from the cartridge registry. */
+  /** True when this profile was loaded from the compliance profile registry. */
   fromRegistry?: boolean;
 }
 
-/** Map a cartridge from the registry into the display format. */
+/** Map a compliance profile from the registry into the display format. */
 function cartridgeToDisplayProfile(c: ComplianceCartridge): DisplayProfile {
   return {
     id: c.id,
@@ -385,7 +385,7 @@ export const ProfileBrowser = () => {
             </Typography>
             <Typography variant="body2" color="textSecondary" paragraph>
               Add a compliance profile in Settings to map a standard (e.g., DISA STIG)
-              to a workflow job template and execution environment.
+              to an assessment job template and execution environment.
             </Typography>
             <Button
               variant="contained"

@@ -41,7 +41,7 @@ import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import TrendingDownIcon from '@material-ui/icons/TrendingDown';
 import RemoveIcon from '@material-ui/icons/Remove';
-import type { FindingSeverity, MultiHostFinding, ComplianceScan } from '@aap-compliance/common';
+import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { ExportButton } from './ExportButton';
 

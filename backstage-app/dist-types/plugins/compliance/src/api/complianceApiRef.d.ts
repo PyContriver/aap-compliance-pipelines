@@ -27,6 +27,7 @@ export interface ComplianceApi {
         description: string;
     }>>;
     getScans(): Promise<ComplianceScan[]>;
+    getScan(scanId: string): Promise<ComplianceScan | null>;
     launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
     getFindings(scanId?: string): Promise<MultiHostFinding[]>;
     getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;

@@ -42,7 +42,7 @@ Full-depth scans that produce evidence suitable for auditor review. Audit-grade 
 Compliance pipelines integrate with the following {PlatformNameShort} components:
 
 {ControllerName}::
-Workflow job templates orchestrate the scan-remediate-verify cycle. Each compliance profile maps to a set of job templates that run within a dedicated organization. Job templates support launch-time prompts for inventory scope, rule selections, and remediation parameters.
+Job templates orchestrate the scan and remediation cycle. For Tier 1 scanners (OpenSCAP), assessment uses a single job template with two plays. Each compliance profile maps to a set of job templates that run within a dedicated organization. Job templates support launch-time prompts for inventory scope, rule selections, and remediation parameters.
 
 Execution environments::
 Compliance scanners and their dependencies are packaged as {ExecEnvShort}s. This ensures that scanner binaries (such as `openscap-scanner`), SCAP content (such as `scap-security-guide`), and required Python libraries are available on execution nodes without modifying the node operating system.
@@ -54,7 +54,7 @@ The Backstage plugin communicates with {ControllerName} through the platform gat
 
 A compliance profile is a registered standard that maps a compliance framework (such as DISA STIG or CIS Benchmark) to the {PlatformNameShort} resources required to assess it. Each profile specifies:
 
-* The workflow job template that orchestrates the scan
+* The assessment job template that orchestrates the scan
 * The {ExecEnvShort} containing the scanner and content
 * The inventory scope (which hosts to assess)
 * The compliance framework version and rule set

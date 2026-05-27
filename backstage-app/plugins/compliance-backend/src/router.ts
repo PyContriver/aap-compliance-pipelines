@@ -21,6 +21,8 @@ import {
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 
+import { randomUUID } from 'crypto';
+
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
 
@@ -81,6 +83,10 @@ function isBoolean(val: unknown): val is boolean {
 
 function isArray(val: unknown): val is unknown[] {
   return Array.isArray(val);
+}
+
+function isValidScanId(scanId: string): boolean {
+  return typeof scanId === 'string' && scanId.length > 0 && scanId.length <= 128;
 }
 
 // ─── Permission enforcement ──────────────────────────────────────────
@@ -221,7 +227,6 @@ export async function createRouter(
   });
 
   router.get('/scans/:scanId', async (req, res) => {
-    getUserAapToken(req);
     const { scanId } = req.params;
     if (!scanId || scanId.length > 128) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -291,7 +296,6 @@ export async function createRouter(
     try {
       // Create scan record BEFORE launching so scan_id is available as extra_var
       // Generate a per-scan ingest token for secure Direct POST
-      const { randomUUID } = require('crypto');
       const ingestToken = randomUUID();
 
       const scanRecord = await database.createScan({
@@ -305,7 +309,7 @@ export async function createRouter(
         completedAt: null,
       });
       scanRecordId = scanRecord.id;
-      ingestTokens.set(scanRecord.id, ingestToken);
+      await database.storeIngestToken(scanRecord.id, ingestToken);
 
       const result = await service.launchScan(scanRequest, userToken, scanRecord.id, ingestToken);
 
@@ -328,6 +332,11 @@ export async function createRouter(
   router.get('/findings', async (req, res) => {
     const scanId = req.query.scanId as string | undefined;
     const userToken = getUserAapToken(req);
+
+    if (scanId && !isValidScanId(scanId)) {
+      res.status(400).json({ error: 'Invalid scanId' });
+      return;
+    }
 
     // 1. If a scanId is given, check the DB for stored findings first
     if (scanId) {
@@ -435,6 +444,11 @@ export async function createRouter(
       return;
     }
 
+    if (!isValidScanId(scanId)) {
+      res.status(400).json({ error: 'Invalid scanId' });
+      return;
+    }
+
     try {
       // Resolve the current scan — try by scan UUID first, then by workflowJobId
       let currentScan = await database.getScanById(scanId);
@@ -471,12 +485,6 @@ export async function createRouter(
     }
   });
 
-  // Per-scan ingest tokens for Direct POST authentication.
-  // Stored in memory (not DB) since they're ephemeral — only needed
-  // during the scan lifecycle. Generated at scan creation, validated
-  // on ingest, discarded after use.
-  const ingestTokens = new Map<string, string>();
-
   // ─── Findings ingest (direct POST from playbook) ────────────────────
 
   router.post('/findings/ingest', async (req, res) => {
@@ -490,6 +498,16 @@ export async function createRouter(
       return;
     }
 
+    if (!isValidScanId(scanId)) {
+      res.status(400).json({ error: 'Invalid scanId' });
+      return;
+    }
+
+    if (findings.length > 50000) {
+      res.status(400).json({ error: 'Findings count exceeds maximum allowed (50000)' });
+      return;
+    }
+
     try {
       const scan = await database.getScanById(scanId);
       if (!scan) {
@@ -498,8 +516,11 @@ export async function createRouter(
       }
 
       // Validate per-scan ingest token to prevent unauthorized data injection.
-      const expectedToken = ingestTokens.get(scanId);
-      if (expectedToken && expectedToken !== ingestToken) {
+      // Tokens are persisted in the database (migration 004) so they survive
+      // restarts and work across replicas. If no stored token exists (e.g.,
+      // the scan was not created via POST /scan), reject the request.
+      const expectedToken = await database.getIngestToken(scanId);
+      if (!expectedToken || expectedToken !== ingestToken) {
         res.status(403).json({ error: 'Invalid ingest token' });
         return;
       }
@@ -563,7 +584,6 @@ export async function createRouter(
         // Posture snapshot is best-effort
       }
 
-      ingestTokens.delete(scanId);
       logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);
       res.status(201).json({ scanId, findingsCount: count });
     } catch (error) {

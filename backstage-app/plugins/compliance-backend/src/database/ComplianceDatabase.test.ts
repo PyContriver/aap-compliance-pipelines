@@ -17,6 +17,7 @@ async function createTables(database: Knex): Promise<void> {
     table.string('status').notNullable().defaultTo('pending');
     table.timestamp('started_at').notNullable().defaultTo(database.fn.now());
     table.timestamp('completed_at').nullable();
+    table.string('ingest_token').nullable();
   });
 
   await database.schema.createTable('compliance_findings', table => {
@@ -73,6 +74,19 @@ async function createTables(database: Knex): Promise<void> {
       table.float('compliance_pct').notNullable().defaultTo(0);
     },
   );
+
+  await database.schema.createTable('compliance_rule_metadata', table => {
+    table.string('rule_id').primary();
+    table.string('stig_id').notNullable().defaultTo('');
+    table.text('title').notNullable().defaultTo('');
+    table.text('description').notNullable().defaultTo('');
+    table.text('check_text').notNullable().defaultTo('');
+    table.text('fix_text').notNullable().defaultTo('');
+    table.string('category').notNullable().defaultTo('');
+    table.string('disruption').notNullable().defaultTo('medium');
+    table.string('scanner').notNullable().defaultTo('');
+    table.timestamp('updated_at').notNullable().defaultTo(database.fn.now());
+  });
 
   await database.schema.createTable(
     'compliance_cartridge_registry',
@@ -850,6 +864,162 @@ describe('ComplianceDatabase', () => {
       const latest = await complianceDb.getLatestFindings('rhel9-stig');
       expect(latest).toHaveLength(1);
       expect(latest[0].ruleId).toBe('pending-rule');
+    });
+  });
+
+  // ─── Rule metadata ──────────────────────────────────────────────────
+
+  describe('upsertRuleMetadata + getRuleMetadataBulk', () => {
+    it('inserts rule metadata and retrieves it', async () => {
+      const count = await complianceDb.upsertRuleMetadata([
+        {
+          ruleId: 'sshd_set_keepalive',
+          stigId: 'RHEL-09-255040',
+          title: 'Set SSH Client Alive Interval',
+          description: 'Configure SSH keepalive',
+          checkText: 'Verify keepalive is set',
+          fixText: 'Set ClientAliveInterval to 600',
+          category: 'Access Control',
+          disruption: 'low',
+          scanner: 'openscap',
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
+
+      expect(count).toBe(1);
+
+      const result = await complianceDb.getRuleMetadataBulk(['sshd_set_keepalive']);
+      expect(result.size).toBe(1);
+      const meta = result.get('sshd_set_keepalive')!;
+      expect(meta.stigId).toBe('RHEL-09-255040');
+      expect(meta.title).toBe('Set SSH Client Alive Interval');
+      expect(meta.disruption).toBe('low');
+    });
+
+    it('updates an existing record on conflict (same rule_id)', async () => {
+      await complianceDb.upsertRuleMetadata([
+        {
+          ruleId: 'accounts_tmout',
+          stigId: 'RHEL-09-001',
+          title: 'Original Title',
+          description: 'Original',
+          checkText: '',
+          fixText: '',
+          category: '',
+          disruption: 'low',
+          scanner: 'openscap',
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
+
+      await complianceDb.upsertRuleMetadata([
+        {
+          ruleId: 'accounts_tmout',
+          stigId: 'RHEL-09-001',
+          title: 'Updated Title',
+          description: 'Updated',
+          checkText: 'new check',
+          fixText: 'new fix',
+          category: 'Access Control',
+          disruption: 'medium',
+          scanner: 'openscap',
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
+
+      const result = await complianceDb.getRuleMetadataBulk(['accounts_tmout']);
+      expect(result.size).toBe(1);
+      const meta = result.get('accounts_tmout')!;
+      expect(meta.title).toBe('Updated Title');
+      expect(meta.description).toBe('Updated');
+      expect(meta.disruption).toBe('medium');
+    });
+
+    it('retrieves multiple rules in bulk', async () => {
+      await complianceDb.upsertRuleMetadata([
+        {
+          ruleId: 'rule_a',
+          stigId: 'V-001',
+          title: 'Rule A',
+          description: '',
+          checkText: '',
+          fixText: '',
+          category: '',
+          disruption: 'low',
+          scanner: 'openscap',
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          ruleId: 'rule_b',
+          stigId: 'V-002',
+          title: 'Rule B',
+          description: '',
+          checkText: '',
+          fixText: '',
+          category: '',
+          disruption: 'high',
+          scanner: 'openscap',
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
+
+      const result = await complianceDb.getRuleMetadataBulk(['rule_a', 'rule_b']);
+      expect(result.size).toBe(2);
+      expect(result.get('rule_a')!.title).toBe('Rule A');
+      expect(result.get('rule_b')!.title).toBe('Rule B');
+    });
+
+    it('returns empty map for non-existent rule_ids', async () => {
+      const result = await complianceDb.getRuleMetadataBulk(['nonexistent_rule', 'also_missing']);
+      expect(result.size).toBe(0);
+    });
+
+    it('returns 0 for empty input', async () => {
+      const count = await complianceDb.upsertRuleMetadata([]);
+      expect(count).toBe(0);
+    });
+  });
+
+  // ─── Ingest tokens ─────────────────────────────────────────────────
+
+  describe('storeIngestToken + getIngestToken', () => {
+    it('stores and retrieves an ingest token', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+
+      await complianceDb.storeIngestToken(scan.id, 'test-token-123');
+
+      const token = await complianceDb.getIngestToken(scan.id);
+      expect(token).toBe('test-token-123');
+    });
+
+    it('returns null when no token is stored', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+
+      const token = await complianceDb.getIngestToken(scan.id);
+      expect(token).toBeNull();
+    });
+
+    it('returns null for nonexistent scan', async () => {
+      const token = await complianceDb.getIngestToken('nonexistent-scan-id');
+      expect(token).toBeNull();
     });
   });
 });

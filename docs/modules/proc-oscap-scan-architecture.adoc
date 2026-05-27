@@ -87,7 +87,7 @@ After the job completes, check the job output for the normalize task summary:
 Normalized 3 hosts, 1098 findings (840 pass, 216 fail, 0 error, 42 N/A).
 ----
 +
-The compliance plugin reads the `compliance_report` Ansible fact from job events and displays findings in the Results tab.
+The normalize play POSTs findings directly to the compliance plugin's `/findings/ingest` endpoint using a per-scan ingest token (see ADR-007 and ADR-010). If `backstage_api_url` is not configured, findings fall back to Controller job event parsing.
 
 .Verification
 

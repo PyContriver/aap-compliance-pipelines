@@ -1,6 +1,6 @@
 # AAP Compliance Pipelines
 
-A Backstage-based compliance management prototype for Ansible Automation Platform. Provides self-service compliance scanning, results analysis, and selective remediation for RHEL infrastructure.
+A Backstage-based compliance management solution for Ansible Automation Platform. Provides self-service compliance scanning, results analysis, and selective remediation for RHEL infrastructure.
 
 ## Deployment Options
 

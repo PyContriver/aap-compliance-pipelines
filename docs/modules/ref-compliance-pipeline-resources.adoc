@@ -18,7 +18,7 @@ The following tables describe the {ControllerName} resources required by the com
 |`compliance-prototype`
 
 |Description
-|Compliance pipeline prototype -- isolated from production resources
+|Compliance pipeline resources -- isolated from production resources
 |===
 
 == Project
@@ -101,7 +101,7 @@ Add target RHEL 9 hosts to this inventory. Each host must be accessible over the
 
 All job templates use the following common settings:
 
-* *Project*: `compliance-content` (or `compliance-profile`)
+* *Project*: `compliance-profile`
 * *Inventory*: `compliance-rhel9-inventory` (default; overridable at launch)
 * *Organization*: `compliance-prototype`
 
@@ -197,9 +197,13 @@ The compliance pipelines Backstage plugin communicates with {ControllerName} thr
 |GET
 |Check the status of a running or completed job
 
+|`/api/compliance/findings/ingest`
+|POST
+|Primary findings delivery channel. The normalize play POSTs CFF JSON findings directly to the plugin API using a per-scan ingest token (Direct POST, see ADR-007 and ADR-010).
+
 |`/api/controller/v2/jobs/<id>/job_events/`
 |GET
-|Retrieve job events including scan findings (CFF JSON from `compliance_report` fact)
+|Retrieve job events for status monitoring and fallback findings parsing (if Direct POST is not configured)
 
 |`/api/controller/v2/jobs/<id>/stdout/`
 |GET

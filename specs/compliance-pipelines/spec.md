@@ -5,7 +5,7 @@
 **Status**: Active (oscap migration complete, PRs #4-#13 merged)
 **Input**: User description: "End-to-end compliance pipeline experience (scan, review, remediate, verify) for regulated infrastructure within the Ansible Automation Platform Portal"
 **Related**: ANSTRAT-1670 (Evolve Ansible Content — Initiative 3: Strategic Domain Content), ANSTRAT-1285 (Pattern Loading Service), ANSTRAT-1534 (Content Discovery), ANSTRAT-2122 (Skill Content Type)
-**Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Jira Feature Template Analysis](../../prototypes/compliance-pipelines/context/jira-feature-template-analysis.md)
+**Research**: Competitor Analysis, Content Delivery Strategy, Jira Feature Template Analysis <!-- Original links removed: prototypes/compliance-pipelines/context/ directory no longer exists -->
 
 ## User Scenarios & Testing _(mandatory)_
 

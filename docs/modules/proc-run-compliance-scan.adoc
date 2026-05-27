@@ -6,7 +6,7 @@
 
 [role="_abstract"]
 
-Use the compliance pipelines plugin to scan managed hosts against a compliance standard, review findings, build a remediation profile, and apply remediations through {ControllerName} workflows.
+Use the compliance pipelines plugin to scan managed hosts against a compliance standard, review findings, build a remediation profile, and apply remediations through {ControllerName} job templates.
 
 .Prerequisites
 
@@ -54,13 +54,13 @@ Configure the scan parameters:
 .. Optionally, set a host limit to scope the scan to specific hosts.
 .. Click *Launch Scan*.
 +
-The plugin submits a workflow launch request to {ControllerName}. You are redirected to the scan progress view.
+The plugin submits a job template launch request to {ControllerName}. You are redirected to the scan progress view.
 
 . Monitor the scan progress.
 +
-The scan progress view displays the status of each workflow node (scan, remediate, verify) in real time. The plugin polls the {ControllerName} API for status updates.
+The scan progress view displays the job status in real time. The plugin polls the {ControllerName} API for status updates.
 +
-Wait for the scan workflow to reach a terminal state (*Successful*, *Failed*, or *Canceled*).
+Wait for the scan job to reach a terminal state (*Successful*, *Failed*, or *Canceled*).
 
 . View scan results.
 +
@@ -102,7 +102,7 @@ From the *Remediations* tab, select the remediation profile you saved and click 
 +
 Alternatively, from the results viewer, click *Execute Remediation* to launch the remediation immediately without saving a profile.
 +
-The plugin launches the remediation workflow in {ControllerName}, passing the selected rules and custom parameters as extra variables.
+The plugin launches the remediation job template in {ControllerName}, passing the selected rules as job tags and custom parameters as extra variables.
 +
 [IMPORTANT]
 ====

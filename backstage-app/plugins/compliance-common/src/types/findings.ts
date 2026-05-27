@@ -1,3 +1,12 @@
+/**
+ * Common Findings Format (CFF) v1.0 — FROZEN 2026-05-27
+ *
+ * This schema is the contract between scanner adapters (oscap, Tenable, Insights, etc.)
+ * and the compliance plugin backend. All scanner normalizers must produce data conforming
+ * to these types. Do not make breaking changes without a major version bump and adapter
+ * migration plan.
+ */
+
 export type FindingSeverity = 'CAT_I' | 'CAT_II' | 'CAT_III';
 export type FindingStatus = 'pass' | 'fail' | 'error' | 'notapplicable' | 'notchecked';
 export type DisruptionLevel = 'low' | 'medium' | 'high';

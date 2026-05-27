@@ -149,6 +149,18 @@ export class ComplianceDatabase {
     };
   }
 
+  // ─── Ingest tokens ─────────────────────────────────────────────────
+
+  async storeIngestToken(scanId: string, token: string): Promise<void> {
+    await this.db('compliance_scans').where('id', scanId).update({ ingest_token: token });
+  }
+
+  async getIngestToken(scanId: string): Promise<string | null> {
+    const row = await this.db('compliance_scans').where('id', scanId).select('ingest_token').first();
+    if (!row) return null;
+    return (row.ingest_token as string) || null;
+  }
+
   // ─── Data retention ─────────────────────────────────────────────────
 
   /**

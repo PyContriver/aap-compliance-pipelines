@@ -1,6 +1,6 @@
 # Compliance Pipelines: Downstream Submission Guide
 
-This document describes how to submit the compliance pipelines feature from this standalone prototype repo (`aap-compliance-pipelines`) to the downstream Ansible Portal repo (`ansible/ansible-rhdh-plugins`).
+This document describes how to submit the compliance pipelines feature from this standalone repo (`aap-compliance-pipelines`) to the downstream Ansible Portal repo (`ansible/ansible-rhdh-plugins`).
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ Before submitting to the downstream repo, ensure the following are complete:
 1. **Jira ticket created**: An ANSTRAT feature ticket must exist for the compliance pipelines feature, linked to the appropriate parent Outcome (recommended: ANSTRAT-2178, Initiative 2: Policy-Driven Workflows & Compliance Automation)
 2. **Spec review passed**: The spec at `specs/compliance-pipelines/spec.md` must be reviewed and approved by the Portal team. Run the quality checklist at `specs/compliance-pipelines/checklists/requirements.md` before submitting
 3. **Architecture approval**: The compliance profile model, Gateway-only API routing, and Backstage PostgreSQL persistence approach must be approved via an ADR in the downstream repo
-4. **Prototype validation**: Core workflows (compliance profile registration, scan launch, findings review, profile builder) must be demonstrated in the prototype environment
+4. **MVP validation**: Core workflows (compliance profile registration, scan launch, findings review, profile builder) must be demonstrated end-to-end
 5. **Downstream branch created**: A feature branch in `ansible/ansible-rhdh-plugins` following the naming convention (e.g., `NNN-compliance-pipelines`)
 
 ## File Mapping
@@ -35,18 +35,18 @@ Before submitting to the downstream repo, ensure the following are complete:
 | This Repo | Downstream Location | Notes |
 |---|---|---|
 | Architecture decision records | `docs/adrs/NNN-compliance-*.md` | Create ADRs in downstream format (not yet written in this repo) |
-| Research documents | `docs/research/NNN-compliance-*.md` | Adapt prototype research for downstream audience |
+| Research documents | `docs/research/NNN-compliance-*.md` | Adapt research for downstream audience |
 
 ### Files that stay in this repo only
 
 | File | Reason |
 |---|---|
-| `content/` | Ansible compliance content (collections, EE definitions) — ships separately |
-| `collections/` | Ansible collection source — managed in its own repo or content pipeline |
-| `scripts/` | Dev helper scripts specific to the prototype environment |
+| `content/` | Ansible compliance content (collections, EE definitions) -- ships separately |
+| `collections/` | Ansible collection source -- managed in its own repo or content pipeline |
+| `scripts/` | Dev helper scripts specific to the development environment |
 | `review/` | Internal review materials |
-| `SUBMISSION.md` | This file — submission process documentation |
-| `README.md` | Prototype-specific README |
+| `SUBMISSION.md` | This file -- submission process documentation |
+| `README.md` | Standalone repo README |
 
 ## Step-by-Step Submission Process
 
@@ -80,7 +80,7 @@ cp <path-to-this-repo>/specs/compliance-pipelines/checklists/requirements.md \
 After copying, update the following in the spec and plan files:
 - Feature branch name: update to `NNN-compliance-pipelines`
 - Research links: update relative paths to match downstream `docs/research/` structure
-- Remove any references to prototype-specific paths or infrastructure
+- Remove any references to standalone-repo-specific paths or infrastructure
 
 ### Step 4: Copy plugin code to the upstream submodule
 
@@ -103,9 +103,9 @@ cp -r <path-to-this-repo>/backstage-app/plugins/compliance-common plugins/compli
 
 ### Step 5: Adapt code for downstream conventions
 
-The prototype code may need adjustments:
+The plugin code may need adjustments:
 - **Package naming**: Ensure packages follow the `@redhat/backstage-plugin-*` naming convention
-- **Import paths**: Update any prototype-specific import paths to match the upstream monorepo structure
+- **Import paths**: Update any standalone-repo import paths to match the upstream monorepo structure
 - **Config schema**: Ensure `config.d.ts` follows the downstream pattern (see existing plugins)
 - **Dynamic plugin exports**: Add `alpha.ts` or dynamic plugin entry point if required by the downstream packaging
 - **Tests**: Ensure tests pass in the upstream CI environment (`yarn test`, `yarn tsc`, `yarn lint`)
@@ -121,7 +121,7 @@ Write architecture decision records in `docs/adrs/` covering:
 
 ### Step 7: Create research documents
 
-Adapt prototype research for the downstream `docs/research/` directory:
+Adapt research for the downstream `docs/research/` directory:
 - Competitor analysis (Puppet SCE, Chef Compliance positioning)
 - ComplianceAsCode content packaging approach
 - Two-track scanning architecture rationale

@@ -1,5 +1,6 @@
 {
   "name": "@aap-compliance/common",
+  "description": "Shared TypeScript types for the AAP compliance plugin",
   "version": "0.1.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -14,9 +15,6 @@
     "role": "common-library"
   },
   "sideEffects": false,
-  "dependencies": {
-    "undici": "^7.0.0"
-  },
   "devDependencies": {
     "@backstage/cli": "^0.34.6",
     "typescript": "~5.8.0"

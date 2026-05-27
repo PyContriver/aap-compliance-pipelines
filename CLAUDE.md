@@ -1,6 +1,6 @@
 # AAP Compliance Pipelines Prototype
 
-Self-contained prototype for an AAP compliance vertical — Backstage plugin + RHEL STIG content.
+Self-contained MVP for an AAP compliance vertical — Backstage plugin + RHEL STIG content.
 
 ## Structure
 

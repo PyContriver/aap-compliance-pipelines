@@ -68,6 +68,7 @@ export declare class ComplianceBackendClient implements ComplianceApi {
     }>;
     getProfiles(): Promise<ComplianceProfile[]>;
     getScans(): Promise<ComplianceScan[]>;
+    getScan(scanId: string): Promise<ComplianceScan | null>;
     getInventories(): Promise<{
         id: number;
         name: string;

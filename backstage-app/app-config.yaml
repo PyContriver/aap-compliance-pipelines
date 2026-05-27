@@ -23,7 +23,7 @@ app:
               appBarForegroundColor: '#ffffff'
 
 organization:
-  name: AAP Compliance Prototype
+  name: AAP Compliance
 
 backend:
   baseUrl: http://localhost:7007
@@ -43,7 +43,7 @@ backend:
 
 # Compliance plugin settings
 compliance:
-  dataSource: live
+  dataSource: mock
   # Number of days to retain scan findings before cleanup (default: 90)
   retentionDays: 90
   # Auth mode: 'development' = all routes unauthenticated (standalone dev),

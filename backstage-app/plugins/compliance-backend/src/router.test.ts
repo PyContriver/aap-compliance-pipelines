@@ -189,6 +189,8 @@ function createMockDatabase() {
     upsertRuleMetadata: jest.fn().mockResolvedValue(0),
     getRuleMetadataBulk: jest.fn().mockResolvedValue(new Map()),
     getAllRuleMetadata: jest.fn().mockResolvedValue(new Map()),
+    storeIngestToken: jest.fn().mockResolvedValue(undefined),
+    getIngestToken: jest.fn().mockResolvedValue(null),
     listRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
@@ -1086,6 +1088,7 @@ describe('compliance backend router', () => {
         startedAt: '2026-05-27T00:00:00.000Z',
         completedAt: null,
       });
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('valid-token');
       (db.saveFindingsForScan as jest.Mock).mockResolvedValueOnce(2);
       service.mapRawFindingPublic = jest.fn().mockReturnValue({
         scanId: 'scan-1',
@@ -1104,6 +1107,7 @@ describe('compliance backend router', () => {
         path: '/findings/ingest',
         body: {
           scanId: 'scan-1',
+          ingestToken: 'valid-token',
           findings: [
             { rule_id: 'sshd_set_keepalive_0', status: 'fail', host: 'rhel01', severity: 'high' },
             { rule_id: 'accounts_tmout', status: 'pass', host: 'rhel01', severity: 'medium' },
@@ -1115,14 +1119,14 @@ describe('compliance backend router', () => {
       expect(db.updateScanStatus).toHaveBeenCalledWith('scan-1', 'completed', expect.any(String));
     });
 
-    it('accepts request with ingest token when no stored token exists', async () => {
+    it('rejects request when no stored token exists in database', async () => {
       const { app, database: db } = await createApp();
       (db.getScanById as jest.Mock).mockResolvedValueOnce({
         id: 'scan-1',
         profileId: 'rhel9-stig',
         status: 'pending',
       });
-      (db.saveFindingsForScan as jest.Mock).mockResolvedValueOnce(1);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce(null);
 
       const res = await testRequest(app, {
         method: 'POST',
@@ -1133,8 +1137,104 @@ describe('compliance backend router', () => {
           findings: [{ rule_id: 'test', status: 'pass', host: 'h1' }],
         },
       });
-      // Without a stored token in the map, any token is accepted (backward compat)
+      // Without a stored token in the database, the request is rejected (H1 fix)
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects ingest request with wrong token when valid token exists', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('correct-token');
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: {
+          scanId: 'scan-1',
+          ingestToken: 'wrong-token',
+          findings: [{ rule_id: 'test', status: 'pass', host: 'h1' }],
+        },
+      });
+      expect(res.status).toBe(403);
+      expect((res.body as any).error).toMatch(/Invalid ingest token/);
+    });
+
+    it('accepts ingest request with correct token', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('correct-token');
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValueOnce(1);
+      service.mapRawFindingPublic = jest.fn().mockReturnValue({
+        scanId: 'scan-1',
+        ruleId: 'test',
+        stigId: '',
+        host: 'h1',
+        status: 'pass',
+        severity: 'CAT_II',
+        actualValue: '',
+        expectedValue: '',
+        evidence: null,
+      });
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: {
+          scanId: 'scan-1',
+          ingestToken: 'correct-token',
+          findings: [{ rule_id: 'test', status: 'pass', host: 'h1' }],
+        },
+      });
       expect(res.status).toBe(201);
+      expect((res.body as any).findingsCount).toBe(1);
+    });
+
+    it('rejects ingest request when no stored token exists for unknown scan', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'unknown-scan',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce(null);
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: {
+          scanId: 'unknown-scan',
+          ingestToken: 'any-token',
+          findings: [{ rule_id: 'test', status: 'pass', host: 'h1' }],
+        },
+      });
+      expect(res.status).toBe(403);
+      expect((res.body as any).error).toMatch(/Invalid ingest token/);
     });
   });
 });

@@ -2,6 +2,8 @@
 
 Step-by-step record of deploying the compliance plugins on the Netrunner demo lab Portal (QCOW-based RHDH appliance). This documents the exact friction points, workarounds, and final working configuration.
 
+> **Note:** Replace `<VERSION>` in all commands below with the actual plugin version being deployed (e.g., `0.4.0` for backend, `0.2.0` for frontend). Check the `version` field in each plugin's `package.json` for the current version.
+
 ## Environment
 
 | Component | Detail |
@@ -54,8 +56,8 @@ cd ../../compliance/dist-dynamic && npm pack
 ```
 
 This produces:
-- `plugins/compliance-backend/dist-dynamic/aap-compliance-plugin-compliance-backend-dynamic-0.1.0.tgz`
-- `plugins/compliance/dist-dynamic/aap-compliance-plugin-compliance-dynamic-0.1.0.tgz`
+- `plugins/compliance-backend/dist-dynamic/aap-compliance-plugin-compliance-backend-dynamic-<VERSION>.tgz`
+- `plugins/compliance/dist-dynamic/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz`
 
 ## Step 2: Compute integrity hashes
 
@@ -76,8 +78,8 @@ sha512-ZKo7SycT/BXki4E+FJ6o1nj8WsafdbH9JXqh3AUTUihxjDQVUj2YS29zmHbQeYK794ZHbY8qB
 
 ```bash
 scp -i portal-key.pem \
-  aap-compliance-plugin-compliance-backend-dynamic-0.1.0.tgz \
-  aap-compliance-plugin-compliance-dynamic-0.1.0.tgz \
+  aap-compliance-plugin-compliance-backend-dynamic-<VERSION>.tgz \
+  aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz \
   cloud-user@<portal-host>:/tmp/
 
 ssh cloud-user@<portal-host>
@@ -93,7 +95,7 @@ Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
 
 ```yaml
   # AAP Compliance Plugins
-  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-backend-dynamic-0.1.0.tgz
+  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-backend-dynamic-<VERSION>.tgz
     disabled: false
     integrity: sha512-<hash-from-step-2>
     pluginConfig:
@@ -101,7 +103,7 @@ Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
         backend:
           aap-compliance.plugin-compliance-backend: {}
 
-  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-dynamic-0.1.0.tgz
+  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz
     disabled: false
     integrity: sha512-<hash-from-step-2>
     pluginConfig:
@@ -134,7 +136,7 @@ compliance:
 After the first `systemctl restart` (which extracts the tarballs), create the migration JS files manually:
 
 ```bash
-sudo mkdir -p /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-backend-dynamic-0.1.0/dist/database/migrations
+sudo mkdir -p /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-backend-dynamic-<VERSION>/dist/database/migrations
 ```
 
 Then create `20260429_001_initial.js` and `20260429_002_cartridge_registry.js` with the compiled migration code (remove TypeScript type annotations from the source `.ts` files). Note: the "cartridge" naming is an internal implementation detail; the user-facing term is "compliance profile."

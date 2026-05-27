@@ -36,6 +36,10 @@ options:
       - firewall
       - grub
       - login_banner
+deprecated:
+  removed_in: "2.0.0"
+  why: Replaced by OpenSCAP-based scanning (run_oscap.yml). See ADR-004.
+  alternative: Use the run_oscap.yml playbook with scap-security-guide datastreams.
 author:
   - Red Hat Ansible Automation Platform
 '''

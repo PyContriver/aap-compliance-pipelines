@@ -1,5 +1,6 @@
 {
   "name": "@aap-compliance/plugin-compliance-backend",
+  "description": "Backend plugin for AAP compliance - REST API, Controller client, database, and findings ingestion",
   "version": "0.4.0",
   "main": "src/index.ts",
   "types": "src/index.ts",

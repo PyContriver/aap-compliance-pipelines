@@ -102,9 +102,10 @@ function loadRulesMetadata(): Map<string, RuleMetadata> {
 }
 
 /**
- * Shape of a single finding from the compliance_evaluate Ansible module.
- * This is what appears in event_data.res.findings[] (Track A)
- * or in the normalized XCCDF output (Track B).
+ * Shape of a single finding from the normalize_xccdf module output (Track B)
+ * or the legacy compliance_evaluate module (deprecated, replaced by OpenSCAP
+ * scanning -- see ADR-004). Findings are delivered via Direct POST to
+ * /findings/ingest (ADR-007); event parsing is the fallback.
  */
 interface RawControllerFinding {
   rule_id: string;
@@ -487,11 +488,12 @@ export class ComplianceService {
    * Fetch scan results from the Controller API, parse them, and persist
    * to the database.
    *
-   * Called when a scan workflow completes and we need to collect the
-   * evaluate node's output. Supports both Track A (compliance_evaluate
-   * module with ansible_facts) and Track B (normalize_xccdf output).
+   * Called when a scan job completes and Direct POST findings are not
+   * available. Falls back to parsing job events from the normalize node.
+   * Supports Track B (normalize_xccdf output) and legacy Track A
+   * (compliance_evaluate module, deprecated -- see ADR-004).
    *
-   * Returns the parsed StoredFinding[] (without the id field — the DB
+   * Returns the parsed StoredFinding[] (without the id field -- the DB
    * generates IDs on insert).
    */
   async fetchAndParseResults(
@@ -593,10 +595,11 @@ export class ComplianceService {
   /**
    * Parse job events from the normalize job into StoredFinding rows.
    *
-   * Supports two tracks:
-   *   - Track A: compliance_evaluate module output with findings[] array
-   *     appearing in event_data.res or event_data.res.ansible_facts
+   * This is the fallback path -- findings are normally delivered via
+   * Direct POST (ADR-007). Supports two tracks:
    *   - Track B: normalize_xccdf output surfaced through ansible_facts
+   *   - Track A (legacy): compliance_evaluate module output (deprecated,
+   *     replaced by OpenSCAP scanning -- see ADR-004)
    *
    * In both cases, the per-host findings appear in event_data.res.findings
    * or event_data.res.ansible_facts.findings.
@@ -621,7 +624,7 @@ export class ComplianceService {
         'unknown';
 
       // Look for findings in multiple locations:
-      // 1. res.findings (direct module output — Track A compliance_evaluate)
+      // 1. res.findings (direct module output -- legacy compliance_evaluate, deprecated)
       // 2. res.ansible_facts.findings (facts-based output)
       // 3. res.ansible_facts.compliance_results.findings (nested facts)
       // 4. res.ansible_facts.compliance_report.findings (consolidated report)
