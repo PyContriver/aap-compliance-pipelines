@@ -62,6 +62,7 @@ export interface ComplianceScan {
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   startedAt: string;
   completedAt: string | null;
+  errorDetails: string | null;
 }
 
 /** Stored finding row (flattened per-host). */
@@ -204,6 +205,7 @@ export interface ComplianceCartridge {
   framework: string;
   version: string;
   platform: string;
+  platformSpec: PlatformSpec | null;
   workflowTemplateId: number | null;
   eeId: number | null;
   remediationPlaybookPath: string;
@@ -237,8 +239,17 @@ export interface SaveCartridgeRequest {
   framework: string;
   version: string;
   platform: string;
+  platformSpec?: PlatformSpec | null;
   workflowTemplateId: number | null;
   eeId: number | null;
   remediationPlaybookPath: string;
   scanTags: string;
+}
+
+/** Platform requirements for a compliance profile (ADR-011). */
+export interface PlatformSpec {
+  os_family?: string[];
+  os_version?: string[];
+  device_type?: string[];
+  scanner_validates?: boolean;
 }

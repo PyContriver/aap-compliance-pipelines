@@ -191,6 +191,7 @@ export const MOCK_CARTRIDGES: ComplianceCartridge[] = [
     framework: 'DISA_STIG',
     version: 'V2R8',
     platform: 'RHEL 9',
+    platformSpec: null,
     workflowTemplateId: 10,
     eeId: 1,
     remediationPlaybookPath: 'playbooks/rhel9-stig-remediate.yml',
@@ -233,6 +234,7 @@ export const MOCK_SCANS: ComplianceScan[] = [
     status: 'completed',
     startedAt: '2026-04-28T14:30:00Z',
     completedAt: '2026-04-28T14:45:00Z',
+    errorDetails: null,
   },
 ];
 

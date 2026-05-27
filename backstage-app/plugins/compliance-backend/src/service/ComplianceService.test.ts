@@ -426,6 +426,7 @@ describe('ComplianceService', () => {
         framework: 'DISA_STIG',
         version: 'V2R8',
         platform: 'RHEL 9',
+        platformSpec: null,
         workflowTemplateId: 77,
         eeId: null,
         remediationPlaybookPath: '',

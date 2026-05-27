@@ -18,6 +18,7 @@ async function createTables(database: Knex): Promise<void> {
     table.timestamp('started_at').notNullable().defaultTo(database.fn.now());
     table.timestamp('completed_at').nullable();
     table.string('ingest_token').nullable();
+    table.text('error_details').nullable();
   });
 
   await database.schema.createTable('compliance_findings', table => {
@@ -97,6 +98,7 @@ async function createTables(database: Knex): Promise<void> {
       table.string('framework').notNullable();
       table.string('version').defaultTo('');
       table.string('platform').defaultTo('');
+      table.text('platform_spec').nullable();
       table.integer('workflow_template_id').nullable();
       table.integer('ee_id').nullable();
       table.text('remediation_playbook_path').defaultTo('');
@@ -524,6 +526,55 @@ describe('ComplianceDatabase', () => {
     it('returns null for nonexistent cartridge ID', async () => {
       const found = await complianceDb.getCartridge('nonexistent');
       expect(found).toBeNull();
+    });
+
+    it('round-trips platformSpec as JSON', async () => {
+      const platformSpec = {
+        os_family: ['RedHat'],
+        os_version: ['9'],
+        device_type: [],
+        scanner_validates: false,
+      };
+
+      const saved = await complianceDb.saveCartridge({
+        displayName: 'RHEL 9 STIG with Platform Spec',
+        description: '',
+        framework: 'DISA_STIG',
+        version: 'V2R8',
+        platform: 'RHEL 9',
+        platformSpec,
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      expect(saved.platformSpec).toEqual(platformSpec);
+
+      const found = await complianceDb.getCartridge(saved.id);
+      expect(found).not.toBeNull();
+      expect(found!.platformSpec).toEqual(platformSpec);
+      expect(found!.platformSpec!.os_family).toEqual(['RedHat']);
+      expect(found!.platformSpec!.os_version).toEqual(['9']);
+    });
+
+    it('stores null platformSpec when not provided', async () => {
+      const saved = await complianceDb.saveCartridge({
+        displayName: 'No Platform Spec',
+        description: '',
+        framework: 'CIS',
+        version: '',
+        platform: '',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      expect(saved.platformSpec).toBeNull();
+
+      const found = await complianceDb.getCartridge(saved.id);
+      expect(found!.platformSpec).toBeNull();
     });
   });
 
@@ -1020,6 +1071,89 @@ describe('ComplianceDatabase', () => {
     it('returns null for nonexistent scan', async () => {
       const token = await complianceDb.getIngestToken('nonexistent-scan-id');
       expect(token).toBeNull();
+    });
+  });
+
+  // ─── Scan error details ───────────────────────────────────────────
+
+  describe('updateScanErrorDetails', () => {
+    it('stores and retrieves error details via getScanById', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+      });
+
+      await complianceDb.updateScanErrorDetails(
+        scan.id,
+        'All 10 hosts unreachable: SSH connection timed out',
+      );
+
+      const retrieved = await complianceDb.getScanById(scan.id);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.errorDetails).toBe(
+        'All 10 hosts unreachable: SSH connection timed out',
+      );
+    });
+
+    it('returns null errorDetails when no error has been stored', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+
+      const retrieved = await complianceDb.getScanById(scan.id);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.errorDetails).toBeNull();
+    });
+
+    it('overwrites previously stored error details', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+
+      await complianceDb.updateScanErrorDetails(scan.id, 'First error');
+      await complianceDb.updateScanErrorDetails(scan.id, 'Updated error details');
+
+      const retrieved = await complianceDb.getScanById(scan.id);
+      expect(retrieved!.errorDetails).toBe('Updated error details');
+    });
+
+    it('includes errorDetails in getRecentScans results', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+      });
+
+      await complianceDb.updateScanErrorDetails(scan.id, 'Host unreachable');
+
+      const recent = await complianceDb.getRecentScans(10);
+      expect(recent).toHaveLength(1);
+      expect(recent[0].errorDetails).toBe('Host unreachable');
     });
   });
 });

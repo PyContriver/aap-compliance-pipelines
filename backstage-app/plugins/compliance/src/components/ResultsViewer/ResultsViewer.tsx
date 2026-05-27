@@ -28,6 +28,7 @@ import {
   LinearProgress,
   IconButton,
   Collapse,
+  Paper,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
@@ -260,7 +261,7 @@ export const ResultsViewer = () => {
             if (jobId && !isWorkflowPoll) {
               api.getScan(jobId).then(scan => {
                 if (!cancelled && scan?.status === 'failed') {
-                  setScanFailed('failed');
+                  setScanFailed(scan.errorDetails || 'failed');
                 }
               }).catch(() => { /* ignore */ });
             }
@@ -403,11 +404,28 @@ export const ResultsViewer = () => {
       if (data.length > 0) {
         setFindings(data);
       } else {
-        setScanFailed(status);
+        // Fetch the scan record to get real error details from the Controller
+        if (jobId) {
+          api.getScan(jobId).then(scan => {
+            setScanFailed(scan?.errorDetails || status);
+          }).catch(() => {
+            setScanFailed(status);
+          });
+        } else {
+          setScanFailed(status);
+        }
       }
       setLoading(false);
     }).catch(() => {
-      setScanFailed(status);
+      if (jobId) {
+        api.getScan(jobId).then(scan => {
+          setScanFailed(scan?.errorDetails || status);
+        }).catch(() => {
+          setScanFailed(status);
+        });
+      } else {
+        setScanFailed(status);
+      }
       setLoading(false);
     });
   }, [api, jobId]);
@@ -463,10 +481,23 @@ export const ResultsViewer = () => {
             <Typography variant="h6" color="textSecondary" gutterBottom>
               The compliance scan did not complete successfully
             </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              The workflow ended with status: <strong>{scanFailed}</strong>. This is typically caused by unreachable
-              hosts, missing credentials, or misconfigured inventory. Check the AAP Controller job log for details.
-            </Typography>
+            {scanFailed.length > 20 || scanFailed.includes('\n') ? (
+              <>
+                <Typography variant="body2" color="textSecondary" paragraph>
+                  The Controller reported the following error:
+                </Typography>
+                <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16, marginTop: 16, marginBottom: 16, textAlign: 'left' }}>
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                    {scanFailed}
+                  </pre>
+                </Paper>
+              </>
+            ) : (
+              <Typography variant="body2" color="textSecondary" paragraph>
+                The workflow ended with status: <strong>{scanFailed}</strong>. This is typically caused by unreachable
+                hosts, missing credentials, or misconfigured inventory. Check the AAP Controller job log for details.
+              </Typography>
+            )}
             <Box display="flex" justifyContent="center" style={{ gap: 8 }}>
               <Button variant="outlined" onClick={() => navigate('/compliance')}>
                 Back to Overview

@@ -228,6 +228,7 @@ export async function createRouter(
 
   router.get('/scans/:scanId', async (req, res) => {
     const { scanId } = req.params;
+    const userToken = getUserAapToken(req);
     if (!scanId || scanId.length > 128) {
       res.status(400).json({ error: 'Invalid scanId' });
       return;
@@ -238,6 +239,27 @@ export async function createRouter(
         res.status(404).json({ error: 'Scan not found' });
         return;
       }
+
+      // Lazily fetch and cache error details for failed scans
+      if (
+        scan.status === 'failed' &&
+        scan.errorDetails === null &&
+        scan.workflowJobId
+      ) {
+        try {
+          const details = await service.fetchScanErrorDetails(
+            scan.workflowJobId,
+            userToken,
+          );
+          if (details) {
+            await database.updateScanErrorDetails(scanId, details);
+            scan.errorDetails = details;
+          }
+        } catch {
+          // Best-effort: don't fail the GET if error fetch fails
+        }
+      }
+
       res.json(scan);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -322,6 +344,7 @@ export async function createRouter(
       logger.error(`Failed to launch scan: ${msg}`);
       if (scanRecordId) {
         await database.updateScanStatus(scanRecordId, 'failed', new Date().toISOString()).catch(() => {});
+        await database.updateScanErrorDetails(scanRecordId, msg).catch(() => {});
       }
       res.status(500).json({ error: msg });
     }
@@ -888,6 +911,14 @@ export async function createRouter(
       return;
     }
 
+    // Validate platformSpec if provided
+    if (body.platformSpec !== undefined && body.platformSpec !== null) {
+      if (typeof body.platformSpec !== 'object' || Array.isArray(body.platformSpec)) {
+        res.status(400).json({ error: 'platformSpec must be an object when provided' });
+        return;
+      }
+    }
+
     const saveRequest: SaveCartridgeRequest = {
       id: body.id,
       displayName: body.displayName.trim(),
@@ -895,6 +926,7 @@ export async function createRouter(
       framework: body.framework,
       version: body.version ?? '',
       platform: body.platform ?? '',
+      platformSpec: body.platformSpec ?? null,
       workflowTemplateId: body.workflowTemplateId ?? null,
       eeId: body.eeId ?? null,
       remediationPlaybookPath: body.remediationPlaybookPath ?? '',

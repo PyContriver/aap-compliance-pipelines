@@ -146,7 +146,14 @@ export class ComplianceDatabase {
       status: row.status as ComplianceScan['status'],
       startedAt: toISOString(row.started_at),
       completedAt: toISOStringOrNull(row.completed_at),
+      errorDetails: (row.error_details as string) ?? null,
     };
+  }
+
+  // ─── Scan error details ────────────────────────────────────────────
+
+  async updateScanErrorDetails(scanId: string, errorDetails: string): Promise<void> {
+    await this.db('compliance_scans').where('id', scanId).update({ error_details: errorDetails });
   }
 
   // ─── Ingest tokens ─────────────────────────────────────────────────
@@ -504,6 +511,7 @@ export class ComplianceDatabase {
       framework: cartridge.framework,
       version: cartridge.version || '',
       platform: cartridge.platform || '',
+      platform_spec: cartridge.platformSpec ? JSON.stringify(cartridge.platformSpec) : null,
       workflow_template_id: cartridge.workflowTemplateId,
       ee_id: cartridge.eeId,
       remediation_playbook_path: cartridge.remediationPlaybookPath || '',
@@ -547,6 +555,7 @@ export class ComplianceDatabase {
       framework: row.framework as string,
       version: (row.version as string) || '',
       platform: (row.platform as string) || '',
+      platformSpec: row.platform_spec ? JSON.parse(row.platform_spec as string) : null,
       workflowTemplateId: (row.workflow_template_id as number) ?? null,
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
