@@ -59,7 +59,7 @@ yarn test                    # All tests
 yarn test --coverage         # With coverage report
 ```
 
-Target: all tests passing. Current: 206 tests across 11 suites.
+Target: all tests passing. Current: 200+ tests across 11+ suites.
 
 ## CI/CD Pipelines
 
@@ -130,7 +130,7 @@ main ←── feature branches (PRs only)
 
 Before creating a PR, verify:
 
-1. `yarn test` passes (all 206+ tests)
+1. `yarn test` passes (all tests)
 2. `yarn build` succeeds
 3. Mock mode works (`./bin/start.sh mock`)
 4. If touching backend: `export-dynamic` produces valid tarball

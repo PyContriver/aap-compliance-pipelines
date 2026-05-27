@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run 206 tests across 11 suites
+yarn test             # Run tests across 11+ suites
 yarn build            # Build all packages
 ```
 
@@ -59,9 +59,11 @@ Full guide: `docs/deployment-guide.md`
 
 Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide for 366 STIG rules:
 
-1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON.
+1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON. Play 2 then POSTs findings directly to the plugin's `/findings/ingest` endpoint via `uri` module (ADR-007). Falls back to event-based parsing if `backstage_api_url` is not set.
 2. `normalize.yml` (standalone utility): same normalization logic as Play 2 above, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
+
+Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010).
 
 Key files in the EE:
 - `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (copied to targets)
@@ -76,4 +78,5 @@ Deprecated modules (`compliance_gather`, `compliance_evaluate`) and playbooks (`
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 206 tests across 11 suites (frontend + backend + database)
+- 200+ tests across 11+ suites (frontend + backend + database)
+- 10 formal ADRs in `specs/compliance-pipelines/decisions/`

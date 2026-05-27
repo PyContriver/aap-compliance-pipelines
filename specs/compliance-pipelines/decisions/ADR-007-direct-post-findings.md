@@ -1,7 +1,8 @@
-# ADR-007: Direct POST Findings as Future Data Channel (Roadmap P2)
+# ADR-007: Direct POST Findings from Playbook to Plugin API
 
-**Status:** Proposed (roadmap P2)
+**Status:** Accepted (implemented in PRs #17, #19)
 **Date:** 2026-05-26
+**Updated:** 2026-05-27
 **Deciders:** M. Ferrari, PM, architect
 
 ## Context
@@ -17,19 +18,25 @@ The PM and architect both recommend decoupling the data channel from Controller'
 
 ## Decision
 
-**Future implementation (P2):** Have the playbook POST findings directly to the plugin's REST API, bypassing Controller events entirely.
+Have the playbook POST findings directly to the plugin's REST API, bypassing Controller events entirely.
 
-Implementation plan:
-1. Add `/api/compliance/ingest` endpoint accepting CFF JSON + scanId
-2. Add `uri` task in the normalize play to POST findings to the Backstage backend URL (passed as extra_var)
-3. Remove dependency on parsing Controller job events for findings
+Implementation (PRs #17, #19):
+1. Added `/api/compliance/findings/ingest` endpoint accepting CFF JSON + scanId
+2. Added `uri` task in the normalize play to POST findings to the Backstage backend URL (passed as `backstage_api_url` extra_var)
+3. `scan_id` passed as extra_var so playbook knows which scan to associate findings with
+4. Event parsing retained as fallback when `backstage_api_url` is not set
 
-Requirements:
-- EE must have network access to Portal/Backstage backend
-- Auth token must be passed to the playbook (extra_var or credential)
-- Endpoint must validate scanId and reject duplicate submissions
+Security (PR #19 -- see also ADR-010):
+- Per-scan ingest token generated at scan launch, passed as `ingest_token` extra_var
+- Token is single-use and scoped to the scan_id
+- Endpoint validates token before accepting findings
 
-The current slim-findings-via-events approach (ADR-005) remains the working implementation until direct POST is built.
+Hardening (PR #19):
+- Scan lifecycle fix: scans marked failed on launch error (no orphaned "running" scans)
+- Variable ordering fix for extra_vars passed to Controller
+- Jinja `default([])` hardening in normalize play to prevent undefined variable errors
+
+The slim-findings-via-events approach (ADR-005) is retained as a fallback but is no longer the primary data channel.
 
 ## Consequences
 
@@ -37,6 +44,15 @@ The current slim-findings-via-events approach (ADR-005) remains the working impl
 - **Positive:** Works regardless of finding count -- no size limits.
 - **Positive:** Testable in isolation (POST JSON to endpoint, verify storage).
 - **Positive:** Full CFF metadata can be transmitted (no stripping needed).
+- **Positive:** Per-scan ingest tokens prevent unauthorized submissions (ADR-010).
 - **Negative:** Requires EE network access to Portal/Backstage backend -- may not work in air-gapped environments without additional network configuration.
-- **Negative:** Adds a new auth surface (playbook needs a token to POST to the plugin API).
-- **Negative:** Two data channels during transition (events for backward compatibility, direct POST for new deployments).
+- **Negative:** Adds a new auth surface (mitigated by per-scan tokens, ADR-010).
+- **Negative:** Two data channels during transition (events as fallback, direct POST as primary).
+
+## Implementation Notes (PRs #17, #19)
+
+- Endpoint: `POST /api/compliance/findings/ingest` with `{ scan_id, ingest_token, findings[] }`
+- Extra vars passed to assessment JT: `scan_id`, `backstage_api_url`, `ingest_token`
+- Normalize play uses `uri` module to POST findings; falls back to event-based approach if `backstage_api_url` is not set
+- Scan lifecycle: backend marks scan as `failed` if Controller launch returns an error (no orphaned running scans)
+- Jinja hardening: `default([])` on list variables in normalize play prevents undefined variable errors

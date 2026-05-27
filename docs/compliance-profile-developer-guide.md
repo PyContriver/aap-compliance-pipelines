@@ -772,7 +772,7 @@ The reference implementation uses a **single assessment JT** with OpenSCAP:
 | Stage | Purpose | Runs On | Playbook |
 |-------|---------|---------|----------|
 | **Assessment (Play 1)** | Install oscap, copy datastream, scan, fetch XCCDF XML | Target hosts | `playbooks/run_oscap.yml` (Play 1) |
-| **Assessment (Play 2)** | Parse XCCDF XML, extract metadata, produce CFF JSON | localhost (same container) | `playbooks/run_oscap.yml` (Play 2) |
+| **Assessment (Play 2)** | Parse XCCDF XML, extract metadata, produce CFF JSON, POST to `/findings/ingest` | localhost (same container) | `playbooks/run_oscap.yml` (Play 2) |
 | **Remediate** | Apply CaC remediation scoped by `job_tags` (standalone JT) | Target hosts | `playbooks/remediate.yml` |
 
 For profiles using different scanners, the full pipeline supports up to 7 stages:
@@ -781,7 +781,7 @@ For profiles using different scanners, the full pipeline supports up to 7 stages
 |-------|---------|---------|----------|
 | **1. Scan** | Execute scanner on targets or fetch from API | Targets (Tier 1) or localhost (Tier 2) | `playbooks/run_oscap.yml` or `playbooks/fetch_<scanner>.yml` |
 | **2. Normalize** | Transform scanner output to CFF JSON | localhost | `playbooks/normalize.yml` |
-| **3. Report** | Push results to Backstage backend or write to Controller artifacts | localhost | `playbooks/report.yml` |
+| **3. Report** | POST results to Backstage `/findings/ingest` endpoint (or write to Controller artifacts for fallback) | localhost | `playbooks/report.yml` |
 | **4. Remediate** | Execute approved remediations (behind approval gate) | Target hosts | `playbooks/remediate.yml` |
 | **5. Verify** | Re-scan to confirm remediation effectiveness | Target hosts | (re-run scan playbook) |
 
@@ -1164,7 +1164,7 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Workflow nodes have `inventory: null` (inherit from workflow)
 - [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
-- [ ] Scan results pushed to Backstage backend API or written to Controller artifacts
+- [ ] Scan results POSTed to Backstage `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
 
 ### Portal / Backstage Integration
 
