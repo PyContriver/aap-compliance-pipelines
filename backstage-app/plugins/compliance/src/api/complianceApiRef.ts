@@ -35,6 +35,7 @@ export interface ComplianceApi {
   getInventories(): Promise<Array<{ id: number; name: string; hostCount: number }>>;
   getWorkflowTemplates(nameFilter?: string): Promise<Array<{ id: number; name: string; description: string }>>;
   getScans(): Promise<ComplianceScan[]>;
+  getScan(scanId: string): Promise<ComplianceScan | null>;
   launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
   getFindings(scanId?: string): Promise<MultiHostFinding[]>;
   getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;

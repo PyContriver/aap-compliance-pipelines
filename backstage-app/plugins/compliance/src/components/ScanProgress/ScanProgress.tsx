@@ -173,10 +173,14 @@ export const ScanProgress = ({
           try {
             const events = await api.getJobEvents(runningNode.jobId);
             if (!cancelled) {
-              const hosts = new Set(events.filter(e => e.host_name).map(e => e.host_name));
-              if (hosts.size > 0) {
-                const stepLabel = steps[nodeIds.indexOf(runningNode.identifier)] || runningNode.identifier;
-                setHostProgress(`${stepLabel}: ${hosts.size} host${hosts.size !== 1 ? 's' : ''} processed`);
+              const remoteHosts = new Set(events.filter(e => e.host_name && e.host_name !== 'localhost').map(e => e.host_name));
+              const hasLocalhostEvents = events.some(e => e.host_name === 'localhost');
+              if (hasLocalhostEvents && remoteHosts.size > 0) {
+                setHostProgress(`Processing results from ${remoteHosts.size} host${remoteHosts.size !== 1 ? 's' : ''}...`);
+              } else if (remoteHosts.size > 0) {
+                setHostProgress(`Scanning: ${remoteHosts.size} host${remoteHosts.size !== 1 ? 's' : ''} completed`);
+              } else {
+                setHostProgress('Initializing scan...');
               }
             }
           } catch {

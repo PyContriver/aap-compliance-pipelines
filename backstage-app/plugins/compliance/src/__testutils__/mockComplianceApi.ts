@@ -257,6 +257,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
       { id: 10, name: 'compliance-stig-scan', description: 'STIG scan workflow' },
     ]),
     getScans: jest.fn().mockResolvedValue(MOCK_SCANS),
+    getScan: jest.fn().mockResolvedValue(null),
     launchScan: jest.fn().mockResolvedValue({
       scanId: 'scan-new',
       workflowJobId: 100,

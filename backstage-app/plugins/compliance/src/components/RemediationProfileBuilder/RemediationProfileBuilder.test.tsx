@@ -56,11 +56,11 @@ describe('RemediationProfileBuilder', () => {
   it('displays bulk action buttons including Select All Failed', async () => {
     await renderBuilder();
     await waitFor(() => {
-      expect(screen.getByText('Select All')).toBeInTheDocument();
+      expect(screen.getByText('Select Displayed')).toBeInTheDocument();
     });
     expect(screen.getByText('Select All Failed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'CAT I' })).toBeInTheDocument();
-    expect(screen.getByText('CAT I + II')).toBeInTheDocument();
+    expect(screen.getByText('View All')).toBeInTheDocument();
     expect(screen.getByText('Deselect All')).toBeInTheDocument();
   });
 
@@ -141,7 +141,7 @@ describe('RemediationProfileBuilder', () => {
     });
   });
 
-  it('toggles all rules when Select All / Deselect All are clicked', async () => {
+  it('toggles all rules when Select Displayed / Deselect All are clicked', async () => {
     await renderBuilder();
     await waitFor(() => {
       expect(screen.getByText('Deselect All')).toBeInTheDocument();
@@ -153,8 +153,8 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('3');
     });
 
-    // After Select All, the skipped count should be 0
-    fireEvent.click(screen.getByText('Select All'));
+    // After Select Displayed, the skipped count should be 0 (all visible = all when no filter)
+    fireEvent.click(screen.getByText('Select Displayed'));
     await waitFor(() => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('0');
     });
@@ -199,11 +199,11 @@ describe('RemediationProfileBuilder', () => {
   it('persists selections when switching between views', async () => {
     await renderBuilder();
     await waitFor(() => {
-      expect(screen.getByText('Select All')).toBeInTheDocument();
+      expect(screen.getByText('Select Displayed')).toBeInTheDocument();
     });
 
-    // Select All
-    fireEvent.click(screen.getByText('Select All'));
+    // Select Displayed (all visible = all when no filter)
+    fireEvent.click(screen.getByText('Select Displayed'));
     await waitFor(() => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('0');
     });

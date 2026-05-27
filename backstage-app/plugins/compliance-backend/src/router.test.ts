@@ -118,6 +118,7 @@ function createMockService() {
       .mockReturnValue({ groups: [], totalRules: 0, totalHosts: 0 }),
     fetchAndParseResults: jest.fn().mockResolvedValue([]),
     aggregateFindings: jest.fn().mockReturnValue([]),
+    aggregateFindingsWithMetadata: jest.fn().mockResolvedValue([]),
     mapRawFindingPublic: jest.fn().mockReturnValue({
       scanId: 'scan-1',
       ruleId: 'test',
@@ -185,6 +186,9 @@ function createMockDatabase() {
     deleteCartridge: jest.fn().mockResolvedValue(true),
     getPostureSnapshots: jest.fn().mockResolvedValue([]),
     savePostureSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
+    upsertRuleMetadata: jest.fn().mockResolvedValue(0),
+    getRuleMetadataBulk: jest.fn().mockResolvedValue(new Map()),
+    getAllRuleMetadata: jest.fn().mockResolvedValue(new Map()),
     listRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
@@ -889,7 +893,7 @@ describe('compliance backend router', () => {
       ];
       const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'fail' }] }];
       const { app, database, service } = await createApp(
-        { aggregateFindings: jest.fn().mockReturnValue(aggregated) },
+        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
         { getFindingsByScanId: jest.fn().mockResolvedValue(storedFindings) },
       );
       const res = await testRequest(app, {
@@ -899,7 +903,7 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(aggregated);
       expect(database.getFindingsByScanId).toHaveBeenCalledWith('scan-1');
-      expect(service.aggregateFindings).toHaveBeenCalledWith(storedFindings);
+      expect(service.aggregateFindingsWithMetadata).toHaveBeenCalledWith(storedFindings);
       expect(service.getFindings).not.toHaveBeenCalled();
     });
   });

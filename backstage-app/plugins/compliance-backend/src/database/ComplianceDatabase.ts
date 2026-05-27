@@ -12,6 +12,7 @@ import type {
   RemediationSelection,
   ComplianceCartridge,
   SaveCartridgeRequest,
+  RuleMetadataRecord,
 } from '@aap-compliance/common';
 
 function toISOString(value: unknown): string {
@@ -392,6 +393,84 @@ export class ComplianceDatabase {
       targetInventory: '',
       selections,
       createdAt: toISOString(row.created_at),
+      updatedAt: toISOString(row.updated_at),
+    };
+  }
+
+  // ─── Rule metadata ─────────────────────────────────────────────────
+
+  async upsertRuleMetadata(rules: RuleMetadataRecord[]): Promise<number> {
+    if (rules.length === 0) return 0;
+
+    const now = new Date().toISOString();
+    const batchSize = 100;
+    let upserted = 0;
+
+    for (let i = 0; i < rules.length; i += batchSize) {
+      const batch = rules.slice(i, i + batchSize);
+      for (const r of batch) {
+        const row = {
+          rule_id: r.ruleId,
+          stig_id: r.stigId,
+          title: r.title,
+          description: r.description,
+          check_text: r.checkText,
+          fix_text: r.fixText,
+          category: r.category,
+          disruption: r.disruption,
+          scanner: r.scanner,
+          updated_at: now,
+        };
+        const existing = await this.db('compliance_rule_metadata')
+          .where('rule_id', r.ruleId)
+          .first();
+        if (existing) {
+          await this.db('compliance_rule_metadata')
+            .where('rule_id', r.ruleId)
+            .update(row);
+        } else {
+          await this.db('compliance_rule_metadata').insert(row);
+        }
+        upserted++;
+      }
+    }
+
+    return upserted;
+  }
+
+  async getRuleMetadataBulk(ruleIds: string[]): Promise<Map<string, RuleMetadataRecord>> {
+    if (ruleIds.length === 0) return new Map();
+
+    const rows = await this.db('compliance_rule_metadata')
+      .whereIn('rule_id', ruleIds);
+
+    const map = new Map<string, RuleMetadataRecord>();
+    for (const row of rows) {
+      map.set(row.rule_id as string, this.mapRuleMetadataRow(row));
+    }
+    return map;
+  }
+
+  async getAllRuleMetadata(): Promise<Map<string, RuleMetadataRecord>> {
+    const rows = await this.db('compliance_rule_metadata');
+    const map = new Map<string, RuleMetadataRecord>();
+    for (const row of rows) {
+      map.set(row.rule_id as string, this.mapRuleMetadataRow(row));
+    }
+    return map;
+  }
+
+  private mapRuleMetadataRow(row: Record<string, unknown>): RuleMetadataRecord {
+    return {
+      ruleId: row.rule_id as string,
+      stigId: (row.stig_id as string) || '',
+      title: (row.title as string) || '',
+      description: (row.description as string) || '',
+      checkText: (row.check_text as string) || '',
+      fixText: (row.fix_text as string) || '',
+      category: (row.category as string) || '',
+      disruption: (row.disruption as string) || 'medium',
+      scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
     };
   }

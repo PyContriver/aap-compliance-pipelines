@@ -33,4 +33,5 @@ export type {
   SaveCartridgeRequest,
   RemediationPlanGroup,
   RemediationPlan,
+  RuleMetadataRecord,
 } from './api';

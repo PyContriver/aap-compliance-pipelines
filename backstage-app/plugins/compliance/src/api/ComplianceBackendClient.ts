@@ -160,6 +160,14 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<ComplianceScan[]>('/scans');
   }
 
+  async getScan(scanId: string): Promise<ComplianceScan | null> {
+    try {
+      return await this.request<ComplianceScan>(`/scans/${encodeURIComponent(scanId)}`);
+    } catch {
+      return null;
+    }
+  }
+
   getInventories() {
     return this.request<Array<{ id: number; name: string; hostCount: number }>>('/inventories');
   }

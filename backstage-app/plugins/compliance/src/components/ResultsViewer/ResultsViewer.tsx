@@ -256,6 +256,14 @@ export const ResultsViewer = () => {
             retries++;
             timeoutId = setTimeout(fetchFindings, pollInterval);
           } else {
+            // No findings and not polling — check if the scan failed
+            if (jobId && !isWorkflowPoll) {
+              api.getScan(jobId).then(scan => {
+                if (!cancelled && scan?.status === 'failed') {
+                  setScanFailed('failed');
+                }
+              }).catch(() => { /* ignore */ });
+            }
             setLoading(false);
           }
         })
@@ -638,11 +646,11 @@ export const ResultsViewer = () => {
           Back to Overview
         </Button>
         <Button
-          variant="outlined"
+          variant="contained"
           color="primary"
           onClick={() => navigate('/compliance/remediations')}
         >
-          Edit Remediations
+          Use Existing Remediation
         </Button>
         <Button
           variant="contained"
@@ -713,8 +721,8 @@ export const ResultsViewer = () => {
               <TableRow>
                 <TableCell width={40} />
                 <TableCell>Severity</TableCell>
-                <TableCell>STIG ID</TableCell>
                 <TableCell>Title</TableCell>
+                <TableCell>STIG ID</TableCell>
                 <TableCell align="center">Hosts</TableCell>
                 <TableCell width={200}>Pass Rate</TableCell>
               </TableRow>
@@ -743,15 +751,15 @@ export const ResultsViewer = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-                        {finding.stigId || finding.ruleId}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
                       <Typography variant="body2">{finding.title}</Typography>
                       {finding.disruption === 'high' && (
                         <Chip label="High disruption" size="small" color="secondary" style={{ marginTop: 4 }} />
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
+                        {finding.stigId || finding.ruleId}
+                      </Typography>
                     </TableCell>
                     <TableCell align="center">
                       {finding.failCount === 0 ? (

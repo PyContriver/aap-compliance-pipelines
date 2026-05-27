@@ -78,6 +78,20 @@ export interface StoredFinding {
   evidence: string | null;
 }
 
+/** Normalized rule metadata stored once per rule_id. */
+export interface RuleMetadataRecord {
+  ruleId: string;
+  stigId: string;
+  title: string;
+  description: string;
+  checkText: string;
+  fixText: string;
+  category: string;
+  disruption: string;
+  scanner: string;
+  updatedAt: string;
+}
+
 /** Multi-host aggregated finding used by the frontend. */
 export interface MultiHostFinding {
   ruleId: string;

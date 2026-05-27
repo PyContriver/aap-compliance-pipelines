@@ -152,7 +152,13 @@ def parse_xccdf_results(filepath):
             title_el = rule.find(f'{{{ns}}}title' if ns else 'title')
             desc_el = rule.find(f'{{{ns}}}description' if ns else 'description')
             fix_el = rule.find(f'{{{ns}}}fixtext' if ns else 'fixtext')
-            check_el = rule.find(f'{{{ns}}}check-content' if ns else 'check-content')
+            # check-content lives inside <check><check-content>
+            check_text = ''
+            check_el = rule.find(f'{{{ns}}}check/{{{ns}}}check-content' if ns else 'check/check-content')
+            if check_el is None:
+                check_el = rule.find(f'{{{ns}}}check-content' if ns else 'check-content')
+            if check_el is not None and check_el.text:
+                check_text = check_el.text
 
             title = title_el.text if title_el is not None and title_el.text else ''
             description = desc_el.text if desc_el is not None and desc_el.text else ''
@@ -186,6 +192,7 @@ def parse_xccdf_results(filepath):
                 'description': description[:500],
                 'severity': severity,
                 'fix_text': fix_text[:500],
+                'check_text': check_text[:500],
                 'stig_id': stig_id,
             }
 
@@ -210,10 +217,11 @@ def parse_xccdf_results(filepath):
             r'^xccdf_org\.ssgproject\.content_rule_', '', rule_id,
         )
 
+        rule_title = meta.get('title', short_rule_id)
         finding = {
             'rule_id': short_rule_id,
             'stig_id': meta.get('stig_id', ''),
-            'title': meta.get('title', short_rule_id),
+            'title': rule_title,
             'description': meta.get('description', ''),
             'severity': SEVERITY_MAP.get(severity_attr, 'CAT_II'),
             'status': STATUS_MAP.get(status_text, 'error'),
@@ -222,10 +230,10 @@ def parse_xccdf_results(filepath):
             'evidence': {
                 'actual': status_text,
                 'expected': 'pass',
-                'message': f'OpenSCAP evaluation result: {status_text}',
+                'message': f'{rule_title}: {status_text}',
             },
             'fix_text': meta.get('fix_text', ''),
-            'check_text': '',
+            'check_text': meta.get('check_text', ''),
             'category': '',
             'disruption': 'medium',
             'parameters': [],

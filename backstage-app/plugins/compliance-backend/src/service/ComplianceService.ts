@@ -723,9 +723,15 @@ export class ComplianceService {
     return this.storedFindingsToMultiHost(stored as StoredFinding[]);
   }
 
-  private storedFindingsToMultiHost(
+  async aggregateFindingsWithMetadata(
+    stored: Array<Omit<StoredFinding, 'id'>>,
+  ): Promise<MultiHostFinding[]> {
+    return this.storedFindingsToMultiHostAsync(stored as StoredFinding[]);
+  }
+
+  private async storedFindingsToMultiHostAsync(
     stored: StoredFinding[],
-  ): MultiHostFinding[] {
+  ): Promise<MultiHostFinding[]> {
     const byRule = new Map<string, {
       finding: StoredFinding;
       hosts: Array<{
@@ -750,10 +756,85 @@ export class ComplianceService {
       });
     }
 
-    // Try to load rule metadata for enrichment. With oscap, metadata
-    // comes from the XCCDF datastream via the normalizer. The rules YAML
-    // is a fallback for local dev / mock mode. If neither is available,
-    // findings display with rule_id as the title.
+    // Primary: look up metadata from DB (populated during findings ingest)
+    // Fallback: YAML files (for rules not seen via ingest / dev mode)
+    const ruleIds = Array.from(byRule.keys());
+    let dbMeta = new Map<string, import('@aap-compliance/common').RuleMetadataRecord>();
+    if (this.database) {
+      try {
+        dbMeta = await this.database.getRuleMetadataBulk(ruleIds);
+      } catch {
+        // DB metadata not available (table may not exist yet)
+      }
+    }
+    const yamlMeta = this.getRulesMetadata();
+
+    const results: MultiHostFinding[] = [];
+    for (const [ruleId, entry] of byRule) {
+      const passCount = entry.hosts.filter(h => h.status === 'pass').length;
+      const failCount = entry.hosts.filter(h => h.status === 'fail').length;
+
+      const dm = dbMeta.get(ruleId);
+      const ym = yamlMeta.get(ruleId);
+
+      results.push({
+        ruleId,
+        stigId: dm?.stigId || entry.finding.stigId,
+        title: dm?.title || ym?.title || ruleId,
+        description: dm?.description || ym?.description || '',
+        fixText: dm?.fixText || ym?.fix_text || '',
+        checkText: dm?.checkText || ym?.check_text || '',
+        severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
+        category: dm?.category || ym?.category || '',
+        disruption: (dm?.disruption || ym?.disruption || 'low') as 'low' | 'medium' | 'high',
+        parameters: (ym?.parameters ?? []).map(p => ({
+          name: p.name,
+          label: p.label,
+          description: p.label,
+          type: p.type as 'string' | 'number' | 'boolean' | 'select',
+          default: p.default as string | number | boolean,
+          value: p.default as string | number | boolean,
+          options: p.options as Array<{ label: string; value: string | number }> | undefined,
+        })),
+        hosts: entry.hosts,
+        passCount,
+        failCount,
+        totalCount: entry.hosts.length,
+      });
+    }
+
+    return results;
+  }
+
+  private storedFindingsToMultiHost(
+    stored: StoredFinding[],
+  ): MultiHostFinding[] {
+    // Synchronous wrapper — used by aggregateFindings() which must remain sync.
+    // Falls back to YAML-only enrichment (no DB lookup).
+    const byRule = new Map<string, {
+      finding: StoredFinding;
+      hosts: Array<{
+        host: string;
+        status: 'pass' | 'fail' | 'error';
+        actualValue: string;
+        expectedValue: string;
+      }>;
+    }>();
+
+    for (const f of stored) {
+      let entry = byRule.get(f.ruleId);
+      if (!entry) {
+        entry = { finding: f, hosts: [] };
+        byRule.set(f.ruleId, entry);
+      }
+      entry.hosts.push({
+        host: f.host,
+        status: (f.status as 'pass' | 'fail' | 'error') || 'error',
+        actualValue: f.actualValue,
+        expectedValue: f.expectedValue,
+      });
+    }
+
     const rules = this.getRulesMetadata();
     const results: MultiHostFinding[] = [];
     for (const [ruleId, entry] of byRule) {

@@ -220,6 +220,15 @@ export async function createRouter(
     res.json(inventories);
   });
 
+  router.get('/scans/:scanId', async (req, res) => {
+    const scan = await database.getScanById(req.params.scanId);
+    if (!scan) {
+      res.status(404).json({ error: 'Scan not found' });
+      return;
+    }
+    res.json(scan);
+  });
+
   // ─── Workflow job templates ─────────────────────────────────────────
 
   router.get('/workflow-templates', async (req, res) => {
@@ -312,7 +321,7 @@ export async function createRouter(
     if (scanId) {
       const dbFindings = await database.getFindingsByScanId(scanId);
       if (dbFindings.length > 0) {
-        res.json(service.aggregateFindings(dbFindings));
+        res.json(await service.aggregateFindingsWithMetadata(dbFindings));
         return;
       }
 
@@ -327,7 +336,7 @@ export async function createRouter(
           if (dbScan) {
             const existingFindings = await database.getFindingsByScanId(dbScan.id);
             if (existingFindings.length > 0) {
-              res.json(service.aggregateFindings(existingFindings));
+              res.json(await service.aggregateFindingsWithMetadata(existingFindings));
               return;
             }
           }
@@ -380,10 +389,10 @@ export async function createRouter(
 
                 const freshFindings = await database.getFindingsByScanId(dbScanId);
                 if (freshFindings.length > 0) {
-                  res.json(service.aggregateFindings(freshFindings));
+                  res.json(await service.aggregateFindingsWithMetadata(freshFindings));
                   return;
                 }
-                res.json(service.aggregateFindings(parsed));
+                res.json(await service.aggregateFindingsWithMetadata(parsed));
                 return;
               }
             } else {
@@ -436,7 +445,7 @@ export async function createRouter(
       // Get findings for the previous scan
       const dbFindings = await database.getFindingsByScanId(previousScan.id);
       if (dbFindings.length > 0) {
-        res.json(service.aggregateFindings(dbFindings));
+        res.json(await service.aggregateFindingsWithMetadata(dbFindings));
         return;
       }
 
@@ -490,6 +499,35 @@ export async function createRouter(
       ));
 
       const count = await database.saveFindingsForScan(scanId, mapped);
+
+      // Extract per-rule metadata from the raw findings and persist
+      // to the normalized rule_metadata table. This is the primary
+      // source of title, description, fix_text, check_text for display.
+      try {
+        const ruleMap = new Map<string, Record<string, unknown>>();
+        for (const raw of findings) {
+          const ruleId = raw.rule_id as string;
+          if (ruleId && !ruleMap.has(ruleId)) {
+            ruleMap.set(ruleId, raw);
+          }
+        }
+        const metadataRecords = Array.from(ruleMap.values()).map(raw => ({
+          ruleId: raw.rule_id as string,
+          stigId: (raw.stig_id as string) || '',
+          title: (raw.title as string) || (raw.rule_id as string),
+          description: (raw.description as string) || '',
+          checkText: (raw.check_text as string) || '',
+          fixText: (raw.fix_text as string) || '',
+          category: (raw.category as string) || '',
+          disruption: (raw.disruption as string) || 'medium',
+          scanner: (raw.scanner as string) || 'openscap',
+          updatedAt: new Date().toISOString(),
+        }));
+        const metaCount = await database.upsertRuleMetadata(metadataRecords);
+        logger.info(`Upserted ${metaCount} rule metadata records`);
+      } catch (metaErr) {
+        logger.warn(`Rule metadata upsert failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+      }
 
       await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 

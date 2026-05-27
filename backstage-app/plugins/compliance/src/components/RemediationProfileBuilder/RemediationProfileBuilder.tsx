@@ -79,6 +79,7 @@ export const RemediationProfileBuilder = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('status');
+  const [severityFilter, setSeverityFilter] = useState<'all' | FindingSeverity>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
 
   useEffect(() => {
@@ -157,21 +158,25 @@ export const RemediationProfileBuilder = () => {
     );
   }, [allFindings, searchQuery]);
 
-  const displayFindings = searchQuery ? filteredFindings : allFindings;
+  const displayFindings = useMemo(() => {
+    let result = searchQuery ? filteredFindings : allFindings;
+    if (severityFilter !== 'all') {
+      result = result.filter(f => f.severity === severityFilter);
+    }
+    return result;
+  }, [filteredFindings, allFindings, searchQuery, severityFilter]);
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
-  const selectAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: true }; }); return updated; }); };
   const selectAllFailed = () => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { if (f.failCount > 0) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
-  const selectBySeverity = (...severities: FindingSeverity[]) => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: severities.includes(f.severity) }; }); return updated; }); };
-  const selectVisible = () => { setSelections(prev => { const updated = { ...prev }; filteredFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
-  const deselectVisible = () => { setSelections(prev => { const updated = { ...prev }; filteredFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
+  const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
+  const deselectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
 
   const enabledCount = Object.values(selections).filter(s => s.enabled).length;
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
   const totalAffectedHosts = useMemo(() => { const hostSet = new Set<string>(); allFindings.forEach(f => { const sel = selections[f.ruleId]; if (sel?.enabled) { const failedHosts = f.hosts.filter(h => h.status === 'fail'); if (sel.scope === 'standardize_all' || failedHosts.length === 0) { f.hosts.forEach(h => hostSet.add(h.host)); } else { failedHosts.forEach(h => hostSet.add(h.host)); } } }); return hostSet.size; }, [allFindings, selections]);
-  const groupedBySeverity = useMemo(() => { const groups: Record<FindingSeverity, MultiHostFinding[]> = { CAT_I: [], CAT_II: [], CAT_III: [] }; allFindings.forEach(f => groups[f.severity].push(f)); return groups; }, [allFindings]);
+  const groupedBySeverity = useMemo(() => { const groups: Record<FindingSeverity, MultiHostFinding[]> = { CAT_I: [], CAT_II: [], CAT_III: [] }; displayFindings.forEach(f => groups[f.severity].push(f)); return groups; }, [displayFindings]);
   const getSeverityClass = (severity: FindingSeverity) => { switch (severity) { case 'CAT_I': return classes.catI; case 'CAT_II': return classes.catII; case 'CAT_III': return classes.catIII; default: return ''; } };
 
   // Auto-save (Insights pattern)
@@ -386,11 +391,15 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setViewMode('status')} variant={viewMode === 'status' ? 'contained' : 'outlined'} color={viewMode === 'status' ? 'primary' : 'default'} data-testid="view-by-status">By Status</Button>
             <Button onClick={() => setViewMode('category')} variant={viewMode === 'category' ? 'contained' : 'outlined'} color={viewMode === 'category' ? 'primary' : 'default'} data-testid="view-by-category">By Category</Button>
           </ButtonGroup>
+          <ButtonGroup size="small" variant="outlined" aria-label="Severity filter">
+            <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'contained' : 'outlined'} color={severityFilter === 'all' ? 'primary' : 'default'}>View All</Button>
+            <Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button>
+            <Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button>
+            <Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button>
+          </ButtonGroup>
+          <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
+          <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
-          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I')}>CAT I</Button>
-          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_II')}>CAT II</Button>
-          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I', 'CAT_II')}>CAT I + II</Button>
-          <Button size="small" variant="outlined" onClick={selectAll}>Select All</Button>
           <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
         </div>
       </div>
@@ -410,16 +419,13 @@ export const RemediationProfileBuilder = () => {
         {searchQuery && (
           <>
             <Chip label={`${filteredFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
-            <Button size="small" variant="outlined" color="primary" onClick={selectVisible}>
-              Select Visible ({filteredFindings.length})
-            </Button>
-            <Button size="small" variant="outlined" onClick={deselectVisible}>
-              Deselect Visible
-            </Button>
             <Button size="small" onClick={() => setSearchQuery('')}>
               Clear Search
             </Button>
           </>
+        )}
+        {(severityFilter !== 'all' || searchQuery) && (
+          <Chip label={`Showing ${displayFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
         )}
       </Box>
       {viewMode === 'status' ? renderStatusView() : renderCategoryView()}
