@@ -16,9 +16,11 @@ import {
   DialogContent,
   DialogActions,
   FormControl,
+  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
+  Switch,
   TextField,
   Box,
   Table,
@@ -94,6 +96,7 @@ const EMPTY_FORM: SaveCartridgeRequest = {
   framework: 'DISA_STIG',
   version: '',
   platform: '',
+  platformSpec: null,
   workflowTemplateId: null,
   eeId: null,
   remediationPlaybookPath: '',
@@ -497,6 +500,85 @@ export const CartridgeSettings = () => {
               onChange={e => updateForm('platform', e.target.value)}
               helperText="The operating system or platform this profile applies to"
               className={classes.formField}
+            />
+
+            <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 8 }}>
+              Platform Requirements
+            </Typography>
+
+            <TextField
+              label="OS Family"
+              variant="outlined"
+              fullWidth
+              value={form.platformSpec?.os_family?.join(', ') || ''}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(prev => ({
+                  ...prev,
+                  platformSpec: {
+                    ...prev.platformSpec,
+                    os_family: val ? val.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                  },
+                }));
+              }}
+              helperText="Comma-separated: RedHat, Windows, etc."
+              className={classes.formField}
+            />
+
+            <TextField
+              label="OS Version"
+              variant="outlined"
+              fullWidth
+              value={form.platformSpec?.os_version?.join(', ') || ''}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(prev => ({
+                  ...prev,
+                  platformSpec: {
+                    ...prev.platformSpec,
+                    os_version: val ? val.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                  },
+                }));
+              }}
+              helperText="Comma-separated major versions: 9, 8, 2022, etc."
+              className={classes.formField}
+            />
+
+            <TextField
+              label="Device Type"
+              variant="outlined"
+              fullWidth
+              value={form.platformSpec?.device_type?.join(', ') || ''}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(prev => ({
+                  ...prev,
+                  platformSpec: {
+                    ...prev.platformSpec,
+                    device_type: val ? val.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                  },
+                }));
+              }}
+              helperText="For network profiles: cisco_ios, cisco_nxos, etc."
+              className={classes.formField}
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.platformSpec?.scanner_validates || false}
+                  onChange={e => {
+                    setForm(prev => ({
+                      ...prev,
+                      platformSpec: {
+                        ...prev.platformSpec,
+                        scanner_validates: e.target.checked || undefined,
+                      },
+                    }));
+                  }}
+                />
+              }
+              label="External scanner handles platform validation"
             />
 
             <FormControl variant="outlined" fullWidth className={classes.formField}>

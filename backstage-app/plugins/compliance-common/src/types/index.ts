@@ -31,6 +31,7 @@ export type {
   DashboardStats,
   ComplianceCartridge,
   SaveCartridgeRequest,
+  PlatformSpec,
   RemediationPlanGroup,
   RemediationPlan,
   RuleMetadataRecord,

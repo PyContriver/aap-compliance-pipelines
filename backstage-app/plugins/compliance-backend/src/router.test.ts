@@ -117,6 +117,7 @@ function createMockService() {
       .fn()
       .mockReturnValue({ groups: [], totalRules: 0, totalHosts: 0 }),
     fetchAndParseResults: jest.fn().mockResolvedValue([]),
+    fetchScanErrorDetails: jest.fn().mockResolvedValue(null),
     aggregateFindings: jest.fn().mockReturnValue([]),
     aggregateFindingsWithMetadata: jest.fn().mockResolvedValue([]),
     mapRawFindingPublic: jest.fn().mockReturnValue({
@@ -145,6 +146,7 @@ function createMockDatabase() {
       status: 'pending',
       startedAt: '2026-04-30T00:00:00.000Z',
       completedAt: null,
+      errorDetails: null,
     }),
     updateScanWorkflowJobId: jest.fn().mockResolvedValue(undefined),
     getRecentScans: jest.fn().mockResolvedValue([
@@ -158,6 +160,7 @@ function createMockDatabase() {
         status: 'completed',
         startedAt: '2026-04-30T00:00:00.000Z',
         completedAt: '2026-04-30T00:05:00.000Z',
+        errorDetails: null,
       },
     ]),
     getFindingsByScanId: jest.fn().mockResolvedValue([]),
@@ -168,6 +171,7 @@ function createMockDatabase() {
     cleanupOldFindings: jest.fn().mockResolvedValue(0),
     getLatestFindings: jest.fn().mockResolvedValue([]),
     updateScanStatus: jest.fn().mockResolvedValue(undefined),
+    updateScanErrorDetails: jest.fn().mockResolvedValue(undefined),
     listCartridges: jest.fn().mockResolvedValue([]),
     saveCartridge: jest.fn().mockResolvedValue({
       id: 'cart-1',
@@ -534,6 +538,79 @@ describe('compliance backend router', () => {
 
       expect(res.status).toBe(500);
       expect((res.body as any).error).toBe('DB error');
+    });
+
+    it('accepts platformSpec object', async () => {
+      const { app, database } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/cartridges',
+        body: {
+          displayName: 'RHEL 9 STIG',
+          framework: 'DISA_STIG',
+          platformSpec: {
+            os_family: ['RedHat'],
+            os_version: ['9'],
+          },
+        },
+      });
+
+      expect(res.status).toBe(201);
+      expect(database.saveCartridge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
+        }),
+      );
+    });
+
+    it('returns 400 when platformSpec is a string', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/cartridges',
+        body: {
+          displayName: 'RHEL 9 STIG',
+          framework: 'DISA_STIG',
+          platformSpec: 'not-an-object',
+        },
+      });
+
+      expect(res.status).toBe(400);
+      expect((res.body as any).error).toMatch(/platformSpec/);
+    });
+
+    it('returns 400 when platformSpec is an array', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/cartridges',
+        body: {
+          displayName: 'RHEL 9 STIG',
+          framework: 'DISA_STIG',
+          platformSpec: ['RedHat'],
+        },
+      });
+
+      expect(res.status).toBe(400);
+      expect((res.body as any).error).toMatch(/platformSpec/);
+    });
+
+    it('accepts null platformSpec', async () => {
+      const { app, database } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/cartridges',
+        body: {
+          displayName: 'RHEL 9 STIG',
+          framework: 'DISA_STIG',
+          platformSpec: null,
+        },
+      });
+
+      expect(res.status).toBe(201);
+      expect(database.saveCartridge).toHaveBeenCalledWith(
+        expect.objectContaining({ platformSpec: null }),
+      );
     });
   });
 
@@ -1235,6 +1312,123 @@ describe('compliance backend router', () => {
       });
       expect(res.status).toBe(403);
       expect((res.body as any).error).toMatch(/Invalid ingest token/);
+    });
+  });
+
+  // ─── GET /scans/:scanId (error details) ───────────────────────────
+
+  describe('GET /scans/:scanId error details', () => {
+    it('returns errorDetails for a failed scan when already cached', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-fail-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+        errorDetails: 'All 10 hosts unreachable: SSH connection timed out',
+      });
+
+      const res = await testRequest(app, { path: '/scans/scan-fail-1' });
+      expect(res.status).toBe(200);
+      expect((res.body as any).errorDetails).toBe(
+        'All 10 hosts unreachable: SSH connection timed out',
+      );
+    });
+
+    it('lazily fetches error details when not cached for failed scan', async () => {
+      const { app, database: db, service } = await createApp({
+        fetchScanErrorDetails: jest.fn().mockResolvedValue('Host nm-rhel01 unreachable'),
+      });
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-fail-2',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+        errorDetails: null,
+      });
+
+      const res = await testRequest(app, { path: '/scans/scan-fail-2' });
+      expect(res.status).toBe(200);
+      expect((res.body as any).errorDetails).toBe('Host nm-rhel01 unreachable');
+      expect(service.fetchScanErrorDetails).toHaveBeenCalledWith(42, undefined);
+      expect(db.updateScanErrorDetails).toHaveBeenCalledWith(
+        'scan-fail-2',
+        'Host nm-rhel01 unreachable',
+      );
+    });
+
+    it('returns null errorDetails when fetch returns nothing', async () => {
+      const { app, database: db } = await createApp({
+        fetchScanErrorDetails: jest.fn().mockResolvedValue(null),
+      });
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-fail-3',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'failed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+        errorDetails: null,
+      });
+
+      const res = await testRequest(app, { path: '/scans/scan-fail-3' });
+      expect(res.status).toBe(200);
+      expect((res.body as any).errorDetails).toBeNull();
+    });
+
+    it('does not fetch error details for non-failed scans', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-ok-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'completed',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: '2026-05-27T00:05:00.000Z',
+        errorDetails: null,
+      });
+
+      const res = await testRequest(app, { path: '/scans/scan-ok-1' });
+      expect(res.status).toBe(200);
+      expect(service.fetchScanErrorDetails).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── POST /scan (error details cached on failure) ─────────────────
+
+  describe('POST /scan error caching', () => {
+    it('caches error details when scan launch fails', async () => {
+      const { app, database: db } = await createApp({
+        launchScan: jest.fn().mockRejectedValue(new Error('Controller unreachable')),
+      });
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan',
+        body: { profileId: 'rhel9-stig', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(500);
+      expect(db.updateScanErrorDetails).toHaveBeenCalledWith(
+        'scan-1',
+        'Controller unreachable',
+      );
     });
   });
 });

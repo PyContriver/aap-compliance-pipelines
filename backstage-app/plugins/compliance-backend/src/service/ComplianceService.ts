@@ -824,6 +824,72 @@ export class ComplianceService {
     return this.buildMultiHostFindings(byRule, new Map(), this.getRulesMetadata());
   }
 
+  // ─── Scan error details ─────────────────────────────────────────────
+
+  /**
+   * Fetch real error details from the Controller for a failed scan.
+   *
+   * Resolution order:
+   *   1. Try fetching workflow nodes — find the failed child job
+   *      and extract its result_traceback.
+   *   2. If no workflow nodes (single JT per ADR-003), try getting
+   *      the job status directly from the workflowJobId.
+   *
+   * Returns null on any error (best-effort, never breaks the scan flow).
+   * Truncates result at 2000 chars.
+   */
+  async fetchScanErrorDetails(
+    workflowJobId: number,
+    token?: string,
+  ): Promise<string | null> {
+    if (!this.controllerClient) {
+      return null;
+    }
+
+    try {
+      // Step 1: Try workflow nodes to find the failed child job
+      const nodes = await this.getWorkflowNodes(workflowJobId, token);
+
+      if (nodes.length > 0) {
+        const failedNode = nodes.find(
+          n =>
+            n.summary_fields?.job?.status === 'failed' ||
+            n.summary_fields?.job?.status === 'error',
+        );
+
+        if (failedNode?.summary_fields?.job?.id) {
+          const jobStatus = await this.controllerClient.getJobStatus(
+            failedNode.summary_fields.job.id,
+            token,
+          );
+          if (jobStatus.result_traceback) {
+            const traceback = jobStatus.result_traceback.slice(0, 2000);
+            this.logger.info(
+              `Fetched error details for workflow ${workflowJobId} from child job ${failedNode.summary_fields.job.id}`,
+            );
+            return traceback;
+          }
+        }
+      }
+
+      // Step 2: No workflow nodes or no traceback — try direct job status
+      const jobStatus = await this.controllerClient.getJobStatus(
+        workflowJobId,
+        token,
+      );
+      if (jobStatus.result_traceback) {
+        return jobStatus.result_traceback.slice(0, 2000);
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch error details for workflow ${workflowJobId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
   // ─── Workflow status (for polling) ──────────────────────────────────
 
   async getWorkflowJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {
