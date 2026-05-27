@@ -156,19 +156,22 @@ export class ControllerClient {
   private async fetchAllPages<T>(
     endpoint: string,
     token?: string,
+    maxPages: number = 50,
   ): Promise<T[]> {
     const first = await this.executeGetRequest<PaginatedResponse<T>>(endpoint, token);
     const results = [...first.results];
     let nextUrl = first.next;
-    while (nextUrl && results.length < first.count) {
+    let page = 1;
+    while (nextUrl && results.length < first.count && page < maxPages) {
       const relative = nextUrl.replace(this.baseUrl, '').replace(/^\/+/, '');
-      const page = await this.executeGetRequest<PaginatedResponse<T>>(relative, token);
-      results.push(...page.results);
-      nextUrl = page.next;
+      const resp = await this.executeGetRequest<PaginatedResponse<T>>(relative, token);
+      results.push(...resp.results);
+      nextUrl = resp.next;
+      page++;
     }
-    if (first.count > results.length) {
+    if (first.count > results.length && page >= maxPages) {
       this.logger.warn(
-        `[${ControllerClient.LOG_PREFIX}]: Pagination incomplete for ${endpoint}: got ${results.length}/${first.count} items`,
+        `[${ControllerClient.LOG_PREFIX}]: Pagination capped at ${maxPages} pages for ${endpoint}: got ${results.length}/${first.count} items`,
       );
     }
     return results;
@@ -307,17 +310,21 @@ export class ControllerClient {
   async getRunnerOkEvents(
     jobId: number,
     token?: string,
+    maxPages: number = 10,
   ): Promise<PaginatedResponse<JobEvent>> {
     // Fetch both runner_on_ok and runner_item_on_ok events.
     // Loop iterations (e.g., per-host normalize) produce runner_item_on_ok.
+    // Limit pages to avoid fetching 17K+ events from large remediation jobs.
     const [okEvents, itemEvents] = await Promise.all([
       this.fetchAllPages<JobEvent>(
         `api/controller/v2/jobs/${jobId}/job_events/?event=runner_on_ok&page_size=200`,
         token,
+        maxPages,
       ),
       this.fetchAllPages<JobEvent>(
         `api/controller/v2/jobs/${jobId}/job_events/?event=runner_item_on_ok&page_size=200`,
         token,
+        maxPages,
       ),
     ]);
     const results = [...okEvents, ...itemEvents];
