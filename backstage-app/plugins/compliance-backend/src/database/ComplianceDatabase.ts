@@ -47,6 +47,10 @@ export class ComplianceDatabase {
     return { ...row, id };
   }
 
+  async updateScanWorkflowJobId(scanId: string, workflowJobId: number): Promise<void> {
+    await this.db('compliance_scans').where('id', scanId).update({ workflow_job_id: workflowJobId });
+  }
+
   async updateScanStatus(
     scanId: string,
     status: string,

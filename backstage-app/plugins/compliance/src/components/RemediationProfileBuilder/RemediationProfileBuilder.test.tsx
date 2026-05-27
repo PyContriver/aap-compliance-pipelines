@@ -59,9 +59,9 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText('Select All')).toBeInTheDocument();
     });
     expect(screen.getByText('Select All Failed')).toBeInTheDocument();
-    expect(screen.getByText('CAT I Only')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'CAT I' })).toBeInTheDocument();
     expect(screen.getByText('CAT I + II')).toBeInTheDocument();
-    expect(screen.getByText('Clear All')).toBeInTheDocument();
+    expect(screen.getByText('Deselect All')).toBeInTheDocument();
   });
 
   it('displays view toggle buttons defaulting to By Status', async () => {
@@ -141,14 +141,14 @@ describe('RemediationProfileBuilder', () => {
     });
   });
 
-  it('toggles all rules when Select All / Clear All are clicked', async () => {
+  it('toggles all rules when Select All / Deselect All are clicked', async () => {
     await renderBuilder();
     await waitFor(() => {
-      expect(screen.getByText('Clear All')).toBeInTheDocument();
+      expect(screen.getByText('Deselect All')).toBeInTheDocument();
     });
 
-    // After Clear All, the skipped count should match total findings (3: 2 failed + 1 passing)
-    fireEvent.click(screen.getByText('Clear All'));
+    // After Deselect All, the skipped count should match total findings (3: 2 failed + 1 passing)
+    fireEvent.click(screen.getByText('Deselect All'));
     await waitFor(() => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('3');
     });
@@ -167,7 +167,7 @@ describe('RemediationProfileBuilder', () => {
     });
 
     // Clear all first
-    fireEvent.click(screen.getByText('Clear All'));
+    fireEvent.click(screen.getByText('Deselect All'));
     await waitFor(() => {
       expect(screen.getByText(/skipped/)).toHaveTextContent('3');
     });

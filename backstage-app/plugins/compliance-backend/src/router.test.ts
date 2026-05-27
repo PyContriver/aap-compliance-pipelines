@@ -129,11 +129,12 @@ function createMockDatabase() {
       inventoryId: 1,
       scanner: 'oscap',
       scanType: 'assessment',
-      workflowJobId: 42,
+      workflowJobId: null,
       status: 'pending',
       startedAt: '2026-04-30T00:00:00.000Z',
       completedAt: null,
     }),
+    updateScanWorkflowJobId: jest.fn().mockResolvedValue(undefined),
     getRecentScans: jest.fn().mockResolvedValue([
       {
         id: 'scan-1',
@@ -370,8 +371,14 @@ describe('compliance backend router', () => {
       expect(body.scanId).toBe('scan-1');
       expect(body.workflowJobId).toBe(42);
       expect(body.status).toBe('pending');
-      expect(service.launchScan).toHaveBeenCalledTimes(1);
       expect(database.createScan).toHaveBeenCalledTimes(1);
+      expect(service.launchScan).toHaveBeenCalledTimes(1);
+      expect(service.launchScan).toHaveBeenCalledWith(
+        expect.any(Object),
+        undefined,
+        'scan-1',
+      );
+      expect(database.updateScanWorkflowJobId).toHaveBeenCalledWith('scan-1', 42);
     });
 
     it('accepts optional workflowTemplateId', async () => {
@@ -390,6 +397,7 @@ describe('compliance backend router', () => {
       expect(service.launchScan).toHaveBeenCalledWith(
         expect.objectContaining({ workflowTemplateId: 10 }),
         undefined,
+        'scan-1',
       );
     });
 
@@ -406,6 +414,7 @@ describe('compliance backend router', () => {
       expect(service.launchScan).toHaveBeenCalledWith(
         expect.any(Object),
         'my-user-token',
+        'scan-1',
       );
     });
 

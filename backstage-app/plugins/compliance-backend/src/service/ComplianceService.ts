@@ -241,13 +241,12 @@ export class ComplianceService {
 
   // ─── Scan ───────────────────────────────────────────────────────────
 
-  async launchScan(request: LaunchScanRequest, token?: string): Promise<LaunchScanResponse> {
+  async launchScan(request: LaunchScanRequest, token?: string, scanId?: string): Promise<LaunchScanResponse> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.launchScan(request.profileId);
     }
 
     // ── Resolve the workflow template ID ──────────────────────────────
-    // Priority: (1) explicit request, (2) cartridge registry in DB, (3) name-based search
     const resolvedTemplateId = await this.resolveWorkflowTemplateId(
       request.profileId,
       request.workflowTemplateId,
@@ -255,10 +254,15 @@ export class ComplianceService {
     );
 
     // ── Build extra_vars for the workflow launch ─────────────────────
+    // backstage_api_url and scan_id enable the playbook to POST findings
+    // directly to the plugin API after normalization (Direct POST pattern).
+    const backstageUrl = this.config?.getOptionalString('backend.baseUrl') || '';
     const extraVars: Record<string, unknown> = {
       compliance_profile: request.profileId,
       evaluate_only: request.evaluateOnly,
       inventory_id: request.inventoryId,
+      backstage_api_url: backstageUrl,
+      scan_id: scanId || '',
     };
 
     // ── Launch the workflow ──────────────────────────────────────────
@@ -496,8 +500,20 @@ export class ComplianceService {
       throw new Error('Cannot fetch results in mock mode — no Controller client');
     }
 
+    // Check if findings were already saved by Direct POST from the playbook.
+    // If so, skip event parsing entirely — the data is already in the DB.
+    if (this.database) {
+      const existing = await this.database.getFindingsByScanId(scanId);
+      if (existing.length > 0) {
+        this.logger.info(
+          `Found ${existing.length} findings already in DB for scan ${scanId} (via Direct POST). Skipping event parsing.`,
+        );
+        return existing;
+      }
+    }
+
     this.logger.info(
-      `Fetching results for workflow job ${workflowJobId} (scan ${scanId})`,
+      `Fetching results for workflow job ${workflowJobId} (scan ${scanId}) via event parsing (fallback)`,
     );
 
     // Step 1: Get workflow nodes to find the normalize job
@@ -633,6 +649,14 @@ export class ComplianceService {
    * Map a single raw finding from the Ansible module output to our
    * StoredFinding format.
    */
+  mapRawFindingPublic(
+    raw: RawControllerFinding,
+    host: string,
+    scanId: string,
+  ): Omit<StoredFinding, 'id'> {
+    return this.mapRawFinding(raw, host, scanId);
+  }
+
   private mapRawFinding(
     raw: RawControllerFinding,
     host: string,

@@ -267,19 +267,22 @@ export async function createRouter(
     logger.info(`Launching scan for profile=${scanRequest.profileId}`);
 
     try {
-      const result = await service.launchScan(scanRequest, userToken);
-
-      // Persist the scan record
-      await database.createScan({
+      // Create scan record BEFORE launching so scan_id is available as extra_var
+      const scanRecord = await database.createScan({
         profileId: scanRequest.profileId,
         inventoryId: scanRequest.inventoryId,
         scanner: 'oscap',
         scanType: body.scanType || 'assessment',
-        workflowJobId: result.workflowJobId,
+        workflowJobId: null,
         status: 'pending',
         startedAt: new Date().toISOString(),
         completedAt: null,
       });
+
+      const result = await service.launchScan(scanRequest, userToken, scanRecord.id);
+
+      // Update scan record with the workflow job ID
+      await database.updateScanWorkflowJobId(scanRecord.id, result.workflowJobId);
 
       res.json(result);
     } catch (error) {
@@ -433,6 +436,64 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get previous findings: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  // ─── Findings ingest (direct POST from playbook) ────────────────────
+
+  router.post('/findings/ingest', async (req, res) => {
+    const body = req.body;
+    const scanId = body.scanId as string | undefined;
+    const findings = body.findings as Array<Record<string, unknown>> | undefined;
+
+    if (!scanId || !findings || !Array.isArray(findings)) {
+      res.status(400).json({ error: 'scanId (string) and findings (array) are required' });
+      return;
+    }
+
+    try {
+      const scan = await database.getScanById(scanId);
+      if (!scan) {
+        res.status(404).json({ error: `Scan ${scanId} not found` });
+        return;
+      }
+
+      const mapped = findings.map(raw => service.mapRawFindingPublic(
+        raw as any,
+        (raw.host as string) || 'unknown',
+        scanId,
+      ));
+
+      const count = await database.saveFindingsForScan(scanId, mapped);
+
+      await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
+
+      // Save posture snapshot
+      try {
+        const passCount = mapped.filter(f => f.status === 'pass').length;
+        const failCount = mapped.filter(f => f.status === 'fail').length;
+        const uniqueHosts = new Set(mapped.map(f => f.host)).size;
+        const uniqueRules = new Set(mapped.map(f => f.ruleId)).size;
+        const total = passCount + failCount;
+        await database.savePostureSnapshot({
+          profileId: scan.profileId,
+          timestamp: new Date().toISOString(),
+          totalHosts: uniqueHosts,
+          totalRules: uniqueRules,
+          passCount,
+          failCount,
+          compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
+        });
+      } catch {
+        // Posture snapshot is best-effort
+      }
+
+      logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);
+      res.status(201).json({ scanId, findingsCount: count });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to ingest findings: ${msg}`);
       res.status(500).json({ error: msg });
     }
   });
