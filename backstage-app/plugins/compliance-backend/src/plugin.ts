@@ -137,12 +137,13 @@ export const complianceBackendPlugin = createBackendPlugin({
           httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
         } else {
-          // Production mode: only /health is unauthenticated.
-          // All other routes require Backstage auth (JWT validation).
-          // Mutating endpoints are additionally gated by
-          // catalogEntityCreatePermission in the router.
+          // Production mode: only /health and /findings/ingest are unauthenticated.
+          // /findings/ingest must be reachable from the EE (playbook POSTs findings
+          // directly after normalization). Auth is via AAP token in x-aap-token header.
           httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
         }
       },
     });

@@ -180,6 +180,62 @@
         label: "{{ item.path | basename }}"
       register: _normalized
 
+    # ── Direct POST findings to Backstage plugin API ─────────────────
+    # When backstage_api_url and scan_id are provided (by the plugin
+    # backend via extra_vars), POST full findings directly to the
+    # /findings/ingest endpoint. This bypasses Controller event storage
+    # limits and delivers complete metadata (titles, descriptions,
+    # check_text, fix_text, STIG IDs) that would be truncated in events.
+
+    - name: Find per-host findings JSON files
+      ansible.builtin.find:
+        paths: "{{ fetch_dest_dir }}"
+        patterns: "findings-*.json"
+      register: _findings_files
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Read per-host findings files
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ _findings_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: _findings_raw
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Build combined findings array
+      ansible.builtin.set_fact:
+        _all_findings: "{{ _findings_raw.results | default([]) | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('from_json') | map(attribute='findings') | flatten }}"
+      when: backstage_api_url | default('') | length > 0
+
+    - name: POST findings to Backstage compliance API
+      ansible.builtin.uri:
+        url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+        method: POST
+        body_format: json
+        body:
+          scanId: "{{ scan_id }}"
+          findings: "{{ _all_findings }}"
+        headers:
+          Content-Type: application/json
+        status_code: [201]
+        validate_certs: false
+        timeout: 60
+      when:
+        - backstage_api_url | default('') | length > 0
+        - scan_id | default('') | length > 0
+        - _all_findings | default([]) | length > 0
+      register: _post_result
+      failed_when: false
+
+    - name: Report POST result
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'POSTed ' + (_post_result.json.findingsCount | default('?') | string) + ' findings to ' + backstage_api_url
+             if (_post_result.status | default(0)) == 201
+             else 'Direct POST skipped or failed (status=' + (_post_result.status | default('N/A') | string) + '). Findings available via Controller events as fallback.' }}
+      when: backstage_api_url | default('') | length > 0
+
     - name: Display summary
       ansible.builtin.debug:
         msg: >-
