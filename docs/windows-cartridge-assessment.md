@@ -1,4 +1,4 @@
-# Assessment: infra.windows_ops Integration with Compliance Profile Model
+# Assessment: infra.windows_ops Integration with the Compliance Profile Model
 
 **Date:** 2026-05-13
 **Repo:** [redhat-cop/infra.windows_ops](https://github.com/redhat-cop/infra.windows_ops)
@@ -206,19 +206,21 @@ A final play in the pipeline playbook can POST the CFF JSON to the backend, keye
 
 ### Tier 3: Track A Pre-Assessment (Higher effort, deferrable)
 
-#### 3.1 `compliance_gather` for Windows
+> **Note:** The RHEL compliance profile has since migrated from `compliance_gather` + `compliance_evaluate` to OpenSCAP-based scanning (see ADR-004). The modules below describe the original Track A fast-scan model. For Windows, Track B (full role execution in check mode) is the recommended initial approach.
 
-A Windows-specific module that collects registry values, security policies, services, audit policies, and user rights in a single WinRM round-trip. This enables the "17 min for 20K hosts" fast-scan model.
+#### 3.1 Windows Fact Gathering Module
 
-Not required for initial integration — Track B (full role execution in check mode) works today.
+A Windows-specific module that collects registry values, security policies, services, audit policies, and user rights in a single WinRM round-trip. This enables fast pre-assessment for triage.
 
-#### 3.2 `compliance_evaluate` for Windows
+Not required for initial integration -- Track B (full role execution in check mode) works today.
 
-A module that takes gathered Windows facts + rule definitions and evaluates them on localhost. Enables centralized evaluation without per-host WinRM round-trips.
+#### 3.2 Windows Fact Evaluation Module
+
+A module that takes gathered Windows facts and rule definitions and evaluates them on localhost. Enables centralized evaluation without per-host WinRM round-trips.
 
 #### 3.3 Track A Rule Definitions
 
-Extract the control matrices from task YAML into standalone `files/rules/` YAML that `compliance_evaluate` can consume. Significant refactor — defer until Track A value is validated.
+Extract the control matrices from task YAML into standalone `files/rules/` YAML that the evaluation module can consume. Significant refactor -- defer until Track A value is validated.
 
 ## What Does NOT Need to Change
 

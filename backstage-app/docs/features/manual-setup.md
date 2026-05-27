@@ -1,5 +1,11 @@
 # Manual Automation Controller Setup for Compliance Pipeline
 
+> **DEPRECATED (2026-05-26):** This guide describes the original multi-JT workflow architecture (install-scanner, run-scan, fetch-normalize, uninstall-scanner, remediate). The current architecture uses a **single assessment JT** (`compliance-run-oscap` running `run_oscap.yml` with 2 plays) and a **separate remediation JT** (`compliance-remediate` launched directly with `job_tags`). For the current setup instructions, see:
+> - [Controller Setup](controller-setup.md) -- current guide with automated and manual options
+> - [Deployment Guide](../../../docs/deployment-guide.md) -- current AAP resource requirements
+> - [ADR-003](../../../specs/compliance-pipelines/decisions/ADR-003-single-assessment-jt.md) -- single assessment JT rationale
+> - [ADR-004](../../../specs/compliance-pipelines/decisions/ADR-004-oscap-replaces-custom-evaluate.md) -- OpenSCAP migration rationale
+
 Step-by-step instructions for manually configuring the automation controller
 resources required by the compliance pipeline. Use this guide if you cannot run
 the automated `setup_controller.yml` playbook.

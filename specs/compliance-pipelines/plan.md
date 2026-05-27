@@ -8,7 +8,7 @@
 
 Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automation Platform today must manually source ComplianceAsCode content, build scan/remediate workflows, parse XCCDF results, and manage remediation decisions — with no integrated portal experience. This feature delivers an end-to-end compliance pipeline within the Ansible Portal that enables administrators to add compliance profiles (EE + workflow mappings), launch scans, review host-level findings, build selective remediations, execute remediation, and verify results — all without leaving the portal or requiring Controller expertise.
 
-**Technical Approach**: The compliance plugin operates as a scanner orchestrator, not a scanner. It invokes existing AAP workflow templates via the Gateway API, parses scan output into structured findings stored in Backstage PostgreSQL, and provides a remediation builder that translates user decisions into `--limit`, `--tags`, and `--extra-vars` parameters for the remediation workflow node. ComplianceAsCode's `rhel9-playbook-stig.yml` (55K+ lines, 4400+ tasks) from the `scap-security-guide` RPM IS the remediation engine — we consume it, not author it.
+**Technical Approach**: The compliance plugin operates as a scanner orchestrator, not a scanner. It invokes AAP job templates via the Gateway API, receives normalized findings, and stores them in Backstage PostgreSQL. A remediation builder translates user decisions into `--limit`, `--tags`, and `--extra-vars` parameters for the remediation job template. ComplianceAsCode's `rhel9-playbook-stig.yml` (55K+ lines, 4400+ tasks) from the `scap-security-guide` RPM IS the remediation engine -- we consume it, not author it.
 
 **Key Architecture Decisions**:
 
@@ -43,7 +43,7 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 │  ├─ FindingsViewer/ - Host-level findings with severity grouping    │
 │  ├─ ProfileBuilder/ - Selective rule toggles, parameter overrides   │
 │  ├─ ProfileManager/ - Save, load, apply remediations                │
-│  ├─ CartridgeSettings/ - Admin compliance profile registration      │
+│  ├─ ComplianceSettings/ - Admin compliance profile registration     │
 │  └─ ExportDialog/ - CSV/JSON export configuration                   │
 └─────────────────────────────────────────────────────────────────────┘
                               │
@@ -58,7 +58,7 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 │  │   ├─ POST /profiles - Save remediation                           │
 │  │   ├─ POST /remediate - Execute remediation                       │
 │  │   └─ GET  /posture - Dashboard data                              │
-│  ├─ CartridgeService - Compliance profile CRUD + validation         │
+│  ├─ ComplianceProfileService - Compliance profile CRUD + validation │
 │  ├─ ScanService - Workflow invocation + result parsing              │
 │  ├─ FindingsService - Finding storage + query                       │
 │  ├─ ProfileService - Profile CRUD + application logic               │
@@ -71,20 +71,21 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
                               ▼
 ┌──────────────────────────────────────────────┐
 │  AAP Gateway API                              │
-│  ├─ /api/v2/workflow_job_templates/           │
-│  ├─ /api/v2/workflow_jobs/                    │
-│  ├─ /api/v2/execution_environments/           │
-│  ├─ /api/v2/inventories/                      │
-│  └─ /api/v2/job_templates/                    │
+│  ├─ /api/controller/v2/workflow_job_templates/│
+│  ├─ /api/controller/v2/workflow_jobs/         │
+│  ├─ /api/controller/v2/execution_environments/│
+│  ├─ /api/controller/v2/inventories/           │
+│  └─ /api/controller/v2/job_templates/         │
 └──────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────┐
 │  AAP Controller + Execution Nodes             │
-│  ├─ Workflow: compliance-pipeline (3 nodes)   │
-│  │   ├─ Gather (inventory scan)               │
-│  │   ├─ Evaluate (XCCDF/scanner execution)    │
-│  │   └─ Remediate (CaC playbook execution)    │
+│  ├─ Assessment JT: compliance-run-oscap       │
+│  │   ├─ Play 1: OpenSCAP scan (targets)       │
+│  │   └─ Play 2: Normalize (localhost)         │
+│  ├─ Remediation JT: compliance-remediate      │
+│  │   └─ CaC playbook (job_tags scoped)        │
 │  └─ EE: compliance-stig-rhel9 (OpenSCAP +    │
 │          scap-security-guide RPM)             │
 └──────────────────────────────────────────────┘
@@ -94,29 +95,29 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 
 ```
 Admin clicks           Portal backend          AAP Gateway          Execution Nodes
-"Launch Scan"          invokes workflow         dispatches jobs      run OpenSCAP
+"Launch Scan"          invokes assessment JT   dispatches job       run OpenSCAP
      │                      │                       │                     │
      ├──── POST /scans ────►│                       │                     │
-     │                      ├── POST workflow_job ──►│                     │
-     │                      │                       ├── gather node ──────►│
-     │                      │                       ├── evaluate node ────►│
+     │                      ├── POST JT launch ────►│                     │
+     │                      │                       ├── Play 1: scan ────►│
+     │                      │                       │   Play 2: normalize │
      │                      │◄── poll job status ───┤                     │
      │                      │                       │                     │
-     │                      │  Parse XCCDF output   │                     │
+     │                      │  Receive CFF findings │                     │
      │                      │  Store findings in DB  │                     │
      │◄── findings ready ──┤                       │                     │
      │                      │                       │                     │
 Admin builds            Portal translates       AAP dispatches       Hosts remediated
-remediation             remediation → params    remediate node       via CaC playbook
+remediation             remediation → params    remediate JT         via CaC playbook
      │                      │                       │                     │
      ├── POST /remediate ──►│                       │                     │
-     │                      ├── POST workflow_job ──►│                     │
-     │                      │   --limit=host-2,3    ├── remediate node ──►│
+     │                      ├── POST JT launch ────►│                     │
+     │                      │   --limit=host-2,3    ├── remediate JT ───►│
      │                      │   --tags=rule_1,2     │                     │
      │                      │   --extra-vars={...}  │                     │
      │                      │                       │                     │
      │                      │  Auto re-scan         │                     │
-     │                      ├── POST workflow_job ──►│                     │
+     │                      ├── POST JT launch ────►│                     │
      │◄── before/after ────┤                       │                     │
 ```
 
@@ -224,9 +225,9 @@ plugins/compliance/
 │   │   ├── ProfileManager/
 │   │   │   ├── ProfileManager.tsx         # Saved profiles list
 │   │   │   └── ApplyProfileDialog.tsx     # Apply to new findings
-│   │   ├── CartridgeSettings/
+│   │   ├── ComplianceSettings/
 │   │   │   ├── CartridgeSettings.tsx      # Admin compliance profile list
-│   │   │   └── CartridgeForm.tsx          # Add/edit compliance profile
+│   │   │   └── CartridgeForm.tsx          # Add/edit compliance profile form
 │   │   └── ExportDialog/
 │   │       └── ExportDialog.tsx           # Format + scope selection
 │   ├── hooks/

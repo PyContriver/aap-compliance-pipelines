@@ -6,7 +6,7 @@ This document describes how to submit the compliance pipelines feature from this
 
 Before submitting to the downstream repo, ensure the following are complete:
 
-1. **Jira ticket created**: An ANSTRAT feature ticket must exist for the compliance pipelines feature, linked to the appropriate parent Outcome (recommended: ANSTRAT-1670, Initiative 3: Strategic Domain Content)
+1. **Jira ticket created**: An ANSTRAT feature ticket must exist for the compliance pipelines feature, linked to the appropriate parent Outcome (recommended: ANSTRAT-2178, Initiative 2: Policy-Driven Workflows & Compliance Automation)
 2. **Spec review passed**: The spec at `specs/compliance-pipelines/spec.md` must be reviewed and approved by the Portal team. Run the quality checklist at `specs/compliance-pipelines/checklists/requirements.md` before submitting
 3. **Architecture approval**: The compliance profile model, Gateway-only API routing, and Backstage PostgreSQL persistence approach must be approved via an ADR in the downstream repo
 4. **Prototype validation**: Core workflows (compliance profile registration, scan launch, findings review, profile builder) must be demonstrated in the prototype environment

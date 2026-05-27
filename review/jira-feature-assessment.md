@@ -125,9 +125,9 @@ This Feature belongs to Initiative 2 (Policy-Driven Workflows & Compliance Autom
 - **Scanner Orchestrator Model:** The compliance plugin orchestrates pluggable scanners, it does not scan. Value is in UX, orchestration, and the remediation builder.
 - **Common Findings Format (CFF):** JSON schema v1.0.0 -- the contract between all scanner normalizers and the portal. The plugin renders findings identically regardless of which scanner produced them.
 - **Three-Tier Scanner Model:** Tier 1 (Fully Shippable: OpenSCAP, PowerSTIG), Tier 2 (BYOS: Tenable, Qualys, Insights, CIS-CAT), Tier 3 (Hybrid multi-domain).
-- **Two-Track Scanning:** Track A (fast pre-assessment, ~17 min for 20K hosts) for continuous monitoring; Track B (audit-grade, full OpenSCAP/scanner) for compliance evidence.
+- **Two-Track Scanning (future):** Track A (fast pre-assessment for triage) is a future optimization; Track B (audit-grade, full OpenSCAP) is the current primary path for compliance evidence.
 - **Compliance Profile Packaging:** Ansible collections containing scanner adapter, normalizer, evaluation rules, remediation roles, pipeline workflow definitions, and portal metadata. Each compliance profile is a self-contained pipeline for a specific profile and scanner combination.
-- **Controller Workflows as Pipeline Runtime:** Uses AAP's existing workflow engine (gather, evaluate, remediate nodes), not a new pipeline runtime. Remediation uses direct JT launch with native `job_tags` and `--limit` (not workflow-level, which do not propagate to child JTs).
+- **Controller Job Templates as Pipeline Runtime:** Uses AAP's existing job template engine, not a new pipeline runtime. Assessment uses a single JT with 2 plays (scan + normalize in one container). Remediation uses a separate direct JT launch with native `job_tags` and `--limit` (not workflow-level, which do not propagate to child JTs).
 
 ## Phased Delivery
 
@@ -148,7 +148,7 @@ A working prototype exists in the `aap-compliance-pipelines` repository (50+ com
 - **7 UI views:** Dashboard, Profiles, Scan Launcher, Results Viewer, Remediation Builder, Remediations List, Settings
 - **Live AAP 2.6 integration validated:** End-to-end scan on lab infrastructure, 20 STIG rules evaluated (8 pass, 12 fail), findings parsed and displayed
 - **Architect assessment:** 4/5 Architecture, 4/5 AAP Integration, 3.5/5 Plugin Quality, ~70% Phase 1+2 delivery
-- **Content:** 3 custom Ansible modules (compliance_gather, compliance_evaluate, normalize_xccdf), 20 STIG rules in YAML, EE profile definition, pipeline playbooks
+- **Content:** OpenSCAP-based scanning pipeline with `normalize_xccdf` module (366 STIG rules from scap-security-guide), CaC remediation playbook, EE profile definition, pipeline playbooks. Deprecated modules (`compliance_gather`, `compliance_evaluate`) retained for backward compatibility.
 
 ## Competitive Positioning
 

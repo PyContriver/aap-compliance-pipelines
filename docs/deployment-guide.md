@@ -9,7 +9,7 @@ The compliance plugins can run in two modes: as part of a standalone Backstage d
 | **Local** (`localhost:3000`) | Development + testing | SQLite | Guest (no login) | Direct source (hot reload) |
 | **Portal / RHDH** (e.g., `dev-portal-netrunner.demoredhat.com`) | Staging + demo + production | PostgreSQL | AAP Gateway OAuth2 | dist-dynamic tarballs |
 
-**Local is for development and testing.** Feature branches are developed and tested here first — mock mode for UI work, live mode for end-to-end scans against a lab AAP instance. Hot reload makes iteration fast.
+**Local is for development and testing.** Feature branches are developed and tested here first -- mock mode for UI work, live mode for end-to-end scans against a lab AAP instance. Hot reload makes iteration fast.
 
 **Portal is for staging and demo.** Only `main` branch code is deployed here. Deployment requires building dist-dynamic tarballs, computing integrity hashes, and restarting the Portal service. See the [Netrunner Portal Deployment](netrunner-portal-deployment.md) guide for the full process.
 
@@ -93,7 +93,7 @@ This produces:
 ```yaml
 dynamicPlugins:
   frontend:
-    aap-compliance.plugin-compliance:
+    aap-compliance-plugin-compliance:
       dynamicRoutes:
         - importName: CompliancePage
           path: /compliance
@@ -107,7 +107,7 @@ dynamicPlugins:
 ```yaml
 dynamicPlugins:
   backend:
-    aap-compliance.plugin-compliance-backend: {}
+    aap-compliance-plugin-compliance-backend: {}
 ```
 
 ### Required RHDH Configuration

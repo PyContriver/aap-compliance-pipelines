@@ -11,24 +11,24 @@
 
 ### User Story 1 - Admin Adds a Compliance Profile (Priority: P1)
 
-Before compliance scanning can begin, a platform administrator must add a compliance profile — a mapping between a compliance standard (e.g., RHEL 9 DISA STIG), the Execution Environment that contains the scanner tooling and remediation content, and the AAP workflow template that orchestrates the scan-evaluate-remediate pipeline. Without this registration, the portal has no knowledge of what compliance standards are available or how to invoke them.
+Before compliance scanning can begin, a platform administrator must add a compliance profile — a mapping between a compliance standard (e.g., RHEL 9 DISA STIG), the Execution Environment that contains the scanner tooling and remediation content, and the AAP assessment job template that orchestrates the scan-and-normalize pipeline. Without this registration, the portal has no knowledge of what compliance standards are available or how to invoke them.
 
 **Why this priority**: This is the foundational configuration step. No compliance profile registered means no scan profiles available, no scan launches possible, and no compliance functionality of any kind. Every other user story depends on at least one compliance profile being registered.
 
-**Independent Test**: Log in as a platform administrator, navigate to Compliance > Settings, add a new compliance profile by selecting an EE, mapping it to a workflow template, and assigning a compliance profile name. Verify the compliance profile appears in the profile browser and is available for scan launches.
+**Independent Test**: Log in as a platform administrator, navigate to Compliance > Settings, add a new compliance profile by selecting an EE, mapping it to an assessment job template, and assigning a compliance profile name. Verify the compliance profile appears in the profile browser and is available for scan launches.
 
 **Acceptance Scenarios**:
 
 1. **Given** a portal with the compliance plugin installed but no compliance profiles registered, **When** an admin navigates to Compliance > Settings, **Then** they see an empty state with instructions to add a compliance profile and an "Add Compliance Profile" button
-2. **Given** the compliance profile registration form, **When** the admin selects an Execution Environment from a dropdown populated via the AAP Gateway API, maps it to a workflow template, and provides a display name and compliance standard identifier (e.g., `rhel9-stig-v2r8`), **Then** the compliance profile is persisted to the compliance database and appears in the compliance profile list
-3. **Given** a registered compliance profile, **When** the admin views the compliance profile details, **Then** they see the EE name, workflow template name, compliance standard, creation date, and a status indicator showing whether the EE and workflow template are still accessible via the AAP Gateway
+2. **Given** the compliance profile registration form, **When** the admin selects an Execution Environment from a dropdown populated via the AAP Gateway API, maps it to an assessment job template, and provides a display name and compliance standard identifier (e.g., `rhel9-stig-v2r8`), **Then** the compliance profile is persisted to the compliance database and appears in the compliance profile list
+3. **Given** a registered compliance profile, **When** the admin views the compliance profile details, **Then** they see the EE name, assessment job template name, compliance standard, creation date, and a status indicator showing whether the EE and job template are still accessible via the AAP Gateway
 4. **Given** one or more registered compliance profiles, **When** any user navigates to the compliance profile browser, **Then** the registered profiles appear as selectable options for launching scans
 
 ---
 
 ### User Story 2 - Admin Launches a Compliance Scan from the Portal (Priority: P1)
 
-Platform administrators need to initiate compliance scans against target infrastructure directly from the portal without requiring AAP Controller expertise or CLI access. The scan must invoke the correct AAP workflow (gather, evaluate) using the EE and content specified by the selected compliance profile, targeting hosts specified by the administrator.
+Platform administrators need to initiate compliance scans against target infrastructure directly from the portal without requiring AAP Controller expertise or CLI access. The scan must invoke the correct AAP assessment job template using the EE and content specified by the selected compliance profile, targeting hosts specified by the administrator.
 
 **Why this priority**: Scanning is the entry point for the entire compliance pipeline. Without the ability to launch scans from the portal, users must fall back to the Controller UI or CLI, eliminating the value of the portal integration entirely.
 
@@ -150,7 +150,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 
 ### Edge Cases
 
-- **Compliance profile with deleted EE**: What happens when the EE referenced by a registered compliance profile is deleted from AAP? The compliance profile status indicator shows "EE unavailable", scan launches using that compliance profile are blocked with a clear error message, and the admin is directed to update the compliance profile mapping
+- **Compliance profile with deleted EE**: What happens when the EE referenced by a registered compliance profile is deleted from AAP? The compliance profile status indicator shows "EE unavailable," scan launches using that compliance profile are blocked with a clear error message, and the admin is directed to update the compliance profile mapping
 - **Scan against empty inventory**: What happens when a scan is launched against an inventory with zero reachable hosts? The AAP workflow completes with zero findings, the portal displays "No hosts reachable" with the inventory name, and the scan is recorded in history with a "no results" status
 - **Partial host failures**: What happens when a scan succeeds on 18 of 20 hosts but 2 hosts are unreachable? Findings are stored for the 18 successful hosts, the 2 unreachable hosts are listed with "unreachable" status, and the scan is marked "completed with warnings"
 - **Concurrent scans same hosts**: What happens when two scans target overlapping hosts simultaneously? Both scans proceed independently (AAP handles job isolation), but the portal shows a warning on the second scan launch and stores findings from both scans with distinct scan IDs and timestamps
@@ -165,9 +165,9 @@ Automation architects need infrastructure changes (new host provisioned, configu
 
 #### Compliance Profile Registration
 
-- **FR-001**: System MUST provide a compliance profile registration interface where administrators map a compliance standard name, an Execution Environment, and an AAP workflow template into a reusable scanning configuration
-- **FR-002**: System MUST validate that the referenced EE and workflow template are accessible via the AAP Gateway API before accepting a compliance profile registration
-- **FR-003**: System MUST display registered compliance profiles with status indicators reflecting the current accessibility of the mapped EE and workflow template
+- **FR-001**: System MUST provide a compliance profile registration interface where administrators map a compliance standard name, an Execution Environment, and an AAP assessment job template into a reusable scanning configuration
+- **FR-002**: System MUST validate that the referenced EE and assessment job template are accessible via the AAP Gateway API before accepting a compliance profile registration
+- **FR-003**: System MUST display registered compliance profiles with status indicators reflecting the current accessibility of the mapped EE and assessment job template
 - **FR-004**: System MUST allow administrators to update or delete compliance profile registrations
 
 #### Scan Execution
@@ -175,7 +175,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - **FR-005**: System MUST allow administrators to launch compliance scans by selecting a registered compliance profile, specifying target hosts or inventory, and providing optional scan parameters
 - **FR-006**: System MUST invoke the AAP assessment job template mapped by the selected compliance profile via the AAP Gateway API, passing the target inventory and extra variables (single JT with 2 plays: scan targets + normalize on localhost)
 - **FR-007**: System MUST track scan progress by polling the AAP Gateway API for job status and display real-time status updates in the portal
-- **FR-008**: System MUST parse scan output (XCCDF/JSON) into structured per-host, per-rule findings and persist them to the compliance database
+- **FR-008**: System MUST receive scan findings (via Direct POST from the assessment JT or by parsing Controller job events as a fallback) into structured per-host, per-rule format and persist them to the compliance database
 
 #### Findings Review
 
@@ -224,7 +224,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 
 ### Key Entities _(include if feature involves data)_
 
-- **Compliance Profile**: A registered mapping between a compliance standard, an Execution Environment, and an AAP workflow template. Attributes: display name, compliance standard identifier (e.g., `rhel9-stig-v2r8`), EE reference (id, name), workflow template reference (id, name), status (active, ee-unavailable, workflow-unavailable), created/updated timestamps
+- **Compliance Profile**: A registered mapping between a compliance standard, an Execution Environment, and an AAP assessment job template. Attributes: display name, compliance standard identifier (e.g., `rhel9-stig-v2r8`), EE reference (id, name), assessment job template reference (id, name), status (active, ee-unavailable, jt-unavailable), created/updated timestamps
 - **Compliance Scan**: A single execution of a compliance assessment against target hosts. Attributes: scan ID, compliance profile reference, target inventory/host pattern, trigger source (manual, event-driven), AAP workflow job ID, status (pending, running, completed, failed, completed-with-warnings), start/end timestamps
 - **Compliance Finding**: A single rule evaluation result for a specific host. Attributes: scan reference, rule ID, rule title, description, severity (CAT I/II/III), host, compliance status (pass, fail, error, not-applicable), actual value, expected value, check type
 - **Remediation**: A saved set of remediation decisions. Attributes: name, description, tags, compliance standard, rule selections (per-rule: included/excluded, scope, parameter override, justification), creation date, last used date, associated scan IDs

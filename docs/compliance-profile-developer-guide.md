@@ -1059,12 +1059,12 @@ When a compliance profile collection is installed, an administrator registers it
 2. Admin builds the EE from `ee/execution-environment.yml` using `ansible-builder` or the EE Builder Service
 3. Admin runs the setup playbook (`extensions/patterns/aap_config/`) to provision Controller resources (workflow, job templates, surveys)
 4. Admin navigates to Compliance > Settings in the portal
-5. Admin clicks "Add Compliance Profile" and maps the display name, EE, and workflow template
+5. Admin clicks "Add Compliance Profile" and maps the display name, EE, and assessment job template
 6. The compliance profile appears in the profile browser and is available for scan launches
 
 ### Validation
 
-The portal validates that the referenced EE and workflow template are accessible via the AAP Gateway API before accepting a registration. If either resource becomes unavailable later, the compliance profile status indicator shows the issue (e.g., "EE unavailable").
+The portal validates that the referenced EE and assessment job template are accessible via the AAP Gateway API before accepting a registration. If either resource becomes unavailable later, the compliance profile status indicator shows the issue (e.g., "EE unavailable").
 
 ---
 

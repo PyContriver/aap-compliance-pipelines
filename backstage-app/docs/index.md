@@ -17,7 +17,7 @@ backstage-app/
     backend/      Backend application server
   plugins/
     compliance/          Frontend plugin (dashboard, scan, results, remediation)
-    compliance-backend/  Backend plugin (scaffolder actions)
+    compliance-backend/  Backend plugin (REST API, database, Controller client)
     compliance-common/   Shared types and API client
 ```
 
