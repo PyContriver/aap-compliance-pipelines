@@ -118,6 +118,17 @@ function createMockService() {
       .mockReturnValue({ groups: [], totalRules: 0, totalHosts: 0 }),
     fetchAndParseResults: jest.fn().mockResolvedValue([]),
     aggregateFindings: jest.fn().mockReturnValue([]),
+    mapRawFindingPublic: jest.fn().mockReturnValue({
+      scanId: 'scan-1',
+      ruleId: 'test',
+      stigId: '',
+      host: 'unknown',
+      status: 'pass',
+      severity: 'CAT_II',
+      actualValue: '',
+      expectedValue: '',
+      evidence: null,
+    }),
   } as any;
 }
 
@@ -149,6 +160,7 @@ function createMockDatabase() {
       },
     ]),
     getFindingsByScanId: jest.fn().mockResolvedValue([]),
+    saveFindingsForScan: jest.fn().mockResolvedValue(0),
     getScanById: jest.fn().mockResolvedValue(null),
     getScanByWorkflowJobId: jest.fn().mockResolvedValue(null),
     getPreviousScan: jest.fn().mockResolvedValue(null),
@@ -1022,6 +1034,103 @@ describe('compliance backend router', () => {
         path: '/previous-findings?scanId=abc-def-123',
       });
       expect(db.getScanByWorkflowJobId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /findings/ingest', () => {
+    it('returns 400 when scanId is missing', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: { findings: [] },
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when findings is missing', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: { scanId: 'scan-1' },
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when scan not found', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(null);
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: { scanId: 'nonexistent', findings: [] },
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it('saves findings and returns 201', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-1',
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: 42,
+        status: 'pending',
+        startedAt: '2026-05-27T00:00:00.000Z',
+        completedAt: null,
+      });
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValueOnce(2);
+      service.mapRawFindingPublic = jest.fn().mockReturnValue({
+        scanId: 'scan-1',
+        ruleId: 'test',
+        stigId: '',
+        host: 'rhel01',
+        status: 'fail',
+        severity: 'CAT_II',
+        actualValue: '',
+        expectedValue: '',
+        evidence: null,
+      });
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: {
+          scanId: 'scan-1',
+          findings: [
+            { rule_id: 'sshd_set_keepalive_0', status: 'fail', host: 'rhel01', severity: 'high' },
+            { rule_id: 'accounts_tmout', status: 'pass', host: 'rhel01', severity: 'medium' },
+          ],
+        },
+      });
+      expect(res.status).toBe(201);
+      expect((res.body as any).findingsCount).toBe(2);
+      expect(db.updateScanStatus).toHaveBeenCalledWith('scan-1', 'completed', expect.any(String));
+    });
+
+    it('accepts request with ingest token when no stored token exists', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce({
+        id: 'scan-1',
+        profileId: 'rhel9-stig',
+        status: 'pending',
+      });
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValueOnce(1);
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: {
+          scanId: 'scan-1',
+          ingestToken: 'some-token',
+          findings: [{ rule_id: 'test', status: 'pass', host: 'h1' }],
+        },
+      });
+      // Without a stored token in the map, any token is accepted (backward compat)
+      expect(res.status).toBe(201);
     });
   });
 });
