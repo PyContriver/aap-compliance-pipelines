@@ -76,6 +76,7 @@ export const RemediationProfileBuilder = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedProfileId, setSavedProfileId] = useState<string | undefined>(undefined);
   const [allFindings, setAllFindings] = useState<MultiHostFinding[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('status');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
@@ -116,8 +117,9 @@ export const RemediationProfileBuilder = () => {
     return () => { cancelled = true; };
   }, [api, jobId, isEditMode]);
 
-  const failedFindings = useMemo(() => allFindings.filter(f => f.failCount > 0), [allFindings]);
-  const passingFindings = useMemo(() => allFindings.filter(f => f.failCount === 0), [allFindings]);
+  const displayFindings = searchQuery ? filteredFindings : allFindings;
+  const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
+  const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
   const [selections, setSelections] = useState<Record<string, RuleSelection>>({});
 
   useEffect(() => {
@@ -145,10 +147,25 @@ export const RemediationProfileBuilder = () => {
   const toggleExpanded = (ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], expanded: !prev[ruleId].expanded } })); };
   const setScope = (ruleId: string, scope: RemediationScope) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], scope } })); };
   const updateParameter = (ruleId: string, paramName: string, value: string | number | boolean) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], parameters: { ...prev[ruleId].parameters, [paramName]: value } } })); };
+  // Filtered findings based on search query
+  const filteredFindings = useMemo(() => {
+    if (!searchQuery) return allFindings;
+    const q = searchQuery.toLowerCase();
+    return allFindings.filter(f =>
+      f.title.toLowerCase().includes(q) ||
+      f.ruleId.toLowerCase().includes(q) ||
+      f.stigId?.toLowerCase().includes(q) ||
+      f.description?.toLowerCase().includes(q) ||
+      f.category?.toLowerCase().includes(q),
+    );
+  }, [allFindings, searchQuery]);
+
   const selectAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: true }; }); return updated; }); };
   const selectAllFailed = () => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { if (f.failCount > 0) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
   const selectBySeverity = (...severities: FindingSeverity[]) => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: severities.includes(f.severity) }; }); return updated; }); };
+  const selectVisible = () => { setSelections(prev => { const updated = { ...prev }; filteredFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
+  const deselectVisible = () => { setSelections(prev => { const updated = { ...prev }; filteredFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
 
   const enabledCount = Object.values(selections).filter(s => s.enabled).length;
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
@@ -365,32 +382,45 @@ export const RemediationProfileBuilder = () => {
         </div>
         <div className={classes.bulkActions}>
           <ButtonGroup size="small" variant="outlined" className={classes.viewToggle} aria-label="View mode toggle">
-            <Button
-              onClick={() => setViewMode('status')}
-              variant={viewMode === 'status' ? 'contained' : 'outlined'}
-              color={viewMode === 'status' ? 'primary' : 'default'}
-              data-testid="view-by-status"
-            >
-              By Status
-            </Button>
-            <Button
-              onClick={() => setViewMode('category')}
-              variant={viewMode === 'category' ? 'contained' : 'outlined'}
-              color={viewMode === 'category' ? 'primary' : 'default'}
-              data-testid="view-by-category"
-            >
-              By Category
-            </Button>
+            <Button onClick={() => setViewMode('status')} variant={viewMode === 'status' ? 'contained' : 'outlined'} color={viewMode === 'status' ? 'primary' : 'default'} data-testid="view-by-status">By Status</Button>
+            <Button onClick={() => setViewMode('category')} variant={viewMode === 'category' ? 'contained' : 'outlined'} color={viewMode === 'category' ? 'primary' : 'default'} data-testid="view-by-category">By Category</Button>
           </ButtonGroup>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
-          <Button size="small" variant="outlined" onClick={selectAll}>Select All</Button>
           <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I')}>CAT I</Button>
           <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_II')}>CAT II</Button>
-          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_III')}>CAT III</Button>
           <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I', 'CAT_II')}>CAT I + II</Button>
+          <Button size="small" variant="outlined" onClick={selectAll}>Select All</Button>
           <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
         </div>
       </div>
+      {/* Search bar with select/deselect visible */}
+      <Box display="flex" alignItems="center" gap={1} mb={2} style={{ gap: 8 }}>
+        <TextField
+          placeholder="Search rules by name, ID, STIG ID, or description..."
+          variant="outlined"
+          size="small"
+          style={{ flex: 1 }}
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <Box mr={1} display="flex" alignItems="center"><span role="img" aria-label="search">🔍</span></Box>,
+          }}
+        />
+        {searchQuery && (
+          <>
+            <Chip label={`${filteredFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
+            <Button size="small" variant="outlined" color="primary" onClick={selectVisible}>
+              Select Visible ({filteredFindings.length})
+            </Button>
+            <Button size="small" variant="outlined" onClick={deselectVisible}>
+              Deselect Visible
+            </Button>
+            <Button size="small" onClick={() => setSearchQuery('')}>
+              Clear Search
+            </Button>
+          </>
+        )}
+      </Box>
       {viewMode === 'status' ? renderStatusView() : renderCategoryView()}
       <Divider style={{ margin: '24px 0' }} />
       <Box display="flex" justifyContent="flex-end" style={{ gap: 16 }}>
