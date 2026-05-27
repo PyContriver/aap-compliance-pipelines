@@ -29,13 +29,13 @@ Example: OpenSCAP with a customer-authored XCCDF tailoring file.
 
 == Scanning tracks
 
-Compliance pipelines support two scanning tracks that serve different purposes in the compliance lifecycle:
+Compliance pipelines support two scanning tracks that serve different purposes in the compliance lifecycle. The current implementation uses Track B (OpenSCAP audit-grade scanning). Track A is planned for a future release.
 
-Track A (Pre-assessment)::
-Lightweight scans that provide a rapid compliance posture check. Pre-assessment scans are designed to run frequently (daily or on-demand) with minimal impact on target systems. Results are informational and help teams identify drift before a formal audit.
+Track A (Pre-assessment) -- _planned_::
+Lightweight scans that provide a rapid compliance posture check. Pre-assessment scans are designed to run frequently (daily or on-demand) with minimal impact on target systems. Results are informational and help teams identify drift before a formal audit. This track is not yet implemented.
 
-Track B (Audit-grade)::
-Full-depth scans that produce evidence suitable for auditor review. Audit-grade scans generate detailed XCCDF results, HTML reports, and per-rule evidence artifacts. These scans are typically run on a scheduled basis aligned with audit cycles.
+Track B (Audit-grade) -- _current implementation_::
+Full-depth scans that produce evidence suitable for auditor review. Audit-grade scans generate detailed XCCDF results, HTML reports, and per-rule evidence artifacts. These scans are typically run on a scheduled basis aligned with audit cycles. The current implementation uses OpenSCAP with SCAP Security Guide content.
 
 == Integration with {PlatformNameShort}
 

@@ -48,7 +48,7 @@ The compliance plugin reads its configuration from the Backstage `app-config.yam
 |`compliance.dataSource`
 |Determines the data source mode for the compliance plugin. Set to `live` to connect to a real {PlatformNameShort} instance, or `mock` to use sample data without an {PlatformNameShort} connection.
 |Optional
-|`live`
+|`mock`
 
 |`compliance.retentionDays`
 |Number of days to retain scan findings before automatic cleanup. Findings older than this threshold are deleted on plugin startup. Scan records (metadata) are preserved for history. Can also be adjusted at runtime from the *Settings* tab.

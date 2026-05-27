@@ -31,8 +31,8 @@ Click *Add Profile* and configure the following:
 |Profile Name
 |A descriptive name for the compliance standard (for example, `RHEL 9 DISA STIG V2R8`).
 
-|Workflow Template
-|The workflow job template in {ControllerName} that orchestrates the scan-remediate-verify cycle.
+|Assessment Job Template
+|The job template in {ControllerName} that runs the compliance assessment (for example, `compliance-run-oscap`).
 
 |Execution Environment
 |The {ExecEnvShort} containing the scanner and compliance content.

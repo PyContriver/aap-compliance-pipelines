@@ -28,4 +28,4 @@ Additionally, fetch `runner_item_on_ok` events (from Ansible loops) instead of o
 - **Positive:** ~44KB per host fits comfortably within Controller's ~200KB event limit.
 - **Positive:** Works for inventories up to at least 4 hosts per event batch (4 x 44KB = 176KB).
 - **Negative:** Full rule metadata (description, check_text, fix_text) is not available in job events -- the plugin must have it from another source (the compliance profile or a future direct POST).
-- **Negative:** This is a workaround for a fundamental limitation -- Controller events were not designed for bulk data transfer. See ADR-007 (Direct POST) for the long-term solution.
+- **Negative:** This is a workaround for a fundamental limitation -- Controller events were not designed for bulk data transfer. The long-term solution, Direct POST to the plugin backend, has been implemented in [ADR-007](ADR-007-direct-post-findings.md) (PRs #17-#19). With Direct POST, the normalize play sends findings directly to the `/findings/ingest` endpoint, bypassing Controller event storage entirely. The slim findings format is retained as a fallback when `backstage_api_url` is not configured.

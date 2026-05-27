@@ -179,10 +179,10 @@ The role's `windows_manage_stig_results` output needs transformation to the Comm
 
 | Role Output | CFF Field | Transformation |
 |------------|-----------|----------------|
-| `stig_id` | `stigId` | Direct |
-| `stig_id` | `ruleId` | Direct (or derive from V-ID) |
+| `stig_id` | `stig_id` | Direct |
+| `stig_id` | `rule_id` | Direct (or derive from V-ID) |
 | `title` | `title` | Direct |
-| `status` (PASS/FAIL/MANUAL) | `status` (pass/fail/notchecked) | Lowercase, MANUAL → notchecked |
+| `status` (PASS/FAIL/MANUAL) | `status` (pass/fail/not_checked) | Lowercase, MANUAL → not_checked |
 | `severity` (CAT I/II/III) | `severity` (CAT_I/CAT_II/CAT_III) | Replace space with underscore |
 | `current_value` | `hosts[].actualValue` | Direct |
 | `expected_value` | `hosts[].expectedValue` | Direct |

@@ -137,7 +137,7 @@ After the first `systemctl restart` (which extracts the tarballs), create the mi
 sudo mkdir -p /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-backend-dynamic-0.1.0/dist/database/migrations
 ```
 
-Then create `20260429_001_initial.js` and `20260429_002_cartridge_registry.js` with the compiled migration code (remove TypeScript type annotations from the source `.ts` files).
+Then create `20260429_001_initial.js` and `20260429_002_cartridge_registry.js` with the compiled migration code (remove TypeScript type annotations from the source `.ts` files). Note: the "cartridge" naming is an internal implementation detail; the user-facing term is "compliance profile."
 
 ### First-run: clean database
 
@@ -149,7 +149,7 @@ DROP TABLE IF EXISTS compliance_posture_snapshots CASCADE;
 DROP TABLE IF EXISTS compliance_remediation_profiles CASCADE;
 DROP TABLE IF EXISTS compliance_findings CASCADE;
 DROP TABLE IF EXISTS compliance_scans CASCADE;
-DROP TABLE IF EXISTS compliance_cartridge_registry CASCADE;
+DROP TABLE IF EXISTS compliance_cartridge_registry CASCADE;  -- "compliance profile" in the UI; table name is an implementation detail
 DROP TABLE IF EXISTS compliance_knex_migrations CASCADE;
 DROP TABLE IF EXISTS compliance_knex_migrations_lock CASCADE;
 "

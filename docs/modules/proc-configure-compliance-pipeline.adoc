@@ -16,7 +16,7 @@ Configure a compliance pipeline on your {PlatformNameShort} instance to enable a
 * You have access to the compliance pipelines repository at `https://github.com/cross-logic/aap-compliance-pipelines.git`.
 * `ansible-builder` is installed if you need to build a custom {ExecEnvShort}.
 * `podman` or `docker` is available for building container images.
-* `Node.js` 18 or later and `yarn` are installed for the Backstage application.
+* `Node.js` 20 or later and `yarn` are installed for the Backstage application.
 
 .Procedure
 
@@ -124,43 +124,16 @@ Navigate to *Inventories* > *Add* > *Add Inventory* and set the following values
 +
 After saving, navigate to the *Hosts* tab and add each RHEL 9 host that you want to scan.
 
-. Create the compliance job templates.
+. Create the assessment job template.
 +
-Create the following three job templates by navigating to *Templates* > *Add* > *Add Job Template* for each:
+The assessment architecture uses a *single job template* (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets via SSH, Play 2 normalizes results on localhost. Both plays run in the same container, so no workflow is needed for Tier 1 (OpenSCAP) assessment.
 +
-*Scan template:*
+[NOTE]
+====
+AAP workflow nodes run in separate containers. The scan play fetches XCCDF result files from targets to the execution node, but a second workflow node cannot access those files. Combining scan and normalize into one JT (two plays) solves this.
+====
 +
-[cols="1,2", options="header"]
-|===
-|Field
-|Value
-
-|Name
-|`compliance-scan-rhel9-stig`
-
-|Job Type
-|Check
-
-|Inventory
-|`compliance-rhel9-inventory`
-
-|Project
-|`compliance-content`
-
-|Playbook
-|`playbooks/scan-rhel9-stig.yml`
-
-|Execution Environment
-|`Compliance STIG RHEL 9`
-
-|Prompt on Launch: Inventory
-|Enabled
-
-|Prompt on Launch: Limit
-|Enabled
-|===
-+
-*Remediation template:*
+Navigate to *Templates* > *Add* > *Add Job Template* and set the following values:
 +
 [cols="1,2", options="header"]
 |===
@@ -168,7 +141,7 @@ Create the following three job templates by navigating to *Templates* > *Add* > 
 |Value
 
 |Name
-|`compliance-remediate-rhel9-stig`
+|`compliance-run-oscap`
 
 |Job Type
 |Run
@@ -180,10 +153,13 @@ Create the following three job templates by navigating to *Templates* > *Add* > 
 |`compliance-content`
 
 |Playbook
-|`playbooks/remediate-rhel9-stig.yml`
+|`playbooks/run_oscap.yml`
 
 |Execution Environment
 |`Compliance STIG RHEL 9`
+
+|Credentials
+|Machine credential with SSH + become access
 
 |Prompt on Launch: Inventory
 |Enabled
@@ -195,47 +171,11 @@ Create the following three job templates by navigating to *Templates* > *Add* > 
 |Enabled
 |===
 +
-*Verification template:*
-+
-[cols="1,2", options="header"]
-|===
-|Field
-|Value
-
-|Name
-|`compliance-verify-rhel9-stig`
-
-|Job Type
-|Check
-
-|Inventory
-|`compliance-rhel9-inventory`
-
-|Project
-|`compliance-content`
-
-|Playbook
-|`playbooks/scan-rhel9-stig.yml`
-
-|Execution Environment
-|`Compliance STIG RHEL 9`
-
-|Prompt on Launch: Inventory
-|Enabled
-|===
-
-. Understand the assessment architecture.
-+
-The assessment uses a **single job template** (`compliance-run-oscap`) running `run_oscap.yml`, which contains two plays: Play 1 scans targets via SSH, Play 2 normalizes results on localhost. Both plays run in the same container, so no workflow is needed for Tier 1 (OpenSCAP) assessment.
-+
-[NOTE]
-====
-AAP workflow nodes run in separate containers. The scan play fetches XCCDF result files from targets to the execution node, but a second workflow node cannot access those files. Combining scan and normalize into one JT (two plays) solves this.
-====
-+
-Remediation is launched as a **separate, standalone job template** -- not part of the assessment. The gap between assess and remediate is where intelligence lives: human review, EDA policy evaluation, or future AI-driven decisions.
+Verification scans use this same job template -- a verification scan is simply another assessment run after remediation has been applied. There is no separate verification template.
 
 . Create a remediation job template.
++
+Remediation is launched as a *separate, standalone job template* -- not part of the assessment. The gap between assess and remediate is where intelligence lives: human review, EDA policy evaluation, or future AI-driven decisions.
 +
 Navigate to *Templates* > *Add* > *Add Job Template* and set the following values:
 +
