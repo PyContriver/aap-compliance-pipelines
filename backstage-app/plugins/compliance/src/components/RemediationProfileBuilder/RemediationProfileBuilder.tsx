@@ -199,7 +199,8 @@ export const RemediationProfileBuilder = () => {
       <div key={finding.ruleId} className={`${classes.findingCard} ${sel.enabled ? classes.findingEnabled : classes.findingDisabled}`}>
         <div className={classes.findingHeader}>
           <Switch checked={sel.enabled} onChange={() => toggleFinding(finding.ruleId)} color="primary" size="small" inputProps={{ 'aria-label': `Toggle rule ${finding.stigId} for remediation` }} />
-          <Chip label={finding.stigId} size="small" variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />
+          {finding.stigId && <Chip label={finding.stigId} size="small" variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />}
+          <Chip label={finding.severity === 'CAT_I' ? 'CAT I' : finding.severity === 'CAT_II' ? 'CAT II' : 'CAT III'} size="small" className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`} />
           <div className={classes.titleGroup}>
             <Typography variant="subtitle2">{finding.title}</Typography>
             <div className={classes.hostBreakdown}>
@@ -383,9 +384,11 @@ export const RemediationProfileBuilder = () => {
           </ButtonGroup>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
           <Button size="small" variant="outlined" onClick={selectAll}>Select All</Button>
-          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I')}>CAT I Only</Button>
+          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I')}>CAT I</Button>
+          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_II')}>CAT II</Button>
+          <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_III')}>CAT III</Button>
           <Button size="small" variant="outlined" onClick={() => selectBySeverity('CAT_I', 'CAT_II')}>CAT I + II</Button>
-          <Button size="small" variant="outlined" onClick={clearAll}>Clear All</Button>
+          <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
         </div>
       </div>
       {viewMode === 'status' ? renderStatusView() : renderCategoryView()}

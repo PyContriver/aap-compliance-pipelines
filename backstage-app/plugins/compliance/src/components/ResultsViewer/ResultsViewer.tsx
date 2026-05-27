@@ -744,7 +744,7 @@ export const ResultsViewer = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-                        {finding.stigId}
+                        {finding.stigId || finding.ruleId}
                       </Typography>
                     </TableCell>
                     <TableCell>
