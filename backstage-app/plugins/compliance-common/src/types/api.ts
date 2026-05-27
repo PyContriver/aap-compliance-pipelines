@@ -87,7 +87,7 @@ export interface RuleMetadataRecord {
   checkText: string;
   fixText: string;
   category: string;
-  disruption: string;
+  disruption: 'low' | 'medium' | 'high';
   scanner: string;
   updatedAt: string;
 }

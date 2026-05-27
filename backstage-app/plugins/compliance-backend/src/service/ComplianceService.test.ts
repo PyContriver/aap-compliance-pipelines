@@ -1079,7 +1079,7 @@ describe('ComplianceService', () => {
       expect(result[0].title).toBe('some_rule');
       expect(result[0].description).toBe('');
       expect(result[0].category).toBe('');
-      expect(result[0].disruption).toBe('low');
+      expect(result[0].disruption).toBe('medium');
       expect(result[0].parameters).toEqual([]);
     });
   });

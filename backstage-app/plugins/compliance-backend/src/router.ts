@@ -221,12 +221,24 @@ export async function createRouter(
   });
 
   router.get('/scans/:scanId', async (req, res) => {
-    const scan = await database.getScanById(req.params.scanId);
-    if (!scan) {
-      res.status(404).json({ error: 'Scan not found' });
+    getUserAapToken(req);
+    const { scanId } = req.params;
+    if (!scanId || scanId.length > 128) {
+      res.status(400).json({ error: 'Invalid scanId' });
       return;
     }
-    res.json(scan);
+    try {
+      const scan = await database.getScanById(scanId);
+      if (!scan) {
+        res.status(404).json({ error: 'Scan not found' });
+        return;
+      }
+      res.json(scan);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get scan ${scanId}: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
   });
 
   // ─── Workflow job templates ─────────────────────────────────────────
@@ -519,7 +531,7 @@ export async function createRouter(
           checkText: (raw.check_text as string) || '',
           fixText: (raw.fix_text as string) || '',
           category: (raw.category as string) || '',
-          disruption: (raw.disruption as string) || 'medium',
+          disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
           scanner: (raw.scanner as string) || 'openscap',
           updatedAt: new Date().toISOString(),
         }));

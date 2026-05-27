@@ -729,9 +729,7 @@ export class ComplianceService {
     return this.storedFindingsToMultiHostAsync(stored as StoredFinding[]);
   }
 
-  private async storedFindingsToMultiHostAsync(
-    stored: StoredFinding[],
-  ): Promise<MultiHostFinding[]> {
+  private groupFindingsByRule(stored: StoredFinding[]) {
     const byRule = new Map<string, {
       finding: StoredFinding;
       hosts: Array<{
@@ -741,7 +739,6 @@ export class ComplianceService {
         expectedValue: string;
       }>;
     }>();
-
     for (const f of stored) {
       let entry = byRule.get(f.ruleId);
       if (!entry) {
@@ -755,28 +752,20 @@ export class ComplianceService {
         expectedValue: f.expectedValue,
       });
     }
+    return byRule;
+  }
 
-    // Primary: look up metadata from DB (populated during findings ingest)
-    // Fallback: YAML files (for rules not seen via ingest / dev mode)
-    const ruleIds = Array.from(byRule.keys());
-    let dbMeta = new Map<string, import('@aap-compliance/common').RuleMetadataRecord>();
-    if (this.database) {
-      try {
-        dbMeta = await this.database.getRuleMetadataBulk(ruleIds);
-      } catch {
-        // DB metadata not available (table may not exist yet)
-      }
-    }
-    const yamlMeta = this.getRulesMetadata();
-
+  private buildMultiHostFindings(
+    byRule: ReturnType<ComplianceService['groupFindingsByRule']>,
+    dbMeta: Map<string, import('@aap-compliance/common').RuleMetadataRecord>,
+    yamlMeta: Map<string, RuleMetadata>,
+  ): MultiHostFinding[] {
     const results: MultiHostFinding[] = [];
     for (const [ruleId, entry] of byRule) {
       const passCount = entry.hosts.filter(h => h.status === 'pass').length;
       const failCount = entry.hosts.filter(h => h.status === 'fail').length;
-
       const dm = dbMeta.get(ruleId);
       const ym = yamlMeta.get(ruleId);
-
       results.push({
         ruleId,
         stigId: dm?.stigId || entry.finding.stigId,
@@ -786,7 +775,7 @@ export class ComplianceService {
         checkText: dm?.checkText || ym?.check_text || '',
         severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
         category: dm?.category || ym?.category || '',
-        disruption: (dm?.disruption || ym?.disruption || 'low') as 'low' | 'medium' | 'high',
+        disruption: (dm?.disruption || ym?.disruption || 'medium') as 'low' | 'medium' | 'high',
         parameters: (ym?.parameters ?? []).map(p => ({
           name: p.name,
           label: p.label,
@@ -802,73 +791,28 @@ export class ComplianceService {
         totalCount: entry.hosts.length,
       });
     }
-
     return results;
   }
 
-  private storedFindingsToMultiHost(
+  private async storedFindingsToMultiHostAsync(
     stored: StoredFinding[],
-  ): MultiHostFinding[] {
-    // Synchronous wrapper — used by aggregateFindings() which must remain sync.
-    // Falls back to YAML-only enrichment (no DB lookup).
-    const byRule = new Map<string, {
-      finding: StoredFinding;
-      hosts: Array<{
-        host: string;
-        status: 'pass' | 'fail' | 'error';
-        actualValue: string;
-        expectedValue: string;
-      }>;
-    }>();
-
-    for (const f of stored) {
-      let entry = byRule.get(f.ruleId);
-      if (!entry) {
-        entry = { finding: f, hosts: [] };
-        byRule.set(f.ruleId, entry);
+  ): Promise<MultiHostFinding[]> {
+    const byRule = this.groupFindingsByRule(stored);
+    const ruleIds = Array.from(byRule.keys());
+    let dbMeta = new Map<string, import('@aap-compliance/common').RuleMetadataRecord>();
+    if (this.database) {
+      try {
+        dbMeta = await this.database.getRuleMetadataBulk(ruleIds);
+      } catch {
+        // DB metadata not available (table may not exist yet)
       }
-      entry.hosts.push({
-        host: f.host,
-        status: (f.status as 'pass' | 'fail' | 'error') || 'error',
-        actualValue: f.actualValue,
-        expectedValue: f.expectedValue,
-      });
     }
+    return this.buildMultiHostFindings(byRule, dbMeta, this.getRulesMetadata());
+  }
 
-    const rules = this.getRulesMetadata();
-    const results: MultiHostFinding[] = [];
-    for (const [ruleId, entry] of byRule) {
-      const passCount = entry.hosts.filter(h => h.status === 'pass').length;
-      const failCount = entry.hosts.filter(h => h.status === 'fail').length;
-      const meta = rules.get(ruleId);
-
-      results.push({
-        ruleId,
-        stigId: entry.finding.stigId,
-        title: meta?.title ?? ruleId,
-        description: meta?.description ?? '',
-        fixText: meta?.fix_text ?? '',
-        checkText: meta?.check_text ?? '',
-        severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
-        category: meta?.category ?? '',
-        disruption: (meta?.disruption as 'low' | 'medium' | 'high') ?? 'low',
-        parameters: (meta?.parameters ?? []).map(p => ({
-          name: p.name,
-          label: p.label,
-          description: p.label,
-          type: p.type as 'string' | 'number' | 'boolean' | 'select',
-          default: p.default as string | number | boolean,
-          value: p.default as string | number | boolean,
-          options: p.options as Array<{ label: string; value: string | number }> | undefined,
-        })),
-        hosts: entry.hosts,
-        passCount,
-        failCount,
-        totalCount: entry.hosts.length,
-      });
-    }
-
-    return results;
+  private storedFindingsToMultiHost(stored: StoredFinding[]): MultiHostFinding[] {
+    const byRule = this.groupFindingsByRule(stored);
+    return this.buildMultiHostFindings(byRule, new Map(), this.getRulesMetadata());
   }
 
   // ─── Workflow status (for polling) ──────────────────────────────────

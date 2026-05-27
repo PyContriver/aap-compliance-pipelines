@@ -404,38 +404,28 @@ export class ComplianceDatabase {
 
     const now = new Date().toISOString();
     const batchSize = 100;
-    let upserted = 0;
 
     for (let i = 0; i < rules.length; i += batchSize) {
       const batch = rules.slice(i, i + batchSize);
-      for (const r of batch) {
-        const row = {
-          rule_id: r.ruleId,
-          stig_id: r.stigId,
-          title: r.title,
-          description: r.description,
-          check_text: r.checkText,
-          fix_text: r.fixText,
-          category: r.category,
-          disruption: r.disruption,
-          scanner: r.scanner,
-          updated_at: now,
-        };
-        const existing = await this.db('compliance_rule_metadata')
-          .where('rule_id', r.ruleId)
-          .first();
-        if (existing) {
-          await this.db('compliance_rule_metadata')
-            .where('rule_id', r.ruleId)
-            .update(row);
-        } else {
-          await this.db('compliance_rule_metadata').insert(row);
-        }
-        upserted++;
-      }
+      const rows = batch.map(r => ({
+        rule_id: r.ruleId,
+        stig_id: r.stigId,
+        title: r.title,
+        description: r.description,
+        check_text: r.checkText,
+        fix_text: r.fixText,
+        category: r.category,
+        disruption: r.disruption,
+        scanner: r.scanner,
+        updated_at: now,
+      }));
+      await this.db('compliance_rule_metadata')
+        .insert(rows)
+        .onConflict('rule_id')
+        .merge(['stig_id', 'title', 'description', 'check_text', 'fix_text', 'category', 'disruption', 'scanner', 'updated_at']);
     }
 
-    return upserted;
+    return rules.length;
   }
 
   async getRuleMetadataBulk(ruleIds: string[]): Promise<Map<string, RuleMetadataRecord>> {
@@ -469,7 +459,7 @@ export class ComplianceDatabase {
       checkText: (row.check_text as string) || '',
       fixText: (row.fix_text as string) || '',
       category: (row.category as string) || '',
-      disruption: (row.disruption as string) || 'medium',
+      disruption: ((row.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
       scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
     };
