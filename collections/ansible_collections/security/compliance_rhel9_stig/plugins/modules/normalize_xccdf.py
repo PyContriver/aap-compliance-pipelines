@@ -158,12 +158,28 @@ def parse_xccdf_results(filepath):
             description = desc_el.text if desc_el is not None and desc_el.text else ''
             fix_text = fix_el.text if fix_el is not None and fix_el.text else ''
 
-            # Extract STIG ID from references
+            # Extract STIG ID — check <ident> elements first (V- prefix),
+            # then <reference> elements with DISA href (scap-security-guide
+            # stores STIG IDs in references, not idents)
             stig_id = ''
+            cce_id = ''
             for ident in rule.iter(f'{{{ns}}}ident' if ns else 'ident'):
-                if ident.text and ident.text.startswith('V-'):
-                    stig_id = ident.text
-                    break
+                text = ident.text or ''
+                if text.startswith('V-'):
+                    stig_id = text
+                elif text.startswith('CCE-'):
+                    cce_id = text
+            if not stig_id:
+                for ref in rule.iter(f'{{{ns}}}reference' if ns else 'reference'):
+                    href = ref.get('href', '')
+                    text = ref.text or ''
+                    if 'disa' in href.lower() or 'stig' in href.lower():
+                        if text.startswith('V-') or re.match(r'V-\d+', text):
+                            stig_id = text
+                            break
+                    if text.startswith('SRG-') or text.startswith('SV-'):
+                        if not stig_id:
+                            stig_id = text
 
             rule_meta[rule_id] = {
                 'title': title,
