@@ -974,6 +974,9 @@ applicable_os:
 frameworks:
   - <framework with version>  # e.g., DISA STIG V2R8, CIS Benchmark Level 1
 source: <collection namespace.name>  # e.g., security.compliance_rhel9_stig
+platform:                             # ADR-011: platform guards
+  os_family: ["RedHat"]               # or ["Windows"], or device_type: ["cisco_ios"]
+  os_version: ["9"]                   # optional: major version filter
 ```
 
 ### Portal Metadata
@@ -1051,7 +1054,44 @@ When a compliance profile collection is installed, an administrator registers it
 | **Assessment job template** | AAP Gateway API dropdown | The JT running `run_oscap.yml` (scan + normalize) |
 | **Remediation playbook path** | From collection | Path to the remediation playbook inside the EE |
 | **Scanner tier** | Manual selection | 1 (built-in), 2 (BYOS), or 3 (hybrid) |
+| **Platform requirements** | From collection metadata | Platform spec declaring supported OS/device types (see below) |
 | **Scan tags** | Optional | Tags for organizing compliance profiles in the UI |
+
+### Platform Requirements (ADR-011)
+
+Every compliance profile must declare which platforms it supports. The plugin uses this to validate inventories before launching scans and to set playbook-side guards. This prevents silent failures when a profile is run against incompatible hosts.
+
+The platform spec is stored as JSON in the cartridge registry and declared in the collection's `extensions/patterns/metadata.yml`:
+
+```yaml
+# Tier 1 — OS-based profiles
+platform:
+  os_family: ["RedHat"]           # ansible_os_family values
+  os_version: ["9"]               # major version match
+
+# Windows example
+platform:
+  os_family: ["Windows"]
+  os_version: ["2019", "2022"]
+
+# Network device example
+platform:
+  device_type: ["cisco_ios", "cisco_nxos"]
+
+# Tier 2/3 — External scanner handles targeting
+platform:
+  scanner_validates: true         # skip host-side checks
+```
+
+**Validation layers:**
+
+1. **Pre-launch (plugin backend):** Before launching the assessment JT, the plugin queries inventory hosts from the Controller API and checks facts against the profile's platform spec. Mismatched hosts trigger a warning (or block, depending on configuration).
+
+2. **Playbook-side (safety net):** The assessment playbook uses the platform spec to set `when:` conditions. Mismatched hosts get `not_applicable` finding status instead of failing silently.
+
+3. **External scanners:** Profiles with `scanner_validates: true` skip both layers — the scanner handles its own targeting.
+
+See `specs/compliance-pipelines/decisions/ADR-011-profile-driven-platform-guards.md` for the full decision record.
 
 ### Registration Flow
 
@@ -1169,6 +1209,7 @@ Use this checklist when building a new compliance profile. Every item must be sa
 ### Portal / Backstage Integration
 
 - [ ] `extensions/patterns/metadata.yml` with discovery metadata (name, display_name, version, domain, tags, applicable_os, frameworks, source)
+- [ ] `extensions/patterns/metadata.yml` includes `platform:` spec declaring supported OS/device types (ADR-011)
 - [ ] `extensions/patterns/portal/metadata.yml` with portal-specific metadata
 - [ ] `extensions/patterns/portal/backstage_template.yml` with Software Template (optional but recommended)
 
@@ -1203,9 +1244,7 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 | `collections/ansible_collections/security/compliance_rhel9_stig/docs/architecture.md` | Pipeline architecture and data flow |
 | `collections/ansible_collections/security/compliance_rhel9_stig/docs/playbook-reference.md` | Playbook variables and usage examples |
 | `collections/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md` | normalize_xccdf module documentation |
-| `content/extensions/patterns/compliance-rhel9-stig/metadata.yml` | Pattern discovery metadata |
-| `content/extensions/patterns/compliance-rhel9-stig/ee/execution-environment.yml` | EE definition |
-| `content/extensions/patterns/compliance-rhel9-stig/aap_config/controller_job_templates.yml` | Job template definitions |
+| `collections/ansible_collections/security/compliance_rhel9_stig/ee/execution-environment.yml` | EE definition |
 
 ### Deprecated Files (retained for backward compatibility)
 
