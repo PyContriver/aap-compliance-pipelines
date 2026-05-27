@@ -151,18 +151,31 @@ def parse_xccdf_results(filepath):
             severity = rule.get('severity', 'medium')
             title_el = rule.find(f'{{{ns}}}title' if ns else 'title')
             desc_el = rule.find(f'{{{ns}}}description' if ns else 'description')
-            fix_el = rule.find(f'{{{ns}}}fixtext' if ns else 'fixtext')
-            # check-content lives inside <check><check-content>
-            check_text = ''
-            check_el = rule.find(f'{{{ns}}}check/{{{ns}}}check-content' if ns else 'check/check-content')
-            if check_el is None:
-                check_el = rule.find(f'{{{ns}}}check-content' if ns else 'check-content')
-            if check_el is not None and check_el.text:
-                check_text = check_el.text
+            # SSG datastreams have <fix system="urn:xccdf:fix:script:ansible">
+            # but no <fixtext>. Prefer Ansible fix script over Bash.
+            fix_text = ''
+            for fix_el in rule.findall(f'{{{ns}}}fix' if ns else 'fix'):
+                sys_attr = fix_el.get('system', '')
+                if 'ansible' in sys_attr and fix_el.text:
+                    fix_text = fix_el.text
+                    break
+            if not fix_text:
+                for fix_el in rule.findall(f'{{{ns}}}fix' if ns else 'fix'):
+                    if fix_el.text:
+                        fix_text = fix_el.text
+                        break
+            # Fall back to <fixtext> if present (non-SSG XCCDF)
+            if not fix_text:
+                fixtext_el = rule.find(f'{{{ns}}}fixtext' if ns else 'fixtext')
+                if fixtext_el is not None and fixtext_el.text:
+                    fix_text = fixtext_el.text
+
+            # SSG uses <rationale> instead of inline <check-content>
+            rationale_el = rule.find(f'{{{ns}}}rationale' if ns else 'rationale')
+            check_text = rationale_el.text if rationale_el is not None and rationale_el.text else ''
 
             title = title_el.text if title_el is not None and title_el.text else ''
             description = desc_el.text if desc_el is not None and desc_el.text else ''
-            fix_text = fix_el.text if fix_el is not None and fix_el.text else ''
 
             # Extract STIG ID — check <ident> elements first (V- prefix),
             # then <reference> elements with DISA href (scap-security-guide

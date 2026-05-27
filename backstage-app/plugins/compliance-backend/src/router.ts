@@ -133,7 +133,7 @@ export async function createRouter(
 ): Promise<express.Router> {
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
-  router.use(express.json({ limit: '2mb' }));
+  router.use(express.json({ limit: '50mb' }));
 
   // ─── Health ─────────────────────────────────────────────────────────
 

@@ -686,6 +686,12 @@ export class ComplianceService {
     let actualValue = raw.actual_value ?? '';
     let expectedValue = raw.expected_value ?? '';
 
+    if (!actualValue && !expectedValue && raw.evidence && typeof raw.evidence === 'object') {
+      const ev = raw.evidence as Record<string, unknown>;
+      actualValue = String(ev.actual ?? '');
+      expectedValue = String(ev.expected ?? '');
+    }
+
     if (!actualValue && !expectedValue && typeof raw.evidence === 'string') {
       const evidenceStr = raw.evidence;
       const expMatch = evidenceStr.match(/\(expected:\s*(.+?)\)\s*$/);
