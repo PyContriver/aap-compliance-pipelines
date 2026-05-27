@@ -205,7 +205,7 @@
 
     - name: Build combined findings array
       ansible.builtin.set_fact:
-        _all_findings: "{{ _findings_raw.results | default([]) | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('from_json') | map(attribute='findings') | flatten }}"
+        _all_findings: "{{ _findings_raw.results | default([]) | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('from_json') | map(attribute='findings', default=[]) | flatten }}"
       when: backstage_api_url | default('') | length > 0
 
     - name: POST findings to Backstage compliance API
@@ -215,6 +215,7 @@
         body_format: json
         body:
           scanId: "{{ scan_id }}"
+          ingestToken: "{{ ingest_token | default('') }}"
           findings: "{{ _all_findings }}"
         headers:
           Content-Type: application/json

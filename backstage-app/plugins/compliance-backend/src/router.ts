@@ -266,8 +266,13 @@ export async function createRouter(
 
     logger.info(`Launching scan for profile=${scanRequest.profileId}`);
 
+    let scanRecordId: string | undefined;
     try {
       // Create scan record BEFORE launching so scan_id is available as extra_var
+      // Generate a per-scan ingest token for secure Direct POST
+      const { randomUUID } = require('crypto');
+      const ingestToken = randomUUID();
+
       const scanRecord = await database.createScan({
         profileId: scanRequest.profileId,
         inventoryId: scanRequest.inventoryId,
@@ -278,8 +283,10 @@ export async function createRouter(
         startedAt: new Date().toISOString(),
         completedAt: null,
       });
+      scanRecordId = scanRecord.id;
+      ingestTokens.set(scanRecord.id, ingestToken);
 
-      const result = await service.launchScan(scanRequest, userToken, scanRecord.id);
+      const result = await service.launchScan(scanRequest, userToken, scanRecord.id, ingestToken);
 
       // Update scan record with the workflow job ID
       await database.updateScanWorkflowJobId(scanRecord.id, result.workflowJobId);
@@ -288,6 +295,9 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to launch scan: ${msg}`);
+      if (scanRecordId) {
+        await database.updateScanStatus(scanRecordId, 'failed', new Date().toISOString()).catch(() => {});
+      }
       res.status(500).json({ error: msg });
     }
   });
@@ -440,11 +450,18 @@ export async function createRouter(
     }
   });
 
+  // Per-scan ingest tokens for Direct POST authentication.
+  // Stored in memory (not DB) since they're ephemeral — only needed
+  // during the scan lifecycle. Generated at scan creation, validated
+  // on ingest, discarded after use.
+  const ingestTokens = new Map<string, string>();
+
   // ─── Findings ingest (direct POST from playbook) ────────────────────
 
   router.post('/findings/ingest', async (req, res) => {
     const body = req.body;
     const scanId = body.scanId as string | undefined;
+    const ingestToken = body.ingestToken as string | undefined;
     const findings = body.findings as Array<Record<string, unknown>> | undefined;
 
     if (!scanId || !findings || !Array.isArray(findings)) {
@@ -456,6 +473,13 @@ export async function createRouter(
       const scan = await database.getScanById(scanId);
       if (!scan) {
         res.status(404).json({ error: `Scan ${scanId} not found` });
+        return;
+      }
+
+      // Validate per-scan ingest token to prevent unauthorized data injection.
+      const expectedToken = ingestTokens.get(scanId);
+      if (expectedToken && expectedToken !== ingestToken) {
+        res.status(403).json({ error: 'Invalid ingest token' });
         return;
       }
 
@@ -489,6 +513,7 @@ export async function createRouter(
         // Posture snapshot is best-effort
       }
 
+      ingestTokens.delete(scanId);
       logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);
       res.status(201).json({ scanId, findingsCount: count });
     } catch (error) {

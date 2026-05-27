@@ -377,6 +377,7 @@ describe('compliance backend router', () => {
         expect.any(Object),
         undefined,
         'scan-1',
+        expect.any(String),
       );
       expect(database.updateScanWorkflowJobId).toHaveBeenCalledWith('scan-1', 42);
     });
@@ -398,6 +399,7 @@ describe('compliance backend router', () => {
         expect.objectContaining({ workflowTemplateId: 10 }),
         undefined,
         'scan-1',
+        expect.any(String),
       );
     });
 
@@ -415,6 +417,7 @@ describe('compliance backend router', () => {
         expect.any(Object),
         'my-user-token',
         'scan-1',
+        expect.any(String),
       );
     });
 

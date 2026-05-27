@@ -243,7 +243,7 @@ export class ComplianceService {
 
   // ─── Scan ───────────────────────────────────────────────────────────
 
-  async launchScan(request: LaunchScanRequest, token?: string, scanId?: string): Promise<LaunchScanResponse> {
+  async launchScan(request: LaunchScanRequest, token?: string, scanId?: string, ingestToken?: string): Promise<LaunchScanResponse> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.launchScan(request.profileId);
     }
@@ -265,6 +265,7 @@ export class ComplianceService {
       inventory_id: request.inventoryId,
       backstage_api_url: backstageUrl,
       scan_id: scanId || '',
+      ingest_token: ingestToken || '',
     };
 
     // ── Launch the workflow ──────────────────────────────────────────

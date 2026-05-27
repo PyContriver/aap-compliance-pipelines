@@ -117,9 +117,6 @@ export const RemediationProfileBuilder = () => {
     return () => { cancelled = true; };
   }, [api, jobId, isEditMode]);
 
-  const displayFindings = searchQuery ? filteredFindings : allFindings;
-  const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
-  const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
   const [selections, setSelections] = useState<Record<string, RuleSelection>>({});
 
   useEffect(() => {
@@ -159,6 +156,10 @@ export const RemediationProfileBuilder = () => {
       f.category?.toLowerCase().includes(q),
     );
   }, [allFindings, searchQuery]);
+
+  const displayFindings = searchQuery ? filteredFindings : allFindings;
+  const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
+  const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
   const selectAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: true }; }); return updated; }); };
   const selectAllFailed = () => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { if (f.failCount > 0) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
