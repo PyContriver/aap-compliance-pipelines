@@ -2,7 +2,7 @@
 
 **Feature Branch**: `compliance-pipelines`
 **Created**: 2026-04-23
-**Status**: Draft
+**Status**: Active (oscap migration complete, PRs #4-#13 merged)
 **Input**: User description: "End-to-end compliance pipeline experience (scan, review, remediate, verify) for regulated infrastructure within the Ansible Automation Platform Portal"
 **Related**: ANSTRAT-1670 (Evolve Ansible Content — Initiative 3: Strategic Domain Content), ANSTRAT-1285 (Pattern Loading Service), ANSTRAT-1534 (Content Discovery), ANSTRAT-2122 (Skill Content Type)
 **Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Jira Feature Template Analysis](../../prototypes/compliance-pipelines/context/jira-feature-template-analysis.md)
@@ -32,12 +32,12 @@ Platform administrators need to initiate compliance scans against target infrast
 
 **Why this priority**: Scanning is the entry point for the entire compliance pipeline. Without the ability to launch scans from the portal, users must fall back to the Controller UI or CLI, eliminating the value of the portal integration entirely.
 
-**Independent Test**: Select a registered compliance profile, choose target hosts from an inventory, launch a scan, and verify that the corresponding AAP workflow job is created and executes against the selected hosts.
+**Independent Test**: Select a registered compliance profile, choose target hosts from an inventory, launch a scan, and verify that the corresponding AAP job is created and executes against the selected hosts.
 
 **Acceptance Scenarios**:
 
 1. **Given** at least one registered compliance profile, **When** the admin clicks "Launch Scan" from the compliance dashboard, **Then** they see a scan configuration form with fields for: compliance profile (dropdown of registered compliance profiles), target inventory or host pattern, and optional scan parameters
-2. **Given** a completed scan configuration form, **When** the admin clicks "Start Scan", **Then** the portal invokes the mapped AAP workflow template via the Gateway API with the appropriate EE, inventory, and extra variables, and displays a progress indicator linking to the active workflow job
+2. **Given** a completed scan configuration form, **When** the admin clicks "Start Scan", **Then** the portal invokes the mapped AAP assessment job template via the Gateway API with the appropriate inventory and extra variables, and displays a progress indicator linking to the active job
 3. **Given** a scan is in progress, **When** the admin views the compliance dashboard, **Then** they see the active scan with real-time status (pending, running, completed, failed) pulled from the AAP Gateway API job status endpoint
 4. **Given** a scan completes successfully, **When** the admin views the scan results, **Then** parsed findings are stored in the compliance database with per-host, per-rule detail and the scan appears in the scan history list
 
@@ -173,8 +173,8 @@ Automation architects need infrastructure changes (new host provisioned, configu
 #### Scan Execution
 
 - **FR-005**: System MUST allow administrators to launch compliance scans by selecting a registered compliance profile, specifying target hosts or inventory, and providing optional scan parameters
-- **FR-006**: System MUST invoke the AAP workflow template mapped by the selected compliance profile via the AAP Gateway API, passing the target inventory, EE, and extra variables
-- **FR-007**: System MUST track scan progress by polling the AAP Gateway API for workflow job status and display real-time status updates in the portal
+- **FR-006**: System MUST invoke the AAP assessment job template mapped by the selected compliance profile via the AAP Gateway API, passing the target inventory and extra variables (single JT with 2 plays: scan targets + normalize on localhost)
+- **FR-007**: System MUST track scan progress by polling the AAP Gateway API for job status and display real-time status updates in the portal
 - **FR-008**: System MUST parse scan output (XCCDF/JSON) into structured per-host, per-rule findings and persist them to the compliance database
 
 #### Findings Review
@@ -194,7 +194,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 
 #### Remediation Execution
 
-- **FR-018**: System MUST execute remediation by invoking the AAP workflow remediate node with `--limit`, `--tags`, and `--extra-vars` derived from the remediation
+- **FR-018**: System MUST execute remediation by launching the remediation job template directly (not through a workflow) with `--limit`, `--tags`, and `--extra-vars` derived from the remediation (see ADR-009)
 - **FR-019**: System MUST trigger a verification re-scan after remediation completes and display before/after comparison
 - **FR-020**: System MUST display real-time remediation progress with per-host status updates
 
@@ -251,10 +251,26 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - The Ansible Portal (RHDH/Backstage) is the frontend hosting environment with the compliance plugin installed as a dynamic plugin
 - ComplianceAsCode remediation content (`scap-security-guide` RPM) is available in the Execution Environment and provides the remediation playbooks — the compliance plugin does not author remediation content
 - Compliance profiles use the collection + EE packaging model: an Ansible collection (e.g., `security.compliance_rhel9_stig`) ships an EE profile definition, and the EE Builder constructs the EE from it
-- AAP workflow templates for compliance pipelines (gather, evaluate, remediate nodes) are pre-created in the Controller before compliance profile registration
+- AAP job templates for compliance pipelines (assessment JT running `run_oscap.yml` with 2 plays, remediation JT running `remediate.yml`) are pre-created in the Controller before compliance profile registration (see ADR-003, ADR-009)
 - The AAP Gateway is the sole API entry point — direct Controller API access is not used (aligns with AAP 2.7+ architecture)
 - Backstage PostgreSQL is available for compliance data persistence (findings, remediations, posture history, compliance profile registry)
 - Per-user AAP tokens are available via the `x-aap-token` header pattern established by the Portal authentication flow
 - OpenSCAP is the Tier 1 scanner for RHEL STIG/CIS benchmarks; the architecture supports pluggable Tier 2 (BYOS: Qualys, Tenable) and Tier 3 (hybrid) scanners via additional compliance profile types
 - EDA integration (User Story 8) depends on EDA Server being deployed and configured with appropriate rulebooks — this is a stretch goal
-- The compliance plugin operates as a scanner orchestrator, not a scanner — it invokes existing scanning tools through AAP workflows rather than performing scans directly
+- The compliance plugin operates as a scanner orchestrator, not a scanner — it invokes existing scanning tools through AAP job templates rather than performing scans directly
+
+## Architecture Decisions
+
+Formal decision records are maintained in [`decisions/`](decisions/):
+
+| ADR | Decision |
+|-----|----------|
+| [ADR-001](decisions/ADR-001-scanner-orchestrator-architecture.md) | Scanner orchestrator architecture (CFF as contract) |
+| [ADR-002](decisions/ADR-002-two-tier-rbac.md) | Two-tier RBAC (Backstage + AAP pass-through) |
+| [ADR-003](decisions/ADR-003-single-assessment-jt.md) | Single assessment JT with 2 plays (not 2-node workflow) |
+| [ADR-004](decisions/ADR-004-oscap-replaces-custom-evaluate.md) | OpenSCAP replaces custom evaluate module |
+| [ADR-005](decisions/ADR-005-slim-findings-for-event-storage.md) | Slim findings for Controller event storage |
+| [ADR-006](decisions/ADR-006-self-contained-compliance-profiles.md) | Self-contained compliance profiles |
+| [ADR-007](decisions/ADR-007-direct-post-findings.md) | Direct POST findings as future data channel |
+| [ADR-008](decisions/ADR-008-oscap-agentless-pattern.md) | OpenSCAP agentless pattern (install/scan/remove) |
+| [ADR-009](decisions/ADR-009-cac-remediation-via-direct-jt.md) | CaC remediation via direct JT with job_tags |

@@ -181,10 +181,10 @@ aap-compliance-pipelines/
     .husky/                      Git hooks (pre-commit)
   collections/                   Ansible collection (security.compliance_rhel9_stig)
     ansible_collections/security/compliance_rhel9_stig/
-      plugins/modules/           Custom modules (gather, evaluate, normalize)
+      plugins/modules/           Custom modules (normalize_xccdf + deprecated gather/evaluate)
       playbooks/                 Pipeline orchestration playbooks
       playbooks/scanner/         OpenSCAP scanner lifecycle (install, scan, fetch, uninstall)
-      rules/                     STIG rules as YAML data
+      rules/                     STIG rules as YAML data (deprecated, metadata now from XCCDF datastream)
       tests/                     Unit tests (85) + integration tests (3 targets)
   content/                       Legacy content (superseded by collections/)
   review/                        UI screenshots and review materials
@@ -267,8 +267,8 @@ The collection includes playbooks to seed AAP with compliance resources:
 - Inventory with target RHEL 9 hosts
 - Machine credential for SSH access
 - Project pointing to this repo
-- Job templates: gather-facts, evaluate, remediate
-- Workflow: Gather → Evaluate → Remediate
+- Job templates: `compliance-run-oscap` (assessment: scan + normalize in 2 plays), `compliance-remediate` (standalone, launched with job_tags)
+- Legacy JTs (`gather-facts`, `evaluate`) and workflow (`Gather -> Evaluate -> Remediate`) are deprecated
 
 ### 2. Required Controller resources
 
@@ -278,15 +278,14 @@ The collection includes playbooks to seed AAP with compliance resources:
 | Inventory | Target hosts for scanning |
 | Machine Credential | SSH access to targets |
 | Project (git) | Points to this repo for playbooks |
-| Job Templates (3) | Gather facts, evaluate rules, remediate findings |
-| Workflow Template | Chains the 3 JTs into a pipeline |
+| Job Templates (2) | Assessment (`compliance-run-oscap`: scan + normalize), Remediation (`compliance-remediate`: CaC with job_tags) |
 
 ### 3. Verified on lab
 
 The pipeline has been validated end-to-end on AAP 2.6:
-- `compliance_gather`: collected 703 packages, 235 services, SSH config, SELinux status from a RHEL 9 host via SSH (agentless)
-- `compliance_evaluate`: evaluated 20 STIG rules — 8 pass, 12 fail
-- Full workflow: Gather → Evaluate → Remediate completed successfully
+- OpenSCAP assessment: `run_oscap.yml` scans targets with 366 STIG rules from scap-security-guide, normalizes XCCDF to CFF JSON
+- Remediation: `remediate.yml` applies CaC playbook scoped by `job_tags` for selective rule application
+- Architecture: single assessment JT (2 plays in one container), separate remediation JT launched directly
 
 ## Troubleshooting
 
