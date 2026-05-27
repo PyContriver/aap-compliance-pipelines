@@ -130,10 +130,12 @@ export class ComplianceService {
   private readonly dataSource: DataSource;
   private readonly controllerClient: ControllerClient | null;
   private readonly logger: LoggerService;
+  private readonly config: Config;
   private database: ComplianceDatabase | null = null;
   private rulesMetadata: Map<string, RuleMetadata> | null = null;
 
   constructor(config: Config, logger: LoggerService) {
+    this.config = config;
     this.logger = logger;
 
     // Read the toggle flag — default to 'mock' for safe demos
