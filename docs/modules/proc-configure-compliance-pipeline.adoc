@@ -169,7 +169,15 @@ Navigate to *Templates* > *Add* > *Add Job Template* and set the following value
 
 |Prompt on Launch: Variables
 |Enabled
+
+|Use Fact Storage
+|Enabled
 |===
++
+[IMPORTANT]
+====
+*Use Fact Storage* must be enabled on the assessment job template. The scan playbook gathers host facts (`ansible_os_family`, `ansible_distribution_major_version`) during each scan, and Controller persists these facts only when this setting is enabled. The compliance plugin uses these cached facts for platform validation -- checking that inventory hosts match the compliance profile's platform requirements before launching scans.
+====
 +
 Verification scans use this same job template -- a verification scan is simply another assessment run after remediation has been applied. There is no separate verification template.
 +

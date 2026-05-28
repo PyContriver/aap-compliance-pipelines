@@ -125,6 +125,8 @@
           - "{{ compliance_credential }}"
         become_enabled: true
         ask_inventory_on_launch: true
+        ask_variables_on_launch: true
+        use_fact_cache: true
         description: "OpenSCAP STIG assessment: scan targets + normalize results (single JT, 2 plays)"
         state: present
 

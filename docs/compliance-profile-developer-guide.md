@@ -1085,11 +1085,18 @@ platform:
 
 **Validation layers:**
 
-1. **Pre-launch (plugin backend):** Before launching the assessment JT, the plugin queries inventory hosts from the Controller API and checks facts against the profile's platform spec. Mismatched hosts trigger a warning (or block, depending on configuration).
+1. **Pre-launch (plugin backend):** Before launching the assessment JT, the plugin queries inventory hosts from the Controller API and checks cached `ansible_facts` against the profile's platform spec. Mismatched hosts trigger a warning dialog listing the affected hosts. The user can cancel or proceed anyway.
 
 2. **Playbook-side (safety net):** The assessment playbook uses the platform spec to set `when:` conditions. Mismatched hosts get `not_applicable` finding status instead of failing silently.
 
 3. **External scanners:** Profiles with `scanner_validates: true` skip both layers — the scanner handles its own targeting.
+
+**Controller requirements for platform validation:**
+
+- The assessment job template **must** have **"Use Fact Storage"** (`use_fact_cache: true`) enabled. Without this, Controller does not persist gathered facts and the plugin cannot validate host platforms.
+- The assessment playbook **must** have `gather_facts: true` on the play that runs against target hosts. This populates the Controller fact cache with `ansible_os_family`, `ansible_distribution_major_version`, and other host facts used for validation.
+- Facts are populated after the first scan runs. Platform validation is only effective from the second scan onward (the first scan against a new inventory always passes validation since no facts are cached yet).
+- When hosts are recreated (e.g., EC2 snapshot restore), the next scan refreshes the fact cache automatically.
 
 See `specs/compliance-pipelines/decisions/ADR-011-profile-driven-platform-guards.md` for the full decision record.
 
