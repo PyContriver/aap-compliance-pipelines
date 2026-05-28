@@ -793,11 +793,18 @@ export const ResultsViewer = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      {finding.failCount === 0 ? (
+                      {finding.failCount === 0 && finding.passCount > 0 ? (
                         <Chip
                           label={`${finding.passCount}/${finding.totalCount}`}
                           size="small"
                           style={{ backgroundColor: '#3E8635', color: '#fff' }}
+                          className={classes.hostCountChip}
+                        />
+                      ) : finding.failCount === 0 && finding.passCount === 0 ? (
+                        <Chip
+                          label={`${finding.totalCount} N/A`}
+                          size="small"
+                          variant="outlined"
                           className={classes.hostCountChip}
                         />
                       ) : (
