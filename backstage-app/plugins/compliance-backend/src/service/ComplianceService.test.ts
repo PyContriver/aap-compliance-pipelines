@@ -1424,4 +1424,116 @@ describe('ComplianceService', () => {
       );
     });
   });
+
+  // ── 12. fetchScanErrorDetails ─────────────────────────────────────
+
+  describe('fetchScanErrorDetails', () => {
+    let service: ComplianceService;
+    let mockGetWorkflowNodes: jest.Mock;
+    let mockGetJobStatus: jest.Mock;
+    let mockGetJobFailureEvents: jest.Mock;
+
+    beforeEach(() => {
+      const config = createMockConfig({
+        dataSource: 'live',
+        baseUrl: 'https://controller.example.com',
+        token: 'test-token',
+      });
+
+      mockGetWorkflowNodes = jest.fn().mockResolvedValue({
+        count: 0, next: null, previous: null, results: [],
+      });
+      mockGetJobStatus = jest.fn().mockResolvedValue({
+        id: 100, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '', result_traceback: '',
+      });
+      mockGetJobFailureEvents = jest.fn().mockResolvedValue({
+        count: 0, next: null, previous: null, results: [],
+      });
+
+      const MockedClient = ControllerClient as jest.MockedClass<typeof ControllerClient>;
+      MockedClient.prototype.getWorkflowNodes = mockGetWorkflowNodes;
+      MockedClient.prototype.getJobStatus = mockGetJobStatus;
+      MockedClient.prototype.getJobFailureEvents = mockGetJobFailureEvents;
+
+      service = new ComplianceService(config, mockLogger);
+    });
+
+    it('returns result_traceback from failed child job', async () => {
+      mockGetWorkflowNodes.mockResolvedValue({
+        count: 1, next: null, previous: null, results: [
+          { id: 1, summary_fields: { job: { id: 200, status: 'failed' } } },
+        ],
+      });
+      mockGetJobStatus.mockResolvedValue({
+        id: 200, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '',
+        result_traceback: 'Traceback: module error on host',
+      });
+
+      const details = await service.fetchScanErrorDetails(100);
+
+      expect(details).toBe('Traceback: module error on host');
+      expect(mockGetJobStatus).toHaveBeenCalledWith(200, undefined);
+      expect(mockGetJobFailureEvents).not.toHaveBeenCalled();
+    });
+
+    it('falls back to job events when result_traceback is empty', async () => {
+      mockGetWorkflowNodes.mockResolvedValue({
+        count: 1, next: null, previous: null, results: [
+          { id: 1, summary_fields: { job: { id: 200, status: 'failed' } } },
+        ],
+      });
+      mockGetJobStatus.mockResolvedValue({
+        id: 200, status: 'failed', finished: null, failed: true, elapsed: 10, job_tags: '',
+        result_traceback: '',
+      });
+      mockGetJobFailureEvents.mockResolvedValue({
+        count: 1, next: null, previous: null, results: [
+          { id: 1, event: 'runner_on_failed', event_data: { host: 'host-1', task: 'Fail check', res: { msg: 'No XCCDF results found' } }, stdout: '', host_name: 'host-1' },
+        ],
+      });
+
+      const details = await service.fetchScanErrorDetails(100);
+
+      expect(details).toContain('host-1');
+      expect(details).toContain('No XCCDF results found');
+      expect(mockGetJobFailureEvents).toHaveBeenCalledWith(200, undefined);
+    });
+
+    it('formats unreachable host events', async () => {
+      mockGetWorkflowNodes.mockResolvedValue({
+        count: 1, next: null, previous: null, results: [
+          { id: 1, summary_fields: { job: { id: 300, status: 'failed' } } },
+        ],
+      });
+      mockGetJobStatus.mockResolvedValue({
+        id: 300, status: 'failed', finished: null, failed: true, elapsed: 5, job_tags: '', result_traceback: '',
+      });
+      mockGetJobFailureEvents.mockResolvedValue({
+        count: 2, next: null, previous: null, results: [
+          { id: 1, event: 'runner_on_unreachable', event_data: { host: 'web01', task: 'Check SSH', res: { msg: 'SSH timeout' } }, stdout: '', host_name: 'web01' },
+          { id: 2, event: 'runner_on_unreachable', event_data: { host: 'web02', task: 'Check SSH', res: { msg: 'SSH timeout' } }, stdout: '', host_name: 'web02' },
+        ],
+      });
+
+      const details = await service.fetchScanErrorDetails(100);
+
+      expect(details).toContain('web01: [Check SSH] SSH timeout');
+      expect(details).toContain('web02: [Check SSH] SSH timeout');
+    });
+
+    it('returns null when no errors are found', async () => {
+      const details = await service.fetchScanErrorDetails(100);
+
+      expect(details).toBeNull();
+    });
+
+    it('returns null when controller client throws', async () => {
+      mockGetWorkflowNodes.mockRejectedValue(new Error('Network error'));
+
+      const details = await service.fetchScanErrorDetails(100);
+
+      expect(details).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+  });
 });
