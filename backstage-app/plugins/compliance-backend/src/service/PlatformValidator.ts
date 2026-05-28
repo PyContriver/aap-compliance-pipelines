@@ -1,16 +1,12 @@
-import { PlatformSpec } from '@aap-compliance/common';
+import { PlatformSpec, PlatformValidationResult } from '@aap-compliance/common';
+
+export type { PlatformValidationResult };
 
 export interface HostFacts {
   hostname: string;
   ansible_os_family?: string;
   ansible_distribution_major_version?: string;
   device_type?: string;
-}
-
-export interface PlatformValidationResult {
-  valid: boolean;
-  matchedHosts: string[];
-  mismatchedHosts: Array<{ hostname: string; reason: string }>;
 }
 
 export function validatePlatform(

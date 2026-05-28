@@ -284,6 +284,8 @@ export async function createRouter(
   // ─── Scan ───────────────────────────────────────────────────────────
 
   router.post('/scan/validate', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const { profileId, inventoryId } = req.body;
     const userToken = getUserAapToken(req);
 
@@ -309,7 +311,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Platform validation failed: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Platform validation failed' });
     }
   });
 
