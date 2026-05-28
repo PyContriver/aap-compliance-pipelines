@@ -244,19 +244,25 @@ export const CartridgeSettings = () => {
     setDialogOpen(true);
   };
 
-  const handleEditClick = (cartridge: ComplianceCartridge) => {
-    setEditingId(cartridge.id);
+  const handleEditClick = async (cartridge: ComplianceCartridge) => {
+    const fresh = await api.getCartridge(cartridge.id);
+    if (!fresh) {
+      await loadCartridges();
+      setSaveError('This profile was deleted by another user.');
+      return;
+    }
+    setEditingId(fresh.id);
     setForm({
-      displayName: cartridge.displayName,
-      description: cartridge.description,
-      framework: cartridge.framework,
-      version: cartridge.version,
-      platform: cartridge.platform,
-      platformSpec: cartridge.platformSpec ?? null,
-      workflowTemplateId: cartridge.workflowTemplateId,
-      eeId: cartridge.eeId,
-      remediationPlaybookPath: cartridge.remediationPlaybookPath,
-      scanTags: cartridge.scanTags,
+      displayName: fresh.displayName,
+      description: fresh.description,
+      framework: fresh.framework,
+      version: fresh.version,
+      platform: fresh.platform,
+      platformSpec: fresh.platformSpec ?? null,
+      workflowTemplateId: fresh.workflowTemplateId,
+      eeId: fresh.eeId,
+      remediationPlaybookPath: fresh.remediationPlaybookPath,
+      scanTags: fresh.scanTags,
     });
     setSaveError(null);
     loadControllerResources();

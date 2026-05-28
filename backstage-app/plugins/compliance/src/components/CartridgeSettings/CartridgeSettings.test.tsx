@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { CartridgeSettings } from './CartridgeSettings';
@@ -139,5 +139,150 @@ describe('CartridgeSettings', () => {
 
     // Restore the default
     permissionMock.usePermission = () => ({ allowed: true, loading: false });
+  });
+
+  it('shows edit button for each cartridge row', async () => {
+    const mockApi = createMockApi({
+      getCartridges: jest.fn().mockResolvedValue([
+        {
+          id: 'cart-1',
+          displayName: 'STIG for RHEL 9',
+          description: '',
+          framework: 'DISA_STIG',
+          version: 'V2R8',
+          platform: 'RHEL 9',
+          platformSpec: null,
+          workflowTemplateId: null,
+          eeId: null,
+          remediationPlaybookPath: '',
+          scanTags: '',
+          createdAt: '2025-01-01',
+          updatedAt: '2025-01-01',
+        },
+      ]),
+    });
+
+    await renderWithApi(mockApi);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+    });
+  });
+
+  it('opens edit dialog with pre-populated form on edit click', async () => {
+    const cartridge = {
+      id: 'cart-1',
+      displayName: 'STIG for RHEL 9',
+      description: 'DoD profile',
+      framework: 'DISA_STIG',
+      version: 'V2R8',
+      platform: 'RHEL 9',
+      platformSpec: null,
+      workflowTemplateId: null,
+      eeId: null,
+      remediationPlaybookPath: '/usr/share/ssg/rhel9.yml',
+      scanTags: '',
+      createdAt: '2025-01-01',
+      updatedAt: '2025-01-01',
+    };
+    const mockApi = createMockApi({
+      getCartridges: jest.fn().mockResolvedValue([cartridge]),
+      getCartridge: jest.fn().mockResolvedValue(cartridge),
+    });
+
+    await renderWithApi(mockApi);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('edit compliance profile'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Compliance Profile')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('STIG for RHEL 9')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('DoD profile')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('V2R8')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('/usr/share/ssg/rhel9.yml')).toBeInTheDocument();
+    });
+  });
+
+  it('calls saveCartridge with id when updating an existing profile', async () => {
+    const cartridge = {
+      id: 'cart-1',
+      displayName: 'STIG for RHEL 9',
+      description: '',
+      framework: 'DISA_STIG',
+      version: 'V2R8',
+      platform: 'RHEL 9',
+      platformSpec: null,
+      workflowTemplateId: null,
+      eeId: null,
+      remediationPlaybookPath: '',
+      scanTags: '',
+      createdAt: '2025-01-01',
+      updatedAt: '2025-01-01',
+    };
+    const saveMock = jest.fn().mockResolvedValue({});
+    const mockApi = createMockApi({
+      getCartridges: jest.fn().mockResolvedValue([cartridge]),
+      getCartridge: jest.fn().mockResolvedValue(cartridge),
+      saveCartridge: saveMock,
+    });
+
+    await renderWithApi(mockApi);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('edit compliance profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('edit compliance profile'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Update')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Update'));
+
+    await waitFor(() => {
+      expect(saveMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'cart-1' }),
+      );
+    });
+  });
+
+  it('shows "Save" button when adding a new profile', async () => {
+    const mockApi = createMockApi({
+      getCartridges: jest.fn().mockResolvedValue([
+        {
+          id: 'cart-1',
+          displayName: 'Existing',
+          description: '',
+          framework: 'DISA_STIG',
+          version: '',
+          platform: '',
+          platformSpec: null,
+          workflowTemplateId: null,
+          eeId: null,
+          remediationPlaybookPath: '',
+          scanTags: '',
+          createdAt: '2025-01-01',
+          updatedAt: '2025-01-01',
+        },
+      ]),
+    });
+
+    await renderWithApi(mockApi);
+
+    await waitFor(() => {
+      expect(screen.getByText('Add Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Add Profile'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Add Compliance Profile')).toBeInTheDocument();
+      expect(screen.getAllByText('Save').length).toBeGreaterThanOrEqual(1);
+    });
   });
 });
