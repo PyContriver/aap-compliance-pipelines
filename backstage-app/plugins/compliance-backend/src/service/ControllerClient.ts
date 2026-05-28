@@ -332,6 +332,26 @@ export class ControllerClient {
     return { count: results.length, next: null, previous: null, results };
   }
 
+  async getJobFailureEvents(
+    jobId: number,
+    token?: string,
+  ): Promise<PaginatedResponse<JobEvent>> {
+    const [failed, unreachable] = await Promise.all([
+      this.fetchAllPages<JobEvent>(
+        `api/controller/v2/jobs/${jobId}/job_events/?event=runner_on_failed&page_size=10`,
+        token,
+        1,
+      ),
+      this.fetchAllPages<JobEvent>(
+        `api/controller/v2/jobs/${jobId}/job_events/?event=runner_on_unreachable&page_size=10`,
+        token,
+        1,
+      ),
+    ]);
+    const results = [...failed, ...unreachable];
+    return { count: results.length, next: null, previous: null, results };
+  }
+
   async getJobStdout(jobId: number, token?: string): Promise<{ content: string }> {
     return this.executeGetRequest(
       `api/controller/v2/jobs/${jobId}/stdout/?format=json`,

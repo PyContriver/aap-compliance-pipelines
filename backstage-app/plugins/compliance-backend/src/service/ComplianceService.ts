@@ -849,6 +849,7 @@ export class ComplianceService {
     try {
       // Step 1: Try workflow nodes to find the failed child job
       const nodes = await this.getWorkflowNodes(workflowJobId, token);
+      let childJobId: number | null = null;
 
       if (nodes.length > 0) {
         const failedNode = nodes.find(
@@ -858,27 +859,41 @@ export class ComplianceService {
         );
 
         if (failedNode?.summary_fields?.job?.id) {
+          childJobId = failedNode.summary_fields.job.id;
           const jobStatus = await this.controllerClient.getJobStatus(
-            failedNode.summary_fields.job.id,
+            childJobId,
             token,
           );
           if (jobStatus.result_traceback) {
-            const traceback = jobStatus.result_traceback.slice(0, 2000);
             this.logger.info(
-              `Fetched error details for workflow ${workflowJobId} from child job ${failedNode.summary_fields.job.id}`,
+              `Fetched error traceback for workflow ${workflowJobId} from child job ${childJobId}`,
             );
-            return traceback;
+            return jobStatus.result_traceback.slice(0, 2000);
           }
         }
       }
 
-      // Step 2: No workflow nodes or no traceback — try direct job status
-      const jobStatus = await this.controllerClient.getJobStatus(
-        workflowJobId,
-        token,
-      );
-      if (jobStatus.result_traceback) {
-        return jobStatus.result_traceback.slice(0, 2000);
+      // Step 2: No traceback — extract error from job events (failed tasks / unreachable hosts)
+      const targetJobId = childJobId ?? workflowJobId;
+      const failureEvents = await this.controllerClient.getJobFailureEvents(targetJobId, token);
+      if (failureEvents.results.length > 0) {
+        const lines: string[] = [];
+        for (const ev of failureEvents.results.slice(0, 10)) {
+          const data = ev.event_data as Record<string, unknown> | undefined;
+          const res = data?.res as Record<string, unknown> | undefined;
+          const host = (data?.host as string) ?? 'unknown';
+          const task = (data?.task as string) ?? 'unknown';
+          const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
+          lines.push(`${host}: [${task}] ${msg}`);
+        }
+        if (failureEvents.count > 10) {
+          lines.push(`... and ${failureEvents.count - 10} more`);
+        }
+        const details = lines.join('\n');
+        this.logger.info(
+          `Fetched ${failureEvents.results.length} failure events for job ${targetJobId}`,
+        );
+        return details.slice(0, 2000);
       }
 
       return null;
