@@ -16,6 +16,7 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     getProfiles: jest.fn().mockResolvedValue([]),
     getScans: jest.fn().mockResolvedValue([]),
     getCartridges: jest.fn().mockResolvedValue([]),
+    getCartridge: jest.fn().mockResolvedValue(null),
     getInventories: jest.fn().mockResolvedValue([]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),

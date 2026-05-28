@@ -187,6 +187,7 @@ function createMockDatabase() {
       createdAt: '2026-04-30T00:00:00.000Z',
       updatedAt: '2026-04-30T00:00:00.000Z',
     }),
+    getCartridge: jest.fn().mockResolvedValue(null),
     deleteCartridge: jest.fn().mockResolvedValue(true),
     getPostureSnapshots: jest.fn().mockResolvedValue([]),
     savePostureSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
@@ -611,6 +612,44 @@ describe('compliance backend router', () => {
       expect(database.saveCartridge).toHaveBeenCalledWith(
         expect.objectContaining({ platformSpec: null }),
       );
+    });
+  });
+
+  // ─── GET /cartridges/:id ─────────────────────────────────────────
+
+  describe('GET /cartridges/:id', () => {
+    it('returns 200 with the cartridge when found', async () => {
+      const cartridge = {
+        id: 'cart-1',
+        displayName: 'RHEL 9 STIG',
+        description: '',
+        framework: 'DISA_STIG',
+        version: 'V2R1',
+        platform: 'RHEL 9',
+        platformSpec: null,
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+        createdAt: '2026-04-30T00:00:00.000Z',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      };
+      const { app, database } = await createApp(undefined, {
+        getCartridge: jest.fn().mockResolvedValue(cartridge),
+      });
+      const res = await testRequest(app, { path: '/cartridges/cart-1' });
+
+      expect(res.status).toBe(200);
+      expect((res.body as any).displayName).toBe('RHEL 9 STIG');
+      expect(database.getCartridge).toHaveBeenCalledWith('cart-1');
+    });
+
+    it('returns 404 when cartridge not found', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, { path: '/cartridges/nonexistent' });
+
+      expect(res.status).toBe(404);
+      expect((res.body as any).error).toMatch(/not found/i);
     });
   });
 

@@ -303,6 +303,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     saveRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     deleteRemediationProfile: jest.fn().mockResolvedValue(undefined),
     getCartridges: jest.fn().mockResolvedValue(MOCK_CARTRIDGES),
+    getCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
     saveCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
     deleteCartridge: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([

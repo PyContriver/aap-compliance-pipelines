@@ -51,6 +51,7 @@ export interface ComplianceApi {
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
   deleteRemediationProfile(id: string): Promise<void>;
   getCartridges(): Promise<ComplianceCartridge[]>;
+  getCartridge(id: string): Promise<ComplianceCartridge | null>;
   saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
   deleteCartridge(id: string): Promise<void>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;

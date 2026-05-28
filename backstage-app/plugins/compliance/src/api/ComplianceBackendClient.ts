@@ -261,6 +261,14 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<ComplianceCartridge[]>('/cartridges');
   }
 
+  async getCartridge(id: string): Promise<ComplianceCartridge | null> {
+    try {
+      return await this.request<ComplianceCartridge>(`/cartridges/${encodeURIComponent(id)}`);
+    } catch {
+      return null;
+    }
+  }
+
   async saveCartridge(body: SaveCartridgeRequest) {
     const aapToken = await this.getAapToken();
     return this.request<ComplianceCartridge>('/cartridges', { method: 'POST', body, aapToken });

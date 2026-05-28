@@ -892,6 +892,22 @@ export async function createRouter(
     res.json(enriched);
   });
 
+  router.get('/cartridges/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const cartridge = await database.getCartridge(id);
+      if (!cartridge) {
+        res.status(404).json({ error: 'Compliance profile not found' });
+        return;
+      }
+      res.json(cartridge);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get compliance profile: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  });
+
   router.post('/cartridges', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;
 

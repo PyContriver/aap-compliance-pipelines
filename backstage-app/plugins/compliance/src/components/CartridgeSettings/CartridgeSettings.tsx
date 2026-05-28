@@ -36,6 +36,7 @@ import {
 } from '@material-ui/core';
 import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
+import EditIcon from '@material-ui/icons/Edit';
 import SettingsIcon from '@material-ui/icons/Settings';
 import { complianceApiRef } from '../../api';
 
@@ -195,6 +196,7 @@ export const CartridgeSettings = () => {
   const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ComplianceCartridge | null>(null);
   const [saving, setSaving] = useState(false);
@@ -235,7 +237,27 @@ export const CartridgeSettings = () => {
   }, [loadCartridges]);
 
   const handleOpenDialog = () => {
+    setEditingId(null);
     setForm({ ...EMPTY_FORM });
+    setSaveError(null);
+    loadControllerResources();
+    setDialogOpen(true);
+  };
+
+  const handleEditClick = (cartridge: ComplianceCartridge) => {
+    setEditingId(cartridge.id);
+    setForm({
+      displayName: cartridge.displayName,
+      description: cartridge.description,
+      framework: cartridge.framework,
+      version: cartridge.version,
+      platform: cartridge.platform,
+      platformSpec: cartridge.platformSpec ?? null,
+      workflowTemplateId: cartridge.workflowTemplateId,
+      eeId: cartridge.eeId,
+      remediationPlaybookPath: cartridge.remediationPlaybookPath,
+      scanTags: cartridge.scanTags,
+    });
     setSaveError(null);
     loadControllerResources();
     setDialogOpen(true);
@@ -243,6 +265,7 @@ export const CartridgeSettings = () => {
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
+    setEditingId(null);
     setForm({ ...EMPTY_FORM });
   };
 
@@ -250,7 +273,8 @@ export const CartridgeSettings = () => {
     setSaving(true);
     setSaveError(null);
     try {
-      await api.saveCartridge(form);
+      const payload = editingId ? { ...form, id: editingId } : form;
+      await api.saveCartridge(payload);
       handleCloseDialog();
       await loadCartridges();
     } catch (err) {
@@ -417,6 +441,13 @@ export const CartridgeSettings = () => {
                     <TableCell>
                       <IconButton
                         size="small"
+                        onClick={() => handleEditClick(c)}
+                        aria-label="edit compliance profile"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
                         onClick={() => handleDeleteClick(c)}
                         aria-label="delete compliance profile"
                       >
@@ -439,7 +470,7 @@ export const CartridgeSettings = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Add Compliance Profile</DialogTitle>
+        <DialogTitle>{editingId ? 'Edit Compliance Profile' : 'Add Compliance Profile'}</DialogTitle>
         <DialogContent>
           <div className={classes.dialogContent}>
             <TextField
@@ -665,7 +696,7 @@ export const CartridgeSettings = () => {
             onClick={handleSave}
             disabled={saving || !form.displayName || !form.framework}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : editingId ? 'Update' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
