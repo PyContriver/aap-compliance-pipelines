@@ -405,9 +405,10 @@ export async function createRouter(
               );
 
               if (dbScan) {
+                const scanStatus = st === 'successful' ? 'completed' : 'failed';
                 await database.updateScanStatus(
                   dbScan.id,
-                  parsed.length > 0 ? 'completed' : 'failed',
+                  scanStatus,
                   new Date().toISOString(),
                 );
               }
