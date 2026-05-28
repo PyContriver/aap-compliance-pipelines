@@ -350,12 +350,88 @@ describe('compliance backend router', () => {
       expect((res.body as any).matchedHosts).toContain('rhel01');
     });
 
+    it('returns valid when scanner_validates is true', async () => {
+      const { app } = await createApp(undefined, {
+        getCartridge: jest.fn().mockResolvedValue({
+          id: 'p1', displayName: 'Tenable',
+          platformSpec: { os_family: ['RedHat'], scanner_validates: true },
+        }),
+      });
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(200);
+      expect((res.body as any).valid).toBe(true);
+    });
+
+    it('returns 500 when Controller API fails', async () => {
+      const { app } = await createApp(
+        {
+          getInventoryHostFacts: jest.fn().mockRejectedValue(new Error('Controller unreachable')),
+        },
+        {
+          getCartridge: jest.fn().mockResolvedValue({
+            id: 'p1', displayName: 'STIG',
+            platformSpec: { os_family: ['RedHat'] },
+          }),
+        },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(500);
+      expect((res.body as any).error).toBe('Platform validation failed');
+    });
+
+    it('returns valid when all hosts match', async () => {
+      const { app } = await createApp(
+        {
+          getInventoryHostFacts: jest.fn().mockResolvedValue([
+            { hostname: 'rhel01', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+            { hostname: 'rhel02', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+          ]),
+        },
+        {
+          getCartridge: jest.fn().mockResolvedValue({
+            id: 'p1', displayName: 'STIG',
+            platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
+          }),
+        },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(200);
+      expect((res.body as any).valid).toBe(true);
+      expect((res.body as any).matchedHosts).toHaveLength(2);
+    });
+
     it('returns 400 when profileId is missing', async () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
         path: '/scan/validate',
         body: { inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when inventoryId is invalid', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 'abc' },
       });
 
       expect(res.status).toBe(400);
