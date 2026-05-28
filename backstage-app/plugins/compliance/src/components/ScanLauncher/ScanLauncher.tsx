@@ -184,12 +184,14 @@ export const ScanLauncher = () => {
 
   const handleLaunch = async () => {
     setLaunchError(null);
+    let gatherFacts = false;
     try {
       const validation = await api.validateScan({
         profileId: selectedProfile,
         inventoryId: inventory?.id ?? 0,
       });
       if (!validation.factsAvailable) {
+        gatherFacts = true;
         setNeedsFactGather(true);
       }
       if (!validation.valid && validation.mismatchedHosts.length > 0) {
@@ -199,7 +201,7 @@ export const ScanLauncher = () => {
     } catch {
       // Validation endpoint unavailable — proceed without blocking
     }
-    await doLaunch();
+    await doLaunch(gatherFacts);
   };
 
   const renderStepContent = (step: number) => {
