@@ -234,7 +234,10 @@ export async function createRouter(
       return;
     }
     try {
-      const scan = await database.getScanById(scanId);
+      let scan = await database.getScanById(scanId);
+      if (!scan && /^\d+$/.test(scanId)) {
+        scan = await database.getScanByWorkflowJobId(Number(scanId));
+      }
       if (!scan) {
         res.status(404).json({ error: 'Scan not found' });
         return;
@@ -252,7 +255,7 @@ export async function createRouter(
             userToken,
           );
           if (details) {
-            await database.updateScanErrorDetails(scanId, details);
+            await database.updateScanErrorDetails(scan.id, details);
             scan.errorDetails = details;
           }
         } catch {
