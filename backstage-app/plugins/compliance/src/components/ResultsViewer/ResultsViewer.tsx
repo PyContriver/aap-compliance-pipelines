@@ -802,11 +802,13 @@ export const ResultsViewer = () => {
                         />
                       ) : (
                         <Box display="flex" justifyContent="center" style={{ gap: 4 }}>
-                          <Chip
-                            label={`${finding.passCount} pass`}
-                            size="small"
-                            style={{ backgroundColor: '#3E8635', color: '#fff', fontSize: '0.7rem' }}
-                          />
+                          {finding.passCount > 0 && (
+                            <Chip
+                              label={`${finding.passCount} pass`}
+                              size="small"
+                              style={{ backgroundColor: '#3E8635', color: '#fff', fontSize: '0.7rem' }}
+                            />
+                          )}
                           <Chip
                             label={`${finding.failCount} fail`}
                             size="small"
