@@ -155,7 +155,9 @@ export const ScanLauncher = () => {
   const profile = profiles.find(p => p.id === selectedProfile);
   const inventory = inventories.find(i => i.id.toString() === selectedInventory);
 
-  const doLaunch = async () => {
+  const [needsFactGather, setNeedsFactGather] = useState(false);
+
+  const doLaunch = async (gatherFacts?: boolean) => {
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -167,6 +169,7 @@ export const ScanLauncher = () => {
         scanType: scanTypeParam || 'assessment',
         limit: limit || undefined,
         workflowTemplateId: cartridge?.workflowTemplateId ?? undefined,
+        gatherFacts: gatherFacts || needsFactGather,
       };
       const result = await api.launchScan(scanRequest);
       navigate(`/compliance/results/${result.workflowJobId}`);
@@ -186,6 +189,9 @@ export const ScanLauncher = () => {
         profileId: selectedProfile,
         inventoryId: inventory?.id ?? 0,
       });
+      if (!validation.factsAvailable) {
+        setNeedsFactGather(true);
+      }
       if (!validation.valid && validation.mismatchedHosts.length > 0) {
         setPlatformWarning(validation);
         return;

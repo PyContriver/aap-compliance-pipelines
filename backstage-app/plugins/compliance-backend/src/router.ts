@@ -301,13 +301,14 @@ export async function createRouter(
     try {
       const cartridge = await database.getCartridge(profileId);
       if (!cartridge?.platformSpec || cartridge.platformSpec.scanner_validates) {
-        res.json({ valid: true, matchedHosts: [], mismatchedHosts: [] });
+        res.json({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true });
         return;
       }
 
       const hostFacts = await service.getInventoryHostFacts(inventoryId, userToken);
+      const factsAvailable = hostFacts.some(h => !!(h.ansible_os_family || h.ansible_distribution_major_version || h.device_type));
       const result = validatePlatform(cartridge.platformSpec, hostFacts);
-      res.json(result);
+      res.json({ ...result, factsAvailable });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Platform validation failed: ${msg}`);
@@ -346,6 +347,7 @@ export async function createRouter(
       evaluateOnly: body.evaluateOnly ?? true,
       limit: body.limit,
       workflowTemplateId: body.workflowTemplateId ?? undefined,
+      gatherFacts: body.gatherFacts ?? false,
     };
 
     logger.info(`Launching scan for profile=${scanRequest.profileId}`);

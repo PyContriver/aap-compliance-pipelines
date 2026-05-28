@@ -277,6 +277,7 @@ export class ComplianceService {
       backstage_api_url: backstageUrl,
       scan_id: scanId || '',
       ingest_token: ingestToken || '',
+      _gather_facts: request.gatherFacts || false,
     };
 
     // ── Launch the workflow ──────────────────────────────────────────

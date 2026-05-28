@@ -13,6 +13,7 @@ export interface LaunchScanRequest {
   scanType?: 'assessment' | 'verification';
   limit?: string;
   workflowTemplateId?: number;
+  gatherFacts?: boolean;
 }
 
 /** Response from launching a scan. */
@@ -259,4 +260,5 @@ export interface PlatformValidationResult {
   valid: boolean;
   matchedHosts: string[];
   mismatchedHosts: Array<{ hostname: string; reason: string }>;
+  factsAvailable: boolean;
 }

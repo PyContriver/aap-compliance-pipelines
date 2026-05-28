@@ -29,7 +29,15 @@
 - name: "Compliance: OpenSCAP STIG scan"
   hosts: "{{ target_hosts | default('all') }}"
   become: true
-  gather_facts: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Gather minimal facts for platform validation cache
+      setup:
+        gather_subset:
+          - '!all'
+          - distribution
+      when: _gather_facts | default(false) | bool
 
   vars:
     # The XCCDF profile to evaluate against. This is the oscap profile ID
