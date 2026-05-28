@@ -1,7 +1,6 @@
 # Feature: Failed Scan Real Error Details
 
-**Status:** In progress (2026-05-27)
-**Branch:** `claude/failed-scan-error-details`
+**Status:** Shipped (commits `11d7534`, `36d8f99`, 2026-05-27/28)
 **Jira:** ANSTRAT-2216 (P1 #5)
 **Roadmap:** Promoted from P2 to P1 during Round 3 testing
 
@@ -65,8 +64,20 @@ The real error (e.g., "all 10 hosts unreachable: SSH connection timed out") is a
 - ADR-003 (single assessment JT) — must handle both workflow and direct job IDs
 - ADR-007 (Direct POST) — error caching follows the same DB-first pattern
 
+## Bugfix: Workflow Job ID Lookup (2026-05-28)
+
+The initial implementation only looked up scans by UUID in `GET /scans/:scanId`. But the frontend navigates to scan results via the workflow job ID (a number from the URL), not the scan UUID. This caused `getScan()` to return null, falling back to the generic error message instead of showing the real Controller traceback.
+
+**Fix (commit `36d8f99`):**
+- `GET /scans/:scanId` now falls back to `getScanByWorkflowJobId()` when the param is numeric and UUID lookup fails
+- `updateScanErrorDetails` uses `scan.id` (the resolved UUID) instead of the URL param
+- Covers both assessment scans (workflow jobs) and remediation scans (direct JTs) — `fetchScanErrorDetails` Step 2 handles direct JT status
+
+**Architect review:** All PASS. WARN on extracting a shared `resolveScanId()` helper since other endpoints (e.g., `/findings?scanId=`) still only accept UUIDs — deferred unless the pattern recurs.
+
 ## Deployment Notes
 
 - Migration 005 runs automatically
 - No config changes
 - Error details are populated lazily (on first `GET /scans/:scanId` for a failed scan) — no backfill needed
+- After deploying the bugfix, clear stale cached errors: `UPDATE compliance_scans SET error_details = NULL WHERE status = 'failed';`

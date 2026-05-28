@@ -300,7 +300,7 @@ The start script launches both the backend (port 7007) and frontend (port 3000) 
 .Verification
 
 * Open `http://localhost:3000` in a web browser and navigate to the *Compliance* section.
-* Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the assessment job template and {ExecEnvShort} you created.
+* Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the assessment job template and {ExecEnvShort} you created. To modify an existing profile, click the edit icon (pencil) next to the profile row.
 * Go to the *New Scan* tab and launch a test scan against a single host.
 * Verify that the scan appears in the *Results* tab and that findings are displayed after the job completes.
 

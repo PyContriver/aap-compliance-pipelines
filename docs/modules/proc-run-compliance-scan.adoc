@@ -42,6 +42,10 @@ Click *Add Profile* and configure the following:
 |===
 +
 Click *Save*. The profile appears in the *Profiles* tab.
++
+To edit an existing profile, click the edit icon (pencil) next to the profile row in the *Settings* tab. The edit dialog opens with the current values pre-populated. Make your changes and click *Update*.
++
+Optionally, configure platform requirements for the profile by specifying the *OS Family*, *OS Version*, or *Device Type* fields. These constrain which hosts are valid targets for scans using this profile.
 
 . Launch an assessment scan.
 +
@@ -61,6 +65,14 @@ The plugin submits a job template launch request to {ControllerName}. You are re
 The scan progress view displays the job status in real time. The plugin polls the {ControllerName} API for status updates.
 +
 Wait for the scan job to reach a terminal state (*Successful*, *Failed*, or *Canceled*).
+
+. Investigate failed scans.
++
+If the scan fails, the plugin fetches the real error details from the {ControllerName} job API and displays them in a scrollable error panel. The error details are cached in the database so they load instantly on subsequent views.
++
+The error panel shows the `result_traceback` from the failed job, which typically includes SSH connection errors, credential failures, or playbook execution errors. This applies to both assessment scans and remediation jobs.
++
+Click *Try Again* to return to the scan launcher and retry the scan.
 
 . View scan results.
 +
