@@ -11,7 +11,6 @@ __metadata:
   dependencies:
     "@backstage/cli": "npm:^0.34.6"
     typescript: "npm:~5.8.0"
-    undici: "npm:^7.0.0"
   languageName: unknown
   linkType: soft
 
