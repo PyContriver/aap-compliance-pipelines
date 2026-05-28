@@ -260,6 +260,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     ]),
     getScans: jest.fn().mockResolvedValue(MOCK_SCANS),
     getScan: jest.fn().mockResolvedValue(null),
+    validateScan: jest.fn().mockResolvedValue({ valid: true, matchedHosts: [], mismatchedHosts: [] }),
     launchScan: jest.fn().mockResolvedValue({
       scanId: 'scan-new',
       workflowJobId: 100,

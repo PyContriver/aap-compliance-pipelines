@@ -379,6 +379,37 @@ export class ControllerClient {
     );
   }
 
+  async getInventoryHostFacts(
+    inventoryId: number,
+    token?: string,
+  ): Promise<Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string; device_type?: string }>> {
+    const hosts = await this.fetchAllPages<{ id: number; name: string }>(
+      `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`,
+      token,
+    );
+
+    const factsResults = await Promise.all(
+      hosts.map(async host => {
+        try {
+          const facts: Record<string, unknown> = await this.executeGetRequest(
+            `api/controller/v2/hosts/${host.id}/ansible_facts/`,
+            token,
+          );
+          return {
+            hostname: host.name,
+            ansible_os_family: facts.ansible_os_family as string | undefined,
+            ansible_distribution_major_version: facts.ansible_distribution_major_version as string | undefined,
+            device_type: facts.device_type as string | undefined,
+          };
+        } catch {
+          return { hostname: host.name };
+        }
+      }),
+    );
+
+    return factsResults;
+  }
+
   // ─── Polling helper (match upstream fetchResult pattern) ────────────
 
   /**

@@ -24,6 +24,7 @@ import type {
   JobEvent,
   ComplianceCartridge,
   SaveCartridgeRequest,
+  PlatformValidationResult,
 } from '@aap-compliance/common';
 
 /** Interface for the compliance backend API. */
@@ -50,6 +51,7 @@ export interface ComplianceApi {
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
   deleteRemediationProfile(id: string): Promise<void>;
+  validateScan(body: { profileId: string; inventoryId: number }): Promise<PlatformValidationResult>;
   getCartridges(): Promise<ComplianceCartridge[]>;
   getCartridge(id: string): Promise<ComplianceCartridge | null>;
   saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;

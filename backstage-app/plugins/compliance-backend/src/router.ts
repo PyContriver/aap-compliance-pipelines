@@ -25,6 +25,7 @@ import { randomUUID } from 'crypto';
 
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
+import { validatePlatform } from './service/PlatformValidator';
 
 import type {
   LaunchScanRequest,
@@ -281,6 +282,36 @@ export async function createRouter(
   });
 
   // ─── Scan ───────────────────────────────────────────────────────────
+
+  router.post('/scan/validate', async (req, res) => {
+    const { profileId, inventoryId } = req.body;
+    const userToken = getUserAapToken(req);
+
+    if (!isNonEmptyString(profileId)) {
+      res.status(400).json({ error: 'profileId is required' });
+      return;
+    }
+    if (!isPositiveInteger(inventoryId)) {
+      res.status(400).json({ error: 'inventoryId must be a positive integer' });
+      return;
+    }
+
+    try {
+      const cartridge = await database.getCartridge(profileId);
+      if (!cartridge?.platformSpec || cartridge.platformSpec.scanner_validates) {
+        res.json({ valid: true, matchedHosts: [], mismatchedHosts: [] });
+        return;
+      }
+
+      const hostFacts = await service.getInventoryHostFacts(inventoryId, userToken);
+      const result = validatePlatform(cartridge.platformSpec, hostFacts);
+      res.json(result);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Platform validation failed: ${msg}`);
+      res.status(500).json({ error: msg });
+    }
+  });
 
   router.post('/scan', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;

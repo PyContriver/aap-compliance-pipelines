@@ -30,6 +30,7 @@ import type {
   JobEvent,
   ComplianceCartridge,
   SaveCartridgeRequest,
+  PlatformValidationResult,
 } from '@aap-compliance/common';
 
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
@@ -254,6 +255,13 @@ export class ComplianceBackendClient implements ComplianceApi {
   deleteRemediationProfile(id: string) {
     return this.request<void>(`/remediation-profiles/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+    });
+  }
+
+  validateScan(body: { profileId: string; inventoryId: number }) {
+    return this.request<PlatformValidationResult>('/scan/validate', {
+      method: 'POST',
+      body,
     });
   }
 

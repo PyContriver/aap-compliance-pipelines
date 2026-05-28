@@ -26,6 +26,7 @@ export type {
   ComplianceCartridge,
   SaveCartridgeRequest,
   PlatformSpec,
+  PlatformValidationResult,
   RemediationPlanGroup,
   RemediationPlan,
 } from './types';

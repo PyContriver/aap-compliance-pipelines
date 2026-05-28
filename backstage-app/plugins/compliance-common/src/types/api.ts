@@ -253,3 +253,10 @@ export interface PlatformSpec {
   device_type?: string[];
   scanner_validates?: boolean;
 }
+
+/** Result of pre-launch platform validation (ADR-011). */
+export interface PlatformValidationResult {
+  valid: boolean;
+  matchedHosts: string[];
+  mismatchedHosts: Array<{ hostname: string; reason: string }>;
+}

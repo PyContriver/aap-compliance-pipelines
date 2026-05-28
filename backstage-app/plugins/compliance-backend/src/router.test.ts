@@ -118,6 +118,7 @@ function createMockService() {
       .mockReturnValue({ groups: [], totalRules: 0, totalHosts: 0 }),
     fetchAndParseResults: jest.fn().mockResolvedValue([]),
     fetchScanErrorDetails: jest.fn().mockResolvedValue(null),
+    getInventoryHostFacts: jest.fn().mockResolvedValue([]),
     aggregateFindings: jest.fn().mockReturnValue([]),
     aggregateFindingsWithMetadata: jest.fn().mockResolvedValue([]),
     mapRawFindingPublic: jest.fn().mockReturnValue({
@@ -299,6 +300,65 @@ describe('compliance backend router', () => {
       expect(Array.isArray(body)).toBe(true);
       expect(body[0].id).toBe('scan-1');
       expect(database.getRecentScans).toHaveBeenCalledWith(50);
+    });
+  });
+
+  // ─── POST /scan/validate ─────────────────────────────────────────
+
+  describe('POST /scan/validate', () => {
+    it('returns valid when profile has no platformSpec', async () => {
+      const { app } = await createApp(undefined, {
+        getCartridge: jest.fn().mockResolvedValue({
+          id: 'p1', displayName: 'Test', platformSpec: null,
+        }),
+      });
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(200);
+      expect((res.body as any).valid).toBe(true);
+    });
+
+    it('returns mismatch when hosts do not match platform spec', async () => {
+      const { app } = await createApp(
+        {
+          getInventoryHostFacts: jest.fn().mockResolvedValue([
+            { hostname: 'win01', ansible_os_family: 'Windows' },
+            { hostname: 'rhel01', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+          ]),
+        },
+        {
+          getCartridge: jest.fn().mockResolvedValue({
+            id: 'p1', displayName: 'STIG RHEL 9',
+            platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
+          }),
+        },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { profileId: 'p1', inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(200);
+      expect((res.body as any).valid).toBe(false);
+      expect((res.body as any).mismatchedHosts).toHaveLength(1);
+      expect((res.body as any).mismatchedHosts[0].hostname).toBe('win01');
+      expect((res.body as any).matchedHosts).toContain('rhel01');
+    });
+
+    it('returns 400 when profileId is missing', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/scan/validate',
+        body: { inventoryId: 1 },
+      });
+
+      expect(res.status).toBe(400);
     });
   });
 

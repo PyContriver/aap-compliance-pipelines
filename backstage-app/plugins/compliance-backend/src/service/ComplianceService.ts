@@ -217,6 +217,16 @@ export class ComplianceService {
     }));
   }
 
+  async getInventoryHostFacts(
+    inventoryId: number,
+    token?: string,
+  ): Promise<Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string; device_type?: string }>> {
+    if (this.dataSource === 'mock') {
+      return [];
+    }
+    return this.controllerClient!.getInventoryHostFacts(inventoryId, token);
+  }
+
   // ─── Workflow job templates ─────────────────────────────────────────
 
   async getWorkflowTemplates(

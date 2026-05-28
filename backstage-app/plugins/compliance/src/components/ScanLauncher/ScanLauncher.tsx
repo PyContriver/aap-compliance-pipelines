@@ -30,6 +30,7 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
+import WarningIcon from '@material-ui/icons/Warning';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -66,7 +67,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-import type { ComplianceCartridge } from '@aap-compliance/common';
+import type { ComplianceCartridge, PlatformValidationResult } from '@aap-compliance/common';
 
 // Fallback data used while the backend is loading
 const FALLBACK_PROFILES = [
@@ -107,6 +108,7 @@ export const ScanLauncher = () => {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [platformWarning, setPlatformWarning] = useState<PlatformValidationResult | null>(null);
 
   // Backend-fetched data — start empty, no hardcoded fallback
   const [profiles, setProfiles] = useState<typeof FALLBACK_PROFILES>([]);
@@ -153,12 +155,10 @@ export const ScanLauncher = () => {
   const profile = profiles.find(p => p.id === selectedProfile);
   const inventory = inventories.find(i => i.id.toString() === selectedInventory);
 
-  const handleLaunch = async () => {
+  const doLaunch = async () => {
     setLaunching(true);
     setLaunchError(null);
     try {
-      // Check if a cartridge is registered for the selected profile and use
-      // its workflow template ID for the scan launch request.
       const cartridge = cartridges.find(c => c.id === selectedProfile);
       const scanRequest: Parameters<typeof api.launchScan>[0] = {
         profileId: selectedProfile,
@@ -169,7 +169,6 @@ export const ScanLauncher = () => {
         workflowTemplateId: cartridge?.workflowTemplateId ?? undefined,
       };
       const result = await api.launchScan(scanRequest);
-      // Navigate to results view with the returned workflow job ID
       navigate(`/compliance/results/${result.workflowJobId}`);
     } catch (err) {
       setLaunchError(
@@ -178,6 +177,23 @@ export const ScanLauncher = () => {
     } finally {
       setLaunching(false);
     }
+  };
+
+  const handleLaunch = async () => {
+    setLaunchError(null);
+    try {
+      const validation = await api.validateScan({
+        profileId: selectedProfile,
+        inventoryId: inventory?.id ?? 0,
+      });
+      if (!validation.valid && validation.mismatchedHosts.length > 0) {
+        setPlatformWarning(validation);
+        return;
+      }
+    } catch {
+      // Validation endpoint unavailable — proceed without blocking
+    }
+    await doLaunch();
   };
 
   const renderStepContent = (step: number) => {
@@ -455,6 +471,56 @@ export const ScanLauncher = () => {
             </Box>
           </Grid>
         </Grid>
+
+        <Dialog
+          open={!!platformWarning}
+          onClose={() => setPlatformWarning(null)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+              <WarningIcon style={{ color: '#F0AB00' }} />
+              Platform Compatibility Warning
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" paragraph>
+              {platformWarning?.mismatchedHosts.length} of{' '}
+              {(platformWarning?.matchedHosts.length ?? 0) + (platformWarning?.mismatchedHosts.length ?? 0)}{' '}
+              hosts don't match the profile's platform requirements:
+            </Typography>
+            <Box
+              component="ul"
+              style={{ maxHeight: 200, overflow: 'auto', paddingLeft: 20, margin: 0 }}
+            >
+              {platformWarning?.mismatchedHosts.map(h => (
+                <li key={h.hostname}>
+                  <Typography variant="body2">
+                    <strong>{h.hostname}</strong>: {h.reason}
+                  </Typography>
+                </li>
+              ))}
+            </Box>
+            <Typography variant="body2" color="textSecondary" style={{ marginTop: 16 }}>
+              These hosts will be scanned but results may be inaccurate or all rules may return
+              as not applicable.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPlatformWarning(null)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setPlatformWarning(null);
+                doLaunch();
+              }}
+            >
+              Launch Anyway
+            </Button>
+          </DialogActions>
+        </Dialog>
     </>
   );
 };
