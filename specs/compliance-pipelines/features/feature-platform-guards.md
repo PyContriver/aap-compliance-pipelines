@@ -84,8 +84,8 @@ interface PlatformSpec {
 | `plugins/compliance-backend/src/router.ts` | `POST /scan/validate` endpoint, `gatherFacts` in scan request |
 | `plugins/compliance/src/api/*` | `validateScan()` method |
 | `plugins/compliance/src/components/ScanLauncher/ScanLauncher.tsx` | Warning dialog, validate-before-launch flow |
-| `collections/.../playbooks/run_oscap.yml` | `gather_facts: true` |
-| `collections/.../playbooks/setup_controller.yml` | `use_fact_cache: true` on assessment JT |
+| `profiles/rhel9-stig/.../playbooks/run_oscap.yml` | `gather_facts: true` |
+| `profiles/rhel9-stig/install.yml` | `use_fact_cache: true` on assessment JT |
 | `docs/compliance-profile-developer-guide.md` | Fact cache requirements |
 | `docs/modules/proc-configure-compliance-pipeline.adoc` | Use Fact Storage setting |
 

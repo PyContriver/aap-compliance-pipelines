@@ -1354,12 +1354,36 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md` | normalize_xccdf module documentation |
 | `profiles/rhel9-stig/ee/execution-environment.yml` | EE definition (profile-level, used by ansible-builder) |
 
-### Deprecated Files (retained for backward compatibility)
+### Profile Metadata Convention (`meta/compliance-profile.yml`)
 
-| File | Status |
-|------|--------|
-| `plugins/modules/compliance_gather.py` | Deprecated -- replaced by `run_oscap.yml` |
-| `plugins/modules/compliance_evaluate.py` | Deprecated -- replaced by `oscap xccdf eval` + `normalize_xccdf` |
-| `playbooks/gather_facts.yml` | Deprecated -- replaced by `run_oscap.yml` |
-| `playbooks/evaluate.yml` | Deprecated -- replaced by `normalize.yml` |
-| `rules/stig_rhel9_v2r8.yml` | Deprecated -- metadata now comes from XCCDF datastream |
+Each compliance collection MUST include a `meta/compliance-profile.yml` file declaring the profile's identity and capabilities. This file serves two purposes:
+
+1. **JT default extra_vars** — the `install.yml` playbook reads this metadata and sets it as default `extra_vars` on the scan Job Template. This enables the Backstage plugin's Settings form to auto-populate fields when a user selects a scan JT.
+
+2. **Self-documentation** — the file declares what scanner, framework, XCCDF profile, and certification status the collection provides.
+
+**Required fields:**
+
+```yaml
+profile:
+  name: "Human-readable profile name"
+  framework: "DISA_STIG | CIS | PCI_DSS | HIPAA | NIST_800_53"
+  version: "V2R8 | v1.0.0 | etc."
+  platform: "RHEL 9 | Windows Server 2022 | etc."
+  scanner: "openscap | powerstig | custom"
+  xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
+  remediation_playbook: "playbooks/remediate.yml"
+  certification:
+    status: "certified | conformant | uncertified"
+    authority: "NIST SCAP 1.2 | CIS | etc."
+    disclaimer: "Human-readable explanation of certification scope"
+  platform_spec:
+    os_family: ["RedHat"]
+    os_version: ["9"]
+```
+
+**Auto-populate flow:**
+
+When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, and `certification_authority` keys, the form fields auto-populate. All fields remain editable — the auto-populate provides defaults, not constraints.
+
+If the JT has no extra_vars (e.g., a manually created JT without `install.yml`), the user fills in the fields manually. After the first scan, the CFF output confirms the profile metadata via the self-healing path.

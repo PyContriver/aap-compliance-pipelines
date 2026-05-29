@@ -227,11 +227,12 @@ export const CartridgeSettings = () => {
 
   const loadControllerResources = useCallback(async () => {
     try {
-      const [wfts, ees] = await Promise.all([
+      const [wfts, jts, ees] = await Promise.all([
         api.getControllerWorkflowTemplates(),
+        api.getControllerJobTemplates(),
         api.getControllerExecutionEnvironments(),
       ]);
-      setWorkflowTemplates(wfts);
+      setWorkflowTemplates([...jts, ...wfts]);
       setExecutionEnvironments(ees);
     } catch (err) {
       console.error('Failed to load controller resources:', err);
@@ -258,7 +259,7 @@ export const CartridgeSettings = () => {
         if (vars.framework) {
           setForm(prev => ({ ...prev, framework: vars.framework }));
         }
-        if (vars.certification_status) {
+        if (vars.certification_status && ['certified', 'conformant', 'uncertified'].includes(vars.certification_status)) {
           setCertStatus(vars.certification_status);
         }
         if (vars.certification_authority) {
@@ -471,7 +472,7 @@ export const CartridgeSettings = () => {
                   <TableCell>Certification</TableCell>
                   <TableCell>Version</TableCell>
                   <TableCell>Platform</TableCell>
-                  <TableCell>Workflow Job Template</TableCell>
+                  <TableCell>Scan Job Template</TableCell>
                   <TableCell>Execution Environment</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
@@ -691,14 +692,14 @@ export const CartridgeSettings = () => {
             />
 
             <FormControl variant="outlined" fullWidth className={classes.formField}>
-              <InputLabel>Workflow Job Template</InputLabel>
+              <InputLabel>Scan Job Template</InputLabel>
               <Select
                 value={form.workflowTemplateId ?? ''}
                 onChange={e => {
                   const val = e.target.value;
                   updateForm('workflowTemplateId', val === '' ? null : Number(val));
                 }}
-                label="Workflow Job Template"
+                label="Scan Job Template"
               >
                 <MenuItem value="">
                   <em>None</em>
@@ -710,7 +711,7 @@ export const CartridgeSettings = () => {
                 ))}
               </Select>
               <Typography variant="caption" color="textSecondary" style={{ marginTop: 4, marginLeft: 14 }}>
-                The workflow job template that orchestrates the scan-evaluate-remediate pipeline
+                Select a scan JT to auto-populate profile fields from its default extra_vars
               </Typography>
             </FormControl>
 

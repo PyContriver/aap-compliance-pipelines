@@ -41,8 +41,7 @@ Before submitting to the downstream repo, ensure the following are complete:
 
 | File | Reason |
 |---|---|
-| `content/` | Ansible compliance content (collections, EE definitions) -- ships separately |
-| `collections/` | Ansible collection source -- managed in its own repo or content pipeline |
+| `profiles/` | Self-contained compliance profiles (collections, EE definitions, install playbooks) |
 | `scripts/` | Dev helper scripts specific to the development environment |
 | `review/` | Internal review materials |
 | `SUBMISSION.md` | This file -- submission process documentation |

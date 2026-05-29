@@ -57,6 +57,7 @@ export interface ComplianceApi {
   saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
   deleteCartridge(id: string): Promise<void>;
   getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string }>;
+  getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerExecutionEnvironments(): Promise<Array<{ id: number; name: string; image: string }>>;
 }

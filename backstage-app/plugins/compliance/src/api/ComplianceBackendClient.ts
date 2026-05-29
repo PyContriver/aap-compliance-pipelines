@@ -294,6 +294,12 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request(`/job-templates/${id}`);
   }
 
+  getControllerJobTemplates() {
+    return this.request<Array<{ id: number; name: string; description: string }>>(
+      '/controller/job-templates',
+    );
+  }
+
   getControllerWorkflowTemplates() {
     return this.request<Array<{ id: number; name: string; description: string }>>(
       '/controller/workflow-job-templates',

@@ -1042,6 +1042,17 @@ export async function createRouter(
 
   // ─── Controller resource lookups (for compliance profile settings) ──
 
+  router.get('/controller/job-templates', async (req, res) => {
+    const userToken = getUserAapToken(req);
+    try {
+      const templates = await service.getJobTemplates(undefined, userToken);
+      res.json(templates);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: msg });
+    }
+  });
+
   router.get('/controller/workflow-job-templates', async (req, res) => {
     const userToken = getUserAapToken(req);
     try {

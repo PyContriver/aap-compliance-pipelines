@@ -43,6 +43,7 @@ In the Backstage compliance plugin Settings tab, create a new profile:
 - **Profile ID:** `xccdf_org.ssgproject.content_profile_cis_server_l1`
 - **Level:** 1 - Server
 - **Remediation:** ComplianceAsCode playbook from scap-security-guide
+- **Certification:** Conformant (CIS-CAT Pro is the CIS-certified scanner)
 
 ## Collection Structure
 
@@ -53,4 +54,5 @@ ansible_collections/security/compliance_rhel9_cis_l1/
   playbooks/remediate.yml              # CaC remediation (tag-scoped)
   playbooks/normalize.yml              # Standalone normalize utility
   meta/execution-environment.yml       # EE definition (also used by collection)
+  meta/compliance-profile.yml          # Profile identity and certification metadata
 ```

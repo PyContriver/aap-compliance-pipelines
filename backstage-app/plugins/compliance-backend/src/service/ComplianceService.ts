@@ -241,6 +241,17 @@ export class ComplianceService {
     return result.results;
   }
 
+  async getJobTemplates(
+    nameFilter?: string,
+    token?: string,
+  ): Promise<Array<{ id: number; name: string; description: string }>> {
+    if (this.dataSource === 'mock') {
+      return MockDataProvider.getWorkflowTemplates(nameFilter);
+    }
+    const result = await this.controllerClient!.listJobTemplates(nameFilter, token);
+    return result.results;
+  }
+
   // ─── Job template detail ─────────────────────────────────────────────
 
   async getJobTemplateDetail(
@@ -253,7 +264,8 @@ export class ComplianceService {
     if (!this.controllerClient) {
       throw new Error('Controller client not available');
     }
-    return this.controllerClient.getJobTemplateDetail(id, token);
+    const raw = await this.controllerClient.getJobTemplateDetail(id, token);
+    return { id: raw.id, name: raw.name, description: raw.description, extra_vars: raw.extra_vars };
   }
 
   // ─── Execution environments ─────────────────────────────────────────

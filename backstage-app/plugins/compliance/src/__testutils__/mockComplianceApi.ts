@@ -309,6 +309,11 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     saveCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
     deleteCartridge: jest.fn().mockResolvedValue(undefined),
     getJobTemplateDetail: jest.fn().mockResolvedValue({ id: 10, name: 'compliance-stig-scan', description: '', extra_vars: '{}' }),
+    getControllerJobTemplates: jest.fn().mockResolvedValue([
+      { id: 49, name: 'compliance-run-oscap', description: 'STIG assessment' },
+      { id: 52, name: 'compliance-scan-cis-l1-rhel9', description: 'CIS L1 assessment' },
+      { id: 54, name: 'compliance-scan-cis-l2-rhel9', description: 'CIS L2 assessment' },
+    ]),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([
       { id: 10, name: 'compliance-stig-scan', description: 'STIG scan workflow' },
     ]),
