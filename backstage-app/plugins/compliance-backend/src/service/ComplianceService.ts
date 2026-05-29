@@ -577,38 +577,39 @@ export class ComplianceService {
       `Fetching results for workflow job ${workflowJobId} (scan ${scanId}) via event parsing (fallback)`,
     );
 
-    // Step 1: Get workflow nodes to find the normalize job
-    const nodesResponse = await this.controllerClient.getWorkflowNodes(
-      workflowJobId,
-      token,
-    );
-    const nodes = nodesResponse.results;
-
-    // Find the node that produces findings. With the oscap pipeline this is
-    // run-oscap (single node that scans + normalizes). Fall back to normalize
-    // or evaluate for backward compatibility with older workflow layouts.
-    const normalizeNode = nodes.find(
-      n =>
-        n.identifier?.toLowerCase().includes('run-oscap') ||
-        n.summary_fields?.job?.name?.toLowerCase().includes('run-oscap') ||
-        n.identifier?.toLowerCase().includes('normaliz') ||
-        n.summary_fields?.job?.name?.toLowerCase().includes('normaliz') ||
-        n.identifier?.toLowerCase().includes('evaluat') ||
-        n.summary_fields?.job?.name?.toLowerCase().includes('evaluat'),
-    );
-
-    if (!normalizeNode?.summary_fields?.job?.id) {
-      this.logger.warn(
-        `No normalize/evaluate node found in workflow ${workflowJobId}. ` +
-        `Nodes: ${nodes.map(n => `${n.identifier}(${n.summary_fields?.job?.name ?? 'no-job'})`).join(', ')}`,
+    // Step 1: Get workflow nodes to find the normalize job.
+    // For JT-launched scans (no workflow), use the job ID directly.
+    let normalizeJobId = workflowJobId;
+    try {
+      const nodesResponse = await this.controllerClient.getWorkflowNodes(
+        workflowJobId,
+        token,
       );
-      return [];
-    }
+      const nodes = nodesResponse.results;
 
-    const normalizeJobId = normalizeNode.summary_fields.job.id;
-    this.logger.info(
-      `Found normalize job ${normalizeJobId} (node: ${normalizeNode.identifier})`,
-    );
+      const normalizeNode = nodes.find(
+        n =>
+          n.identifier?.toLowerCase().includes('run-oscap') ||
+          n.summary_fields?.job?.name?.toLowerCase().includes('run-oscap') ||
+          n.identifier?.toLowerCase().includes('normaliz') ||
+          n.summary_fields?.job?.name?.toLowerCase().includes('normaliz') ||
+          n.identifier?.toLowerCase().includes('evaluat') ||
+          n.summary_fields?.job?.name?.toLowerCase().includes('evaluat'),
+      );
+
+      if (normalizeNode?.summary_fields?.job?.id) {
+        normalizeJobId = normalizeNode.summary_fields.job.id;
+        this.logger.info(
+          `Found normalize job ${normalizeJobId} (node: ${normalizeNode.identifier})`,
+        );
+      } else {
+        this.logger.warn(
+          `No normalize/evaluate node found in workflow ${workflowJobId}. Using job ID directly.`,
+        );
+      }
+    } catch {
+      this.logger.info(`Job ${workflowJobId} is not a workflow — using as direct JT for event parsing`);
+    }
 
     // Step 2: Fetch runner_on_ok events from the normalize job
     const eventsResponse = await this.controllerClient.getRunnerOkEvents(
