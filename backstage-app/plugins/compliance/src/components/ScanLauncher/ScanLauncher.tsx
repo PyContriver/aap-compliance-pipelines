@@ -158,7 +158,6 @@ export const ScanLauncher = () => {
   const [needsFactGather, setNeedsFactGather] = useState(false);
 
   const doLaunch = async (gatherFacts?: boolean) => {
-    setLaunching(true);
     setLaunchError(null);
     try {
       const cartridge = cartridges.find(c => c.id === selectedProfile);
@@ -183,6 +182,8 @@ export const ScanLauncher = () => {
   };
 
   const handleLaunch = async () => {
+    if (launching) return;
+    setLaunching(true);
     setLaunchError(null);
     let gatherFacts = false;
     try {
@@ -196,6 +197,7 @@ export const ScanLauncher = () => {
       }
       if (!validation.valid && validation.mismatchedHosts.length > 0) {
         setPlatformWarning(validation);
+        setLaunching(false);
         return;
       }
     } catch {
