@@ -952,6 +952,18 @@ export class ComplianceService {
         return details.slice(0, 2000);
       }
 
+      // Step 3: No traceback, no events — fetch stdout as last resort
+      // (catches Ansible parse errors that fail before the play starts)
+      try {
+        const stdout = await this.controllerClient.getJobStdout(targetJobId, token);
+        if (stdout.content) {
+          this.logger.info(`Fetched stdout for job ${targetJobId} as error detail`);
+          return stdout.content.slice(0, 2000);
+        }
+      } catch {
+        // stdout fetch failed — best-effort
+      }
+
       return null;
     } catch (error) {
       this.logger.warn(

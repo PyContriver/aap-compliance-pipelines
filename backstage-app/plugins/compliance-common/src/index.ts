@@ -32,5 +32,6 @@ export type {
   RemediationPlanGroup,
   RemediationPlan,
   RuleMetadataRecord,
+  IngestFinding,
 } from './types';
 

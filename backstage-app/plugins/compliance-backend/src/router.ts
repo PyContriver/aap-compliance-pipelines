@@ -401,6 +401,7 @@ export async function createRouter(
         status: 'pending',
         startedAt: new Date().toISOString(),
         completedAt: null,
+        errorDetails: null,
       });
       scanRecordId = scanRecord.id;
       await database.storeIngestToken(scanRecord.id, ingestToken);
@@ -869,6 +870,7 @@ export async function createRouter(
         status: 'running',
         startedAt: new Date().toISOString(),
         completedAt: null,
+        errorDetails: null,
       });
 
       res.json({ ...result, plan });
