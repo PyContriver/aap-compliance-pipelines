@@ -153,6 +153,9 @@ export async function createRouter(
   const staleScanThrottle = new Map<string, number>();
   const STALE_SCAN_CHECK_INTERVAL_MS = 30_000;
 
+  // Prevent duplicate event parsing when parallel requests race
+  const parseInProgress = new Set<string>();
+
   router.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
@@ -476,14 +479,30 @@ export async function createRouter(
         if (st === 'successful' || st === 'failed') {
           const effectiveScanId = dbScan?.id ?? resolvedScanId;
 
+          if (parseInProgress.has(effectiveScanId)) {
+            // Another request is already parsing — wait and return DB findings
+            await new Promise(r => setTimeout(r, 2000));
+            const dbFindings = await database.getFindingsByScanId(effectiveScanId);
+            if (dbFindings.length > 0) {
+              res.json(await service.aggregateFindingsWithMetadata(dbFindings));
+              return;
+            }
+          }
+
+          parseInProgress.add(effectiveScanId);
           logger.info(
             `Workflow ${workflowJobId} is complete — fetching and parsing results (dbScanId=${effectiveScanId})`,
           );
-          const parsed = await service.fetchAndParseResults(
-            workflowJobId,
-            effectiveScanId,
-            userToken,
-          );
+          let parsed;
+          try {
+            parsed = await service.fetchAndParseResults(
+              workflowJobId,
+              effectiveScanId,
+              userToken,
+            );
+          } finally {
+            parseInProgress.delete(effectiveScanId);
+          }
 
           if (dbScan) {
             const scanStatus = st === 'successful' ? 'completed' : 'failed';
