@@ -2,6 +2,15 @@
 
 This document describes how to submit the compliance pipelines feature from this standalone repo (`aap-compliance-pipelines`) to the downstream Ansible Portal repo (`ansible/ansible-rhdh-plugins`).
 
+## Current Status (2026-05-29)
+
+- **Backend version**: v0.7.6
+- **Frontend version**: v0.5.4
+- **Test count**: 271 tests across 12 suites
+- **ADRs**: 11 formal decision records in `specs/compliance-pipelines/decisions/`
+- **Profiles**: 3 compliance profiles (RHEL 9 STIG, CIS L1, CIS L2)
+- **Implementation**: Phases 1-4 complete (content packaging, scan pipeline, remediation builder, export and polish). Phase 5 (EDA) and Phase 6 (documentation/hardening) remain.
+
 ## Prerequisites
 
 Before submitting to the downstream repo, ensure the following are complete:
@@ -34,7 +43,7 @@ Before submitting to the downstream repo, ensure the following are complete:
 
 | This Repo | Downstream Location | Notes |
 |---|---|---|
-| Architecture decision records | `docs/adrs/NNN-compliance-*.md` | Create ADRs in downstream format (not yet written in this repo) |
+| Architecture decision records (11 ADRs) | `docs/adrs/NNN-compliance-*.md` | Adapt from `specs/compliance-pipelines/decisions/ADR-001` through `ADR-011` |
 | Research documents | `docs/research/NNN-compliance-*.md` | Adapt research for downstream audience |
 
 ### Files that stay in this repo only
@@ -109,14 +118,20 @@ The plugin code may need adjustments:
 - **Dynamic plugin exports**: Add `alpha.ts` or dynamic plugin entry point if required by the downstream packaging
 - **Tests**: Ensure tests pass in the upstream CI environment (`yarn test`, `yarn tsc`, `yarn lint`)
 
-### Step 6: Create ADRs in downstream format
+### Step 6: Adapt ADRs for downstream format
 
-Write architecture decision records in `docs/adrs/` covering:
-- ADR: Compliance profile model for pluggable scanner registration
-- ADR: Gateway-only API routing (no direct Controller access)
-- ADR: Backstage PostgreSQL for compliance data persistence
-- ADR: CaC content consumption model (consume, don't author)
-- ADR: Dynamic host grouping for remediation at scale
+11 ADRs exist in `specs/compliance-pipelines/decisions/`. Adapt them for `docs/adrs/` covering:
+- ADR-001: Scanner orchestrator architecture (CFF as contract)
+- ADR-002: Two-tier RBAC (Backstage + AAP pass-through)
+- ADR-003: Single assessment JT with 2 plays
+- ADR-004: OpenSCAP replaces custom evaluate module
+- ADR-005: Slim findings for Controller event storage
+- ADR-006: Self-contained compliance profiles
+- ADR-007: Direct POST findings as future data channel
+- ADR-008: OpenSCAP agentless pattern (install/scan/remove)
+- ADR-009: CaC remediation via direct JT with job_tags
+- ADR-010: Per-scan ingest token for findings submission security
+- ADR-011: Profile-driven platform guards
 
 ### Step 7: Create research documents
 

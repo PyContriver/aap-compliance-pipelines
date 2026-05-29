@@ -2,7 +2,7 @@
 
 **Feature Branch**: `compliance-pipelines`
 **Created**: 2026-04-23
-**Status**: Active (oscap migration complete, PRs #4-#13 merged)
+**Status**: Active (oscap migration complete, PRs #4-#13 merged; JT/WJT transparent handling, settings redesign, certification badges — PRs #21-#29)
 **Input**: User description: "End-to-end compliance pipeline experience (scan, review, remediate, verify) for regulated infrastructure within the Ansible Automation Platform Portal"
 **Related**: ANSTRAT-1670 (Evolve Ansible Content — Initiative 3: Strategic Domain Content), ANSTRAT-1285 (Pattern Loading Service), ANSTRAT-1534 (Content Discovery), ANSTRAT-2122 (Skill Content Type)
 **Research**: Competitor Analysis, Content Delivery Strategy, Jira Feature Template Analysis <!-- Original links removed: prototypes/compliance-pipelines/context/ directory no longer exists -->
@@ -20,9 +20,9 @@ Before compliance scanning can begin, a platform administrator must add a compli
 **Acceptance Scenarios**:
 
 1. **Given** a portal with the compliance plugin installed but no compliance profiles registered, **When** an admin navigates to Compliance > Settings, **Then** they see an empty state with instructions to add a compliance profile and an "Add Compliance Profile" button
-2. **Given** the compliance profile registration form, **When** the admin selects an Execution Environment from a dropdown populated via the AAP Gateway API, maps it to an assessment job template, and provides a display name and compliance standard identifier (e.g., `rhel9-stig-v2r8`), **Then** the compliance profile is persisted to the compliance database and appears in the compliance profile list
+2. **Given** the compliance profile registration form (discovery-first layout), **When** the admin selects an assessment job template from a dropdown that fetches both JTs and WJTs via the AAP Gateway API, **Then** the system auto-populates the EE, display name, and standard ID from the selected template's metadata, presenting a confirmation dialog before saving. The form supports both Job Templates and Workflow Job Templates transparently
 3. **Given** a registered compliance profile, **When** the admin views the compliance profile details, **Then** they see the EE name, assessment job template name, compliance standard, creation date, and a status indicator showing whether the EE and job template are still accessible via the AAP Gateway
-4. **Given** one or more registered compliance profiles, **When** any user navigates to the compliance profile browser, **Then** the registered profiles appear as selectable options for launching scans
+4. **Given** one or more registered compliance profiles, **When** any user navigates to the compliance profile browser or compliance dashboard, **Then** all registered profiles appear with certification badges (certified/conformant/uncertified) on all surfaces including the scan launcher, regardless of whether they have been scanned
 
 ---
 
@@ -173,15 +173,15 @@ Automation architects need infrastructure changes (new host provisioned, configu
 #### Scan Execution
 
 - **FR-005**: System MUST allow administrators to launch compliance scans by selecting a registered compliance profile, specifying target hosts or inventory, and providing optional scan parameters
-- **FR-006**: System MUST invoke the AAP assessment job template mapped by the selected compliance profile via the AAP Gateway API, passing the target inventory and extra variables (single JT with 2 plays: scan targets + normalize on localhost)
-- **FR-007**: System MUST track scan progress by polling the AAP Gateway API for job status and display real-time status updates in the portal
-- **FR-008**: System MUST receive scan findings (via Direct POST from the assessment JT or by parsing Controller job events as a fallback) into structured per-host, per-rule format and persist them to the compliance database
+- **FR-006**: System MUST invoke the AAP assessment job template mapped by the selected compliance profile via the AAP Gateway API, passing the target inventory and extra variables (single JT with 2 plays: scan targets + normalize on localhost). The system MUST handle both Job Templates (JTs) and Workflow Job Templates (WJTs) transparently — scan launch, status polling, progress tracking, and event parsing all adapt to the template type automatically (JT fallback pattern)
+- **FR-007**: System MUST track scan progress by polling the AAP Gateway API for job status and display real-time status updates in the portal. For WJTs, the system polls workflow job nodes; for JTs, the system polls the job directly. Double-click prevention on the scan launch button MUST prevent duplicate submissions
+- **FR-008**: System MUST receive scan findings (via Direct POST from the assessment JT or by parsing Controller job events as a fallback) into structured per-host, per-rule format and persist them to the compliance database. A `parseInProgress` guard MUST prevent duplicate findings from parallel event parsing
 
 #### Findings Review
 
 - **FR-009**: System MUST display scan findings organized by severity category (CAT I, CAT II, CAT III) with summary pass/fail counts
 - **FR-010**: System MUST display per-host compliance status for each finding, including the actual observed value on each host
-- **FR-011**: System MUST support filtering findings by severity, compliance status, and rule ID
+- **FR-011**: System MUST support filtering findings by severity, compliance status, and rule ID. Findings tables MUST use the column header "Rule ID" (not "STIG ID") for framework-neutral display across STIG, CIS, and other compliance frameworks
 - **FR-012**: System MUST display homogeneity advisories when a small subset of hosts fails a rule that passes on the majority
 
 #### Remediation Builder
@@ -215,6 +215,12 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - **FR-027**: System MUST support EDA-triggered compliance scans using registered compliance profiles
 - **FR-028**: System MUST batch rapid-fire events within a configurable cooldown window to prevent redundant concurrent scans
 - **FR-029**: Event-driven scan findings MUST be stored in the same database and appear in the same dashboard as manual scan findings
+
+#### UX and Display
+
+- **FR-033**: Dashboard MUST display all registered compliance profiles with certification badges (certified/conformant/uncertified) regardless of whether scans have been run against them. The `CertificationBadge` is a shared component used on all surfaces: dashboard, profile browser, scan launcher, and findings viewer
+- **FR-034**: Settings form MUST use a discovery-first layout where the admin selects a job template first, and the system auto-populates EE, display name, and standard ID from the template's metadata. A confirmation dialog presents the auto-populated values before saving
+- **FR-035**: When fetching error details for failed scans, the system MUST fall back to parsing job stdout when structured event data is unavailable (catches Ansible parse errors and other non-structured failures)
 
 #### Security and Access Control
 
@@ -274,3 +280,5 @@ Formal decision records are maintained in [`decisions/`](decisions/):
 | [ADR-007](decisions/ADR-007-direct-post-findings.md) | Direct POST findings as future data channel |
 | [ADR-008](decisions/ADR-008-oscap-agentless-pattern.md) | OpenSCAP agentless pattern (install/scan/remove) |
 | [ADR-009](decisions/ADR-009-cac-remediation-via-direct-jt.md) | CaC remediation via direct JT with job_tags |
+| [ADR-010](decisions/ADR-010-per-scan-ingest-token.md) | Per-scan ingest token for findings submission security |
+| [ADR-011](decisions/ADR-011-profile-driven-platform-guards.md) | Profile-driven platform guards |

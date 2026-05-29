@@ -1,6 +1,6 @@
 # Implementation Plan: Compliance Pipelines
 
-**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 | **Spec**: [spec.md](./spec.md)
+**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-05-29) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`
 **Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Ansible Content Ecosystem](../../prototypes/compliance-pipelines/context/ansible-content-ecosystem.md)
 
@@ -17,6 +17,7 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 3. CaC content consumption — selective remediation via Ansible `--tags` + `--extra-vars` + `--limit`
 4. Single assessment JT (run_oscap.yml with 2 plays: scan + normalize in one container), direct remediation JT with job_tags — changed from multi-node workflow because AAP workflow nodes run in separate containers (see ADR-003, ADR-009)
 5. All API calls through Gateway — no direct Controller access (aligns with AAP 2.7+ architecture)
+6. JT/WJT transparent handling — scan launch, status polling, progress tracking, and event parsing all work with both Job Templates and Workflow Job Templates. The system detects the template type and adapts API calls accordingly (JT fallback pattern)
 
 ## Technical Context
 
@@ -524,53 +525,57 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 ## Implementation Phases
 
-### Phase 1: Content Packaging and Backend Foundation (2 weeks)
+### Phase 1: Content Packaging and Backend Foundation (2 weeks) -- COMPLETE
 
-- Create `compliance-backend` plugin scaffold with Backstage plugin API
-- Create `compliance-common` package with shared TypeScript types
-- Write Knex database migrations for all compliance tables
-- Implement `DatabaseHandler` with CRUD operations for all entities
-- Implement `AapGatewayClient` for AAP Gateway API communication
-- Implement `CartridgeService` for compliance profile CRUD with EE/workflow validation via Gateway API
-- Implement compliance profile REST API endpoints (`/cartridges`)
-- Package compliance Ansible collection with EE profile definition
-- Unit tests for all services (>80% coverage target)
+- [x] Create `compliance-backend` plugin scaffold with Backstage plugin API
+- [x] Create `compliance-common` package with shared TypeScript types
+- [x] Write Knex database migrations for all compliance tables (5 migrations, including multi-inventory support)
+- [x] Implement `DatabaseHandler` with CRUD operations for all entities
+- [x] Implement `AapGatewayClient` for AAP Gateway API communication
+- [x] Implement `CartridgeService` for compliance profile CRUD with EE/workflow validation via Gateway API
+- [x] Implement compliance profile REST API endpoints (`/cartridges`)
+- [x] Package compliance Ansible collection with EE profile definition (3 profiles: STIG, CIS L1, CIS L2)
+- [x] Unit tests for all services (271 tests across 12 suites)
 
-### Phase 2: Scan and Findings Pipeline (2 weeks)
+### Phase 2: Scan and Findings Pipeline (2 weeks) -- COMPLETE
 
-- Implement `ScanService` — workflow invocation via Gateway, job status polling
-- Implement XCCDF and JSON result parsers
-- Implement `FindingsService` — per-host, per-rule finding storage and query
-- Implement `PostureService` — compliance trend aggregation from findings
-- Implement scan and findings REST API endpoints
-- Build frontend `ComplianceDashboard` component (posture summary, scan history)
-- Build frontend `ScanLauncher` component (compliance profile selection, inventory, launch)
-- Build frontend `FindingsViewer` component (severity groups, host detail panels)
-- Build `HomogeneityAdvisory` component for outlier host detection
-- Integration tests (scan launch → findings storage → dashboard display)
+- [x] Implement `ScanService` — JT/WJT transparent invocation via Gateway, job status polling with JT fallback
+- [x] Implement XCCDF and JSON result parsers with duplicate finding prevention (`parseInProgress` guard)
+- [x] Implement `FindingsService` — per-host, per-rule finding storage and query
+- [x] Implement `PostureService` — compliance trend aggregation from findings
+- [x] Implement scan and findings REST API endpoints, including Direct POST `/findings/ingest` with per-scan ingest tokens (ADR-010)
+- [x] Build frontend `ComplianceDashboard` component (posture summary, scan history, shows all registered profiles with certification badges)
+- [x] Build frontend `ScanLauncher` component (compliance profile selection with certification badges, inventory, launch with double-click prevention)
+- [x] Build frontend `FindingsViewer` component (severity groups, host detail panels, Rule ID column for framework-neutral display)
+- [x] Build `HomogeneityAdvisory` component for outlier host detection
+- [x] Integration tests (scan launch → findings storage → dashboard display)
+- [x] Error detail stdout fallback for failed scan diagnostics
 
-### Phase 3: Remediation Builder (2 weeks)
+### Phase 3: Remediation Builder (2 weeks) -- COMPLETE
 
-- Implement `ProfileService` — CRUD for saved remediations
-- Implement `RemediationService` — translate remediation decisions to `--limit`, `--tags`, `--extra-vars`
-- Implement remediation application logic (match saved remediation to new findings, flag unreviewed rules)
-- Build frontend `ProfileBuilder` component (rule toggles, scope selection, parameter overrides)
-- Build frontend `ExecutionPreview` component (rule x host matrix)
-- Build frontend `ProfileManager` component (save, load, apply remediations)
-- Build frontend `CartridgeSettings` admin page (compliance profile management)
-- Implement remediation REST API endpoints
-- Implement automatic verification re-scan trigger after remediation
-- Build before/after comparison view
-- Component tests for all profile builder interactions
+- [x] Implement `ProfileService` — CRUD for saved remediations
+- [x] Implement `RemediationService` — translate remediation decisions to `--limit`, `--tags`, `--extra-vars`
+- [x] Implement remediation application logic (match saved remediation to new findings, flag unreviewed rules)
+- [x] Build frontend `ProfileBuilder` component (rule toggles, scope selection, parameter overrides)
+- [x] Build frontend `ExecutionPreview` component (rule x host matrix)
+- [x] Build frontend `ProfileManager` component (save, load, apply remediations)
+- [x] Build frontend `CartridgeSettings` admin page — redesigned with discovery-first layout, auto-populate with confirmation dialog, fetches both JTs and WJTs
+- [x] Implement remediation REST API endpoints
+- [x] Implement automatic verification re-scan trigger after remediation
+- [x] Build before/after comparison view
+- [x] Component tests for all profile builder interactions
+- [x] `CertificationBadge` shared component on all surfaces (dashboard, profile browser, scan launcher, findings viewer)
 
-### Phase 4: Export and Polish (1 week)
+### Phase 4: Export and Polish (1 week) -- COMPLETE
 
-- Implement `ExportService` — CSV and JSON generation with streaming for large datasets
-- Build frontend `ExportDialog` component
-- Implement export REST API endpoint
-- Add scan history pagination and filtering
-- Performance optimization for large finding sets (database query tuning, frontend virtualization)
-- E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
+- [x] Implement `ExportService` — CSV and JSON generation with streaming for large datasets
+- [x] Build frontend `ExportDialog` component
+- [x] Implement export REST API endpoint
+- [x] Add scan history pagination and filtering
+- [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
+- [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
+
+**Current versions**: Backend v0.7.6, Frontend v0.5.4, 271 tests across 12 suites, 11 ADRs
 
 ### Phase 5: EDA Integration (1 week — stretch goal)
 
