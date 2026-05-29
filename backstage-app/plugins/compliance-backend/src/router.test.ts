@@ -971,6 +971,9 @@ describe('compliance backend router', () => {
         getWorkflowJobStatus: jest
           .fn()
           .mockRejectedValue(new Error('Not found')),
+        getJobStatus: jest
+          .fn()
+          .mockRejectedValue(new Error('Not found')),
       });
       const res = await testRequest(app, {
         path: '/workflow-status/999',

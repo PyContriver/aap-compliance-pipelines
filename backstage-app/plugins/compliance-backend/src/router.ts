@@ -208,10 +208,16 @@ export async function createRouter(
       await Promise.all(staleScans.map(async scan => {
         try {
           staleScanThrottle.set(scan.id, now);
-          const isRemediation = scan.scanner === 'remediation';
-          const status = isRemediation
-            ? await service.getJobStatus(scan.workflowJobId!, userToken)
-            : await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
+          let status;
+          if (scan.scanner === 'remediation') {
+            status = await service.getJobStatus(scan.workflowJobId!, userToken);
+          } else {
+            try {
+              status = await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
+            } catch {
+              status = await service.getJobStatus(scan.workflowJobId!, userToken);
+            }
+          }
           const terminal = ['successful', 'failed', 'error', 'canceled'];
           if (terminal.includes(status.status)) {
             const newStatus = status.status === 'successful' ? 'completed' : 'failed';
@@ -456,10 +462,15 @@ export async function createRouter(
       }
     }
 
-    // 3. In live mode, if the workflow is complete, fetch and parse results
+    // 3. In live mode, if the job is complete, fetch and parse results
     if (resolvedScanId && service.getDataSource() === 'live' && workflowJobId) {
       try {
-        const status = await service.getWorkflowJobStatus(workflowJobId, userToken);
+        let status;
+        try {
+          status = await service.getWorkflowJobStatus(workflowJobId, userToken);
+        } catch {
+          status = await service.getJobStatus(workflowJobId, userToken);
+        }
         const st = status.status.toLowerCase();
         if (st === 'successful' || st === 'failed') {
           const effectiveScanId = dbScan?.id ?? resolvedScanId;
@@ -700,7 +711,12 @@ export async function createRouter(
       return;
     }
     try {
-      const status = await service.getWorkflowJobStatus(jobId, userToken);
+      let status;
+      try {
+        status = await service.getWorkflowJobStatus(jobId, userToken);
+      } catch {
+        status = await service.getJobStatus(jobId, userToken);
+      }
       res.json(status);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -734,7 +750,12 @@ export async function createRouter(
       return;
     }
     try {
-      const nodes = await service.getWorkflowNodes(jobId, userToken);
+      let nodes;
+      try {
+        nodes = await service.getWorkflowNodes(jobId, userToken);
+      } catch {
+        nodes = [];
+      }
       res.json(nodes);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

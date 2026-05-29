@@ -128,7 +128,7 @@ security.compliance_<platform>_<scanner>/
       <framework>_<version>.yml
 ```
 
-**Key difference from Tier 1:** The `plugins/modules/` directory replaces `compliance_gather.py` and scanner-execution modules with an API adapter module. The `playbooks/scan.yml` is replaced by `playbooks/fetch_<scanner>.yml`. Remediation roles are identical -- the same role fixes the finding whether OpenSCAP or Qualys discovered it.
+**Key difference from Tier 1:** The `plugins/modules/` directory replaces the scanner-execution and normalizer modules with an API adapter module. The `playbooks/scan.yml` is replaced by `playbooks/fetch_<scanner>.yml`. Remediation roles are identical -- the same role fixes the finding whether OpenSCAP or Qualys discovered it.
 
 ### Tier 3 Structure
 
@@ -223,7 +223,7 @@ This is THE contract. Every normalizer must produce output conforming to this sc
           "properties": {
             "name": {
               "type": "string",
-              "enum": ["openscap", "powerstig", "compliance_evaluate", "insights", "qualys", "tenable", "rapid7", "ciscat", "scap_workbench", "custom"],
+              "enum": ["openscap", "powerstig", "insights", "qualys", "tenable", "rapid7", "ciscat", "scap_workbench", "custom"],
               "description": "Scanner identifier"
             },
             "version": {
@@ -471,8 +471,6 @@ All normalizers must map scanner-specific severity to the common format:
 | Insights | `high` | `high` | CAT I |
 | Insights | `medium` | `medium` | CAT II |
 | Insights | `low` | `low` | CAT III |
-| compliance_evaluate | `high` / `medium` / `low` | passthrough | CAT I/II/III |
-
 ### Status Mapping Table
 
 | Scanner | Scanner Value | Common `status` |
@@ -496,8 +494,6 @@ All normalizers must map scanner-specific severity to the common format:
 | CIS-CAT | `Unknown` | `not_checked` |
 | CIS-CAT | `Not Applicable` | `not_applicable` |
 | Insights | `pass` / `fail` | `pass` / `fail` |
-| compliance_evaluate | `pass` / `fail` / `error` | passthrough |
-
 ### Example: Complete Finding Object
 
 ```json
@@ -810,6 +806,15 @@ No workflow is needed for Tier 1 assessment. Remediation is always a separate, s
 
 > **Why a single JT instead of a multi-node workflow?** AAP workflow nodes run in separate containers. The scan play fetches XCCDF result files from targets to the execution node, but a second workflow node cannot access those files because it runs in a different container. Combining scan and normalize into one JT (two plays) solves this. Tier 2 scanners (API-based) do not have this problem because they fetch results via API on localhost, so multi-node workflows remain valid for Tier 2/3 profiles.
 
+### Job Template Naming
+
+Two JT naming conventions are valid:
+
+- **Generic name** (`compliance-run-oscap`): A single shared JT used on simple or single-profile deployments (e.g., a home lab). All profiles use the same JT name, and the XCCDF profile is selected via extra_vars.
+- **Per-profile names** (`compliance-scan-stig-rhel9`, `compliance-scan-cis-l1-rhel9`): One JT per compliance profile, used on multi-profile deployments (e.g., netrunner demo lab). Each JT has its own default extra_vars and EE configuration.
+
+Both are valid. The plugin resolves the assessment JT by ID (from the Settings registration) or by name search, so the naming convention does not affect functionality.
+
 ### Job Template Definitions
 
 Job templates go in `extensions/patterns/aap_config/job_templates.yml`:
@@ -971,7 +976,7 @@ The compliance profile must include discovery metadata so the Backstage plugin c
 
 ### Pattern Metadata
 
-The `extensions/patterns/metadata.yml` file provides high-level discovery information:
+The `extensions/patterns/metadata.yml` file provides high-level discovery information. The `platform:` block in this file is read by `install.yml` and set as part of the JT's default extra_vars, enabling auto-populate of platform requirements in the Settings form:
 
 ```yaml
 name: compliance-<platform>-<framework>
@@ -1063,22 +1068,25 @@ When a compliance profile collection is installed, an administrator registers it
 
 ### Registration Fields
 
+When an admin selects a scan JT that was provisioned via `install.yml`, fields marked "Auto-populated" below are filled in automatically from the JT's default extra_vars. All auto-populated fields remain editable. If the JT lacks extra_vars, all fields must be entered manually -- refer to the profile's `meta/compliance-profile.yml` or README for the correct values.
+
 | Field | Source | Description |
 |-------|--------|-------------|
-| **Display name** | Manual entry | Human-readable name (e.g., "RHEL 9 DISA STIG") |
-| **Compliance standard identifier** | Manual entry | Machine identifier (e.g., `rhel9-stig-v2r8`) |
+| **Display name** | Auto-populated or manual entry | Human-readable name (e.g., "RHEL 9 DISA STIG") |
+| **Compliance standard identifier** | Auto-populated or manual entry | Machine identifier (e.g., `rhel9-stig-v2r8`) |
 | **Execution Environment** | AAP Gateway API dropdown | The EE built from the compliance profile's `ee/execution-environment.yml` |
-| **Assessment job template** | AAP Gateway API dropdown | The JT running `run_oscap.yml` (scan + normalize) |
-| **Remediation playbook path** | From collection | Path to the remediation playbook inside the EE |
-| **Scanner tier** | Manual selection | 1 (built-in), 2 (BYOS), or 3 (hybrid) |
-| **Platform requirements** | From collection metadata | Platform spec declaring supported OS/device types (see below) |
+| **Assessment job template** | AAP Gateway API dropdown | The JT running `run_oscap.yml` (scan + normalize). Selecting a JT triggers auto-populate. |
+| **Remediation playbook path** | Auto-populated or manual entry | Path to the remediation playbook inside the EE |
+| **Scanner tier** | Auto-populated or manual selection | 1 (built-in), 2 (BYOS), or 3 (hybrid) |
+| **Platform requirements** | Auto-populated or from collection metadata | Platform spec declaring supported OS/device types (see below). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form. |
+| **Certification status** | Auto-populated or manual selection | `certified`, `conformant`, or `uncertified` (see section 10) |
 | **Scan tags** | Optional | Tags for organizing compliance profiles in the UI |
 
 ### Platform Requirements (ADR-011)
 
 Every compliance profile must declare which platforms it supports. The plugin uses this to validate inventories before launching scans and to set playbook-side guards. This prevents silent failures when a profile is run against incompatible hosts.
 
-The platform spec is stored as JSON in the cartridge registry and declared in the collection's `extensions/patterns/metadata.yml`:
+The platform spec is stored as JSON in the compliance profile registry and declared in the collection's `extensions/patterns/metadata.yml`. When included in the JT's default extra_vars (via `install.yml`), the platform spec auto-populates in the Settings form. If omitted, users must configure platform requirements manually in the Settings form -- document the supported platforms in the collection README.
 
 ```yaml
 # Tier 1 — OS-based profiles
@@ -1121,10 +1129,13 @@ See `specs/compliance-pipelines/decisions/ADR-011-profile-driven-platform-guards
 
 1. Admin installs the collection to Automation Hub (or a local repo)
 2. Admin builds the EE from `ee/execution-environment.yml` using `ansible-builder` or the EE Builder Service
-3. Admin runs the setup playbook (`extensions/patterns/aap_config/`) to provision Controller resources (workflow, job templates, surveys)
+3. Admin runs the `install.yml` playbook to provision Controller resources (JTs with default extra_vars from `meta/compliance-profile.yml`)
 4. Admin navigates to Compliance > Settings in the portal
-5. Admin clicks "Add Compliance Profile" and maps the display name, EE, and assessment job template
-6. The compliance profile appears in the profile browser and is available for scan launches
+5. Admin clicks "Add Compliance Profile" and selects the assessment JT -- form fields auto-populate from the JT's default extra_vars
+6. Admin reviews auto-populated values, adjusts if needed, and saves
+7. The compliance profile appears in the profile browser and is available for scan launches
+
+> **If step 3 was skipped** (JT created manually without `install.yml`), step 5 will not auto-populate. The admin must fill in all fields manually using values from the collection's `meta/compliance-profile.yml` or README.
 
 ### Validation
 
@@ -1202,7 +1213,7 @@ Certification status tells users whether scan results are formally recognized by
 
 ### Declaring Certification in a Profile
 
-The normalizer module accepts `certification_status` and `certification_authority` parameters. These are set in the profile's playbooks (`run_oscap.yml`, `normalize.yml`) and emitted in the CFF output:
+The normalizer module accepts `certification_status` and `certification_authority` parameters. These are set in the profile's playbooks (`run_oscap.yml`, `normalize.yml`) and emitted in the CFF output. When these values are included in the JT's default extra_vars (via `install.yml` reading `meta/compliance-profile.yml`), they auto-populate the certification fields in the Settings form. If omitted, the Settings form defaults to `uncertified` -- document the correct certification status in the collection README so admins can set it manually.
 
 ```yaml
 - name: Normalize results
@@ -1282,7 +1293,7 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Original scanner rule ID preserved in `evidence.scanner_rule_id`
 - [ ] `supports_check_mode=True` in the module's `AnsibleModule()` call
 - [ ] Unit tests for the normalizer covering pass, fail, error, not_applicable, and edge cases
-- [ ] Certification status declared (`certified`, `conformant`, or `uncertified`) with authority (see section 10)
+- [ ] Certification status declared (`certified`, `conformant`, or `uncertified`) with authority (see section 10). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form.
 
 ### Execution Environment
 
@@ -1296,20 +1307,19 @@ Use this checklist when building a new compliance profile. Every item must be sa
 ### Pipeline Playbooks
 
 - [ ] Pipeline playbooks for each workflow stage present under `playbooks/`
-- [ ] Gather playbook collects facts in a single round-trip per host
+- [ ] Assessment playbook uses `gather_facts: true` on the target play to populate Controller's fact cache for platform validation
 - [ ] Scan playbook (Tier 1) or fetch playbook (Tier 2) retrieves scanner results
 - [ ] Normalize playbook transforms scanner output to CFF JSON
 - [ ] Remediate playbook supports `--tags`, `--extra-vars`, and `--limit` for selective execution
 - [ ] Check mode (audit-only) supported for drift detection without changes
-- [ ] Verify playbook re-runs the scan to confirm remediation effectiveness
+- [ ] Verification is supported by re-running the assessment JT from the UI with `scanType: 'verification'` (no separate verify playbook needed)
 
 ### Workflow and Controller Integration
 
-- [ ] `extensions/patterns/aap_config/workflow.yml` with `infra.aap_configuration` YAML
 - [ ] `extensions/patterns/aap_config/job_templates.yml` with template definitions
-- [ ] Workflow template has `ask_inventory_on_launch: true`
-- [ ] All child job templates have `ask_inventory_on_launch: true`
-- [ ] Workflow nodes have `inventory: null` (inherit from workflow)
+- [ ] All job templates have `ask_inventory_on_launch: true`
+- [ ] For Tier 2/3 profiles only: `extensions/patterns/aap_config/workflow.yml` with `infra.aap_configuration` YAML (Tier 1 uses a single JT, not a workflow)
+- [ ] For Tier 2/3 profiles only: workflow template has `ask_inventory_on_launch: true` and child nodes have `inventory: null` (inherit from workflow)
 - [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
 - [ ] Scan results POSTed to Backstage `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
@@ -1317,7 +1327,7 @@ Use this checklist when building a new compliance profile. Every item must be sa
 ### Portal / Backstage Integration
 
 - [ ] `extensions/patterns/metadata.yml` with discovery metadata (name, display_name, version, domain, tags, applicable_os, frameworks, source)
-- [ ] `extensions/patterns/metadata.yml` includes `platform:` spec declaring supported OS/device types (ADR-011)
+- [ ] `extensions/patterns/metadata.yml` includes `platform:` spec declaring supported OS/device types (ADR-011). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form.
 - [ ] `extensions/patterns/portal/metadata.yml` with portal-specific metadata
 - [ ] `extensions/patterns/portal/backstage_template.yml` with Software Template (optional but recommended)
 
@@ -1356,13 +1366,15 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 
 ### Profile Metadata Convention (`meta/compliance-profile.yml`)
 
-Each compliance collection MUST include a `meta/compliance-profile.yml` file declaring the profile's identity and capabilities. This file serves two purposes:
+Each compliance collection MUST include a `meta/compliance-profile.yml` file declaring the profile's identity and capabilities. This file is the single source of truth for profile metadata and drives two critical behaviors:
 
-1. **JT default extra_vars** — the `install.yml` playbook reads this metadata and sets it as default `extra_vars` on the scan Job Template. This enables the Backstage plugin's Settings form to auto-populate fields when a user selects a scan JT.
+1. **Settings form auto-populate** — the `install.yml` playbook reads this file and sets its fields as default `extra_vars` on the scan Job Template. When an admin selects that JT in the Backstage Settings form, the plugin fetches the JT's default extra_vars and auto-populates the form fields. This is the primary UX benefit of a well-configured profile.
 
-2. **Self-documentation** — the file declares what scanner, framework, XCCDF profile, and certification status the collection provides.
+2. **Self-documentation** — the file declares what scanner, framework, XCCDF profile, and certification status the collection provides. Even if auto-populate is not used, these values tell the admin exactly what to enter manually.
 
-**Required fields:**
+**Core principle: Every field in `compliance-profile.yml` maps to a Settings form field.** If the field is present in the JT's default extra_vars (via `install.yml`), the system auto-populates the form when the user selects that JT. If a field is missing, the user must fill it in manually -- so at minimum, the value should be documented in the collection's README so the user knows what to enter.
+
+**Field reference:**
 
 ```yaml
 profile:
@@ -1382,8 +1394,25 @@ profile:
     os_version: ["9"]
 ```
 
+**Per-field auto-populate behavior:**
+
+| Field | Settings Form Field | If Present in extra_vars | If Absent |
+|-------|-------------------|------------------------|-----------|
+| `name` | Display Name | Auto-populated | User must enter manually. Document in README. |
+| `framework` | Compliance Framework | Auto-populated | User must select from dropdown. Document in README. |
+| `version` | Framework Version | Auto-populated | User must enter manually. Document in README. |
+| `scanner` | Scanner Type | Auto-populated | User must select from dropdown. |
+| `xccdf_profile` | XCCDF Profile ID | Auto-populated (used by the scan playbook) | User must set in JT extra_vars. Document in README. |
+| `remediation_playbook` | Remediation Playbook | Auto-populated | User must enter the playbook path manually. |
+| `certification.status` | Certification Badge | Auto-populated; displayed as a badge on scan results | Defaults to `uncertified`. Document in README. |
+| `certification.authority` | Certifying Authority | Auto-populated; displayed alongside the badge | Empty if not set. Document in README. |
+| `certification.disclaimer` | Certification Disclaimer | Auto-populated; shown in tooltip | Not displayed. Optional but recommended for `conformant` profiles. |
+| `platform_spec` | Platform Requirements | Auto-populated; used for pre-launch inventory validation | No platform validation performed. Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form. |
+
 **Auto-populate flow:**
 
-When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, and `certification_authority` keys, the form fields auto-populate. All fields remain editable — the auto-populate provides defaults, not constraints.
+When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, and `certification_authority` keys, the form fields auto-populate. All fields remain editable -- the auto-populate provides defaults, not constraints.
 
 If the JT has no extra_vars (e.g., a manually created JT without `install.yml`), the user fills in the fields manually. After the first scan, the CFF output confirms the profile metadata via the self-healing path.
+
+**install.yml and extra_vars:** The `install.yml` playbook in each profile reads `meta/compliance-profile.yml` and uses `infra.aap_configuration` to set the values as default `extra_vars` on the scan JT. This is the bridge between the collection metadata and the auto-populate behavior. If you skip `install.yml` and create the JT manually, ensure you set the same extra_vars keys, or document the values in the profile README for manual entry.

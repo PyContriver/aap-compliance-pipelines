@@ -97,11 +97,25 @@ Add target RHEL 9 hosts to this inventory. Each host must be accessible over the
 |`Compliance STIG RHEL 9`
 |Enabled
 |`ask_tags_on_launch: true`, `ask_variables_on_launch: true`. Machine credential with become.
+
+|`compliance-scan-cis-l1-rhel9`
+|Run
+|`profiles/rhel9-cis-l1/ansible_collections/security/compliance_rhel9_cis_l1/playbooks/run_oscap.yml`
+|`Compliance STIG RHEL 9`
+|Enabled
+|CIS Benchmark Level 1 Server profile. Same EE and architecture as STIG. Certification: conformant (CIS-CAT Pro is the CIS-certified tool).
+
+|`compliance-scan-cis-l2-rhel9`
+|Run
+|`profiles/rhel9-cis-l2/ansible_collections/security/compliance_rhel9_cis_l2/playbooks/run_oscap.yml`
+|`Compliance STIG RHEL 9`
+|Enabled
+|CIS Benchmark Level 2 Server profile. Same EE and architecture as STIG. Certification: conformant.
 |===
 
 All job templates use the following common settings:
 
-* *Project*: `compliance-profile`
+* *Project*: `compliance-content`
 * *Inventory*: `compliance-rhel9-inventory` (default; overridable at launch)
 * *Organization*: `compliance-prototype`
 
@@ -174,6 +188,31 @@ a|
 * `openscap-utils`
 * `scap-security-guide`
 |===
+
+== Scanner certification levels
+
+Each compliance profile declares a certification status that indicates whether its scan results are formally recognized by the compliance framework authority. The compliance plugin displays this as a badge on scan results.
+
+[cols="1,2,2", options="header"]
+|===
+|Status
+|Meaning
+|Example
+
+|`certified`
+|The scanner is validated by the framework authority. Results are accepted for formal compliance audits.
+|OpenSCAP + DISA STIG (OpenSCAP has NIST SCAP 1.2 validation; SSG content is produced in collaboration with DISA FSO)
+
+|`conformant`
+|The scanner uses official benchmark content but is not the authority-certified tool. Results are technically accurate but may not be accepted for formal audits.
+|OpenSCAP + CIS Benchmark (CIS-CAT Pro is the CIS-certified scanner, not OpenSCAP)
+
+|`uncertified`
+|Custom scanner or homegrown checks with no formal validation.
+|Ansible facts gathering with custom rules
+|===
+
+The certification status is declared in the compliance profile's `meta/compliance-profile.yml` and emitted in the Common Findings Format (CFF) JSON output by the normalizer module.
 
 == API endpoints
 

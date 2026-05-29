@@ -187,7 +187,7 @@ curl -sk https://localhost:443/api/compliance/health
 curl -sk -o /dev/null -w '%{http_code}' https://localhost:443/compliance
 # → 200
 
-# Authenticated endpoint (should 401 without token)
+# Authenticated endpoint — compliance profiles (should 401 without token)
 curl -sk https://localhost:443/api/compliance/cartridges
 # → {"error":{"name":"AuthenticationError","message":"Missing credentials"}}
 ```

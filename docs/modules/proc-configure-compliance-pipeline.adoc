@@ -181,6 +181,8 @@ Navigate to *Templates* > *Add* > *Add Job Template* and set the following value
 +
 Verification scans use this same job template -- a verification scan is simply another assessment run after remediation has been applied. There is no separate verification template.
 +
+To add CIS Benchmark profiles alongside STIG, create additional assessment job templates using the same pattern. Set the *Name* to `compliance-scan-cis-l1-rhel9` (for CIS Level 1) or `compliance-scan-cis-l2-rhel9` (for CIS Level 2), and set the *Playbook* to the corresponding profile path under `profiles/rhel9-cis-l1/` or `profiles/rhel9-cis-l2/`. All three profiles share the same {ExecEnvShort} because `scap-security-guide` ships all XCCDF datastreams. Register each profile separately in the compliance plugin *Settings* tab.
++
 [NOTE]
 ====
 *Direct POST configuration*: The assessment job template receives three extra variables from the plugin at launch time: `scan_id`, `backstage_api_url`, and `ingest_token`. The normalize play (Play 2) uses these to POST findings directly to the plugin's `/findings/ingest` endpoint, bypassing job event parsing for faster and more reliable delivery (see ADR-007 and ADR-010). The `Prompt on Launch: Variables` setting must be enabled on the job template for these values to be accepted. If `backstage_api_url` is not set, findings fall back to Controller job event parsing.
@@ -309,6 +311,11 @@ The start script launches both the backend (port 7007) and frontend (port 3000) 
 
 * Open `http://localhost:3000` in a web browser and navigate to the *Compliance* section.
 * Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the assessment job template and {ExecEnvShort} you created. To modify an existing profile, click the edit icon (pencil) next to the profile row.
++
+[NOTE]
+====
+When you select a scan job template in the *Settings* form, the plugin fetches the JT's default `extra_vars` from {ControllerName}. If the JT was provisioned using the profile's `install.yml` playbook, its extra_vars contain profile metadata (`profile_name`, `framework`, `certification_status`, `certification_authority`, and `platform_spec`), and the form fields auto-populate with these values. All fields remain editable. If the JT has no extra_vars (for example, a manually created JT), you must fill in the fields manually. Each compliance profile collection includes a `meta/compliance-profile.yml` file that documents these values.
+====
 * Go to the *New Scan* tab and launch a test scan against a single host.
 * Verify that the scan appears in the *Results* tab and that findings are displayed after the job completes.
 
