@@ -1,0 +1,10 @@
+edit_on_github:
+  repository: cross-logic/aap-compliance-pipelines
+  branch: main
+  path_prefix: profiles/rhel9-cis-l2/ansible_collections/security/compliance_rhel9_cis_l2/
+
+extra_links:
+  - description: Issue Tracker
+    url: https://github.com/cross-logic/aap-compliance-pipelines/issues
+  - description: Repository
+    url: https://github.com/cross-logic/aap-compliance-pipelines

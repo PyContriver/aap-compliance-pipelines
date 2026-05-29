@@ -81,7 +81,7 @@ Create each of the following job templates:
 - Organization: `compliance-prototype`
 - Inventory: `compliance-rhel9-inventory`
 - Project: `compliance-content`
-- Playbook: `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/install_scanner.yml`
+- Playbook: `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/install_scanner.yml`
 - Execution Environment: `compliance-ee-rhel9`
 - Credentials: `compliance-machine-credential`
 - Check **Prompt on launch** for Limit
@@ -92,7 +92,7 @@ Create each of the following job templates:
 - Organization: `compliance-prototype`
 - Inventory: `compliance-rhel9-inventory`
 - Project: `compliance-content`
-- Playbook: `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/run_scan.yml`
+- Playbook: `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/run_scan.yml`
 - Execution Environment: `compliance-ee-rhel9`
 - Credentials: `compliance-machine-credential`
 - Check **Prompt on launch** for Limit and Variables
@@ -103,7 +103,7 @@ Create each of the following job templates:
 - Organization: `compliance-prototype`
 - Inventory: `compliance-rhel9-inventory`
 - Project: `compliance-content`
-- Playbook: `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/fetch_results.yml`
+- Playbook: `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/fetch_results.yml`
 - Execution Environment: `compliance-ee-rhel9`
 - Credentials: `compliance-machine-credential`
 - Check **Prompt on launch** for Limit
@@ -114,7 +114,7 @@ Create each of the following job templates:
 - Organization: `compliance-prototype`
 - Inventory: `compliance-rhel9-inventory`
 - Project: `compliance-content`
-- Playbook: `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/uninstall_scanner.yml`
+- Playbook: `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/scanner/uninstall_scanner.yml`
 - Execution Environment: `compliance-ee-rhel9`
 - Credentials: `compliance-machine-credential`
 - Check **Prompt on launch** for Limit
@@ -125,7 +125,7 @@ Create each of the following job templates:
 - Organization: `compliance-prototype`
 - Inventory: `compliance-rhel9-inventory`
 - Project: `compliance-content`
-- Playbook: `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
+- Playbook: `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
 - Execution Environment: `compliance-ee-rhel9`
 - Credentials: `compliance-machine-credential`
 - Check **Prompt on launch** for Limit, Variables, and Tags
@@ -232,7 +232,7 @@ rule ID (e.g., `sshd_set_idle_timeout`, `DISA-STIG-RHEL-09-255040`).
 For automated provisioning, run the setup playbook instead:
 
 ```bash
-ansible-playbook collections/ansible_collections/security/compliance_rhel9_stig/playbooks/setup_controller.yml \
+ansible-playbook profiles/rhel9-stig/install.yml \
   -e controller_hostname=https://aap.example.com \
   -e controller_username=admin \
   -e controller_password=<changeme> \

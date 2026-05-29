@@ -77,7 +77,7 @@ From the repository root:
 
 ```bash
 ansible-playbook \
-  collections/ansible_collections/security/compliance_rhel9_stig/playbooks/setup_controller.yml \
+  profiles/rhel9-stig/install.yml \
   -e controller_host=https://aap.example.com \
   -e controller_username=admin \
   -e controller_password='changeme' \
@@ -97,7 +97,7 @@ export TARGET_SSH_USER=root
 export TARGET_SSH_PASSWORD=changeme
 
 ansible-playbook \
-  collections/ansible_collections/security/compliance_rhel9_stig/playbooks/setup_controller.yml
+  profiles/rhel9-stig/install.yml
 ```
 
 ### Expected Output
@@ -230,7 +230,7 @@ fill in the fields, and click **Save**.
 | **Job Type** | Run |
 | **Inventory** | `compliance-rhel9-inventory` |
 | **Project** | `compliance-content` |
-| **Playbook** | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` |
+| **Playbook** | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` |
 | **Credentials** | `compliance-lab-ssh` |
 | **Options** | Check **Privilege Escalation** (Enable become) |
 | **Options** | Check **Use Fact Storage** (Enable fact cache) |
@@ -244,7 +244,7 @@ fill in the fields, and click **Save**.
 | **Job Type** | Run |
 | **Inventory** | `compliance-rhel9-inventory` |
 | **Project** | `compliance-content` |
-| **Playbook** | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` |
+| **Playbook** | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` |
 | **Credentials** | (none required -- runs on localhost) |
 | **Options** | Check **Use Fact Storage** (Enable fact cache) |
 
@@ -261,7 +261,7 @@ fill in the fields, and click **Save**.
 | **Job Type** | Run |
 | **Inventory** | `compliance-rhel9-inventory` |
 | **Project** | `compliance-content` |
-| **Playbook** | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` |
+| **Playbook** | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` |
 | **Credentials** | `compliance-lab-ssh` |
 | **Options** | Check **Privilege Escalation** (Enable become) |
 
@@ -494,9 +494,9 @@ These paths are relative to the project root
 
 | Job Template | Playbook Path | Notes |
 |---|---|---|
-| compliance-run-oscap | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment: scan targets (Play 1) + normalize on localhost (Play 2) |
-| compliance-remediate | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Standalone, launched with job_tags |
-| compliance-normalize (utility) | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Debugging and Tier 2 reuse only |
+| compliance-run-oscap | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment: scan targets (Play 1) + normalize on localhost (Play 2) |
+| compliance-remediate | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Standalone, launched with job_tags |
+| compliance-normalize (utility) | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Debugging and Tier 2 reuse only |
 
 ### Current Architecture
 
@@ -521,8 +521,8 @@ These paths are relative to the project root
 
 | Job Template | Playbook Path |
 |---|---|
-| compliance-gather-facts | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` |
-| compliance-evaluate | `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` |
+| compliance-gather-facts | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/gather_facts.yml` |
+| compliance-evaluate | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/evaluate.yml` |
 
 ### Setup Playbook Variables Reference
 

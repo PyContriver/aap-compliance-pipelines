@@ -1,0 +1,28 @@
+---
+namespace: security
+name: compliance_rhel9_cis_l2
+version: 0.1.0
+readme: README.md
+authors:
+  - Massimo Ferrari (@cross-logic)
+  - Red Hat Ansible Security Team
+description: >
+  CIS Benchmark Level 2 - Server compliance profile for RHEL 9.
+  Agentless OpenSCAP scanning, centralized normalization, and selective
+  remediation using ComplianceAsCode (CaC) playbooks from scap-security-guide.
+  Includes an EE profile at meta/execution-environment.yml for building a compliance-ready
+  Execution Environment with ansible-builder.
+license_file: LICENSE
+tags:
+  - compliance
+  - cis
+  - benchmark
+  - level2
+  - rhel9
+  - security
+dependencies:
+  ansible.posix: ">=1.5.0"
+  redhat.rhel_system_roles: ">=1.0.0"
+repository: https://github.com/cross-logic/aap-compliance-pipelines
+documentation: https://github.com/cross-logic/aap-compliance-pipelines
+issues: https://github.com/cross-logic/aap-compliance-pipelines/issues

@@ -466,7 +466,7 @@ All normalizers must map scanner-specific severity to the common format:
 | OpenSCAP | `notapplicable` | `not_applicable` |
 | OpenSCAP | `notchecked` | `not_checked` |
 | OpenSCAP | `fixed` | `pass` |
-| OpenSCAP | `informational` | `not_applicable` |
+| OpenSCAP | `informational` | `pass` |
 | PowerSTIG | `InDesiredState=true` | `pass` |
 | PowerSTIG | `InDesiredState=false` | `fail` |
 | Qualys | `PASS` / `FAIL` / `ERROR` | `pass` / `fail` / `error` |
@@ -608,11 +608,11 @@ if __name__ == '__main__':
 ### Reference Implementation
 
 See the OpenSCAP normalizer at:
-`collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py`
+`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py`
 
 This module parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host.
 
-For detailed module documentation, see `collections/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md`.
+For detailed module documentation, see `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md`.
 
 ### Tier 2 Adapter Considerations
 
@@ -1242,16 +1242,16 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 
 | File | Purpose |
 |------|---------|
-| `collections/ansible_collections/security/compliance_rhel9_stig/galaxy.yml` | Collection metadata |
-| `collections/ansible_collections/security/compliance_rhel9_stig/meta/runtime.yml` | Ansible version requirements |
-| `collections/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF (366 rules) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment JT: scan targets (Play 1) + normalize on localhost (Play 2) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Standalone normalize utility (debugging, Tier 2 reuse) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation: imports CaC playbook (standalone JT) |
-| `collections/ansible_collections/security/compliance_rhel9_stig/docs/architecture.md` | Pipeline architecture and data flow |
-| `collections/ansible_collections/security/compliance_rhel9_stig/docs/playbook-reference.md` | Playbook variables and usage examples |
-| `collections/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md` | normalize_xccdf module documentation |
-| `collections/ansible_collections/security/compliance_rhel9_stig/ee/execution-environment.yml` | EE definition |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/galaxy.yml` | Collection metadata |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/meta/runtime.yml` | Ansible version requirements |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF (366 rules) |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment JT: scan targets (Play 1) + normalize on localhost (Play 2) |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Standalone normalize utility (debugging, Tier 2 reuse) |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation: imports CaC playbook (standalone JT) |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/architecture.md` | Pipeline architecture and data flow |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/playbook-reference.md` | Playbook variables and usage examples |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md` | normalize_xccdf module documentation |
+| `profiles/rhel9-stig/ee/execution-environment.yml` | EE definition (profile-level, used by ansible-builder) |
 
 ### Deprecated Files (retained for backward compatibility)
 

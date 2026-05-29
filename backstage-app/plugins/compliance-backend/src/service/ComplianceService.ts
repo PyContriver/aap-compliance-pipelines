@@ -66,7 +66,7 @@ function loadRulesMetadata(): Map<string, RuleMetadata> {
   const packageRules = path.resolve(__dirname, '..', '..', 'rules');
   const collectionsRules = path.resolve(
     __dirname, '..', '..', '..', '..', '..',
-    'collections', 'ansible_collections', 'security', 'compliance_rhel9_stig', 'rules',
+    'profiles', 'rhel9-stig', 'ansible_collections', 'security', 'compliance_rhel9_stig', 'rules',
   );
   const rulesDir = fs.existsSync(packageRules) ? packageRules : collectionsRules;
   try {

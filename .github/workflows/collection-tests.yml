@@ -1,0 +1,231 @@
+name: Collection Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/**'
+      - '.github/workflows/collection-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'profiles/**'
+      - '.github/workflows/collection-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Detect which profiles changed (or run all on workflow_dispatch)
+  # ---------------------------------------------------------------------------
+  detect-changes:
+    name: Detect changed profiles
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.set-matrix.outputs.profiles }}
+      collection_map: ${{ steps.set-matrix.outputs.collection_map }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect file changes
+        if: github.event_name != 'workflow_dispatch'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            rhel9-stig:
+              - 'profiles/rhel9-stig/**'
+            rhel9-cis-l1:
+              - 'profiles/rhel9-cis-l1/**'
+            rhel9-cis-l2:
+              - 'profiles/rhel9-cis-l2/**'
+
+      - name: Build matrix
+        id: set-matrix
+        shell: bash
+        run: |
+          # Static mapping: profile name -> collection name
+          declare -A COLLECTION_MAP
+          COLLECTION_MAP[rhel9-stig]=compliance_rhel9_stig
+          COLLECTION_MAP[rhel9-cis-l1]=compliance_rhel9_cis_l1
+          COLLECTION_MAP[rhel9-cis-l2]=compliance_rhel9_cis_l2
+
+          ALL_PROFILES=("rhel9-stig" "rhel9-cis-l1" "rhel9-cis-l2")
+          CHANGED=()
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual run: test every profile
+            CHANGED=("${ALL_PROFILES[@]}")
+          else
+            # Use paths-filter outputs
+            for p in "${ALL_PROFILES[@]}"; do
+              if [[ "${{ steps.filter.outputs[format('{0}', p)] }}" == "true" ]]; then
+                CHANGED+=("$p")
+              fi
+            done
+          fi
+
+          # Fallback: if nothing changed (e.g. only workflow file), run all
+          if [[ ${#CHANGED[@]} -eq 0 ]]; then
+            CHANGED=("${ALL_PROFILES[@]}")
+          fi
+
+          # Build JSON array of profile objects
+          JSON="["
+          FIRST=true
+          for p in "${CHANGED[@]}"; do
+            if [[ "$FIRST" != "true" ]]; then JSON+=","; fi
+            FIRST=false
+            JSON+="{\"profile\":\"${p}\",\"collection\":\"${COLLECTION_MAP[$p]}\"}"
+          done
+          JSON+="]"
+
+          # Build collection map JSON for downstream reference
+          MAP_JSON="{"
+          FIRST=true
+          for p in "${!COLLECTION_MAP[@]}"; do
+            if [[ "$FIRST" != "true" ]]; then MAP_JSON+=","; fi
+            FIRST=false
+            MAP_JSON+="\"${p}\":\"${COLLECTION_MAP[$p]}\""
+          done
+          MAP_JSON+="}"
+
+          echo "profiles=${JSON}" >> "$GITHUB_OUTPUT"
+          echo "collection_map=${MAP_JSON}" >> "$GITHUB_OUTPUT"
+
+          echo "## Changed profiles" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "${JSON}" | python3 -m json.tool >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Sanity tests (ansible-test sanity)
+  # ---------------------------------------------------------------------------
+  sanity:
+    name: "Sanity (${{ matrix.entry.profile }} / ${{ matrix.ansible }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.profiles != '[]'
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ansible == 'stable-2.20' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.detect-changes.outputs.profiles) }}
+        ansible:
+          - stable-2.16
+          - stable-2.17
+          - stable-2.18
+          - stable-2.20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run sanity tests
+        uses: felixfontein/ansible-test-gh-action@v1
+        with:
+          testing-type: sanity
+          ansible-core-version: ${{ matrix.ansible }}
+          collection-root: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
+
+  # ---------------------------------------------------------------------------
+  # Unit tests (ansible-test units)
+  # ---------------------------------------------------------------------------
+  units:
+    name: "Units (${{ matrix.entry.profile }} / ${{ matrix.ansible }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.profiles != '[]'
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ansible == 'stable-2.20' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.detect-changes.outputs.profiles) }}
+        ansible:
+          - stable-2.16
+          - stable-2.17
+          - stable-2.18
+          - stable-2.20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run unit tests
+        uses: felixfontein/ansible-test-gh-action@v1
+        with:
+          testing-type: units
+          ansible-core-version: ${{ matrix.ansible }}
+          collection-root: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
+
+  # ---------------------------------------------------------------------------
+  # Lint (ansible-lint on all playbooks in changed profiles)
+  # ---------------------------------------------------------------------------
+  lint:
+    name: "Lint (${{ matrix.entry.profile }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.profiles != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.detect-changes.outputs.profiles) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+
+      - name: Run ansible-lint
+        working-directory: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
+        run: ansible-lint
+
+  # ---------------------------------------------------------------------------
+  # Build collection tarballs
+  # ---------------------------------------------------------------------------
+  build:
+    name: "Build (${{ matrix.entry.profile }})"
+    needs: [detect-changes, sanity, units, lint]
+    if: needs.detect-changes.outputs.profiles != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.detect-changes.outputs.profiles) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ansible-core
+        run: pip install ansible-core
+
+      - name: Build collection tarball
+        working-directory: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
+        run: ansible-galaxy collection build --force
+
+      - name: Verify tarball exists
+        working-directory: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
+        run: |
+          TARBALL=$(ls security-${{ matrix.entry.collection }}-*.tar.gz 2>/dev/null)
+          if [[ -z "$TARBALL" ]]; then
+            echo "::error::No collection tarball found after build"
+            exit 1
+          fi
+          echo "Built: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+          echo "## ${{ matrix.entry.profile }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Tarball:** \`${TARBALL}\` ($(du -h "$TARBALL" | cut -f1))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload collection tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection-${{ matrix.entry.profile }}
+          path: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}/security-${{ matrix.entry.collection }}-*.tar.gz
+          if-no-files-found: error

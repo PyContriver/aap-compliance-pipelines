@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'collections/ansible_collections/security/compliance_rhel9_stig/**'
+      - 'profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/**'
       - '.github/workflows/build-ee.yml'
   workflow_dispatch:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/compliance-stig-rhel9
-  COLLECTION_DIR: collections/ansible_collections/security/compliance_rhel9_stig
+  COLLECTION_DIR: profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig
 
 jobs:
   build:
@@ -52,8 +52,8 @@ jobs:
           ansible-builder create \
             -f execution-environment.yml \
             -v 3
-          mkdir -p context/_build/collections/ansible_collections/security
-          cp -r $GITHUB_WORKSPACE/$COLLECTION_DIR context/_build/collections/ansible_collections/security/compliance_rhel9_stig
+          mkdir -p context/_build/profiles/rhel9-stig/ansible_collections/security
+          cp -r $GITHUB_WORKSPACE/$COLLECTION_DIR context/_build/profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig
           docker build -f context/Containerfile -t $IMAGE_NAME:latest context
 
       - name: Tag with SHA

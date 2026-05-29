@@ -1,0 +1,8 @@
+sections:
+  - title: Scanning Guide
+    toctree:
+      - guide_scanning
+
+  - title: Remediation Guide
+    toctree:
+      - guide_remediation

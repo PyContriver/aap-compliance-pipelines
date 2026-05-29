@@ -179,14 +179,19 @@ aap-compliance-pipelines/
     docs/                        Plugin and feature documentation
     examples/                    Sample catalog entities and templates
     .husky/                      Git hooks (pre-commit)
-  collections/                   Ansible collection (security.compliance_rhel9_stig)
-    ansible_collections/security/compliance_rhel9_stig/
-      plugins/modules/           Custom modules (normalize_xccdf + deprecated gather/evaluate)
-      playbooks/                 Pipeline orchestration playbooks
-      playbooks/scanner/         OpenSCAP scanner lifecycle (install, scan, fetch, uninstall)
-      rules/                     STIG rules as YAML data (deprecated, metadata now from XCCDF datastream)
-      tests/                     Unit tests (85) + integration tests (3 targets)
-  content/                       Legacy content (superseded by collections/)
+  profiles/                      Self-contained compliance profiles (one per framework)
+    rhel9-stig/                  DISA STIG V2R8 for RHEL 9
+      ansible_collections/security/compliance_rhel9_stig/
+      ee/                        Standalone EE definition
+      install.yml                Controller registration playbook
+    rhel9-cis-l1/                CIS Benchmark Level 1 Server for RHEL 9
+      ansible_collections/security/compliance_rhel9_cis_l1/
+      ee/                        Standalone EE definition
+      install.yml                Controller registration playbook
+    rhel9-cis-l2/                CIS Benchmark Level 2 Server for RHEL 9
+      ansible_collections/security/compliance_rhel9_cis_l2/
+      ee/                        Standalone EE definition
+      install.yml                Controller registration playbook
   review/                        UI screenshots and review materials
 ```
 
@@ -213,7 +218,7 @@ yarn workspace @aap-compliance/plugin-compliance test
 ### Ansible Collection Tests
 
 ```bash
-cd collections/ansible_collections/security/compliance_rhel9_stig
+cd profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig
 
 # Run unit tests (requires pytest)
 python -m pytest tests/unit/ -v

@@ -1,0 +1,15 @@
+---
+profile: production
+
+exclude_paths:
+  - tests/
+  - changelogs/
+  - .github/
+
+skip_list:
+  - yaml[truthy]
+  - name[template]
+
+warn_list:
+  - experimental
+...

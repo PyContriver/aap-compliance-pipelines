@@ -1,0 +1,64 @@
+---
+# Compliance: Normalize OpenSCAP XCCDF results to Common Findings Format
+#
+# Standalone utility for normalizing XCCDF results outside the main
+# scan pipeline. Useful for debugging, re-processing saved XML, and
+# Tier 2 scanner reuse. In production, normalization is handled by
+# Play 2 of run_oscap.yml (same container, no file-sharing issues).
+#
+# The normalize_xccdf module:
+#   - Parses each host's XCCDF XML results
+#   - Extracts rule metadata (title, description, fix_text, severity)
+#     directly from the XCCDF datastream — no external rules YAML needed
+#   - Strips the XCCDF prefix from rule IDs so they match CaC remediation tags
+#   - Produces CFF-compliant findings JSON
+#   - Sets compliance_report as an Ansible fact for the backend to consume
+#
+# Variables:
+#   results_dir: directory containing fetched XCCDF XML files
+#     (default: /tmp/compliance-results)
+#   output_file: path to write the CFF JSON report
+#     (default: /tmp/compliance_report.json)
+
+- name: "Compliance: Normalize XCCDF results"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    results_dir: /tmp/compliance-results
+    output_file: /tmp/compliance_report.json
+
+  tasks:
+    - name: Find all XCCDF result files
+      ansible.builtin.find:
+        paths: "{{ results_dir }}"
+        patterns: "xccdf-results-*.xml"
+      register: _result_files
+
+    - name: Fail if no results found
+      ansible.builtin.fail:
+        msg: >-
+          No XCCDF result files found in {{ results_dir }}.
+          Ensure run_oscap.yml completed successfully.
+      when: _result_files.files | length == 0
+
+    - name: Normalize XCCDF results to Common Findings Format
+      security.compliance_rhel9_cis_l1.normalize_xccdf:
+        results_files: "{{ _result_files.files | map(attribute='path') | list }}"
+        output_file: "{{ output_file }}"
+        profile_name: "CIS Benchmark RHEL 9 Level 1 - Server"
+        framework: "CIS"
+      register: _normalized
+
+    - name: Display summary
+      ansible.builtin.debug:
+        msg: >-
+          Normalized {{ _normalized.hosts_processed }} hosts,
+          {{ _normalized.total_findings }} findings
+          ({{ _normalized.summary.pass }} pass,
+          {{ _normalized.summary.fail }} fail,
+          {{ _normalized.summary.error | default(0) }} error,
+          {{ _normalized.summary.not_applicable | default(0) }} N/A).
+          Output: {{ output_file }}
+...

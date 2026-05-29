@@ -135,7 +135,7 @@ The compliance plugin requires specific AAP Controller resource configuration. W
 Run the setup playbook to create all required Controller resources with correct settings:
 
 ```bash
-ansible-playbook collections/ansible_collections/security/compliance_rhel9_stig/playbooks/setup_controller.yml \
+ansible-playbook profiles/rhel9-stig/install.yml \
   -e controller_host=https://aap.example.com \
   -e controller_username=admin \
   -e controller_password='changeme' \

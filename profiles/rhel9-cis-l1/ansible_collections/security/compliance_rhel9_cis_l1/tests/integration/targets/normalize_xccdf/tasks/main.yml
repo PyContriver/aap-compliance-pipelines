@@ -1,0 +1,64 @@
+---
+# Integration tests for normalize_xccdf module
+# Requires an XCCDF result file from a prior OpenSCAP scan.
+# Skips if no fixture is available.
+
+- name: Check for XCCDF test fixture
+  ansible.builtin.stat:
+    path: "{{ xccdf_fixture | default('/tmp/xccdf-results-test.xml') }}"
+  register: xccdf_stat
+
+- name: Skip if no XCCDF fixture available
+  ansible.builtin.meta: end_play
+  when: not xccdf_stat.stat.exists
+
+- name: Normalize XCCDF results
+  security.compliance_rhel9_cis_l1.normalize_xccdf:
+    results_files:
+      - "{{ xccdf_fixture | default('/tmp/xccdf-results-test.xml') }}"
+    output_file: /tmp/normalize-xccdf-integration-output.json
+  register: normalized
+
+- name: Assert normalization completed
+  ansible.builtin.assert:
+    that:
+      - normalized is changed
+      - normalized.hosts_processed >= 1
+      - normalized.total_findings >= 0
+      - normalized.summary is defined
+    fail_msg: "normalize_xccdf did not complete successfully"
+
+- name: Verify output file exists
+  ansible.builtin.stat:
+    path: /tmp/normalize-xccdf-integration-output.json
+  register: output_stat
+
+- name: Assert output file was written
+  ansible.builtin.assert:
+    that:
+      - output_stat.stat.exists
+      - output_stat.stat.size > 0
+    fail_msg: "Output file was not written"
+
+- name: Read and validate output JSON
+  ansible.builtin.slurp:
+    src: /tmp/normalize-xccdf-integration-output.json
+  register: output_content
+
+- name: Parse and validate output structure
+  ansible.builtin.set_fact:
+    output_report: "{{ output_content.content | b64decode | from_json }}"
+
+- name: Assert output schema
+  ansible.builtin.assert:
+    that:
+      - output_report.schema_version == '1.0.0'
+      - output_report.scanner == 'openscap'
+      - output_report.findings is defined
+      - output_report.summary is defined
+    fail_msg: "Output JSON does not match expected schema"
+
+- name: Clean up integration test output
+  ansible.builtin.file:
+    path: /tmp/normalize-xccdf-integration-output.json
+    state: absent

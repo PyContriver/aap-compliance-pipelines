@@ -79,21 +79,21 @@ Add target RHEL 9 hosts to this inventory. Each host must be accessible over the
 
 |`compliance-run-oscap`
 |Run
-|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
+|`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
 |Machine credential with become. Single JT with 2 plays: scan targets (Play 1) + normalize on localhost (Play 2).
 
 |`compliance-normalize`
 |Run
-|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml`
+|`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
 |Standalone utility for debugging and Tier 2 reuse. Not needed for standard assessment.
 
 |`compliance-remediate`
 |Run
-|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
+|`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
 |`ask_tags_on_launch: true`, `ask_variables_on_launch: true`. Machine credential with become.

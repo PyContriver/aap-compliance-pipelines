@@ -55,7 +55,7 @@ Navigate to *Templates* > *Add* > *Add Job Template* and set the following value
 |`compliance-content`
 
 |Playbook
-|`collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
+|`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml`
 
 |Execution Environment
 |`Compliance STIG RHEL 9`

@@ -8,7 +8,7 @@ Self-contained MVP for an AAP compliance vertical — Backstage plugin + RHEL ST
   - `plugins/compliance/` — Frontend plugin (6 tabs, 12 routes: overview, profiles, scan, results, remediations, settings)
   - `plugins/compliance-backend/` — Backend plugin (REST API, Controller client, DB)
   - `plugins/compliance-common/` — Shared types
-- `collections/` — Ansible collection: OpenSCAP scan, XCCDF normalizer, CaC remediation
+- `profiles/` — Self-contained compliance profiles (one per framework), each containing an Ansible collection, EE definition, and install playbook
 - `content/` — Compliance content packaged as Ansible Pattern (SDP-0005/0009)
 - `scripts/` — Lab seed/clean playbooks
 - `docs/` — Design docs, AsciiDoc modules, developer guide

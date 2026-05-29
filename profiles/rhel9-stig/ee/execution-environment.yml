@@ -1,0 +1,35 @@
+---
+# Execution Environment: DISA STIG for RHEL 9
+#
+# Build:
+#   ansible-builder build -f execution-environment.yml -t compliance-stig-rhel9:latest -v3
+
+version: 3
+
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: '--pre'
+
+options:
+  package_manager_path: /usr/bin/microdnf
+
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
+
+dependencies:
+  galaxy:
+    collections:
+      - name: ansible.posix
+      - name: community.general
+  python: []
+  system: []
+
+additional_build_steps:
+  prepend_galaxy:
+    - COPY _build/collections/ /usr/share/ansible/collections/
+  prepend_final:
+    - RUN printf '[centos9-appstream]\nname=CentOS 9 AppStream\nbaseurl=https://mirror.stream.centos.org/9-stream/AppStream/$basearch/os/\ngpgcheck=0\nenabled=1\n' > /etc/yum.repos.d/centos9.repo && microdnf install -y scap-security-guide openscap-scanner && microdnf clean all && rm /etc/yum.repos.d/centos9.repo
+  append_final:
+    - RUN rpm -q scap-security-guide openscap-scanner
+    - RUN test -f /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
+    - RUN test -f /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml

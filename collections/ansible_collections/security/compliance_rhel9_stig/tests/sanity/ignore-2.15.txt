@@ -1,2 +1,0 @@
-# Sanity test ignore file for ansible-test 2.15
-# This file lists known exceptions that are acceptable in this collection.
