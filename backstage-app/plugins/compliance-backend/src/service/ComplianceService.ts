@@ -904,29 +904,32 @@ export class ComplianceService {
 
     try {
       // Step 1: Try workflow nodes to find the failed child job
-      const nodes = await this.getWorkflowNodes(workflowJobId, token);
       let childJobId: number | null = null;
-
-      if (nodes.length > 0) {
-        const failedNode = nodes.find(
-          n =>
-            n.summary_fields?.job?.status === 'failed' ||
-            n.summary_fields?.job?.status === 'error',
-        );
-
-        if (failedNode?.summary_fields?.job?.id) {
-          childJobId = failedNode.summary_fields.job.id;
-          const jobStatus = await this.controllerClient.getJobStatus(
-            childJobId,
-            token,
+      try {
+        const nodes = await this.getWorkflowNodes(workflowJobId, token);
+        if (nodes.length > 0) {
+          const failedNode = nodes.find(
+            n =>
+              n.summary_fields?.job?.status === 'failed' ||
+              n.summary_fields?.job?.status === 'error',
           );
-          if (jobStatus.result_traceback) {
-            this.logger.info(
-              `Fetched error traceback for workflow ${workflowJobId} from child job ${childJobId}`,
+
+          if (failedNode?.summary_fields?.job?.id) {
+            childJobId = failedNode.summary_fields.job.id;
+            const jobStatus = await this.controllerClient.getJobStatus(
+              childJobId,
+              token,
             );
-            return jobStatus.result_traceback.slice(0, 2000);
+            if (jobStatus.result_traceback) {
+              this.logger.info(
+                `Fetched error traceback for workflow ${workflowJobId} from child job ${childJobId}`,
+              );
+              return jobStatus.result_traceback.slice(0, 2000);
+            }
           }
         }
+      } catch {
+        // Not a workflow job or workflow nodes unavailable — continue to Step 2
       }
 
       // Step 2: No traceback — extract error from job events (failed tasks / unreachable hosts)

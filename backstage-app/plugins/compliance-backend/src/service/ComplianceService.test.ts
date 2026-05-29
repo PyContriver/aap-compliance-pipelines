@@ -1432,6 +1432,7 @@ describe('ComplianceService', () => {
     let mockGetWorkflowNodes: jest.Mock;
     let mockGetJobStatus: jest.Mock;
     let mockGetJobFailureEvents: jest.Mock;
+    let mockGetJobStdout: jest.Mock;
 
     beforeEach(() => {
       const config = createMockConfig({
@@ -1449,11 +1450,13 @@ describe('ComplianceService', () => {
       mockGetJobFailureEvents = jest.fn().mockResolvedValue({
         count: 0, next: null, previous: null, results: [],
       });
+      mockGetJobStdout = jest.fn().mockResolvedValue({ content: '' });
 
       const MockedClient = ControllerClient as jest.MockedClass<typeof ControllerClient>;
       MockedClient.prototype.getWorkflowNodes = mockGetWorkflowNodes;
       MockedClient.prototype.getJobStatus = mockGetJobStatus;
       MockedClient.prototype.getJobFailureEvents = mockGetJobFailureEvents;
+      MockedClient.prototype.getJobStdout = mockGetJobStdout;
 
       service = new ComplianceService(config, mockLogger);
     });
@@ -1529,6 +1532,8 @@ describe('ComplianceService', () => {
 
     it('returns null when controller client throws', async () => {
       mockGetWorkflowNodes.mockRejectedValue(new Error('Network error'));
+      mockGetJobFailureEvents.mockRejectedValue(new Error('Network error'));
+      mockGetJobStdout.mockRejectedValue(new Error('Network error'));
 
       const details = await service.fetchScanErrorDetails(100);
 
