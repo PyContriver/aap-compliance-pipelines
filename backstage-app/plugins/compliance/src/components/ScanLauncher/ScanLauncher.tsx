@@ -68,6 +68,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 import type { ComplianceCartridge, PlatformValidationResult } from '@aap-compliance/common';
+import { CertificationBadge } from '../shared/CertificationBadge';
 
 // Fallback data used while the backend is loading
 const FALLBACK_PROFILES = [
@@ -238,6 +239,9 @@ export const ScanLauncher = () => {
                       <Box display="flex" alignItems="center" style={{ gap: 8 }} mb={1}>
                         <SecurityIcon color="primary" />
                         <Chip label={p.version} size="small" variant="outlined" />
+                        {cartridges.find(c => c.id === p.id)?.certification && (
+                          <CertificationBadge certification={cartridges.find(c => c.id === p.id)!.certification} />
+                        )}
                       </Box>
                       <Typography variant="subtitle1">{p.name}</Typography>
                       <Typography variant="body2" color="textSecondary">
