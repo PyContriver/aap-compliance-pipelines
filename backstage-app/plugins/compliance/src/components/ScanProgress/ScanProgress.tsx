@@ -155,17 +155,22 @@ export const ScanProgress = ({
         setOverallStatus(status.status);
         setServerElapsed(status.elapsed);
 
-        const mapped: NodeStatus[] = nodeIds.map(id => {
-          const node = wfNodes.find(
-            n => n.identifier === id || n.summary_fields?.unified_job_template?.name?.toLowerCase().includes(id.replace('-', ' ')),
-          );
-          const job = node?.summary_fields?.job;
-          return {
-            identifier: id,
-            status: job?.status ?? 'pending',
-            jobId: job?.id,
-          };
-        });
+        let mapped: NodeStatus[];
+        if (wfNodes.length > 0) {
+          mapped = nodeIds.map(id => {
+            const node = wfNodes.find(
+              n => n.identifier === id || n.summary_fields?.unified_job_template?.name?.toLowerCase().includes(id.replace('-', ' ')),
+            );
+            const job = node?.summary_fields?.job;
+            return {
+              identifier: id,
+              status: job?.status ?? 'pending',
+              jobId: job?.id,
+            };
+          });
+        } else {
+          mapped = [{ identifier: 'run-oscap', status: status.status, jobId: workflowJobId }];
+        }
         setNodes(mapped);
 
         const runningNode = mapped.find(n => n.status === 'running' || n.status === 'waiting');
