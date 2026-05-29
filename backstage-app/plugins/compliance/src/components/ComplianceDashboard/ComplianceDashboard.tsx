@@ -27,7 +27,7 @@ import BuildIcon from '@material-ui/icons/Build';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import { ComplianceGauge } from './ComplianceGauge';
 import { complianceApiRef } from '../../api';
-import type { DashboardStats, PostureSnapshot } from '@aap-compliance/common';
+import type { DashboardStats, PostureSnapshot, ComplianceCartridge } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   section: {
@@ -304,6 +304,7 @@ export const ComplianceDashboard = () => {
   const api = useApi(complianceApiRef);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
+  const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -316,9 +317,11 @@ export const ComplianceDashboard = () => {
         console.error('Failed to load posture history:', err);
         return [] as PostureSnapshot[];
       }),
-    ]).then(([dashboardStats, history]) => {
+      api.getCartridges().catch(() => [] as ComplianceCartridge[]),
+    ]).then(([dashboardStats, history, carts]) => {
       setStats(dashboardStats);
       setPostureHistory(history);
+      setCartridges(carts);
     }).finally(() => setLoading(false));
   }, [api]);
 
@@ -636,7 +639,25 @@ export const ComplianceDashboard = () => {
               <div className={classes.frameworkItem} key={fw.name}>
                 <Card variant="outlined" className={classes.frameworkCard}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>{fw.name}</Typography>
+                    <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                      <Typography variant="h6" gutterBottom>{fw.name}</Typography>
+                      {(() => {
+                        const cart = cartridges.find(c => c.id === fw.profileId);
+                        if (!cart?.certification) return null;
+                        return (
+                          <Chip
+                            label={cart.certification.status === 'certified' ? 'Certified' : cart.certification.status === 'conformant' ? 'Conformant' : 'Uncertified'}
+                            size="small"
+                            style={{
+                              fontWeight: 600,
+                              marginBottom: 8,
+                              backgroundColor: cart.certification.status === 'certified' ? '#3E8635' : cart.certification.status === 'conformant' ? '#0066CC' : '#6A6E73',
+                              color: '#fff',
+                            }}
+                          />
+                        );
+                      })()}
+                    </Box>
                     <Typography variant="body2" color="textSecondary">
                       {fw.target} &middot; {fw.rules} rules
                     </Typography>

@@ -50,6 +50,8 @@ A Tier 1 compliance profile ships the scanner itself. This is the reference stru
 security.compliance_<platform>_<framework>/
   galaxy.yml                            # Collection metadata, dependencies, version
   meta/runtime.yml                      # Ansible version requirements
+  meta/execution-environment.yml        # EE deps for ansible-builder auto-discovery
+  meta/compliance-profile.yml           # Profile identity, certification, and capabilities
 
   plugins/modules/                      # Custom Ansible modules
     normalize_<scanner>.py              # Scanner output --> Common Findings Format

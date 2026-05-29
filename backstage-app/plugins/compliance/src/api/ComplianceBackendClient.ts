@@ -290,6 +290,10 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
+  async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string }> {
+    return this.request(`/job-templates/${id}`);
+  }
+
   getControllerWorkflowTemplates() {
     return this.request<Array<{ id: number; name: string; description: string }>>(
       '/controller/workflow-job-templates',

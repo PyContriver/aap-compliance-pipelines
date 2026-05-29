@@ -196,6 +196,7 @@ export const MOCK_CARTRIDGES: ComplianceCartridge[] = [
     eeId: 1,
     remediationPlaybookPath: 'playbooks/rhel9-stig-remediate.yml',
     scanTags: 'stig,rhel9',
+    certification: { status: 'certified' as const, authority: 'NIST SCAP 1.2', validationId: '', disclaimer: '' },
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-04-01T00:00:00Z',
   },
@@ -307,6 +308,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
     saveCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
     deleteCartridge: jest.fn().mockResolvedValue(undefined),
+    getJobTemplateDetail: jest.fn().mockResolvedValue({ id: 10, name: 'compliance-stig-scan', description: '', extra_vars: '{}' }),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([
       { id: 10, name: 'compliance-stig-scan', description: 'STIG scan workflow' },
     ]),

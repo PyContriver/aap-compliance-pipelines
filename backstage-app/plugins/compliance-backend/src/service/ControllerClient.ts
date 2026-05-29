@@ -233,6 +233,16 @@ export class ControllerClient {
     );
   }
 
+  async getJobTemplateDetail(
+    templateId: number,
+    token?: string,
+  ): Promise<{ id: number; name: string; description: string; extra_vars: string }> {
+    return this.executeGetRequest(
+      `api/controller/v2/job_templates/${templateId}/`,
+      token,
+    );
+  }
+
   async getWorkflowTemplateNodes(
     templateId: number,
     token?: string,

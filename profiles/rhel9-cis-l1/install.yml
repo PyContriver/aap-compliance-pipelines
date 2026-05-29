@@ -62,6 +62,12 @@
           inventory: "{{ inventory_name }}"
           ask_variables_on_launch: true
           use_fact_cache: true
+          extra_vars:
+            profile_name: "{{ profile.name }}"
+            framework: "{{ profile.framework }}"
+            certification_status: "{{ profile.certification_status }}"
+            certification_authority: "{{ profile.certification_authority }}"
+            oscap_xccdf_profile: "xccdf_org.ssgproject.content_profile_cis_server_l1"
         validate_certs: false
         status_code: [200, 201]
       register: _scan_jt

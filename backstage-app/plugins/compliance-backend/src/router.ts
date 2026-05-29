@@ -282,6 +282,25 @@ export async function createRouter(
     res.json(templates);
   });
 
+  // ─── Job template detail ────────────────────────────────────────────
+
+  router.get('/job-templates/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid job template ID' });
+      return;
+    }
+    const userToken = getUserAapToken(req);
+    try {
+      const detail = await service.getJobTemplateDetail(id, userToken);
+      res.json(detail);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to fetch JT detail for ${id}: ${msg}`);
+      res.status(502).json({ error: msg });
+    }
+  });
+
   // ─── Scan ───────────────────────────────────────────────────────────
 
   router.post('/scan/validate', async (req, res) => {

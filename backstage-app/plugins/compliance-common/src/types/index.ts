@@ -35,4 +35,7 @@ export type {
   RemediationPlanGroup,
   RemediationPlan,
   RuleMetadataRecord,
+  CertificationStatus,
+  ScanCertification,
+  PlatformValidationResult,
 } from './api';

@@ -1,0 +1,27 @@
+---
+# Compliance Profile Metadata
+#
+# This file declares the profile's identity and capabilities.
+# It is read by the Backstage compliance plugin to auto-populate
+# profile registration fields when a user selects a scan JT.
+# These values are also set as JT default extra_vars during
+# profile installation (install.yml).
+
+profile:
+  name: "DISA STIG RHEL 9"
+  framework: "DISA_STIG"
+  version: "V2R8"
+  platform: "RHEL 9"
+  scanner: "openscap"
+  xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
+  remediation_playbook: "playbooks/remediate.yml"
+  certification:
+    status: "certified"
+    authority: "NIST SCAP 1.2"
+    disclaimer: >
+      OpenSCAP is NIST SCAP 1.2 validated. SCAP Security Guide content
+      is produced in collaboration with DISA FSO. Scan results are
+      accepted for DISA STIG compliance assessments.
+  platform_spec:
+    os_family: ["RedHat"]
+    os_version: ["9"]

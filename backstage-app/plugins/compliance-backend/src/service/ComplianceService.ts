@@ -241,6 +241,21 @@ export class ComplianceService {
     return result.results;
   }
 
+  // ─── Job template detail ─────────────────────────────────────────────
+
+  async getJobTemplateDetail(
+    id: number,
+    token?: string,
+  ): Promise<{ id: number; name: string; description: string; extra_vars: string }> {
+    if (this.dataSource === 'mock') {
+      return { id, name: `Mock JT ${id}`, description: '', extra_vars: '{}' };
+    }
+    if (!this.controllerClient) {
+      throw new Error('Controller client not available');
+    }
+    return this.controllerClient.getJobTemplateDetail(id, token);
+  }
+
   // ─── Execution environments ─────────────────────────────────────────
 
   async getExecutionEnvironments(token?: string): Promise<Array<{ id: number; name: string; image: string }>> {

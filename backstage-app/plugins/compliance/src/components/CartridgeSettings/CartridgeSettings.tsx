@@ -43,6 +43,8 @@ import { complianceApiRef } from '../../api';
 import type {
   ComplianceCartridge,
   SaveCartridgeRequest,
+  CertificationStatus,
+  ScanCertification,
 } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -208,6 +210,10 @@ export const CartridgeSettings = () => {
   const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>([]);
   const [executionEnvironments, setExecutionEnvironments] = useState<ExecutionEnvironment[]>([]);
 
+  // Certification form state
+  const [certStatus, setCertStatus] = useState('uncertified');
+  const [certAuthority, setCertAuthority] = useState('');
+
   const loadCartridges = useCallback(async () => {
     try {
       const data = await api.getCartridges();
@@ -232,6 +238,42 @@ export const CartridgeSettings = () => {
     }
   }, [api]);
 
+  // Track whether WJT selection was user-initiated (not initial edit load)
+  const [autoPopulateEnabled, setAutoPopulateEnabled] = useState(false);
+
+  // Auto-populate profile fields from the selected workflow job template's extra_vars
+  useEffect(() => {
+    if (!autoPopulateEnabled || !form.workflowTemplateId) return;
+    let cancelled = false;
+
+    // The WJT contains child nodes; look up the first JT node to get its extra_vars.
+    // For simplicity, we use the WJT id to search for associated JTs.
+    api.getJobTemplateDetail(form.workflowTemplateId).then(detail => {
+      if (cancelled) return;
+      try {
+        const vars = JSON.parse(detail.extra_vars || '{}');
+        if (vars.profile_name) {
+          setForm(prev => ({ ...prev, displayName: prev.displayName || vars.profile_name }));
+        }
+        if (vars.framework) {
+          setForm(prev => ({ ...prev, framework: vars.framework }));
+        }
+        if (vars.certification_status) {
+          setCertStatus(vars.certification_status);
+        }
+        if (vars.certification_authority) {
+          setCertAuthority(vars.certification_authority);
+        }
+      } catch {
+        // extra_vars not valid JSON — skip auto-populate
+      }
+    }).catch(() => {
+      // JT detail fetch failed — non-fatal
+    });
+
+    return () => { cancelled = true; };
+  }, [api, form.workflowTemplateId, autoPopulateEnabled]);
+
   useEffect(() => {
     loadCartridges();
   }, [loadCartridges]);
@@ -239,6 +281,9 @@ export const CartridgeSettings = () => {
   const handleOpenDialog = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
+    setCertStatus('uncertified');
+    setCertAuthority('');
+    setAutoPopulateEnabled(true);
     setSaveError(null);
     loadControllerResources();
     setDialogOpen(true);
@@ -251,6 +296,8 @@ export const CartridgeSettings = () => {
       setSaveError('This profile was deleted by another user.');
       return;
     }
+    // Disable auto-populate during initial form population
+    setAutoPopulateEnabled(false);
     setEditingId(fresh.id);
     setForm({
       displayName: fresh.displayName,
@@ -264,6 +311,10 @@ export const CartridgeSettings = () => {
       remediationPlaybookPath: fresh.remediationPlaybookPath,
       scanTags: fresh.scanTags,
     });
+    setCertStatus(fresh.certification?.status || 'uncertified');
+    setCertAuthority(fresh.certification?.authority || '');
+    // Re-enable auto-populate for subsequent WJT changes
+    setTimeout(() => setAutoPopulateEnabled(true), 100);
     setSaveError(null);
     loadControllerResources();
     setDialogOpen(true);
@@ -279,7 +330,12 @@ export const CartridgeSettings = () => {
     setSaving(true);
     setSaveError(null);
     try {
-      const payload = editingId ? { ...form, id: editingId } : form;
+      const certification = certStatus !== 'uncertified'
+        ? { status: certStatus as CertificationStatus, authority: certAuthority, validationId: '', disclaimer: '' }
+        : null;
+      const payload = editingId
+        ? { ...form, id: editingId, certification }
+        : { ...form, certification };
       await api.saveCartridge(payload);
       handleCloseDialog();
       await loadCartridges();
@@ -412,6 +468,7 @@ export const CartridgeSettings = () => {
                 <TableRow>
                   <TableCell>Name</TableCell>
                   <TableCell>Framework</TableCell>
+                  <TableCell>Certification</TableCell>
                   <TableCell>Version</TableCell>
                   <TableCell>Platform</TableCell>
                   <TableCell>Workflow Job Template</TableCell>
@@ -439,6 +496,21 @@ export const CartridgeSettings = () => {
                         variant="outlined"
                         className={classes.frameworkChip}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {c.certification ? (
+                        <Chip
+                          label={c.certification.status === 'certified' ? 'Certified' : c.certification.status === 'conformant' ? 'Conformant' : 'Uncertified'}
+                          size="small"
+                          style={{
+                            fontWeight: 600,
+                            backgroundColor: c.certification.status === 'certified' ? '#3E8635' : c.certification.status === 'conformant' ? '#0066CC' : '#6A6E73',
+                            color: '#fff',
+                          }}
+                        />
+                      ) : (
+                        <Chip label="Uncertified" size="small" style={{ fontWeight: 600, backgroundColor: '#6A6E73', color: '#fff' }} />
+                      )}
                     </TableCell>
                     <TableCell>{c.version || '--'}</TableCell>
                     <TableCell>{c.platform || '--'}</TableCell>
@@ -687,6 +759,31 @@ export const CartridgeSettings = () => {
               helperText="Optional. Comma-separated rule IDs to limit which rules are included. Leave empty to scan all rules in the standard."
               className={classes.formField}
             />
+
+            <TextField
+              select
+              label="Certification Status"
+              value={certStatus}
+              onChange={e => setCertStatus(e.target.value)}
+              fullWidth
+              margin="normal"
+              size="small"
+            >
+              <MenuItem value="uncertified">Uncertified</MenuItem>
+              <MenuItem value="conformant">Conformant</MenuItem>
+              <MenuItem value="certified">Certified</MenuItem>
+            </TextField>
+            {certStatus !== 'uncertified' && (
+              <TextField
+                label="Certification Authority"
+                value={certAuthority}
+                onChange={e => setCertAuthority(e.target.value)}
+                fullWidth
+                margin="normal"
+                size="small"
+                helperText="e.g. NIST SCAP 1.2, CIS"
+              />
+            )}
           </div>
           {saveError && (
             <Typography color="error" variant="body2" style={{ marginTop: 8 }}>

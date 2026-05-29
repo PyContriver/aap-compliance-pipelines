@@ -31,5 +31,6 @@ export type {
   PlatformValidationResult,
   RemediationPlanGroup,
   RemediationPlan,
+  RuleMetadataRecord,
 } from './types';
 

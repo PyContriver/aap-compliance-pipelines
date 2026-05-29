@@ -42,7 +42,7 @@ import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import TrendingDownIcon from '@material-ui/icons/TrendingDown';
 import RemoveIcon from '@material-ui/icons/Remove';
-import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { ExportButton } from './ExportButton';
 
@@ -209,7 +209,12 @@ export const ResultsViewer = () => {
   const [scanType, setScanType] = useState<'assessment' | 'verification'>('assessment');
   const [findingsExpanded, setFindingsExpanded] = useState(true);
 
-  // Determine scan type and status from scan history
+  // Profile info bar state
+  const [profileName, setProfileName] = useState<string>('');
+  const [frameworkLabel, setFrameworkLabel] = useState<string>('');
+  const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
+
+  // Determine scan type and status from scan history, and load profile info
   useEffect(() => {
     if (!jobId) return;
     api.getScans().then(scans => {
@@ -218,6 +223,17 @@ export const ResultsViewer = () => {
       );
       if (match?.scanType) {
         setScanType(match.scanType);
+      }
+      // Load cartridges to find the matching profile's certification
+      if (match) {
+        api.getCartridges().then(cartridges => {
+          const cart = cartridges.find(c => c.id === match.profileId);
+          if (cart) {
+            setProfileName(cart.displayName);
+            setFrameworkLabel(cart.framework);
+            setProfileCert(cart.certification);
+          }
+        }).catch(() => {});
       }
     }).catch(err => {
       console.error('Failed to load scan metadata for scan type:', err);
@@ -583,6 +599,23 @@ export const ResultsViewer = () => {
       </Breadcrumbs>
 
       <Box mt={2} />
+
+      {/* Profile info bar with certification badge */}
+      {profileCert && (
+        <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
+          <Typography variant="subtitle2">{profileName}</Typography>
+          <Chip label={frameworkLabel} size="small" variant="outlined" />
+          <Chip
+            label={profileCert.status === 'certified' ? 'Certified' : profileCert.status === 'conformant' ? 'Conformant' : 'Uncertified'}
+            size="small"
+            style={{
+              fontWeight: 600,
+              backgroundColor: profileCert.status === 'certified' ? '#3E8635' : profileCert.status === 'conformant' ? '#0066CC' : '#6A6E73',
+              color: '#fff',
+            }}
+          />
+        </Box>
+      )}
 
       {/* Verification Comparison Header */}
       {isVerification && previousFindings.length > 0 ? (

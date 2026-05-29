@@ -29,7 +29,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import { complianceApiRef } from '../../api';
-import type { ComplianceScan, ComplianceCartridge } from '@aap-compliance/common';
+import type { ComplianceScan, ComplianceCartridge, ScanCertification } from '@aap-compliance/common';
 import { ScanProgress } from '../ScanProgress';
 
 const useStyles = makeStyles(theme => ({
@@ -87,7 +87,7 @@ export const ScanHistory = () => {
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
   const [scans, setScans] = useState<ComplianceScan[]>([]);
-  const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
+  const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null }>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const refreshScans = () => api.getScans().then(data => setScans(data)).catch(err => {
@@ -98,7 +98,7 @@ export const ScanHistory = () => {
     Promise.all([
       refreshScans(),
       api.getCartridges().then(cs => {
-        setProfileNames(new Map(cs.map(c => [c.id, c.displayName])));
+        setProfileMap(new Map(cs.map(c => [c.id, { name: c.displayName, certification: c.certification }])));
       }).catch(err => {
         console.error('Failed to load cartridges for profile names:', err);
       }),
@@ -138,7 +138,7 @@ export const ScanHistory = () => {
         <ScanProgress
           key={scan.id}
           workflowJobId={scan.workflowJobId}
-          profileName={profileNames.get(scan.profileId) || scan.profileId}
+          profileName={profileMap.get(scan.profileId)?.name || scan.profileId}
           onComplete={() => {
             // Delay refresh to allow the backend to mark the scan as completed
             // before we fetch the updated list from the DB.
@@ -220,8 +220,20 @@ export const ScanHistory = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" style={{ fontWeight: 500 }}>
-                      {profileNames.get(scan.profileId) || scan.profileId}
+                      {profileMap.get(scan.profileId)?.name || scan.profileId}
                     </Typography>
+                    {profileMap.get(scan.profileId)?.certification && (
+                      <Chip
+                        label={profileMap.get(scan.profileId)!.certification!.status === 'certified' ? 'Certified' : profileMap.get(scan.profileId)!.certification!.status === 'conformant' ? 'Conformant' : 'Uncertified'}
+                        size="small"
+                        style={{
+                          fontWeight: 600,
+                          marginTop: 4,
+                          backgroundColor: profileMap.get(scan.profileId)!.certification!.status === 'certified' ? '#3E8635' : profileMap.get(scan.profileId)!.certification!.status === 'conformant' ? '#0066CC' : '#6A6E73',
+                          color: '#fff',
+                        }}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>{scan.scanner}</TableCell>
                   <TableCell>
