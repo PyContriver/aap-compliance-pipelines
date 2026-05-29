@@ -83,7 +83,7 @@ security.compliance_<platform>_<framework>/
     sanity/                             # Ansible sanity test ignores
 ```
 
-> **Note:** The reference implementation previously included `compliance_gather.py` and `compliance_evaluate.py` modules with hand-written checks for 20 rules. These have been replaced by OpenSCAP-based scanning (`oscap xccdf eval`) which provides 366 STIG rules with metadata from the XCCDF datastream. The old modules are deprecated but retained in the collection for backward compatibility.
+> **Note:** The reference implementation previously included `compliance_gather.py` and `compliance_evaluate.py` modules with hand-written checks for 20 rules. These have been removed and replaced by OpenSCAP-based scanning (`oscap xccdf eval`) which provides 366+ rules with metadata from the XCCDF datastream.
 
 ### Tier 2 Structure
 
@@ -251,6 +251,21 @@ This is THE contract. Every normalizer must produce output conforming to this sc
         "host_os": {
           "type": "string",
           "description": "Operating system of the scanned host"
+        },
+        "certification": {
+          "type": "object",
+          "description": "Scanner certification status for this framework",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["certified", "conformant", "uncertified"],
+              "description": "Whether the scanner is formally validated by the framework authority"
+            },
+            "authority": {
+              "type": "string",
+              "description": "Certifying body or validation program (e.g., NIST SCAP 1.2, CIS)"
+            }
+          }
         }
       }
     },
@@ -1159,7 +1174,90 @@ Each scanner produces findings with its own `scan_metadata.scanner.name`. The po
 
 ---
 
-## 10. Checklist
+## 10. Scanner Certification
+
+Certification status tells users whether scan results are formally recognized by the framework authority. This is critical for regulated environments where audit evidence must come from validated tools.
+
+### Certification Levels
+
+| Status | Meaning | Example |
+|--------|---------|---------|
+| `certified` | Scanner is validated by the framework authority. Results are accepted for formal compliance audits. | OpenSCAP + DISA STIG (OpenSCAP has NIST SCAP 1.2 validation; SSG content is produced in collaboration with DISA FSO) |
+| `conformant` | Scanner uses official benchmark content but is not the authority-certified tool. Results are technically accurate but may not be accepted for formal audits. | OpenSCAP + CIS Benchmark (CIS-CAT Pro is the CIS-certified scanner, not OpenSCAP) |
+| `uncertified` | Custom scanner or homegrown checks with no formal validation. | Ansible facts gathering with custom rules |
+
+### Known Certifications
+
+| Scanner | Framework | Status | Authority | Notes |
+|---------|-----------|--------|-----------|-------|
+| OpenSCAP | DISA STIG | certified | NIST SCAP 1.2 | OpenSCAP Base validated April 2014. SSG content is DISA-endorsed. |
+| OpenSCAP | CIS Benchmark | conformant | CIS | Uses SSG's CIS profiles but OpenSCAP is not CIS-certified. CIS-CAT Pro (NIST SCAP 1.2 #127) is the certified tool. |
+| CIS-CAT Pro | CIS Benchmark | certified | CIS, NIST SCAP 1.2 #127 | Commercial tool from CIS. |
+| Qualys | DISA STIG | certified | NIST SCAP validated | Enterprise vulnerability scanner. |
+| Qualys | CIS Benchmark | certified | CIS-certified vendor | |
+| Tenable | Both | certified | Both certifications | |
+| Custom/Ansible facts | Any | uncertified | — | No formal validation |
+
+### Declaring Certification in a Profile
+
+The normalizer module accepts `certification_status` and `certification_authority` parameters. These are set in the profile's playbooks (`run_oscap.yml`, `normalize.yml`) and emitted in the CFF output:
+
+```yaml
+- name: Normalize results
+  security.compliance_rhel9_stig.normalize_xccdf:
+    results_files: ["{{ item.path }}"]
+    output_file: "{{ output_file }}"
+    profile_name: "DISA STIG RHEL 9"
+    framework: "DISA_STIG"
+    certification_status: "certified"
+    certification_authority: "NIST SCAP 1.2"
+```
+
+The certification metadata flows through the CFF JSON output into the Backstage plugin, where it can be displayed as a badge on scan results.
+
+### CFF Output
+
+The `certification` object is included in the `scan_metadata` section of the CFF JSON:
+
+```json
+{
+  "version": "1.0.0",
+  "scan_metadata": {
+    "scan_id": "a1b2c3d4-...",
+    "profile_id": "stig_rhel9_v2r8",
+    "profile_name": "DISA STIG RHEL 9",
+    "scanner": {
+      "name": "openscap",
+      "version": "1.3.10",
+      "tier": 1
+    },
+    "certification": {
+      "status": "certified",
+      "authority": "NIST SCAP 1.2"
+    },
+    "timestamp": "2026-05-29T12:00:00Z",
+    "host": "nm-rhel01.example.com"
+  },
+  "findings": [],
+  "summary": {}
+}
+```
+
+### Tier 2 BYOS Adapters
+
+For Tier 2 scanner adapters, the certification status depends on the customer's scanner:
+
+- If the customer uses a NIST SCAP-validated scanner (Qualys, Tenable, SCC), the adapter should set `certified`
+- If the customer uses an unvalidated scanner, the adapter should set `uncertified`
+- The adapter should accept the certification parameters from the user's configuration, not hardcode them
+
+### Custom Profiles
+
+For custom profiles, default to `uncertified` unless the profile author can demonstrate formal validation.
+
+---
+
+## 11. Checklist
 
 Use this checklist when building a new compliance profile. Every item must be satisfied before the compliance profile is considered shippable.
 
@@ -1182,6 +1280,7 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Original scanner rule ID preserved in `evidence.scanner_rule_id`
 - [ ] `supports_check_mode=True` in the module's `AnsibleModule()` call
 - [ ] Unit tests for the normalizer covering pass, fail, error, not_applicable, and edge cases
+- [ ] Certification status declared (`certified`, `conformant`, or `uncertified`) with authority (see section 10)
 
 ### Execution Environment
 

@@ -40,6 +40,23 @@ options:
     default: auto
     choices: [auto, DISA_STIG, CIS]
     version_added: "0.1.0"
+  certification_status:
+    description: >
+      Scanner certification level for this profile.
+      certified = scanner validated by framework authority.
+      conformant = uses official content but not the certified tool.
+      uncertified = custom or homegrown checks.
+    type: str
+    required: false
+    default: uncertified
+    choices: [certified, conformant, uncertified]
+    version_added: "0.1.0"
+  certification_authority:
+    description: Certifying body (e.g. "NIST SCAP 1.2", "CIS").
+    type: str
+    required: false
+    default: ""
+    version_added: "0.1.0"
 author:
   - Ansible Security Team (@ansible)
 '''
@@ -293,6 +310,9 @@ def main():
             profile_name=dict(type='str', required=False, default=None),
             framework=dict(type='str', required=False, default='auto',
                            choices=['auto', 'DISA_STIG', 'CIS']),
+            certification_status=dict(type='str', required=False, default='uncertified',
+                                      choices=['certified', 'conformant', 'uncertified']),
+            certification_authority=dict(type='str', required=False, default=''),
         ),
         supports_check_mode=True,
     )
@@ -300,6 +320,8 @@ def main():
     results_files = module.params['results_files']
     output_file = module.params['output_file']
     profile_name = module.params['profile_name']
+    cert_status = module.params['certification_status']
+    cert_authority = module.params['certification_authority']
     framework = module.params['framework']
 
     all_findings = []
@@ -327,10 +349,16 @@ def main():
         except (KeyError, ValueError) as e:
             module.warn(f'Error processing {filepath}: {e}')
 
+    certification = {
+        'status': cert_status,
+        'authority': cert_authority,
+    }
+
     report = {
         'schema_version': '1.0.0',
         'scanner': 'openscap',
         'profile': profile_name or 'OpenSCAP Compliance Scan',
+        'certification': certification,
         'timestamp': '',
         'hosts_processed': hosts_processed,
         'total_findings': len(all_findings),

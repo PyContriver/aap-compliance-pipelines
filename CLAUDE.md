@@ -57,19 +57,26 @@ Full guide: `docs/deployment-guide.md`
 
 ## Scanner Architecture
 
-Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide for 366 STIG rules:
+Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide. Three profiles ship under `profiles/`:
 
-1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, strips XCCDF prefix from rule IDs (match CaC tags), extracts metadata from datastream, outputs CFF JSON. Play 2 then POSTs findings directly to the plugin's `/findings/ingest` endpoint via `uri` module (ADR-007). Falls back to event-based parsing if `backstage_api_url` is not set.
-2. `normalize.yml` (standalone utility): same normalization logic as Play 2 above, available for debugging and Tier 2 reuse
+| Profile | Framework | XCCDF Profile | Certification |
+|---------|-----------|---------------|---------------|
+| `rhel9-stig` | DISA STIG V2R8 | `stig` | certified (NIST SCAP 1.2) |
+| `rhel9-cis-l1` | CIS L1 Server | `cis_server_l1` | conformant |
+| `rhel9-cis-l2` | CIS L2 Server | `cis` | conformant |
+
+Each profile has the same pipeline structure:
+1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, outputs CFF JSON with certification metadata. Play 2 then POSTs findings directly to the plugin's `/findings/ingest` endpoint via `uri` module (ADR-007).
+2. `normalize.yml` (standalone utility): same normalization logic, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
 
 Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010).
 
-Key files in the EE:
-- `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (copied to targets)
-- `/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml` — CaC remediation playbook
-
-Deprecated modules (`compliance_gather`, `compliance_evaluate`) and playbooks (`gather_facts.yml`, `evaluate.yml`) are retained but no longer the primary path.
+Key files in the EE (same for all profiles — `scap-security-guide` ships all datastreams):
+- `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (all profiles)
+- `/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml` — STIG CaC remediation
+- `/usr/share/scap-security-guide/ansible/rhel9-playbook-cis_server_l1.yml` — CIS L1 CaC remediation
+- `/usr/share/scap-security-guide/ansible/rhel9-playbook-cis.yml` — CIS L2 CaC remediation
 
 ## Engineering Standards
 

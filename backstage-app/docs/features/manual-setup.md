@@ -67,7 +67,7 @@ the automated `setup_controller.yml` playbook.
 5. Organization: `compliance-prototype`
 6. Save
 
-> **Building the EE**: Use the `meta/ee_profile.yml` from this collection
+> **Building the EE**: Use the `meta/execution-environment.yml` from the collection or the standalone `ee/execution-environment.yml` from the profile
 > with `ansible-builder build` to create the compliance EE image. The EE
 > includes `scap-security-guide` and `openscap-scanner` RPMs.
 

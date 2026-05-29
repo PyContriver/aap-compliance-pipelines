@@ -5,6 +5,25 @@
 import type { Finding, ScanResult, FindingParameter } from './findings';
 import type { ComplianceProfile, RemediationProfile, RemediationSelection } from './profiles';
 
+/**
+ * Scanner certification status for a compliance profile.
+ *
+ * - certified: Scanner is validated by the framework authority
+ *   (e.g. OpenSCAP is NIST SCAP 1.2 validated for DISA STIG assessments)
+ * - conformant: Scanner uses official benchmark content but is not the
+ *   authority-certified tool (e.g. OpenSCAP with CIS content — accurate
+ *   results but CIS-CAT Pro is the CIS-certified scanner)
+ * - uncertified: Custom scanner or homegrown checks with no formal validation
+ */
+export type CertificationStatus = 'certified' | 'conformant' | 'uncertified';
+
+export interface ScanCertification {
+  status: CertificationStatus;
+  authority: string;
+  validationId: string;
+  disclaimer: string;
+}
+
 /** Request to launch a compliance scan via the backend. */
 export interface LaunchScanRequest {
   profileId: string;
@@ -211,6 +230,7 @@ export interface ComplianceCartridge {
   eeId: number | null;
   remediationPlaybookPath: string;
   scanTags: string;
+  certification: ScanCertification | null;
   ruleCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -245,6 +265,7 @@ export interface SaveCartridgeRequest {
   eeId: number | null;
   remediationPlaybookPath: string;
   scanTags: string;
+  certification?: ScanCertification | null;
 }
 
 /** Platform requirements for a compliance profile (ADR-011). */

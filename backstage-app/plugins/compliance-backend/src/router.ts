@@ -990,6 +990,7 @@ export async function createRouter(
       eeId: body.eeId ?? null,
       remediationPlaybookPath: body.remediationPlaybookPath ?? '',
       scanTags: body.scanTags ?? '',
+      certification: body.certification ?? null,
     };
 
     try {

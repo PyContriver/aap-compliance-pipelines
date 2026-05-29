@@ -13,4 +13,6 @@ __pycache__/
 format_gdocs.py
 .env.*
 lab-*-environment.md
-profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/tests/output/
+**/tests/output/
+.pytest_cache/
+**/.pytest_cache/

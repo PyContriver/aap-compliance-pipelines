@@ -49,6 +49,8 @@
         output_file: "{{ output_file }}"
         profile_name: "CIS Benchmark RHEL 9 Level 1 - Server"
         framework: "CIS"
+        certification_status: "conformant"
+        certification_authority: "CIS"
       register: _normalized
 
     - name: Display summary

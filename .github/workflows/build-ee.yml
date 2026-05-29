@@ -47,7 +47,7 @@ jobs:
       - name: Build EE
         run: |
           BUILD_DIR=$(mktemp -d)
-          cp $COLLECTION_DIR/meta/ee_profile.yml $BUILD_DIR/execution-environment.yml
+          cp $COLLECTION_DIR/meta/execution-environment.yml $BUILD_DIR/execution-environment.yml
           cd $BUILD_DIR
           ansible-builder create \
             -f execution-environment.yml \

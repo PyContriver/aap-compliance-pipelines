@@ -19,9 +19,12 @@ aap-compliance-pipelines/
       compliance-backend/        # Backend plugin (REST API, DB, Controller client)
       compliance-common/         # Shared TypeScript types
     bin/start.sh                 # Dev launcher (mock/live modes)
-  collections/                   # Ansible collection (oscap playbooks, normalizer, remediation)
-  docs/                          # AsciiDoc + deployment guide
-  .github/workflows/             # CI (EE build, plugin packaging)
+  profiles/                      # Self-contained compliance profiles
+    rhel9-stig/                  # DISA STIG V2R8 (certified, NIST SCAP 1.2)
+    rhel9-cis-l1/                # CIS Benchmark L1 Server (conformant)
+    rhel9-cis-l2/                # CIS Benchmark L2 Server (conformant)
+  docs/                          # AsciiDoc + deployment guide + developer guide
+  .github/workflows/             # CI (plugin tests, collection tests, EE build)
 ```
 
 **Plugins are the shipping artifact.** The `packages/` directory is the dev shell only.
@@ -59,7 +62,7 @@ yarn test                    # All tests
 yarn test --coverage         # With coverage report
 ```
 
-Target: all tests passing. Current: 200+ tests across 11+ suites.
+Target: all tests passing. Current: 271 backend tests across 12 suites + 57 collection unit tests (19 per profile).
 
 ## CI/CD Pipelines
 
@@ -68,7 +71,8 @@ GitHub Actions workflows in `.github/workflows/`:
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
 | **`ci.yml`** | Push/PR to `main` (backstage-app paths) | Runs tests, builds, exports dist-dynamic tarballs, uploads as artifacts with integrity hashes |
-| **`build-ee.yml`** | Push to `main` (collections paths) | Builds custom Execution Environment with scap-security-guide, pushes to ghcr.io |
+| **`collection-tests.yml`** | Push/PR to `main` (profiles paths) | Runs ansible-test sanity + units, ansible-lint, ansible-galaxy collection build per changed profile. Matrix: ansible-core 2.16/2.17/2.18 (required), 2.20 (experimental) |
+| **`build-ee.yml`** | Push to `main` (profiles paths) | Builds custom Execution Environment with scap-security-guide, pushes to ghcr.io |
 
 ### CI workflow (`ci.yml`)
 
@@ -111,8 +115,9 @@ main ←── feature branches (PRs only)
 
 | Branch | Purpose | Status |
 |--------|---------|--------|
-| `feature/oscap-scanner` | Replace custom evaluate module with oscap xccdf eval | Merged |
-| `feature/tier2-adapter` | Tenable/Insights scanner adapter PoC | Planned |
+| `main` | Primary development branch | Active |
+
+Feature branches use `feature/description` or `claude/description` naming.
 
 ### Testing Environments
 
@@ -254,6 +259,26 @@ This provides implicit organization/team scoping without Backstage-level org pol
 
 - **Types**: `src/types/` — shared TypeScript interfaces
 
+## Profile Structure
+
+Each profile under `profiles/` is self-contained:
+
+```
+profiles/rhel9-stig/
+  ansible_collections/security/compliance_rhel9_stig/
+    galaxy.yml                 # Collection metadata
+    meta/execution-environment.yml  # EE deps for Hub auto-discovery
+    plugins/modules/           # normalize_xccdf module
+    playbooks/                 # run_oscap, remediate, normalize
+    tests/                     # ansible-test units + integration
+    docs/                      # Automation Hub + community docs
+  ee/execution-environment.yml # Standalone EE build definition
+  install.yml                  # Controller registration playbook
+  README.md                    # Profile documentation
+```
+
+Profiles follow the standard `ansible_collections/{namespace}/{name}/` convention. They can be extracted to standalone repos via `git subtree split`.
+
 ## Adding New Features
 
 ### New API endpoint
@@ -273,17 +298,20 @@ This provides implicit organization/team scoping without Backstage-level org pol
 3. Add tab in `TABS` array if it's a top-level view
 4. Add tests in `ComponentName.test.tsx`
 
-### New compliance rules
+### New compliance profile
 
-With the migration to OpenSCAP-based scanning, compliance rules are no longer hand-authored in YAML. The `oscap xccdf eval` command evaluates all 366 STIG rules from the SCAP Security Guide datastream (`ssg-rhel9-ds.xml`). The `normalize_xccdf` module extracts rule metadata (title, description, fix_text, severity, stig_id) directly from the XCCDF datastream.
+Each compliance profile is self-contained under `profiles/`. To add a new one:
 
-To add support for a new compliance framework or profile:
+1. Copy an existing profile directory (e.g., `profiles/rhel9-stig/`)
+2. Update the collection namespace in `galaxy.yml`
+3. Set the XCCDF profile ID in `run_oscap.yml` (e.g., `cis_server_l1`)
+4. Set the remediation playbook path in `remediate.yml`
+5. Set certification parameters (`certification_status`, `certification_authority`)
+6. Update the EE definition if different scanner packages are needed
+7. Run `ansible-test sanity` and `ansible-test units` to verify
+8. See `docs/compliance-profile-developer-guide.md` for the full guide
 
-1. Identify the XCCDF profile ID (e.g., `xccdf_org.ssgproject.content_profile_cis`)
-2. Pass it via the `oscap_profile` variable in `run_oscap.yml`
-3. The normalizer handles the rest -- no rules YAML changes needed
-
-The deprecated `compliance_evaluate` module and `rules/stig_rhel9_v2r8.yml` are retained for backward compatibility but are no longer the primary scanning path.
+The normalizer (`normalize_xccdf.py`) is framework-aware and handles STIG, CIS, and custom profiles via the `framework` parameter.
 
 ### New or modified AAP Controller resources
 
@@ -293,8 +321,7 @@ When adding or modifying job templates:
 2. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
 3. All JTs must specify `execution_environment` -- the compliance EE with oscap and scap-security-guide (JTs using the default EE will fail because it lacks oscap)
 4. Use `oscap_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
-5. Update both copies of `setup_controller.yml` (in `collections/` and `content/collections/`)
-6. Update `content/extensions/patterns/.../aap_config/controller_job_templates.yml` if applicable
+5. Use the profile's `install.yml` to register resources, or create them manually via the Controller API
 
 ### CaC Title Matching Convention
 
@@ -311,7 +338,7 @@ This enables the remediation execution view to group tasks under their parent ru
 - **All useEffect hooks** must clean up intervals/timeouts
 - **All new endpoints** must have auth policies in both dev and production modes
 - **Mock mode** must work for every feature (MockDataProvider returns all fields)
-- **Tests** must pass — target 200+ tests
+- **Tests** must pass — target all tests passing (currently 328 across backend + collections)
 
 ## Key Decisions
 
@@ -323,6 +350,7 @@ This enables the remediation execution view to group tasks under their parent ru
 | Two-tier RBAC + AAP pass-through | Matches downstream, AAP RBAC provides implicit org scoping |
 | SQLite for dev, PostgreSQL for production | Knex migrations handle both |
 | Auto-save (Insights pattern) | Remediations named upfront, every change auto-saves |
+| Scanner certification model | Profiles declare `certified` / `conformant` / `uncertified` based on scanner + framework combination. OpenSCAP + STIG = certified (NIST SCAP 1.2). OpenSCAP + CIS = conformant (CIS-CAT Pro is the certified tool). |
 
 ## Resources
 

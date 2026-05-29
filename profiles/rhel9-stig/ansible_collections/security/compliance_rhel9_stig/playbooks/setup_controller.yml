@@ -59,9 +59,9 @@
     compliance_scm_branch: main
 
     # Playbook paths (relative to project root)
-    playbook_run_oscap: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml"
-    playbook_normalize: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml"
-    playbook_remediate: "collections/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml"
+    playbook_run_oscap: "profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml"
+    playbook_normalize: "profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml"
+    playbook_remediate: "profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml"
 
     # ── Organization (gateway_organizations for AAP 2.5+) ───────────
     aap_organizations:

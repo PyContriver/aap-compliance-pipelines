@@ -49,6 +49,8 @@
         output_file: "{{ output_file }}"
         profile_name: "DISA STIG RHEL 9"
         framework: "DISA_STIG"
+        certification_status: "certified"
+        certification_authority: "NIST SCAP 1.2"
       register: _normalized
 
     - name: Display summary

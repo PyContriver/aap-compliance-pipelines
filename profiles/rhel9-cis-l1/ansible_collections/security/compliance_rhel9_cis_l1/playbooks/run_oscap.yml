@@ -168,6 +168,8 @@
         output_file: "{{ fetch_dest_dir }}/findings-{{ _host_label }}.json"
         profile_name: "CIS Benchmark RHEL 9 Level 1 - Server"
         framework: "CIS"
+        certification_status: "conformant"
+        certification_authority: "CIS"
       vars:
         _host_label: "{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}"
       loop: "{{ _result_files.files }}"

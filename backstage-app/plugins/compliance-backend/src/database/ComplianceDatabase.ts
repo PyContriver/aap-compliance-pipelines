@@ -512,6 +512,7 @@ export class ComplianceDatabase {
       version: cartridge.version || '',
       platform: cartridge.platform || '',
       platform_spec: cartridge.platformSpec ? JSON.stringify(cartridge.platformSpec) : null,
+      certification: cartridge.certification ? JSON.stringify(cartridge.certification) : null,
       workflow_template_id: cartridge.workflowTemplateId,
       ee_id: cartridge.eeId,
       remediation_playbook_path: cartridge.remediationPlaybookPath || '',
@@ -560,6 +561,7 @@ export class ComplianceDatabase {
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',
+      certification: row.certification ? JSON.parse(row.certification as string) : null,
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
     };

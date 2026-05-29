@@ -25,6 +25,8 @@ export type {
   DashboardStats,
   ComplianceCartridge,
   SaveCartridgeRequest,
+  CertificationStatus,
+  ScanCertification,
   PlatformSpec,
   PlatformValidationResult,
   RemediationPlanGroup,

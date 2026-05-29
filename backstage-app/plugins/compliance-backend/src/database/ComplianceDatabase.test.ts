@@ -103,6 +103,7 @@ async function createTables(database: Knex): Promise<void> {
       table.integer('ee_id').nullable();
       table.text('remediation_playbook_path').defaultTo('');
       table.string('scan_tags').defaultTo('');
+      table.text('certification').nullable();
       table
         .timestamp('created_at')
         .notNullable()

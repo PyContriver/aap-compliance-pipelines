@@ -31,6 +31,8 @@
       name: "CIS Benchmark RHEL 9 Level 1 - Server"
       framework: "CIS"
       version: "v1.0.0"
+      certification_status: "conformant"
+      certification_authority: "CIS"
       scan_jt_name: "compliance-scan-cis-l1-rhel9"
       scan_playbook: "profiles/rhel9-cis-l1/ansible_collections/security/compliance_rhel9_cis_l1/playbooks/run_oscap.yml"
       remediate_jt_name: "compliance-remediate-cis-l1-rhel9"
