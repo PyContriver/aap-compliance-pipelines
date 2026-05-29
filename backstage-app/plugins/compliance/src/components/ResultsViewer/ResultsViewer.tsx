@@ -740,7 +740,7 @@ export const ResultsViewer = () => {
         {/* Filters */}
         <div className={classes.filterRow}>
           <TextField
-            placeholder="Search by title or STIG ID..."
+            placeholder="Search by title or rule ID..."
             variant="outlined"
             size="small"
             style={{ minWidth: 280 }}
@@ -779,7 +779,7 @@ export const ResultsViewer = () => {
                 <TableCell width={40} />
                 <TableCell>Severity</TableCell>
                 <TableCell>Title</TableCell>
-                <TableCell>STIG ID</TableCell>
+                <TableCell>Rule ID</TableCell>
                 <TableCell align="center">Hosts</TableCell>
                 <TableCell width={200}>Pass Rate</TableCell>
               </TableRow>
