@@ -1131,10 +1131,11 @@ describe('compliance backend router', () => {
     });
 
     it('returns DB findings when scanId matches stored data', async () => {
+      const scanUuid = 'aaccae65-24cd-424c-b123-abcdef123456';
       const storedFindings = [
         {
           id: 'f-1',
-          scanId: 'scan-1',
+          scanId: scanUuid,
           ruleId: 'rule-1',
           stigId: 'RHEL-09-001',
           host: 'host1',
@@ -1151,14 +1152,128 @@ describe('compliance backend router', () => {
         { getFindingsByScanId: jest.fn().mockResolvedValue(storedFindings) },
       );
       const res = await testRequest(app, {
-        path: '/findings?scanId=scan-1',
+        path: `/findings?scanId=${scanUuid}`,
       });
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(aggregated);
-      expect(database.getFindingsByScanId).toHaveBeenCalledWith('scan-1');
+      expect(database.getFindingsByScanId).toHaveBeenCalledWith(scanUuid);
       expect(service.aggregateFindingsWithMetadata).toHaveBeenCalledWith(storedFindings);
       expect(service.getFindings).not.toHaveBeenCalled();
+    });
+
+    it('resolves numeric workflowJobId to scan UUID before DB lookup', async () => {
+      const storedFindings = [
+        {
+          id: 'f-2',
+          scanId: 'real-scan-uuid',
+          ruleId: 'rule-1',
+          stigId: 'RHEL-09-001',
+          host: 'host1',
+          status: 'pass',
+          severity: 'medium',
+          actualValue: 'on',
+          expectedValue: 'on',
+          evidence: null,
+        },
+      ];
+      const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] }];
+      const { app, database, service } = await createApp(
+        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
+        {
+          getScanByWorkflowJobId: jest.fn().mockResolvedValue({
+            id: 'real-scan-uuid',
+            profileId: 'rhel9-stig',
+            workflowJobId: 42,
+            status: 'completed',
+          }),
+          getFindingsByScanId: jest.fn().mockResolvedValue(storedFindings),
+        },
+      );
+      const res = await testRequest(app, {
+        path: '/findings?scanId=42',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(aggregated);
+      expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(42);
+      expect(database.getFindingsByScanId).toHaveBeenCalledWith('real-scan-uuid');
+    });
+
+    it('falls through to service when numeric scanId has no DB scan', async () => {
+      const mockFindings = [{ ruleId: 'mock-1' }];
+      const { app, database, service } = await createApp(
+        { getFindings: jest.fn().mockResolvedValue(mockFindings) },
+        { getScanByWorkflowJobId: jest.fn().mockResolvedValue(null) },
+      );
+      const res = await testRequest(app, {
+        path: '/findings?scanId=999',
+      });
+
+      expect(res.status).toBe(200);
+      expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(999);
+      expect(service.getFindings).toHaveBeenCalledWith('999');
+    });
+
+    it('resolves scan- prefixed numeric IDs to workflowJobId', async () => {
+      const storedFindings = [
+        {
+          id: 'f-3',
+          scanId: 'prefixed-uuid',
+          ruleId: 'rule-1',
+          stigId: 'RHEL-09-001',
+          host: 'host1',
+          status: 'pass',
+          severity: 'low',
+          actualValue: 'on',
+          expectedValue: 'on',
+          evidence: null,
+        },
+      ];
+      const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] }];
+      const { app, database, service } = await createApp(
+        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
+        {
+          getScanByWorkflowJobId: jest.fn().mockResolvedValue({
+            id: 'prefixed-uuid',
+            profileId: 'rhel9-stig',
+            workflowJobId: 42,
+            status: 'completed',
+          }),
+          getFindingsByScanId: jest.fn().mockResolvedValue(storedFindings),
+        },
+      );
+      const res = await testRequest(app, {
+        path: '/findings?scanId=scan-42',
+      });
+
+      expect(res.status).toBe(200);
+      expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(42);
+      expect(database.getFindingsByScanId).toHaveBeenCalledWith('prefixed-uuid');
+    });
+
+    it('returns 400 for invalid scanId characters', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        path: '/findings?scanId=;DROP%20TABLE',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Invalid scanId' });
+    });
+
+    it('skips DB findings lookup when numeric ID has no matching scan', async () => {
+      const { app, database } = await createApp(
+        {},
+        { getScanByWorkflowJobId: jest.fn().mockResolvedValue(null) },
+      );
+      const res = await testRequest(app, {
+        path: '/findings?scanId=777',
+      });
+
+      expect(res.status).toBe(200);
+      expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(777);
+      expect(database.getFindingsByScanId).not.toHaveBeenCalled();
     });
   });
 

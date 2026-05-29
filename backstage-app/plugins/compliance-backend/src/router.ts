@@ -87,7 +87,8 @@ function isArray(val: unknown): val is unknown[] {
 }
 
 function isValidScanId(scanId: string): boolean {
-  return typeof scanId === 'string' && scanId.length > 0 && scanId.length <= 128;
+  return typeof scanId === 'string' && scanId.length > 0 && scanId.length <= 128
+    && /^[a-zA-Z0-9_-]+$/.test(scanId);
 }
 
 // ─── Permission enforcement ──────────────────────────────────────────
@@ -399,100 +400,103 @@ export async function createRouter(
       return;
     }
 
-    // 1. If a scanId is given, check the DB for stored findings first
+    // 1. If scanId looks like a numeric workflowJobId, resolve to the
+    //    actual scan UUID so all downstream DB lookups work in any mode.
+    let resolvedScanId = scanId;
+    let workflowJobId: number | undefined;
+    let dbScan: Awaited<ReturnType<typeof database.getScanByWorkflowJobId>> | undefined;
+
     if (scanId) {
-      const dbFindings = await database.getFindingsByScanId(scanId);
-      if (dbFindings.length > 0) {
-        res.json(await service.aggregateFindingsWithMetadata(dbFindings));
-        return;
-      }
-
-      // 2. In live mode, resolve workflowJobId to DB scan and check for existing findings
-      if (service.getDataSource() === 'live') {
-        const workflowJobIdMatch = scanId.match(/^(?:scan-)?(\d+)$/);
-        if (workflowJobIdMatch) {
-          const workflowJobId = Number(workflowJobIdMatch[1]);
-          const dbScan = await database.getScanByWorkflowJobId(workflowJobId);
-
-          // Check if this scan already has findings in the DB
-          if (dbScan) {
-            const existingFindings = await database.getFindingsByScanId(dbScan.id);
-            if (existingFindings.length > 0) {
-              res.json(await service.aggregateFindingsWithMetadata(existingFindings));
-              return;
-            }
-          }
-
-          // No findings yet — check if workflow is complete and fetch
-          try {
-            const status = await service.getWorkflowJobStatus(workflowJobId, userToken);
-            const st = status.status.toLowerCase();
-            if (st === 'successful' || st === 'failed') {
-              const dbScanId = dbScan?.id ?? scanId;
-
-              logger.info(
-                `Workflow ${workflowJobId} is complete — fetching and parsing results (dbScanId=${dbScanId})`,
-              );
-              const parsed = await service.fetchAndParseResults(
-                workflowJobId,
-                dbScanId,
-                userToken,
-              );
-
-              if (dbScan) {
-                const scanStatus = st === 'successful' ? 'completed' : 'failed';
-                await database.updateScanStatus(
-                  dbScan.id,
-                  scanStatus,
-                  new Date().toISOString(),
-                );
-              }
-
-              if (parsed.length > 0) {
-                // Save a posture snapshot for trend tracking
-                try {
-                  const passCount = parsed.filter(f => f.status === 'pass').length;
-                  const failCount = parsed.filter(f => f.status === 'fail').length;
-                  const uniqueHosts = new Set(parsed.map(f => f.host)).size;
-                  const uniqueRules = new Set(parsed.map(f => f.ruleId)).size;
-                  const total = passCount + failCount;
-                  await database.savePostureSnapshot({
-                    profileId: dbScan?.profileId ?? scanId,
-                    timestamp: new Date().toISOString(),
-                    totalHosts: uniqueHosts,
-                    totalRules: uniqueRules,
-                    passCount,
-                    failCount,
-                    compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
-                  });
-                  logger.info(`Saved posture snapshot for profile=${dbScan?.profileId ?? scanId}`);
-                } catch (snapshotError) {
-                  logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
-                }
-
-                const freshFindings = await database.getFindingsByScanId(dbScanId);
-                if (freshFindings.length > 0) {
-                  res.json(await service.aggregateFindingsWithMetadata(freshFindings));
-                  return;
-                }
-                res.json(await service.aggregateFindingsWithMetadata(parsed));
-                return;
-              }
-            } else {
-              logger.info(
-                `Workflow ${workflowJobId} status is "${status.status}" — not yet ready to parse`,
-              );
-            }
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            logger.warn(`Failed to fetch/parse results for scan ${scanId}: ${msg}`);
-          }
+      const workflowJobIdMatch = scanId.match(/^(?:scan-)?(\d+)$/);
+      if (workflowJobIdMatch) {
+        workflowJobId = Number(workflowJobIdMatch[1]);
+        dbScan = await database.getScanByWorkflowJobId(workflowJobId) ?? undefined;
+        if (dbScan) {
+          resolvedScanId = dbScan.id;
         }
       }
     }
 
-    // 3. Fall through to the service (mock data or DB-based in live mode)
-    const findings = await service.getFindings(scanId);
+    // 2. Check the DB for stored findings using the resolved UUID.
+    //    Skip the DB lookup if we matched a numeric ID but found no scan
+    //    record — the raw numeric string won't match any UUID in findings.
+    const skipDbLookup = workflowJobId !== undefined && !dbScan;
+    if (resolvedScanId && !skipDbLookup) {
+      const dbFindings = await database.getFindingsByScanId(resolvedScanId);
+      if (dbFindings.length > 0) {
+        res.json(await service.aggregateFindingsWithMetadata(dbFindings));
+        return;
+      }
+    }
+
+    // 3. In live mode, if the workflow is complete, fetch and parse results
+    if (resolvedScanId && service.getDataSource() === 'live' && workflowJobId) {
+      try {
+        const status = await service.getWorkflowJobStatus(workflowJobId, userToken);
+        const st = status.status.toLowerCase();
+        if (st === 'successful' || st === 'failed') {
+          const effectiveScanId = dbScan?.id ?? resolvedScanId;
+
+          logger.info(
+            `Workflow ${workflowJobId} is complete — fetching and parsing results (dbScanId=${effectiveScanId})`,
+          );
+          const parsed = await service.fetchAndParseResults(
+            workflowJobId,
+            effectiveScanId,
+            userToken,
+          );
+
+          if (dbScan) {
+            const scanStatus = st === 'successful' ? 'completed' : 'failed';
+            await database.updateScanStatus(
+              dbScan.id,
+              scanStatus,
+              new Date().toISOString(),
+            );
+          }
+
+          if (parsed.length > 0) {
+            try {
+              const passCount = parsed.filter(f => f.status === 'pass').length;
+              const failCount = parsed.filter(f => f.status === 'fail').length;
+              const uniqueHosts = new Set(parsed.map(f => f.host)).size;
+              const uniqueRules = new Set(parsed.map(f => f.ruleId)).size;
+              const total = passCount + failCount;
+              await database.savePostureSnapshot({
+                profileId: dbScan?.profileId ?? resolvedScanId,
+                timestamp: new Date().toISOString(),
+                totalHosts: uniqueHosts,
+                totalRules: uniqueRules,
+                passCount,
+                failCount,
+                compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
+              });
+              logger.info(`Saved posture snapshot for profile=${dbScan?.profileId ?? resolvedScanId}`);
+            } catch (snapshotError) {
+              logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
+            }
+
+            const freshFindings = await database.getFindingsByScanId(effectiveScanId);
+            if (freshFindings.length > 0) {
+              res.json(await service.aggregateFindingsWithMetadata(freshFindings));
+              return;
+            }
+            res.json(await service.aggregateFindingsWithMetadata(parsed));
+            return;
+          }
+        } else {
+          logger.info(
+            `Workflow ${workflowJobId} status is "${status.status}" — not yet ready to parse`,
+          );
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.warn(`Failed to fetch/parse results for scan ${resolvedScanId}: ${msg}`);
+      }
+    }
+
+    // 4. Fall through to the service (mock data or DB-based in live mode)
+    const findings = await service.getFindings(resolvedScanId);
     res.json(findings);
   });
 
