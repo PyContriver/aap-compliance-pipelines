@@ -26,6 +26,11 @@ function toISOStringOrNull(value: unknown): string | null {
   return toISOString(value);
 }
 
+function safeJsonParse<T>(value: unknown): T | null {
+  if (!value) return null;
+  try { return JSON.parse(value as string); } catch { return null; }
+}
+
 export class ComplianceDatabase {
   constructor(private readonly db: Knex) {}
 
@@ -556,12 +561,12 @@ export class ComplianceDatabase {
       framework: row.framework as string,
       version: (row.version as string) || '',
       platform: (row.platform as string) || '',
-      platformSpec: row.platform_spec ? JSON.parse(row.platform_spec as string) : null,
+      platformSpec: safeJsonParse(row.platform_spec),
       workflowTemplateId: (row.workflow_template_id as number) ?? null,
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',
-      certification: row.certification ? JSON.parse(row.certification as string) : null,
+      certification: safeJsonParse(row.certification),
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
     };

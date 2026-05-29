@@ -29,6 +29,7 @@ import type {
   RemediationSelection,
   RemediationPlan,
   RemediationPlanGroup,
+  IngestFinding,
 } from '@aap-compliance/common';
 
 import { ControllerClient } from './ControllerClient';
@@ -92,11 +93,8 @@ function loadRulesMetadata(): Map<string, RuleMetadata> {
       }
     }
   } catch (err) {
-    // Rules files not found — enrichment will be skipped.
-    // This is expected when running without the collections directory.
-    // Rules files not available — this is expected in dev/mock mode.
-    // The logger is not accessible in this static helper; the caller
-    // logs the loaded count instead.
+    // Expected in dev/mock mode or dist-dynamic without bundled rules.
+    console.warn(`Rules metadata not loaded: ${err instanceof Error ? err.message : String(err)}`);
   }
   return map;
 }
@@ -179,6 +177,11 @@ export class ComplianceService {
    */
   setDatabase(db: ComplianceDatabase): void {
     this.database = db;
+  }
+
+  private requireDatabase(): ComplianceDatabase {
+    if (!this.database) throw new Error('ComplianceDatabase not initialized — call setDatabase() first');
+    return this.database;
   }
 
   private getRulesMetadata(): Map<string, RuleMetadata> {
@@ -313,14 +316,29 @@ export class ComplianceService {
       (request.limit ? ` limit=${request.limit}` : ''),
     );
 
-    const launch = await this.controllerClient!.launchWorkflow(
-      resolvedTemplateId,
-      extraVars,
-      token,
-      request.limit,
-      undefined,
-      request.inventoryId,
-    );
+    let launch: { id: number; workflow_job?: number; status: string };
+    try {
+      launch = await this.controllerClient!.launchWorkflow(
+        resolvedTemplateId,
+        extraVars,
+        token,
+        request.limit,
+        undefined,
+        request.inventoryId,
+      );
+    } catch (wftError) {
+      // Fallback: template might be a JT, not a WJT
+      const is404 = wftError instanceof Error && wftError.message.includes('404');
+      if (!is404) throw wftError;
+      this.logger.info(`Template ${resolvedTemplateId} is not a WJT, trying as JT`);
+      const jtLaunch = await this.controllerClient!.launchJobTemplate(
+        resolvedTemplateId,
+        extraVars,
+        token,
+        request.limit,
+      );
+      launch = { ...jtLaunch, workflow_job: undefined };
+    }
 
     const workflowJobId = launch.workflow_job ?? launch.id;
 
@@ -694,11 +712,11 @@ export class ComplianceService {
    * StoredFinding format.
    */
   mapRawFindingPublic(
-    raw: RawControllerFinding,
+    raw: IngestFinding,
     host: string,
     scanId: string,
   ): Omit<StoredFinding, 'id'> {
-    return this.mapRawFinding(raw, host, scanId);
+    return this.mapRawFinding(raw as RawControllerFinding, host, scanId);
   }
 
   private mapRawFinding(
@@ -1128,6 +1146,7 @@ export class ComplianceService {
 
   // ─── Dashboard ──────────────────────────────────────────────────────
 
+  // TODO: N+1 queries in scan findings aggregation — add caching or materialized stats
   async getDashboardStats(): Promise<DashboardStats> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getDashboardStats();
@@ -1220,15 +1239,16 @@ export class ComplianceService {
         }),
       );
 
-      const frameworkScores = Array.from(profileStats.entries()).map(([pid, stats]) => {
-        const total = stats.pass + stats.fail;
+      const frameworkScores = profiles.map(p => {
+        const pStats = profileStats.get(p.id);
+        const total = pStats ? pStats.pass + pStats.fail : 0;
         return {
-          profileId: pid,
-          name: profileNameMap.get(pid) || pid,
-          target: 'RHEL 9',
-          rules: stats.rules,
-          rate: total > 0 ? Math.round((stats.pass / total) * 100) : 0,
-          lastScan: stats.lastScan,
+          profileId: p.id,
+          name: p.displayName,
+          target: p.platform || 'RHEL 9',
+          rules: pStats?.rules ?? 0,
+          rate: total > 0 ? Math.round((pStats!.pass / total) * 100) : 0,
+          lastScan: pStats?.lastScan ?? '',
         };
       });
 

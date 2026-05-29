@@ -3,9 +3,11 @@
  * Compiled JS copy for dist-dynamic packaging.
  */
 async function up(knex) {
-  await knex.schema.alterTable('compliance_cartridge_registry', table => {
-    table.text('certification').nullable();
-  });
+  if (!(await knex.schema.hasColumn('compliance_cartridge_registry', 'certification'))) {
+    await knex.schema.alterTable('compliance_cartridge_registry', table => {
+      table.text('certification').nullable();
+    });
+  }
 }
 
 async function down(knex) {

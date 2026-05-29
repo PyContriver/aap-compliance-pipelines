@@ -210,7 +210,7 @@ export class ControllerClient {
     if (jobTags) {
       body.job_tags = jobTags;
     }
-    if (inventoryId) {
+    if (inventoryId != null) {
       body.inventory = inventoryId;
     }
     return this.executePostRequest(

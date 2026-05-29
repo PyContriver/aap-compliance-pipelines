@@ -283,3 +283,18 @@ export interface PlatformValidationResult {
   mismatchedHosts: Array<{ hostname: string; reason: string }>;
   factsAvailable: boolean;
 }
+
+/** Raw finding shape from playbook Direct POST to /findings/ingest (ADR-007). */
+export interface IngestFinding {
+  rule_id: string;
+  stig_id?: string;
+  title?: string;
+  severity?: string;
+  status?: string;
+  host?: string;
+  description?: string;
+  check_text?: string;
+  fix_text?: string;
+  evidence?: Record<string, unknown>;
+  [key: string]: unknown;
+}

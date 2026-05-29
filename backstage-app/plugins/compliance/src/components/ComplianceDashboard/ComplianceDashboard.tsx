@@ -27,6 +27,7 @@ import BuildIcon from '@material-ui/icons/Build';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import { ComplianceGauge } from './ComplianceGauge';
 import { complianceApiRef } from '../../api';
+import { CertificationBadge } from '../shared/CertificationBadge';
 import type { DashboardStats, PostureSnapshot, ComplianceCartridge } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -644,18 +645,7 @@ export const ComplianceDashboard = () => {
                       {(() => {
                         const cart = cartridges.find(c => c.id === fw.profileId);
                         if (!cart?.certification) return null;
-                        return (
-                          <Chip
-                            label={cart.certification.status === 'certified' ? 'Certified' : cart.certification.status === 'conformant' ? 'Conformant' : 'Uncertified'}
-                            size="small"
-                            style={{
-                              fontWeight: 600,
-                              marginBottom: 8,
-                              backgroundColor: cart.certification.status === 'certified' ? '#3E8635' : cart.certification.status === 'conformant' ? '#0066CC' : '#6A6E73',
-                              color: '#fff',
-                            }}
-                          />
-                        );
+                        return <CertificationBadge certification={cart.certification} style={{ marginBottom: 8 }} />;
                       })()}
                     </Box>
                     <Typography variant="body2" color="textSecondary">
@@ -678,7 +668,7 @@ export const ComplianceDashboard = () => {
                         variant="caption"
                         color="textSecondary"
                       >
-                        Last scan: {fw.lastScan}
+                        {fw.lastScan ? `Last scan: ${new Date(fw.lastScan).toLocaleDateString()}` : 'No scans yet'}
                       </Typography>
                       <Chip
                         icon={<AssessmentIcon style={{ fontSize: 14 }} />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   InfoCard,
@@ -25,10 +25,12 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import PlayCircleFilledIcon from '@material-ui/icons/PlayCircleFilled';
+import BuildIcon from '@material-ui/icons/Build';
 import SearchIcon from '@material-ui/icons/Search';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import { complianceApiRef } from '../../api';
+import { CertificationBadge } from '../shared/CertificationBadge';
 import type { ComplianceScan, ComplianceCartridge, ScanCertification } from '@aap-compliance/common';
 import { ScanProgress } from '../ScanProgress';
 
@@ -90,9 +92,9 @@ export const ScanHistory = () => {
   const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null }>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  const refreshScans = () => api.getScans().then(data => setScans(data)).catch(err => {
+  const refreshScans = useCallback(() => api.getScans().then(data => setScans(data)).catch(err => {
     console.error('Failed to refresh scans:', err);
-  });
+  }), [api]);
 
   useEffect(() => {
     Promise.all([
@@ -114,7 +116,7 @@ export const ScanHistory = () => {
     if (activeScans.length === 0) return;
     const interval = setInterval(refreshScans, 10_000);
     return () => clearInterval(interval);
-  }, [activeScans.length]);
+  }, [activeScans.length, refreshScans]);
 
   if (loading) return <Progress />;
 
@@ -208,7 +210,7 @@ export const ScanHistory = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      icon={scan.scanner === 'remediation' ? <PlayCircleFilledIcon /> : scan.scanType === 'verification' ? <VerifiedUserIcon /> : <AssessmentIcon />}
+                      icon={scan.scanner === 'remediation' ? <BuildIcon /> : scan.scanType === 'verification' ? <VerifiedUserIcon /> : <AssessmentIcon />}
                       label={scan.scanner === 'remediation' ? 'Remediation' : scan.scanType === 'verification' ? 'Verification' : 'Assessment'}
                       size="small"
                       variant="outlined"
@@ -223,16 +225,7 @@ export const ScanHistory = () => {
                       {profileMap.get(scan.profileId)?.name || scan.profileId}
                     </Typography>
                     {profileMap.get(scan.profileId)?.certification && (
-                      <Chip
-                        label={profileMap.get(scan.profileId)!.certification!.status === 'certified' ? 'Certified' : profileMap.get(scan.profileId)!.certification!.status === 'conformant' ? 'Conformant' : 'Uncertified'}
-                        size="small"
-                        style={{
-                          fontWeight: 600,
-                          marginTop: 4,
-                          backgroundColor: profileMap.get(scan.profileId)!.certification!.status === 'certified' ? '#3E8635' : profileMap.get(scan.profileId)!.certification!.status === 'conformant' ? '#0066CC' : '#6A6E73',
-                          color: '#fff',
-                        }}
-                      />
+                      <CertificationBadge certification={profileMap.get(scan.profileId)!.certification} style={{ marginTop: 4 }} />
                     )}
                   </TableCell>
                   <TableCell>{scan.scanner}</TableCell>

@@ -38,4 +38,5 @@ export type {
   CertificationStatus,
   ScanCertification,
   PlatformValidationResult,
+  IngestFinding,
 } from './api';

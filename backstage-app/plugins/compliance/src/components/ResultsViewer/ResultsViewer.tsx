@@ -44,6 +44,7 @@ import TrendingDownIcon from '@material-ui/icons/TrendingDown';
 import RemoveIcon from '@material-ui/icons/Remove';
 import type { FindingSeverity, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
+import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
 
 const useStyles = makeStyles(theme => ({
@@ -605,15 +606,7 @@ export const ResultsViewer = () => {
         <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
           <Typography variant="subtitle2">{profileName}</Typography>
           <Chip label={frameworkLabel} size="small" variant="outlined" />
-          <Chip
-            label={profileCert.status === 'certified' ? 'Certified' : profileCert.status === 'conformant' ? 'Conformant' : 'Uncertified'}
-            size="small"
-            style={{
-              fontWeight: 600,
-              backgroundColor: profileCert.status === 'certified' ? '#3E8635' : profileCert.status === 'conformant' ? '#0066CC' : '#6A6E73',
-              color: '#fff',
-            }}
-          />
+          <CertificationBadge certification={profileCert} />
         </Box>
       )}
 

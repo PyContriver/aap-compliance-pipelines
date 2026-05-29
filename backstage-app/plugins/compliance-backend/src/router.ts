@@ -32,6 +32,7 @@ import type {
   LaunchRemediationRequest,
   SaveRemediationProfileRequest,
   SaveCartridgeRequest,
+  IngestFinding,
 } from '@aap-compliance/common';
 
 export interface RouterOptions {
@@ -141,12 +142,16 @@ export async function createRouter(
 ): Promise<express.Router> {
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
-  router.use(express.json({ limit: '50mb' }));
+  router.use(express.json({ limit: '1mb' }));
 
   // ─── Health ─────────────────────────────────────────────────────────
 
-  // Per-process override; defaults to config value or 90 days.
+  // TODO(P3): retentionDays is per-process; persisted settings planned for multi-replica deployments.
   let retentionDays = configRetentionDays ?? 90;
+
+  // Throttle stale-scan Controller API checks (scanId → lastCheckedMs)
+  const staleScanThrottle = new Map<string, number>();
+  const STALE_SCAN_CHECK_INTERVAL_MS = 30_000;
 
   router.get('/health', (_req, res) => {
     res.json({
@@ -195,11 +200,14 @@ export async function createRouter(
 
     // Auto-update stale running/pending records by checking Controller
     if (service.getDataSource() === 'live') {
+      const now = Date.now();
       const staleScans = scans.filter(
-        s => (s.status === 'running' || s.status === 'pending') && s.workflowJobId,
+        s => (s.status === 'running' || s.status === 'pending') && s.workflowJobId
+          && now - (staleScanThrottle.get(s.id) ?? 0) > STALE_SCAN_CHECK_INTERVAL_MS,
       );
       await Promise.all(staleScans.map(async scan => {
         try {
+          staleScanThrottle.set(scan.id, now);
           const isRemediation = scan.scanner === 'remediation';
           const status = isRemediation
             ? await service.getJobStatus(scan.workflowJobId!, userToken)
@@ -571,8 +579,12 @@ export async function createRouter(
   });
 
   // ─── Findings ingest (direct POST from playbook) ────────────────────
+  // SECURITY NOTE: This endpoint intentionally bypasses Backstage httpAuth.
+  // The playbook callback cannot carry Backstage identity tokens. Security is
+  // provided by per-scan ingest tokens (ADR-010) validated against the DB.
+  // Consider rate-limiting or HMAC in production deployments.
 
-  router.post('/findings/ingest', async (req, res) => {
+  router.post('/findings/ingest', express.json({ limit: '50mb' }), async (req, res) => {
     const body = req.body;
     const scanId = body.scanId as string | undefined;
     const ingestToken = body.ingestToken as string | undefined;
@@ -611,7 +623,7 @@ export async function createRouter(
       }
 
       const mapped = findings.map(raw => service.mapRawFindingPublic(
-        raw as any,
+        raw as IngestFinding,
         (raw.host as string) || 'unknown',
         scanId,
       ));
@@ -942,7 +954,7 @@ export async function createRouter(
   router.get('/cartridges', async (_req, res) => {
     const cartridges = await database.listCartridges();
 
-    // Enrich each cartridge with rule count from latest scan findings
+    // TODO: N+1 queries — replace with single aggregation query when profile count grows
     const enriched = await Promise.all(
       cartridges.map(async c => {
         const findings = await database.getLatestFindings(c.id);

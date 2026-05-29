@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   InfoCard,
@@ -39,6 +39,7 @@ import DeleteIcon from '@material-ui/icons/Delete';
 import EditIcon from '@material-ui/icons/Edit';
 import SettingsIcon from '@material-ui/icons/Settings';
 import { complianceApiRef } from '../../api';
+import { CertificationBadge } from '../shared/CertificationBadge';
 
 import type {
   ComplianceCartridge,
@@ -239,41 +240,58 @@ export const CartridgeSettings = () => {
     }
   }, [api]);
 
-  // Track whether WJT selection was user-initiated (not initial edit load)
+  // Auto-populate state
   const [autoPopulateEnabled, setAutoPopulateEnabled] = useState(false);
+  const skipNextAutoPopulateRef = useRef(false);
+  const [pendingAutoPopulate, setPendingAutoPopulate] = useState<Record<string, unknown> | null>(null);
 
-  // Auto-populate profile fields from the selected workflow job template's extra_vars
+  // Fetch JT extra_vars when scan JT changes, then show confirmation dialog
   useEffect(() => {
     if (!autoPopulateEnabled || !form.workflowTemplateId) return;
+    if (skipNextAutoPopulateRef.current) {
+      skipNextAutoPopulateRef.current = false;
+      return;
+    }
     let cancelled = false;
 
-    // The WJT contains child nodes; look up the first JT node to get its extra_vars.
-    // For simplicity, we use the WJT id to search for associated JTs.
     api.getJobTemplateDetail(form.workflowTemplateId).then(detail => {
       if (cancelled) return;
       try {
         const vars = JSON.parse(detail.extra_vars || '{}');
-        if (vars.profile_name) {
-          setForm(prev => ({ ...prev, displayName: prev.displayName || vars.profile_name }));
-        }
-        if (vars.framework) {
-          setForm(prev => ({ ...prev, framework: vars.framework }));
-        }
-        if (vars.certification_status && ['certified', 'conformant', 'uncertified'].includes(vars.certification_status)) {
-          setCertStatus(vars.certification_status);
-        }
-        if (vars.certification_authority) {
-          setCertAuthority(vars.certification_authority);
+        if (Object.keys(vars).length > 0) {
+          setPendingAutoPopulate(vars);
         }
       } catch {
-        // extra_vars not valid JSON — skip auto-populate
+        // extra_vars not valid JSON — skip
       }
-    }).catch(() => {
-      // JT detail fetch failed — non-fatal
-    });
+    }).catch(() => {});
 
     return () => { cancelled = true; };
   }, [api, form.workflowTemplateId, autoPopulateEnabled]);
+
+  const applyAutoPopulate = (vars: Record<string, unknown>) => {
+    setForm(prev => ({
+      ...prev,
+      displayName: (vars.profile_name as string) || prev.displayName,
+      description: (vars.description as string) || prev.description,
+      framework: (vars.framework as string) || prev.framework,
+      version: (vars.version as string) || prev.version,
+      platform: (vars.platform as string) || prev.platform,
+      remediationPlaybookPath: (vars.remediation_playbook as string) || prev.remediationPlaybookPath,
+      platformSpec: {
+        ...prev.platformSpec,
+        os_family: (vars.os_family as string[]) || prev.platformSpec?.os_family,
+        os_version: (vars.os_version as string[]) || prev.platformSpec?.os_version,
+      },
+    }));
+    if (vars.certification_status && ['certified', 'conformant', 'uncertified'].includes(vars.certification_status as string)) {
+      setCertStatus(vars.certification_status as string);
+    }
+    if (vars.certification_authority) {
+      setCertAuthority(vars.certification_authority as string);
+    }
+    setPendingAutoPopulate(null);
+  };
 
   useEffect(() => {
     loadCartridges();
@@ -314,8 +332,8 @@ export const CartridgeSettings = () => {
     });
     setCertStatus(fresh.certification?.status || 'uncertified');
     setCertAuthority(fresh.certification?.authority || '');
-    // Re-enable auto-populate for subsequent WJT changes
-    setTimeout(() => setAutoPopulateEnabled(true), 100);
+    skipNextAutoPopulateRef.current = true;
+    setAutoPopulateEnabled(true);
     setSaveError(null);
     loadControllerResources();
     setDialogOpen(true);
@@ -499,19 +517,7 @@ export const CartridgeSettings = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {c.certification ? (
-                        <Chip
-                          label={c.certification.status === 'certified' ? 'Certified' : c.certification.status === 'conformant' ? 'Conformant' : 'Uncertified'}
-                          size="small"
-                          style={{
-                            fontWeight: 600,
-                            backgroundColor: c.certification.status === 'certified' ? '#3E8635' : c.certification.status === 'conformant' ? '#0066CC' : '#6A6E73',
-                            color: '#fff',
-                          }}
-                        />
-                      ) : (
-                        <Chip label="Uncertified" size="small" style={{ fontWeight: 600, backgroundColor: '#6A6E73', color: '#fff' }} />
-                      )}
+                      <CertificationBadge certification={c.certification} />
                     </TableCell>
                     <TableCell>{c.version || '--'}</TableCell>
                     <TableCell>{c.platform || '--'}</TableCell>
@@ -552,6 +558,70 @@ export const CartridgeSettings = () => {
         <DialogTitle>{editingId ? 'Edit Compliance Profile' : 'Add Compliance Profile'}</DialogTitle>
         <DialogContent>
           <div className={classes.dialogContent}>
+            <Typography variant="subtitle2" style={{ marginBottom: 4 }}>
+              Profile Discovery
+            </Typography>
+            <Typography variant="caption" color="textSecondary" style={{ marginBottom: 8 }}>
+              Select a scan job template to auto-detect profile configuration from its default extra_vars.
+            </Typography>
+
+            <FormControl variant="outlined" fullWidth className={classes.formField}>
+              <InputLabel>Scan Job Template</InputLabel>
+              <Select
+                value={form.workflowTemplateId ?? ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  updateForm('workflowTemplateId', val === '' ? null : Number(val));
+                }}
+                label="Scan Job Template"
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {workflowTemplates.map(t => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl variant="outlined" fullWidth className={classes.formField}>
+              <InputLabel>Execution Environment</InputLabel>
+              <Select
+                value={form.eeId ?? ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  updateForm('eeId', val === '' ? null : Number(val));
+                }}
+                label="Execution Environment"
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {executionEnvironments.map(ee => (
+                  <MenuItem key={ee.id} value={ee.id}>
+                    {ee.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Remediation Playbook Path"
+              variant="outlined"
+              fullWidth
+              placeholder="/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml"
+              value={form.remediationPlaybookPath}
+              onChange={e => updateForm('remediationPlaybookPath', e.target.value)}
+              helperText="Path inside the EE to the CaC remediation playbook"
+              className={classes.formField}
+            />
+
+            <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 4 }}>
+              Profile Details
+            </Typography>
+
             <TextField
               label="Profile Name"
               variant="outlined"
@@ -559,7 +629,7 @@ export const CartridgeSettings = () => {
               required
               value={form.displayName}
               onChange={e => updateForm('displayName', e.target.value)}
-              helperText="A descriptive name for this profile, e.g. 'DISA STIG for RHEL 9'"
+              helperText="e.g. 'DISA STIG for RHEL 9', 'CIS Benchmark RHEL 9 Level 1'"
               className={classes.formField}
             />
 
@@ -571,7 +641,6 @@ export const CartridgeSettings = () => {
               rows={2}
               value={form.description}
               onChange={e => updateForm('description', e.target.value)}
-              helperText="Optional context shown alongside the profile name in scan and results views"
               className={classes.formField}
             />
 
@@ -597,7 +666,6 @@ export const CartridgeSettings = () => {
               placeholder="e.g., V2R8"
               value={form.version}
               onChange={e => updateForm('version', e.target.value)}
-              helperText="The release version of the standard (e.g., V2R8 for DISA STIG, v1.0 for CIS)"
               className={classes.formField}
             />
 
@@ -608,12 +676,11 @@ export const CartridgeSettings = () => {
               placeholder="e.g., RHEL 9"
               value={form.platform}
               onChange={e => updateForm('platform', e.target.value)}
-              helperText="The operating system or platform this profile applies to"
               className={classes.formField}
             />
 
-            <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 8 }}>
-              Platform Requirements
+            <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 4 }}>
+              Platform Guards
             </Typography>
 
             <TextField
@@ -650,7 +717,7 @@ export const CartridgeSettings = () => {
                   },
                 }));
               }}
-              helperText="Comma-separated major versions: 9, 8, 2022, etc."
+              helperText="Comma-separated: 9, 8, 2022, etc."
               className={classes.formField}
             />
 
@@ -691,75 +758,9 @@ export const CartridgeSettings = () => {
               label="External scanner handles platform validation"
             />
 
-            <FormControl variant="outlined" fullWidth className={classes.formField}>
-              <InputLabel>Scan Job Template</InputLabel>
-              <Select
-                value={form.workflowTemplateId ?? ''}
-                onChange={e => {
-                  const val = e.target.value;
-                  updateForm('workflowTemplateId', val === '' ? null : Number(val));
-                }}
-                label="Scan Job Template"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {workflowTemplates.map(t => (
-                  <MenuItem key={t.id} value={t.id}>
-                    {t.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              <Typography variant="caption" color="textSecondary" style={{ marginTop: 4, marginLeft: 14 }}>
-                Select a scan JT to auto-populate profile fields from its default extra_vars
-              </Typography>
-            </FormControl>
-
-            <FormControl variant="outlined" fullWidth className={classes.formField}>
-              <InputLabel>Execution Environment</InputLabel>
-              <Select
-                value={form.eeId ?? ''}
-                onChange={e => {
-                  const val = e.target.value;
-                  updateForm('eeId', val === '' ? null : Number(val));
-                }}
-                label="Execution Environment"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {executionEnvironments.map(ee => (
-                  <MenuItem key={ee.id} value={ee.id}>
-                    {ee.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              <Typography variant="caption" color="textSecondary" style={{ marginTop: 4, marginLeft: 14 }}>
-                The EE that contains the scanner tooling and compliance content (e.g., scap-security-guide)
-              </Typography>
-            </FormControl>
-
-            <TextField
-              label="Remediation Playbook Path"
-              variant="outlined"
-              fullWidth
-              placeholder="/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml"
-              value={form.remediationPlaybookPath}
-              onChange={e => updateForm('remediationPlaybookPath', e.target.value)}
-              helperText="Filesystem path inside the EE to the remediation playbook. Installed by scap-security-guide at /usr/share/scap-security-guide/ansible/"
-              className={classes.formField}
-            />
-
-            <TextField
-              label="Scan Tags"
-              variant="outlined"
-              fullWidth
-              placeholder="e.g., sshd_set_idle_timeout, accounts_tmout"
-              value={form.scanTags}
-              onChange={e => updateForm('scanTags', e.target.value)}
-              helperText="Optional. Comma-separated rule IDs to limit which rules are included. Leave empty to scan all rules in the standard."
-              className={classes.formField}
-            />
+            <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 4 }}>
+              Certification &amp; Advanced
+            </Typography>
 
             <TextField
               select
@@ -767,8 +768,8 @@ export const CartridgeSettings = () => {
               value={certStatus}
               onChange={e => setCertStatus(e.target.value)}
               fullWidth
-              margin="normal"
               size="small"
+              className={classes.formField}
             >
               <MenuItem value="uncertified">Uncertified</MenuItem>
               <MenuItem value="conformant">Conformant</MenuItem>
@@ -780,11 +781,22 @@ export const CartridgeSettings = () => {
                 value={certAuthority}
                 onChange={e => setCertAuthority(e.target.value)}
                 fullWidth
-                margin="normal"
                 size="small"
                 helperText="e.g. NIST SCAP 1.2, CIS"
+                className={classes.formField}
               />
             )}
+
+            <TextField
+              label="Scan Tags"
+              variant="outlined"
+              fullWidth
+              placeholder="e.g., sshd_set_idle_timeout, accounts_tmout"
+              value={form.scanTags}
+              onChange={e => updateForm('scanTags', e.target.value)}
+              helperText="Optional. Comma-separated rule IDs to limit which rules are scanned."
+              className={classes.formField}
+            />
           </div>
           {saveError && (
             <Typography color="error" variant="body2" style={{ marginTop: 8 }}>
@@ -838,6 +850,42 @@ export const CartridgeSettings = () => {
             onClick={handleDeleteConfirm}
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Auto-populate confirmation dialog ──────────────────────── */}
+
+      <Dialog
+        open={pendingAutoPopulate !== null}
+        onClose={() => setPendingAutoPopulate(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Apply Profile Configuration?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Automatic configuration data was detected from the selected job template's default extra_vars.
+            Applying will overwrite the current form values.
+          </Typography>
+          {pendingAutoPopulate && (
+            <Box mt={2} p={1.5} bgcolor="#f5f5f5" borderRadius={4} style={{ fontFamily: 'monospace', fontSize: 12 }}>
+              {Object.entries(pendingAutoPopulate)
+                .filter(([, v]) => v !== undefined && v !== null && v !== '')
+                .map(([k, v]) => (
+                  <div key={k}>{k}: {typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
+                ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingAutoPopulate(null)}>Keep Manual Values</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => pendingAutoPopulate && applyAutoPopulate(pendingAutoPopulate)}
+          >
+            Apply Configuration
           </Button>
         </DialogActions>
       </Dialog>
