@@ -385,7 +385,7 @@ def main():
             'severity': f['severity'],
             'status': f['status'],
             'host': f['host'],
-            'evidence': f'OpenSCAP: {f["status"]}',
+            'evidence': f['evidence'],
         }
         for f in all_findings
     ]

@@ -13,7 +13,7 @@
  * URL from app-config.yaml, and fetchApi auto-attaches Backstage
  * identity tokens.
  */
-import type { ComplianceProfile, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, ComplianceScan, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest, PlatformValidationResult } from '@aap-compliance/common';
+import type { ComplianceProfile, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, ComplianceScan, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, SaveProfileRequest, PlatformValidationResult } from '@aap-compliance/common';
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import type { ComplianceApi } from './complianceApiRef';
 /** @public */
@@ -97,10 +97,10 @@ export declare class ComplianceBackendClient implements ComplianceApi {
         profileId: string;
         inventoryId: number;
     }): Promise<PlatformValidationResult>;
-    getCartridges(): Promise<ComplianceCartridge[]>;
-    getCartridge(id: string): Promise<ComplianceCartridge | null>;
-    saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
-    deleteCartridge(id: string): Promise<void>;
+    getRegisteredProfiles(): Promise<ComplianceProfile[]>;
+    getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
+    saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
+    deleteRegisteredProfile(id: string): Promise<void>;
     getJobTemplateDetail(id: number): Promise<{
         id: number;
         name: string;

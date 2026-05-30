@@ -1,4 +1,4 @@
-import type { ComplianceProfile, ComplianceScan, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, ComplianceCartridge, SaveCartridgeRequest, PlatformValidationResult } from '@aap-compliance/common';
+import type { ComplianceProfile, ComplianceScan, MultiHostFinding, DashboardStats, LaunchScanRequest, LaunchScanResponse, LaunchRemediationRequest, LaunchRemediationResponse, PostureSnapshot, RemediationProfile, SaveRemediationProfileRequest, WorkflowJobStatus, WorkflowNode, JobEvent, SaveProfileRequest, PlatformValidationResult } from '@aap-compliance/common';
 /** Interface for the compliance backend API. */
 export interface ComplianceApi {
     getHealth(): Promise<{
@@ -46,10 +46,10 @@ export interface ComplianceApi {
         profileId: string;
         inventoryId: number;
     }): Promise<PlatformValidationResult>;
-    getCartridges(): Promise<ComplianceCartridge[]>;
-    getCartridge(id: string): Promise<ComplianceCartridge | null>;
-    saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
-    deleteCartridge(id: string): Promise<void>;
+    getRegisteredProfiles(): Promise<ComplianceProfile[]>;
+    getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
+    saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
+    deleteRegisteredProfile(id: string): Promise<void>;
     getJobTemplateDetail(id: number): Promise<{
         id: number;
         name: string;

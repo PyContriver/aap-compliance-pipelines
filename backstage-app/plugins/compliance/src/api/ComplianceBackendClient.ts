@@ -290,7 +290,7 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
-  async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string }> {
+  async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
     return this.request(`/job-templates/${id}`);
   }
 

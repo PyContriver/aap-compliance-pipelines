@@ -260,15 +260,15 @@ export class ComplianceService {
   async getJobTemplateDetail(
     id: number,
     token?: string,
-  ): Promise<{ id: number; name: string; description: string; extra_vars: string }> {
+  ): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
     if (this.dataSource === 'mock') {
-      return { id, name: `Mock JT ${id}`, description: '', extra_vars: '{}' };
+      return { id, name: `Mock JT ${id}`, description: '', extra_vars: '{}', execution_environment: null };
     }
     if (!this.controllerClient) {
       throw new Error('Controller client not available');
     }
     const raw = await this.controllerClient.getJobTemplateDetail(id, token);
-    return { id: raw.id, name: raw.name, description: raw.description, extra_vars: raw.extra_vars };
+    return { id: raw.id, name: raw.name, description: raw.description, extra_vars: raw.extra_vars, execution_environment: raw.execution_environment ?? null };
   }
 
   // ─── Execution environments ─────────────────────────────────────────
@@ -639,6 +639,48 @@ export class ComplianceService {
         this.logger.info(
           `Persisted ${findings.length} findings for scan ${scanId}`,
         );
+
+        // Extract rule metadata from the raw events (same as /findings/ingest).
+        // Without this, titles are missing and task grouping breaks.
+        try {
+          const ruleMap = new Map<string, Record<string, unknown>>();
+          for (const event of events) {
+            const res = (event.event_data as Record<string, unknown>)?.res as Record<string, unknown> | undefined;
+            if (!res) continue;
+            const factsSource = (res.ansible_facts as Record<string, unknown>) ?? {};
+            const rawFindings: Array<Record<string, unknown>> | undefined =
+              (res.findings as Array<Record<string, unknown>>) ??
+              (factsSource.findings as Array<Record<string, unknown>>) ??
+              ((factsSource.compliance_results as Record<string, unknown>)?.findings as Array<Record<string, unknown>>) ??
+              ((factsSource.compliance_report as Record<string, unknown>)?.findings as Array<Record<string, unknown>>);
+            if (rawFindings && Array.isArray(rawFindings)) {
+              for (const raw of rawFindings) {
+                const ruleId = raw.rule_id as string;
+                if (ruleId && !ruleMap.has(ruleId)) {
+                  ruleMap.set(ruleId, raw);
+                }
+              }
+            }
+          }
+          if (ruleMap.size > 0) {
+            const metadataRecords = Array.from(ruleMap.values()).map(raw => ({
+              ruleId: raw.rule_id as string,
+              stigId: (raw.stig_id as string) || '',
+              title: (raw.title as string) || (raw.rule_id as string),
+              description: (raw.description as string) || '',
+              checkText: (raw.check_text as string) || '',
+              fixText: (raw.fix_text as string) || '',
+              category: (raw.category as string) || '',
+              disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
+              scanner: (raw.scanner as string) || 'openscap',
+              updatedAt: new Date().toISOString(),
+            }));
+            const metaCount = await this.database.upsertRuleMetadata(metadataRecords);
+            this.logger.info(`Upserted ${metaCount} rule metadata records from event parsing`);
+          }
+        } catch (metaErr) {
+          this.logger.warn(`Rule metadata upsert from events failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+        }
       } catch (persistError) {
         this.logger.warn(
           `Could not persist findings to DB (scan ${scanId}): ${persistError instanceof Error ? persistError.message : String(persistError)}`,

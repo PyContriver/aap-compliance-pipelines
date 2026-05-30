@@ -142,7 +142,10 @@ export async function createRouter(
 ): Promise<express.Router> {
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
-  router.use(express.json({ limit: '1mb' }));
+  router.use((req, res, next) => {
+    if (req.path === '/findings/ingest') return next();
+    express.json({ limit: '1mb' })(req, res, next);
+  });
 
   // ─── Health ─────────────────────────────────────────────────────────
 

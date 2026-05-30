@@ -55,7 +55,7 @@ export interface ComplianceApi {
   getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
   saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
   deleteRegisteredProfile(id: string): Promise<void>;
-  getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string }>;
+  getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }>;
   getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerExecutionEnvironments(): Promise<Array<{ id: number; name: string; image: string }>>;

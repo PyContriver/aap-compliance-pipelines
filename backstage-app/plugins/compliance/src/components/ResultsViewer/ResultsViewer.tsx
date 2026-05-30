@@ -177,7 +177,7 @@ export const ResultsViewer = () => {
   const totalRules = findings.length;
   const totalChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);
   const overallPassRate = totalChecks > 0
-    ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 100)
+    ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
     : 0;
 
   const isVerification = scanType === 'verification';
@@ -185,7 +185,7 @@ export const ResultsViewer = () => {
     if (previousFindings.length === 0) return 0;
     const prevTotalChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
     return prevTotalChecks > 0
-      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 100)
+      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 1000) / 10
       : 0;
   }, [previousFindings]);
 
