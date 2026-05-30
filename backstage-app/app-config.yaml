@@ -29,8 +29,11 @@ backend:
   baseUrl: http://localhost:7007
   listen:
     port: 7007
+    host: 0.0.0.0
   cors:
-    origin: http://localhost:3000
+    origin:
+      - http://localhost:3000
+      - http://192.168.4.40:3000
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
   database:
@@ -43,7 +46,7 @@ backend:
 
 # Compliance plugin settings
 compliance:
-  dataSource: mock
+  dataSource: live
   # Number of days to retain scan findings before cleanup (default: 90)
   retentionDays: 90
   # Auth mode: 'development' = all routes unauthenticated (standalone dev),

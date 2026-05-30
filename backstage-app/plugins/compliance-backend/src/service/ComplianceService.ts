@@ -1241,7 +1241,7 @@ export class ComplianceService {
     if (!this.database) return empty;
 
     try {
-      const scans = await this.database.getRecentScans(50);
+      const scans = await this.database.getRecentScans(20);
       const profiles = await this.database.listProfiles();
 
       const inventoryNameMap = new Map<number, string>();
@@ -1250,8 +1250,8 @@ export class ComplianceService {
         for (const inv of inventories) {
           inventoryNameMap.set(inv.id, inv.name);
         }
-      } catch {
-        // Controller unavailable
+      } catch (err) {
+        this.logger.warn(`Failed to fetch inventories: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       const completedScans = scans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
@@ -1266,35 +1266,31 @@ export class ComplianceService {
         }
       }
 
+      // Batch-fetch aggregated stats for all needed scans in a single query
+      const allScanIds = new Set<string>();
+      for (const scan of latestByProfileInventory.values()) allScanIds.add(scan.id);
+      scans.slice(0, 8).forEach(s => { if (s.status === 'completed' && s.scanner !== 'remediation') allScanIds.add(s.id); });
+      const batchStats = await this.database.getAggregatedStatsByScanIds(Array.from(allScanIds));
+
       const hostsSet = new Set<string>();
       let criticalFindings = 0;
       let pendingRemediation = 0;
 
-      // Per-profile aggregation across inventories
       const profileAgg = new Map<string, {
         pass: number; fail: number; rules: Set<string>; lastScan: string;
         contributing: Array<{ scan: typeof completedScans[0]; pass: number; fail: number; rules: number }>;
       }>();
 
-      // Per-(profile, inventory) stats for byInventory view
       const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number }>();
 
       for (const scan of latestByProfileInventory.values()) {
-        const findings = await this.database.getFindingsByScanId(scan.id);
+        const stats = batchStats.get(scan.id);
+        if (!stats) continue;
 
-        let pass = 0;
-        let fail = 0;
-        const ruleIds = new Set<string>();
-        for (const f of findings) {
-          hostsSet.add(f.host);
-          ruleIds.add(f.ruleId);
-          if (f.status === 'pass') pass++;
-          if (f.status === 'fail') {
-            fail++;
-            pendingRemediation++;
-            if (f.severity === 'CAT_I') criticalFindings++;
-          }
-        }
+        const { pass, fail, catI, hosts, rules: ruleIds } = stats;
+        for (const h of hosts) hostsSet.add(h);
+        pendingRemediation += fail;
+        criticalFindings += catI;
 
         const agg = profileAgg.get(scan.profileId) ?? {
           pass: 0, fail: 0, rules: new Set<string>(), lastScan: '',
@@ -1378,30 +1374,27 @@ export class ComplianceService {
           .filter((s): s is NonNullable<typeof s> => s !== null),
       })).filter(inv => inv.profileScores.length > 0);
 
-      // Recent scans with pass rates
-      const recentScansRaw = scans.slice(0, 8);
-      const recentScans = await Promise.all(
-        recentScansRaw.map(async scan => {
-          let passRate = 0;
-          if (scan.status === 'completed' && scan.scanner !== 'remediation') {
-            const scanFindings = await this.database!.getFindingsByScanId(scan.id);
-            if (scanFindings.length > 0) {
-              const pass = scanFindings.filter(f => f.status === 'pass').length;
-              passRate = Math.round((pass / scanFindings.length) * 1000) / 10;
-            }
+      // Recent scans with pass rates (using batch stats, no extra queries)
+      const recentScans = scans.slice(0, 8).map(scan => {
+        let passRate = 0;
+        if (scan.status === 'completed' && scan.scanner !== 'remediation') {
+          const scanStats = batchStats.get(scan.id);
+          if (scanStats) {
+            const total = scanStats.pass + scanStats.fail;
+            passRate = total > 0 ? Math.round((scanStats.pass / total) * 1000) / 10 : 0;
           }
-          return {
-            id: scan.id,
-            profileName: profileNameMap.get(scan.profileId) || scan.profileId,
-            inventoryName: inventoryNameMap.get(scan.inventoryId) || `Inventory ${scan.inventoryId}`,
-            passRate,
-            timestamp: scan.completedAt || scan.startedAt,
-            status: scan.status,
-            scanType: scan.scanType,
-            scanner: scan.scanner,
-          };
-        }),
-      );
+        }
+        return {
+          id: scan.id,
+          profileName: profileNameMap.get(scan.profileId) || scan.profileId,
+          inventoryName: inventoryNameMap.get(scan.inventoryId) || `Inventory ${scan.inventoryId}`,
+          passRate,
+          timestamp: scan.completedAt || scan.startedAt,
+          status: scan.status,
+          scanType: scan.scanType,
+          scanner: scan.scanner,
+        };
+      });
 
       return {
         hostsScanned: hostsSet.size,

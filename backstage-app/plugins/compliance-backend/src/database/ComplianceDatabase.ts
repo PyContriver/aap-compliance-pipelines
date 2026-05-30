@@ -272,6 +272,30 @@ export class ComplianceDatabase {
     return rows.map(this.mapFindingRow);
   }
 
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>> {
+    if (scanIds.length === 0) return new Map();
+    const rows = await this.db('compliance_findings')
+      .select('scan_id', 'status', 'severity', 'host', 'rule_id')
+      .whereIn('scan_id', scanIds);
+    const result = new Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>();
+    for (const row of rows) {
+      const sid = row.scan_id as string;
+      let entry = result.get(sid);
+      if (!entry) {
+        entry = { pass: 0, fail: 0, catI: 0, hosts: new Set(), rules: new Set() };
+        result.set(sid, entry);
+      }
+      entry.hosts.add(row.host as string);
+      entry.rules.add(row.rule_id as string);
+      if (row.status === 'pass') entry.pass++;
+      if (row.status === 'fail') {
+        entry.fail++;
+        if (row.severity === 'CAT_I') entry.catI++;
+      }
+    }
+    return result;
+  }
+
   private mapFindingRow(row: Record<string, unknown>): StoredFinding {
     return {
       id: row.id as string,
