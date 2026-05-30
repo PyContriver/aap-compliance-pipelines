@@ -444,16 +444,24 @@ export class ComplianceService {
     profileId: string,
     token?: string,
   ): Promise<number> {
-    // The remediate JT is a standalone job template, not part of the
-    // assessment workflow (which is gather → evaluate only). Resolution
-    // order: (1) name-based search on Controller, (2) profile registry.
+    // Resolution order:
+    // 1. Profile registry — explicit remediate JT ID stored per profile
+    // 2. Name-based search on Controller (fallback for single-profile setups)
+    if (this.database) {
+      const profile = await this.database.getProfile(profileId);
+      if (profile?.remediateJtId) {
+        this.logger.info(`Resolved remediate JT ${profile.remediateJtId} from profile registry`);
+        return profile.remediateJtId;
+      }
+    }
+
     const result = await this.controllerClient!.listJobTemplates('compliance-remediate', token);
     if (result.results.length > 0) {
-      this.logger.info(`Resolved remediate JT ${result.results[0].id} via name search`);
+      this.logger.info(`Resolved remediate JT ${result.results[0].id} via name search (profile has no remediateJtId)`);
       return result.results[0].id;
     }
 
-    throw new Error('No compliance remediate job template found. Ensure a JT named "compliance-remediate" exists.');
+    throw new Error('No compliance remediate job template found. Set the Remediate Job Template on the profile, or ensure a JT named "compliance-remediate" exists.');
   }
 
   // ─── Remediation ────────────────────────────────────────────────────

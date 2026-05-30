@@ -54,6 +54,7 @@ const EMPTY_FORM: SaveProfileRequest = {
   platform: '',
   platformSpec: null,
   workflowTemplateId: null,
+  remediateJtId: null,
   eeId: null,
   remediationPlaybookPath: '',
   scanTags: '',
@@ -114,6 +115,7 @@ export const ProfileFormDialog = ({
         platform: editProfile.platform,
         platformSpec: editProfile.platformSpec ?? null,
         workflowTemplateId: editProfile.workflowTemplateId,
+        remediateJtId: editProfile.remediateJtId,
         eeId: editProfile.eeId,
         remediationPlaybookPath: editProfile.remediationPlaybookPath,
         scanTags: editProfile.scanTags,
@@ -156,6 +158,11 @@ export const ProfileFormDialog = ({
   }, [api, form.workflowTemplateId, autoPopulateEnabled]);
 
   const applyAutoPopulate = (vars: Record<string, unknown>) => {
+    const remediateJtName = vars.remediate_jt_name as string | undefined;
+    const matchedRemediateJt = remediateJtName
+      ? workflowTemplates.find(t => t.name === remediateJtName)
+      : undefined;
+
     setForm(prev => ({
       ...prev,
       displayName: (vars.profile_name as string) || prev.displayName,
@@ -164,6 +171,7 @@ export const ProfileFormDialog = ({
       version: (vars.version as string) || prev.version,
       platform: (vars.platform as string) || prev.platform,
       remediationPlaybookPath: (vars.remediation_playbook as string) || prev.remediationPlaybookPath,
+      remediateJtId: matchedRemediateJt?.id ?? prev.remediateJtId,
       eeId: detectedEeId ?? prev.eeId,
       platformSpec: {
         ...prev.platformSpec,
@@ -226,6 +234,23 @@ export const ProfileFormDialog = ({
                 label="Scan Job Template"
               >
                 <MenuItem value=""><em>None</em></MenuItem>
+                {workflowTemplates.map(t => (
+                  <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl variant="outlined" fullWidth className={classes.formField}>
+              <InputLabel>Remediate Job Template</InputLabel>
+              <Select
+                value={form.remediateJtId ?? ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  updateForm('remediateJtId', val === '' ? null : Number(val));
+                }}
+                label="Remediate Job Template"
+              >
+                <MenuItem value=""><em>None (auto-detect)</em></MenuItem>
                 {workflowTemplates.map(t => (
                   <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
                 ))}

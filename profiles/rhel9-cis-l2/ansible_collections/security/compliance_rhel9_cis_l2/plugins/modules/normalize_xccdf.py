@@ -225,6 +225,8 @@ def parse_xccdf_results(filepath, framework='auto'):
                 text = ident.text or ''
                 if text.startswith('V-') or text.startswith('SV-'):
                     stig_id = stig_id or text
+                elif text.startswith('SRG-'):
+                    stig_id = stig_id or text
                 elif text.startswith('CCE-'):
                     cce_id = text
             for ref in rule.iter(f'{{{ns}}}reference' if ns else 'reference'):
@@ -234,8 +236,9 @@ def parse_xccdf_results(filepath, framework='auto'):
                 if not stig_id and ('disa' in href_lower or 'stig' in href_lower):
                     if re.match(r'[SV]+-?\d+', text) or text.startswith('SRG-'):
                         stig_id = text
-                if not cis_id and 'cisecurity' in href_lower:
-                    cis_id = text
+                if 'cisecurity' in href_lower:
+                    if not cis_id or ('.' in text and '.' not in cis_id):
+                        cis_id = text
 
             # Select primary control ID based on framework
             if framework == 'CIS':

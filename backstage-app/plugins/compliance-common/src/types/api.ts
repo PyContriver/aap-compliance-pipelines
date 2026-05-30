@@ -227,6 +227,7 @@ export interface ComplianceProfile {
   platform: string;
   platformSpec: PlatformSpec | null;
   workflowTemplateId: number | null;
+  remediateJtId: number | null;
   eeId: number | null;
   remediationPlaybookPath: string;
   scanTags: string;
@@ -262,6 +263,7 @@ export interface SaveProfileRequest {
   platform: string;
   platformSpec?: PlatformSpec | null;
   workflowTemplateId: number | null;
+  remediateJtId?: number | null;
   eeId: number | null;
   remediationPlaybookPath: string;
   scanTags: string;
