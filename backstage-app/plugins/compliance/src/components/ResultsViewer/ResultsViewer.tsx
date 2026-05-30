@@ -7,7 +7,6 @@ import {
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import { ScanProgress } from '../ScanProgress';
-import { ComplianceGauge } from '../ComplianceDashboard/ComplianceGauge';
 import {
   Typography,
   Button,
@@ -25,64 +24,24 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
-  LinearProgress,
-  IconButton,
   Collapse,
-  Paper,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BuildIcon from '@material-ui/icons/Build';
-import CheckCircleIcon from '@material-ui/icons/CheckCircle';
-import ErrorIcon from '@material-ui/icons/Error';
 import AssessmentIcon from '@material-ui/icons/Assessment';
-import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
-import TrendingUpIcon from '@material-ui/icons/TrendingUp';
-import TrendingDownIcon from '@material-ui/icons/TrendingDown';
-import RemoveIcon from '@material-ui/icons/Remove';
 import type { FindingSeverity, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
+import { ScanFailedView } from './ScanFailedView';
+import { SummaryCards } from './SummaryCards';
+import { VerificationComparison } from './VerificationComparison';
+import { FindingRow } from './FindingRow';
 
 const useStyles = makeStyles(theme => ({
-  severityChip: {
-    fontWeight: 600,
-    minWidth: 60,
-  },
-  catI: { backgroundColor: '#C9190B', color: '#fff' },
-  catII: { backgroundColor: '#F0AB00', color: '#fff' },
-  catIII: { backgroundColor: '#0066CC', color: '#fff' },
-  passBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#e0e0e0',
-  },
-  findingRow: {
-    cursor: 'pointer',
-    '&:hover': { backgroundColor: theme.palette.action.hover },
-  },
-  hostDetailRow: {
-    backgroundColor: theme.palette.background.default,
-  },
-  hostStatusPass: {
-    color: '#3E8635',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-  },
-  hostStatusFail: {
-    color: '#C9190B',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-  },
-  hostCountChip: {
-    fontWeight: 600,
-    fontSize: '0.8rem',
-  },
   filterRow: {
     display: 'flex',
     gap: theme.spacing(2),
@@ -90,81 +49,9 @@ const useStyles = makeStyles(theme => ({
     flexWrap: 'wrap',
     marginBottom: theme.spacing(2),
   },
-  summarySection: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: theme.spacing(2),
-    marginBottom: theme.spacing(2),
-  },
-  summaryCard: {
-    flex: '1 1 200px',
-    textAlign: 'center',
-    padding: theme.spacing(2),
-  },
-  summaryValue: {
-    fontSize: '2rem',
-    fontWeight: 700,
-  },
-  summaryLabel: {
-    color: theme.palette.text.secondary,
-    fontSize: '0.8rem',
-  },
-  hostDetail: {
-    padding: theme.spacing(1, 2, 1, 6),
-  },
-  expandedSection: {
-    borderTop: `1px solid ${theme.palette.divider}`,
-  },
-  ruleDescription: {
-    padding: theme.spacing(1.5, 2),
-    backgroundColor: theme.palette.background.default,
-    borderTop: `1px solid ${theme.palette.divider}`,
-  },
   emptyState: {
     textAlign: 'center',
     padding: theme.spacing(8, 4),
-  },
-  comparisonHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing(4),
-    padding: theme.spacing(3),
-  },
-  comparisonArrow: {
-    display: 'flex',
-    alignItems: 'center',
-    color: theme.palette.text.secondary,
-    fontSize: '2rem',
-  },
-  comparisonGauge: {
-    textAlign: 'center' as const,
-    minWidth: 140,
-  },
-  deltaStats: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: theme.spacing(4),
-    padding: theme.spacing(1, 3, 2, 3),
-    flexWrap: 'wrap' as const,
-  },
-  deltaStat: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.5),
-    fontSize: '0.9rem',
-  },
-  deltaPositive: {
-    color: '#3E8635',
-    fontWeight: 600,
-  },
-  deltaNegative: {
-    color: '#C9190B',
-    fontWeight: 600,
-  },
-  deltaUnchanged: {
-    color: theme.palette.text.secondary,
-    fontWeight: 500,
   },
   findingsCollapseTrigger: {
     display: 'flex',
@@ -176,12 +63,6 @@ const useStyles = makeStyles(theme => ({
     borderRadius: theme.shape.borderRadius,
   },
 }));
-
-const severityLabel: Record<FindingSeverity, string> = {
-  CAT_I: 'CAT I',
-  CAT_II: 'CAT II',
-  CAT_III: 'CAT III',
-};
 
 const severityOrder: Record<FindingSeverity, number> = {
   CAT_I: 0,
@@ -201,21 +82,16 @@ export const ResultsViewer = () => {
   const searchQuery = searchParams.get('q') || '';
 
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-
-  // Fetch findings from the backend -- no frontend mock fallback (S2)
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
   const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanType, setScanType] = useState<'assessment' | 'verification'>('assessment');
   const [findingsExpanded, setFindingsExpanded] = useState(true);
-
-  // Profile info bar state
   const [profileName, setProfileName] = useState<string>('');
   const [frameworkLabel, setFrameworkLabel] = useState<string>('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
 
-  // Determine scan type and status from scan history, and load profile info
   useEffect(() => {
     if (!jobId) return;
     api.getScans().then(scans => {
@@ -225,7 +101,6 @@ export const ResultsViewer = () => {
       if (match?.scanType) {
         setScanType(match.scanType);
       }
-      // Load cartridges to find the matching profile's certification
       if (match) {
         api.getCartridges().then(cartridges => {
           const cart = cartridges.find(c => c.id === match.profileId);
@@ -241,7 +116,6 @@ export const ResultsViewer = () => {
     });
   }, [api, jobId]);
 
-  // Fetch previous scan findings for verification scans
   useEffect(() => {
     if (scanType !== 'verification' || !jobId) return;
     api.getPreviousFindings(jobId).then(data => {
@@ -274,7 +148,6 @@ export const ResultsViewer = () => {
             retries++;
             timeoutId = setTimeout(fetchFindings, pollInterval);
           } else {
-            // No findings and not polling — check if the scan failed
             if (jobId && !isWorkflowPoll) {
               api.getScan(jobId).then(scan => {
                 if (!cancelled && scan?.status === 'failed') {
@@ -294,29 +167,25 @@ export const ResultsViewer = () => {
     };
 
     fetchFindings();
-
     return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [api, jobId, isWorkflowPoll]);
+
+  // ─── Computed metrics ──────────────────────────────────────────────
 
   const totalHosts = findings[0]?.totalCount || 0;
   const rulesWithFailures = findings.filter(f => f.failCount > 0).length;
   const totalRules = findings.length;
   const totalChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);
   const overallPassRate = totalChecks > 0
-    ? Math.round(
-        (findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 100,
-      )
+    ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 100)
     : 0;
 
-  // Comparison metrics for verification scans
   const isVerification = scanType === 'verification';
   const previousPassRate = useMemo(() => {
     if (previousFindings.length === 0) return 0;
     const prevTotalChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
     return prevTotalChecks > 0
-      ? Math.round(
-          (previousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 100,
-        )
+      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 100)
       : 0;
   }, [previousFindings]);
 
@@ -324,35 +193,19 @@ export const ResultsViewer = () => {
     if (!isVerification || previousFindings.length === 0) {
       return { improved: 0, regressed: 0, unchanged: 0 };
     }
-
-    // Build a map of previous findings by ruleId
     const prevMap = new Map<string, MultiHostFinding>();
-    for (const f of previousFindings) {
-      prevMap.set(f.ruleId, f);
-    }
+    for (const f of previousFindings) prevMap.set(f.ruleId, f);
 
-    let improved = 0;
-    let regressed = 0;
-    let unchanged = 0;
-
+    let improved = 0, regressed = 0, unchanged = 0;
     for (const current of findings) {
       const prev = prevMap.get(current.ruleId);
-      if (!prev) {
-        // New rule not in previous scan — treat as unchanged
-        unchanged++;
-        continue;
-      }
+      if (!prev) { unchanged++; continue; }
       const prevFailing = prev.failCount > 0;
       const currentFailing = current.failCount > 0;
-      if (prevFailing && !currentFailing) {
-        improved++;
-      } else if (!prevFailing && currentFailing) {
-        regressed++;
-      } else {
-        unchanged++;
-      }
+      if (prevFailing && !currentFailing) improved++;
+      else if (!prevFailing && currentFailing) regressed++;
+      else unchanged++;
     }
-
     return { improved, regressed, unchanged };
   }, [isVerification, findings, previousFindings]);
 
@@ -384,17 +237,9 @@ export const ResultsViewer = () => {
     setSearchParams(params, { replace: true });
   };
 
-  const getSeverityClass = (severity: FindingSeverity) => {
-    switch (severity) {
-      case 'CAT_I': return classes.catI;
-      case 'CAT_II': return classes.catII;
-      case 'CAT_III': return classes.catIII;
-      default: return '';
-    }
-  };
+  // ─── Scan progress callbacks ──────────────────────────────────────
 
   const [showProgress, setShowProgress] = useState(false);
-
   useEffect(() => {
     if (!loading || !isWorkflowPoll) return;
     const t = setTimeout(() => setShowProgress(true), 1500);
@@ -405,9 +250,7 @@ export const ResultsViewer = () => {
 
   const triggerFetch = useCallback(() => {
     api.getFindings(jobId).then(data => {
-      if (data.length > 0) {
-        setFindings(data);
-      }
+      if (data.length > 0) setFindings(data);
       setLoading(false);
     }).catch(err => {
       console.error('Failed to fetch findings after scan completion:', err);
@@ -416,18 +259,14 @@ export const ResultsViewer = () => {
   }, [api, jobId]);
 
   const handleScanFailed = useCallback((status: string) => {
-    // Try to fetch findings anyway — the workflow may have partially succeeded.
     api.getFindings(jobId).then(data => {
       if (data.length > 0) {
         setFindings(data);
       } else {
-        // Fetch the scan record to get real error details from the Controller
         if (jobId) {
           api.getScan(jobId).then(scan => {
             setScanFailed(scan?.errorDetails || status);
-          }).catch(() => {
-            setScanFailed(status);
-          });
+          }).catch(() => setScanFailed(status));
         } else {
           setScanFailed(status);
         }
@@ -437,9 +276,7 @@ export const ResultsViewer = () => {
       if (jobId) {
         api.getScan(jobId).then(scan => {
           setScanFailed(scan?.errorDetails || status);
-        }).catch(() => {
-          setScanFailed(status);
-        });
+        }).catch(() => setScanFailed(status));
       } else {
         setScanFailed(status);
       }
@@ -447,15 +284,13 @@ export const ResultsViewer = () => {
     });
   }, [api, jobId]);
 
+  // ─── Render states ────────────────────────────────────────────────
+
   if (loading) {
     if (showProgress && isWorkflowPoll && jobId) {
       return (
         <Box p={4}>
-          <ScanProgress
-            workflowJobId={Number(jobId)}
-            onComplete={triggerFetch}
-            onFailed={handleScanFailed}
-          />
+          <ScanProgress workflowJobId={Number(jobId)} onComplete={triggerFetch} onFailed={handleScanFailed} />
         </Box>
       );
     }
@@ -469,67 +304,18 @@ export const ResultsViewer = () => {
     );
   }
 
-  // Scan failed — show error state with the failed progress view
   if (scanFailed) {
     return (
-      <>
-        <Breadcrumbs>
-          <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
-            Compliance
-          </Typography>
-          <Typography>Scan Failed</Typography>
-        </Breadcrumbs>
-
-        <Box mt={2} />
-
-        {isWorkflowPoll && jobId && (
-          <ScanProgress
-            workflowJobId={Number(jobId)}
-            onComplete={triggerFetch}
-            onFailed={handleScanFailed}
-          />
-        )}
-
-        <Box mt={2} />
-
-        <InfoCard title="Scan Failed">
-          <Box p={3} textAlign="center">
-            <ErrorIcon style={{ fontSize: 64, color: '#C9190B', marginBottom: 16 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              The compliance scan did not complete successfully
-            </Typography>
-            {scanFailed.length > 20 || scanFailed.includes('\n') ? (
-              <>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  The Controller reported the following error:
-                </Typography>
-                <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16, marginTop: 16, marginBottom: 16, textAlign: 'left' }}>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                    {scanFailed}
-                  </pre>
-                </Paper>
-              </>
-            ) : (
-              <Typography variant="body2" color="textSecondary" paragraph>
-                The workflow ended with status: <strong>{scanFailed}</strong>. This is typically caused by unreachable
-                hosts, missing credentials, or misconfigured inventory. Check the AAP Controller job log for details.
-              </Typography>
-            )}
-            <Box display="flex" justifyContent="center" style={{ gap: 8 }}>
-              <Button variant="outlined" onClick={() => navigate('/compliance')}>
-                Back to Overview
-              </Button>
-              <Button variant="contained" color="primary" onClick={() => navigate('/compliance/scan')}>
-                Try Again
-              </Button>
-            </Box>
-          </Box>
-        </InfoCard>
-      </>
+      <ScanFailedView
+        scanFailed={scanFailed}
+        isWorkflowPoll={isWorkflowPoll}
+        jobId={jobId}
+        onComplete={triggerFetch}
+        onFailed={handleScanFailed}
+      />
     );
   }
 
-  // P3-3: Empty state when no findings are available
   if (findings.length === 0 && !error) {
     return (
       <>
@@ -537,11 +323,9 @@ export const ResultsViewer = () => {
           <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
             Compliance
           </Typography>
-          <Typography>{scanType === 'verification' ? 'Verification Results' : 'Assessment Results'}</Typography>
+          <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
         </Breadcrumbs>
-
         <Box mt={2} />
-
         <InfoCard title="Scan Results">
           <div className={classes.emptyState}>
             <AssessmentIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
@@ -551,11 +335,7 @@ export const ResultsViewer = () => {
             <Typography variant="body2" color="textSecondary" paragraph>
               Launch a compliance scan to see findings and per-host results here.
             </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => navigate('/compliance/scan')}
-            >
+            <Button variant="contained" color="primary" onClick={() => navigate('/compliance/scan')}>
               Launch a Scan
             </Button>
           </div>
@@ -571,11 +351,9 @@ export const ResultsViewer = () => {
           <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
             Compliance
           </Typography>
-          <Typography>{scanType === 'verification' ? 'Verification Results' : 'Assessment Results'}</Typography>
+          <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
         </Breadcrumbs>
-
         <Box mt={2} />
-
         <InfoCard title="Error Loading Results">
           <Box p={3} textAlign="center">
             <Typography variant="body1" color="error" gutterBottom>
@@ -590,18 +368,19 @@ export const ResultsViewer = () => {
     );
   }
 
+  // ─── Main results view ────────────────────────────────────────────
+
   return (
     <>
       <Breadcrumbs>
         <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
           Compliance
         </Typography>
-        <Typography>{scanType === 'verification' ? 'Verification Results' : 'Assessment Results'}</Typography>
+        <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
       </Breadcrumbs>
 
       <Box mt={2} />
 
-      {/* Profile info bar with certification badge */}
       {profileCert && (
         <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
           <Typography variant="subtitle2">{profileName}</Typography>
@@ -610,103 +389,32 @@ export const ResultsViewer = () => {
         </Box>
       )}
 
-      {/* Verification Comparison Header */}
       {isVerification && previousFindings.length > 0 ? (
-        <InfoCard title="Verification Results">
-          <div className={classes.comparisonHeader}>
-            <div className={classes.comparisonGauge}>
-              <ComplianceGauge value={previousPassRate} label="Before" />
-            </div>
-            <div className={classes.comparisonArrow}>
-              <ArrowForwardIcon fontSize="large" />
-            </div>
-            <div className={classes.comparisonGauge}>
-              <ComplianceGauge value={overallPassRate} label="After" />
-            </div>
-          </div>
-          <div className={classes.deltaStats}>
-            <div className={classes.deltaStat}>
-              <Typography variant="body2" color="textSecondary">Hosts Scanned:</Typography>
-              <Typography variant="body2" style={{ fontWeight: 600 }}>{totalHosts}</Typography>
-            </div>
-            <div className={classes.deltaStat}>
-              <Typography variant="body2" color="textSecondary">Rules:</Typography>
-              <Typography variant="body2" style={{ fontWeight: 600 }}>{totalRules}</Typography>
-            </div>
-            <div className={classes.deltaStat}>
-              <TrendingUpIcon fontSize="small" style={{ color: '#3E8635' }} />
-              <Typography variant="body2" className={classes.deltaPositive}>
-                {comparisonStats.improved} Improved
-              </Typography>
-            </div>
-            {comparisonStats.regressed > 0 && (
-              <div className={classes.deltaStat}>
-                <TrendingDownIcon fontSize="small" style={{ color: '#C9190B' }} />
-                <Typography variant="body2" className={classes.deltaNegative}>
-                  {comparisonStats.regressed} Regressed
-                </Typography>
-              </div>
-            )}
-            <div className={classes.deltaStat}>
-              <RemoveIcon fontSize="small" style={{ color: '#6A6E73' }} />
-              <Typography variant="body2" className={classes.deltaUnchanged}>
-                {comparisonStats.unchanged} Unchanged
-              </Typography>
-            </div>
-          </div>
-        </InfoCard>
+        <VerificationComparison
+          previousPassRate={previousPassRate}
+          overallPassRate={overallPassRate}
+          totalHosts={totalHosts}
+          totalRules={totalRules}
+          comparisonStats={comparisonStats}
+        />
       ) : (
-        <>
-          {/* Summary Cards (assessment or verification without previous data) */}
-          <div className={classes.summarySection}>
-            <InfoCard>
-              <div className={classes.summaryCard}>
-                <Typography className={classes.summaryValue} style={{ color: overallPassRate >= 80 ? '#3E8635' : '#C9190B' }}>
-                  {overallPassRate}%
-                </Typography>
-                <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
-              </div>
-            </InfoCard>
-            <InfoCard>
-              <div className={classes.summaryCard}>
-                <Typography className={classes.summaryValue}>{totalHosts}</Typography>
-                <Typography className={classes.summaryLabel}>Hosts Scanned</Typography>
-              </div>
-            </InfoCard>
-            <InfoCard>
-              <div className={classes.summaryCard}>
-                <Typography className={classes.summaryValue}>{totalRules}</Typography>
-                <Typography className={classes.summaryLabel}>Rules Evaluated</Typography>
-              </div>
-            </InfoCard>
-            <InfoCard>
-              <div className={classes.summaryCard}>
-                <Typography className={classes.summaryValue} style={{ color: '#C9190B' }}>
-                  {rulesWithFailures}
-                </Typography>
-                <Typography className={classes.summaryLabel}>Rules with Failures</Typography>
-              </div>
-            </InfoCard>
-          </div>
-        </>
+        <SummaryCards
+          overallPassRate={overallPassRate}
+          totalHosts={totalHosts}
+          totalRules={totalRules}
+          rulesWithFailures={rulesWithFailures}
+        />
       )}
 
       <Box mt={2} />
 
-      {/* Action Buttons: Remediate + Export (P3-2) */}
+      {/* Action Buttons */}
       <Box display="flex" justifyContent="flex-end" mb={2} style={{ gap: 8 }}>
         <ExportButton findings={filtered} profileName={jobId} />
-        <Button
-          variant="outlined"
-          onClick={() => navigate('/compliance')}
-        >
+        <Button variant="outlined" onClick={() => navigate('/compliance')}>
           Back to Overview
         </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => navigate('/compliance/remediations')}
-        >
+        <Button variant="contained" color="primary" onClick={() => navigate('/compliance/remediations')}>
           Use Existing Remediation
         </Button>
         <Button
@@ -720,7 +428,7 @@ export const ResultsViewer = () => {
         </Button>
       </Box>
 
-      {/* Findings Table — collapsed by default for verification scans with comparison data */}
+      {/* Findings collapse trigger for verification scans */}
       {isVerification && (
         <div
           className={classes.findingsCollapseTrigger}
@@ -737,7 +445,6 @@ export const ResultsViewer = () => {
       )}
       <Collapse in={findingsExpanded}>
       <InfoCard title="Findings by Rule">
-        {/* Filters */}
         <div className={classes.filterRow}>
           <TextField
             placeholder="Search by title or rule ID..."
@@ -786,160 +493,12 @@ export const ResultsViewer = () => {
             </TableHead>
             <TableBody>
               {filtered.map(finding => (
-                <React.Fragment key={finding.ruleId}>
-                  {/* Rule row */}
-                  <TableRow
-                    className={classes.findingRow}
-                    onClick={() => setExpandedRule(expandedRule === finding.ruleId ? null : finding.ruleId)}
-                  >
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        aria-label={expandedRule === finding.ruleId ? `Collapse rule details for ${finding.stigId}` : `Expand rule details for ${finding.stigId}`}
-                      >
-                        {expandedRule === finding.ruleId ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={severityLabel[finding.severity]}
-                        size="small"
-                        className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{finding.title}</Typography>
-                      {finding.disruption === 'high' && (
-                        <Chip label="High disruption" size="small" color="secondary" style={{ marginTop: 4 }} />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-                        {finding.stigId || finding.ruleId}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      {finding.failCount === 0 && finding.passCount > 0 ? (
-                        <Chip
-                          label={`${finding.passCount}/${finding.totalCount}`}
-                          size="small"
-                          style={{ backgroundColor: '#3E8635', color: '#fff' }}
-                          className={classes.hostCountChip}
-                        />
-                      ) : finding.failCount === 0 && finding.passCount === 0 ? (
-                        <Chip
-                          label={`${finding.totalCount} N/A`}
-                          size="small"
-                          variant="outlined"
-                          className={classes.hostCountChip}
-                        />
-                      ) : (
-                        <Box display="flex" justifyContent="center" style={{ gap: 4 }}>
-                          {finding.passCount > 0 && (
-                            <Chip
-                              label={`${finding.passCount} pass`}
-                              size="small"
-                              style={{ backgroundColor: '#3E8635', color: '#fff', fontSize: '0.7rem' }}
-                            />
-                          )}
-                          <Chip
-                            label={`${finding.failCount} fail`}
-                            size="small"
-                            style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem' }}
-                          />
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={finding.totalCount > 0 ? Math.round((finding.passCount / finding.totalCount) * 100) : 0}
-                          className={classes.passBar}
-                          style={{ flex: 1 }}
-                          color={finding.passCount === finding.totalCount ? 'primary' : 'secondary'}
-                        />
-                        <Typography variant="caption" style={{ minWidth: 36 }}>
-                          {finding.totalCount > 0 ? Math.round((finding.passCount / finding.totalCount) * 100) : 0}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Expanded detail: description + host-level breakdown */}
-                  <TableRow>
-                    <TableCell colSpan={6} style={{ padding: 0, border: 'none' }}>
-                      <Collapse in={expandedRule === finding.ruleId}>
-                        {/* Rule description */}
-                        <div className={classes.ruleDescription}>
-                          <Typography variant="body2" gutterBottom>{finding.description}</Typography>
-                          <Box display="flex" style={{ gap: 24 }}>
-                            <div>
-                              <Typography variant="caption" color="textSecondary">Check</Typography>
-                              <Typography variant="body2">{finding.checkText}</Typography>
-                            </div>
-                            <div>
-                              <Typography variant="caption" color="textSecondary">Fix</Typography>
-                              <Typography variant="body2">{finding.fixText}</Typography>
-                            </div>
-                          </Box>
-                        </div>
-
-                        {/* Host-level breakdown */}
-                        <div className={classes.expandedSection}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Host</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell>Actual Value</TableCell>
-                                <TableCell>Expected Value</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {finding.hosts
-                                .sort((a, b) => (a.status === 'fail' ? -1 : 1) - (b.status === 'fail' ? -1 : 1))
-                                .map(hostFinding => (
-                                  <TableRow key={hostFinding.host} className={classes.hostDetailRow}>
-                                    <TableCell>
-                                      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-                                        {hostFinding.host}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className={hostFinding.status === 'pass' ? classes.hostStatusPass : classes.hostStatusFail}>
-                                        {hostFinding.status === 'pass'
-                                          ? <><CheckCircleIcon fontSize="small" /> Pass</>
-                                          : <><ErrorIcon fontSize="small" /> Fail</>
-                                        }
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Typography
-                                        variant="body2"
-                                        style={{
-                                          fontFamily: 'monospace',
-                                          color: hostFinding.status === 'fail' ? '#C9190B' : 'inherit',
-                                          fontWeight: hostFinding.status === 'fail' ? 600 : 400,
-                                        }}
-                                      >
-                                        {hostFinding.actualValue}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-                                        {hostFinding.expectedValue}
-                                      </Typography>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
+                <FindingRow
+                  key={finding.ruleId}
+                  finding={finding}
+                  expanded={expandedRule === finding.ruleId}
+                  onToggle={() => setExpandedRule(expandedRule === finding.ruleId ? null : finding.ruleId)}
+                />
               ))}
             </TableBody>
           </Table>

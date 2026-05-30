@@ -594,7 +594,7 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(500);
-      expect((res.body as any).error).toBe('Controller unreachable');
+      expect((res.body as any).error).toBe('Failed to launch compliance scan');
     });
   });
 
@@ -675,7 +675,7 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(500);
-      expect((res.body as any).error).toBe('DB error');
+      expect((res.body as any).error).toBe('Failed to save compliance profile');
     });
 
     it('accepts platformSpec object', async () => {
@@ -827,7 +827,7 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(500);
-      expect((res.body as any).error).toBe('DB error');
+      expect((res.body as any).error).toBe('Failed to delete compliance profile');
     });
   });
 
@@ -980,7 +980,7 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(500);
-      expect((res.body as any).error).toBe('Not found');
+      expect((res.body as any).error).toBe('Failed to retrieve job status');
     });
   });
 

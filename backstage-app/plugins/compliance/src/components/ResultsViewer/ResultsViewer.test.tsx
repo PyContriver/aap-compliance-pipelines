@@ -56,7 +56,7 @@ describe('ResultsViewer', () => {
   it('displays finding table headers', async () => {
     await renderResults();
     await waitFor(() => {
-      expect(screen.getByText('STIG ID')).toBeInTheDocument();
+      expect(screen.getByText('Rule ID')).toBeInTheDocument();
     });
     expect(screen.getByText('Title')).toBeInTheDocument();
     expect(screen.getByText('Hosts')).toBeInTheDocument();

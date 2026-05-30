@@ -184,7 +184,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Cleanup failed: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Data cleanup failed' });
     }
   });
 
@@ -217,7 +217,8 @@ export async function createRouter(
           } else {
             try {
               status = await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
-            } catch {
+            } catch (err) {
+              logger.debug(`WJT status failed for scan ${scan.id}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
               status = await service.getJobStatus(scan.workflowJobId!, userToken);
             }
           }
@@ -228,8 +229,8 @@ export async function createRouter(
             scan.status = newStatus as typeof scan.status;
             scan.completedAt = status.finished ?? new Date().toISOString();
           }
-        } catch {
-          // Controller unavailable — keep current scan status.
+        } catch (err) {
+          logger.debug(`Stale scan check failed for ${scan.id}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }));
     }
@@ -277,8 +278,8 @@ export async function createRouter(
             await database.updateScanErrorDetails(scan.id, details);
             scan.errorDetails = details;
           }
-        } catch {
-          // Best-effort: don't fail the GET if error fetch fails
+        } catch (err) {
+          logger.debug(`Error details fetch failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
 
@@ -286,7 +287,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get scan ${scanId}: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to retrieve scan details' });
     }
   });
 
@@ -314,7 +315,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.warn(`Failed to fetch JT detail for ${id}: ${msg}`);
-      res.status(502).json({ error: msg });
+      res.status(502).json({ error: 'Failed to fetch job template details from Controller' });
     }
   });
 
@@ -422,9 +423,116 @@ export async function createRouter(
         await database.updateScanStatus(scanRecordId, 'failed', new Date().toISOString()).catch(() => {});
         await database.updateScanErrorDetails(scanRecordId, msg).catch(() => {});
       }
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to launch compliance scan' });
     }
   });
+
+  // ─── Findings helpers ────────────────────────────────────────────────
+
+  type ScanResolution = {
+    resolvedScanId: string | undefined;
+    workflowJobId: number | undefined;
+    dbScan: Awaited<ReturnType<typeof database.getScanByWorkflowJobId>> | undefined;
+  };
+
+  async function resolveScanId(scanId: string | undefined): Promise<ScanResolution> {
+    let resolvedScanId = scanId;
+    let workflowJobId: number | undefined;
+    let dbScan: ScanResolution['dbScan'];
+
+    if (scanId) {
+      const match = scanId.match(/^(?:scan-)?(\d+)$/);
+      if (match) {
+        workflowJobId = Number(match[1]);
+        dbScan = await database.getScanByWorkflowJobId(workflowJobId) ?? undefined;
+        if (dbScan) {
+          resolvedScanId = dbScan.id;
+        }
+      }
+    }
+    return { resolvedScanId, workflowJobId, dbScan };
+  }
+
+  async function savePostureFromFindings(
+    findings: Array<{ status: string; host: string; ruleId: string }>,
+    profileId: string,
+  ): Promise<void> {
+    const passCount = findings.filter(f => f.status === 'pass').length;
+    const failCount = findings.filter(f => f.status === 'fail').length;
+    const uniqueHosts = new Set(findings.map(f => f.host)).size;
+    const uniqueRules = new Set(findings.map(f => f.ruleId)).size;
+    const total = passCount + failCount;
+    await database.savePostureSnapshot({
+      profileId,
+      timestamp: new Date().toISOString(),
+      totalHosts: uniqueHosts,
+      totalRules: uniqueRules,
+      passCount,
+      failCount,
+      compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
+    });
+    logger.info(`Saved posture snapshot for profile=${profileId}`);
+  }
+
+  async function fetchLiveFindings(
+    resolvedScanId: string,
+    workflowJobId: number,
+    dbScan: ScanResolution['dbScan'],
+    userToken: string | undefined,
+  ): Promise<unknown[] | null> {
+    let status;
+    try {
+      status = await service.getWorkflowJobStatus(workflowJobId, userToken);
+    } catch (err) {
+      logger.debug(`WJT status failed for ${workflowJobId}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
+      status = await service.getJobStatus(workflowJobId, userToken);
+    }
+
+    const st = status.status.toLowerCase();
+    if (st !== 'successful' && st !== 'failed') {
+      logger.info(`Workflow ${workflowJobId} status is "${status.status}" — not yet ready to parse`);
+      return null;
+    }
+
+    const effectiveScanId = dbScan?.id ?? resolvedScanId;
+
+    if (parseInProgress.has(effectiveScanId)) {
+      await new Promise(r => setTimeout(r, 2000));
+      const dbFindings = await database.getFindingsByScanId(effectiveScanId);
+      if (dbFindings.length > 0) {
+        return service.aggregateFindingsWithMetadata(dbFindings);
+      }
+    }
+
+    parseInProgress.add(effectiveScanId);
+    let parsed;
+    try {
+      parsed = await service.fetchAndParseResults(workflowJobId, effectiveScanId, userToken);
+    } finally {
+      parseInProgress.delete(effectiveScanId);
+    }
+
+    if (dbScan) {
+      const scanStatus = st === 'successful' ? 'completed' : 'failed';
+      await database.updateScanStatus(dbScan.id, scanStatus, new Date().toISOString());
+    }
+
+    if (parsed.length > 0) {
+      try {
+        await savePostureFromFindings(parsed, dbScan?.profileId ?? resolvedScanId);
+      } catch (snapshotError) {
+        logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
+      }
+
+      const freshFindings = await database.getFindingsByScanId(effectiveScanId);
+      if (freshFindings.length > 0) {
+        return service.aggregateFindingsWithMetadata(freshFindings);
+      }
+      return service.aggregateFindingsWithMetadata(parsed);
+    }
+
+    return null;
+  }
 
   // ─── Findings ───────────────────────────────────────────────────────
 
@@ -437,26 +545,9 @@ export async function createRouter(
       return;
     }
 
-    // 1. If scanId looks like a numeric workflowJobId, resolve to the
-    //    actual scan UUID so all downstream DB lookups work in any mode.
-    let resolvedScanId = scanId;
-    let workflowJobId: number | undefined;
-    let dbScan: Awaited<ReturnType<typeof database.getScanByWorkflowJobId>> | undefined;
+    const { resolvedScanId, workflowJobId, dbScan } = await resolveScanId(scanId);
 
-    if (scanId) {
-      const workflowJobIdMatch = scanId.match(/^(?:scan-)?(\d+)$/);
-      if (workflowJobIdMatch) {
-        workflowJobId = Number(workflowJobIdMatch[1]);
-        dbScan = await database.getScanByWorkflowJobId(workflowJobId) ?? undefined;
-        if (dbScan) {
-          resolvedScanId = dbScan.id;
-        }
-      }
-    }
-
-    // 2. Check the DB for stored findings using the resolved UUID.
-    //    Skip the DB lookup if we matched a numeric ID but found no scan
-    //    record — the raw numeric string won't match any UUID in findings.
+    // Check DB for stored findings (skip if numeric ID had no matching scan record)
     const skipDbLookup = workflowJobId !== undefined && !dbScan;
     if (resolvedScanId && !skipDbLookup) {
       const dbFindings = await database.getFindingsByScanId(resolvedScanId);
@@ -466,86 +557,13 @@ export async function createRouter(
       }
     }
 
-    // 3. In live mode, if the job is complete, fetch and parse results
+    // In live mode, fetch and parse results from Controller
     if (resolvedScanId && service.getDataSource() === 'live' && workflowJobId) {
       try {
-        let status;
-        try {
-          status = await service.getWorkflowJobStatus(workflowJobId, userToken);
-        } catch {
-          status = await service.getJobStatus(workflowJobId, userToken);
-        }
-        const st = status.status.toLowerCase();
-        if (st === 'successful' || st === 'failed') {
-          const effectiveScanId = dbScan?.id ?? resolvedScanId;
-
-          if (parseInProgress.has(effectiveScanId)) {
-            // Another request is already parsing — wait and return DB findings
-            await new Promise(r => setTimeout(r, 2000));
-            const dbFindings = await database.getFindingsByScanId(effectiveScanId);
-            if (dbFindings.length > 0) {
-              res.json(await service.aggregateFindingsWithMetadata(dbFindings));
-              return;
-            }
-          }
-
-          parseInProgress.add(effectiveScanId);
-          logger.info(
-            `Workflow ${workflowJobId} is complete — fetching and parsing results (dbScanId=${effectiveScanId})`,
-          );
-          let parsed;
-          try {
-            parsed = await service.fetchAndParseResults(
-              workflowJobId,
-              effectiveScanId,
-              userToken,
-            );
-          } finally {
-            parseInProgress.delete(effectiveScanId);
-          }
-
-          if (dbScan) {
-            const scanStatus = st === 'successful' ? 'completed' : 'failed';
-            await database.updateScanStatus(
-              dbScan.id,
-              scanStatus,
-              new Date().toISOString(),
-            );
-          }
-
-          if (parsed.length > 0) {
-            try {
-              const passCount = parsed.filter(f => f.status === 'pass').length;
-              const failCount = parsed.filter(f => f.status === 'fail').length;
-              const uniqueHosts = new Set(parsed.map(f => f.host)).size;
-              const uniqueRules = new Set(parsed.map(f => f.ruleId)).size;
-              const total = passCount + failCount;
-              await database.savePostureSnapshot({
-                profileId: dbScan?.profileId ?? resolvedScanId,
-                timestamp: new Date().toISOString(),
-                totalHosts: uniqueHosts,
-                totalRules: uniqueRules,
-                passCount,
-                failCount,
-                compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
-              });
-              logger.info(`Saved posture snapshot for profile=${dbScan?.profileId ?? resolvedScanId}`);
-            } catch (snapshotError) {
-              logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
-            }
-
-            const freshFindings = await database.getFindingsByScanId(effectiveScanId);
-            if (freshFindings.length > 0) {
-              res.json(await service.aggregateFindingsWithMetadata(freshFindings));
-              return;
-            }
-            res.json(await service.aggregateFindingsWithMetadata(parsed));
-            return;
-          }
-        } else {
-          logger.info(
-            `Workflow ${workflowJobId} status is "${status.status}" — not yet ready to parse`,
-          );
+        const liveResult = await fetchLiveFindings(resolvedScanId, workflowJobId, dbScan, userToken);
+        if (liveResult) {
+          res.json(liveResult);
+          return;
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -553,7 +571,7 @@ export async function createRouter(
       }
     }
 
-    // 4. Fall through to the service (mock data or DB-based in live mode)
+    // Fall through to the service (mock data or DB-based in live mode)
     const findings = await service.getFindings(resolvedScanId);
     res.json(findings);
   });
@@ -605,7 +623,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get previous findings: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to retrieve previous scan findings' });
     }
   });
 
@@ -692,24 +710,10 @@ export async function createRouter(
 
       await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
-      // Save posture snapshot
       try {
-        const passCount = mapped.filter(f => f.status === 'pass').length;
-        const failCount = mapped.filter(f => f.status === 'fail').length;
-        const uniqueHosts = new Set(mapped.map(f => f.host)).size;
-        const uniqueRules = new Set(mapped.map(f => f.ruleId)).size;
-        const total = passCount + failCount;
-        await database.savePostureSnapshot({
-          profileId: scan.profileId,
-          timestamp: new Date().toISOString(),
-          totalHosts: uniqueHosts,
-          totalRules: uniqueRules,
-          passCount,
-          failCount,
-          compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
-        });
-      } catch {
-        // Posture snapshot is best-effort
+        await savePostureFromFindings(mapped, scan.profileId);
+      } catch (err) {
+        logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);
@@ -717,7 +721,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to ingest findings: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to ingest findings' });
     }
   });
 
@@ -734,13 +738,15 @@ export async function createRouter(
       let status;
       try {
         status = await service.getWorkflowJobStatus(jobId, userToken);
-      } catch {
+      } catch (err) {
+        logger.debug(`WJT status failed for ${jobId}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
         status = await service.getJobStatus(jobId, userToken);
       }
       res.json(status);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to get workflow status for ${jobId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve job status' });
     }
   });
 
@@ -756,7 +762,8 @@ export async function createRouter(
       res.json(status);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to get job status for ${jobId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve job status' });
     }
   });
 
@@ -773,13 +780,15 @@ export async function createRouter(
       let nodes;
       try {
         nodes = await service.getWorkflowNodes(jobId, userToken);
-      } catch {
+      } catch (err) {
+        logger.debug(`Workflow nodes failed for ${jobId} (likely a JT, not WJT): ${err instanceof Error ? err.message : String(err)}`);
         nodes = [];
       }
       res.json(nodes);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to get workflow nodes for ${jobId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve workflow nodes' });
     }
   });
 
@@ -797,7 +806,8 @@ export async function createRouter(
       res.json(events);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to get job events for ${jobId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve job events' });
     }
   });
 
@@ -896,7 +906,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to launch remediation: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to launch remediation' });
     }
   });
 
@@ -935,7 +945,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get remediation profile: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to retrieve remediation profile' });
     }
   });
 
@@ -969,7 +979,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to save remediation: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to save remediation profile' });
     }
   });
 
@@ -987,7 +997,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to delete remediation profile: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to delete remediation profile' });
     }
   });
 
@@ -1020,7 +1030,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get compliance profile: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to retrieve compliance profile' });
     }
   });
 
@@ -1072,7 +1082,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to save compliance profile: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to save compliance profile' });
     }
   });
 
@@ -1090,7 +1100,7 @@ export async function createRouter(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to delete compliance profile: ${msg}`);
-      res.status(500).json({ error: msg });
+      res.status(500).json({ error: 'Failed to delete compliance profile' });
     }
   });
 
@@ -1103,7 +1113,8 @@ export async function createRouter(
       res.json(templates);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to list job templates: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve job templates from Controller' });
     }
   });
 
@@ -1114,7 +1125,8 @@ export async function createRouter(
       res.json(templates);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to list workflow job templates: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve workflow templates from Controller' });
     }
   });
 
@@ -1125,7 +1137,8 @@ export async function createRouter(
       res.json(ees);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ error: msg });
+      logger.error(`Failed to list execution environments: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve execution environments from Controller' });
     }
   });
 
