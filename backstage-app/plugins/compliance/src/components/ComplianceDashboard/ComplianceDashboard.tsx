@@ -15,6 +15,8 @@ import {
   LinearProgress,
   Chip,
   Box,
+  Button,
+  ButtonGroup,
   Tooltip,
   makeStyles,
 } from '@material-ui/core';
@@ -26,6 +28,9 @@ import AssessmentIcon from '@material-ui/icons/Assessment';
 import BuildIcon from '@material-ui/icons/Build';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import { ComplianceGauge } from './ComplianceGauge';
+import { PostureOverviewCard } from './PostureOverviewCard';
+import { ContributingScansPopover } from './ContributingScansPopover';
+import { InventoryPostureView } from './InventoryPostureView';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import type { DashboardStats, PostureSnapshot, ComplianceProfile } from '@aap-compliance/common';
@@ -155,7 +160,7 @@ interface PostureTrendChartProps {
   data: PostureSnapshot[];
 }
 
-const PostureTrendChart: React.FC<PostureTrendChartProps> = ({ data }) => {
+const PostureTrendChart: React.FC<PostureTrendChartProps & { onPointClick?: (snapshot: PostureSnapshot) => void }> = ({ data, onPointClick }) => {
   // Take up to 20 most recent data points
   const points = data.slice(-20);
   if (points.length < 2) return null;
@@ -276,7 +281,8 @@ const PostureTrendChart: React.FC<PostureTrendChartProps> = ({ data }) => {
             fill="#fff"
             stroke={TREND_COLORS.dot}
             strokeWidth={2}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: p.scanId ? 'pointer' : 'default' }}
+            onClick={() => p.scanId && onPointClick?.(p)}
           />
         </Tooltip>
       ))}
@@ -307,6 +313,9 @@ export const ComplianceDashboard = () => {
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [postureView, setPostureView] = useState<'profile' | 'inventory'>('profile');
+  const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
+  const [popoverProfile, setPopoverProfile] = useState<{ name: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', scans: [] });
 
   useEffect(() => {
     Promise.all([
@@ -412,31 +421,62 @@ export const ComplianceDashboard = () => {
     );
   }
 
-  // Compute an overall gauge from framework scores
-  const overallRate = stats.frameworkScores.length > 0
-    ? Math.round(
-        stats.frameworkScores.reduce((sum, fw) => sum + fw.rate, 0) /
-          stats.frameworkScores.length,
-      )
-    : 0;
+  const handleGaugeClick = (event: React.MouseEvent<HTMLElement>, fw: typeof stats.frameworkScores[0]) => {
+    setPopoverProfile({ name: fw.name, scans: fw.contributingScans });
+    setPopoverAnchor(event.currentTarget);
+  };
 
   return (
     <div>
-      {/* Compliance Gauges */}
+      {/* Compliance Posture */}
       <div className={classes.section}>
-        <InfoCard title="Compliance Posture">
-          <div className={classes.row} style={{ justifyContent: 'center' }}>
-            <div className={classes.gaugeItem}>
-              <ComplianceGauge value={overallRate} label="Overall" />
-            </div>
-            {stats.frameworkScores.map(fw => (
-              <div className={classes.gaugeItem} key={fw.name}>
-                <ComplianceGauge value={fw.rate} label={fw.name.split(' ')[0] + ' ' + (fw.name.split(' ')[1] || '')} />
+        <InfoCard title="Compliance Posture" action={
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              color={postureView === 'profile' ? 'primary' : 'default'}
+              variant={postureView === 'profile' ? 'contained' : 'outlined'}
+              onClick={() => setPostureView('profile')}
+            >
+              By Profile
+            </Button>
+            <Button
+              color={postureView === 'inventory' ? 'primary' : 'default'}
+              variant={postureView === 'inventory' ? 'contained' : 'outlined'}
+              onClick={() => setPostureView('inventory')}
+            >
+              By Inventory
+            </Button>
+          </ButtonGroup>
+        }>
+          {postureView === 'profile' ? (
+            <div className={classes.row} style={{ justifyContent: 'center' }}>
+              <div className={classes.gaugeItem}>
+                <PostureOverviewCard postureStatus={stats.postureStatus} />
               </div>
-            ))}
-          </div>
+              {stats.frameworkScores.map(fw => (
+                <div className={classes.gaugeItem} key={fw.profileId}>
+                  <ComplianceGauge
+                    value={fw.rate}
+                    label={fw.name}
+                    subtitle={`${fw.passCount}/${fw.passCount + fw.failCount} rules passing`}
+                    onClick={e => handleGaugeClick(e, fw)}
+                    clickable
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <InventoryPostureView byInventory={stats.byInventory} />
+          )}
         </InfoCard>
       </div>
+
+      <ContributingScansPopover
+        anchorEl={popoverAnchor}
+        onClose={() => setPopoverAnchor(null)}
+        profileName={popoverProfile.name}
+        scans={popoverProfile.scans}
+      />
 
       {/* Key Metrics */}
       <div className={classes.section}>
@@ -500,7 +540,7 @@ export const ComplianceDashboard = () => {
               </Typography>
             </div>
           ) : (
-            <PostureTrendChart data={postureHistory} />
+            <PostureTrendChart data={postureHistory} onPointClick={snap => snap.scanId && navigate(`/compliance/results/${snap.scanId}`)} />
           )}
         </InfoCard>
       </div>

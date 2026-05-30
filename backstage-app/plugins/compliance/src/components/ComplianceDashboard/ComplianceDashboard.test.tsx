@@ -81,10 +81,10 @@ describe('ComplianceDashboard', () => {
     expect(screen.getAllByText('PCI-DSS v4.0').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('displays compliance gauge labels', async () => {
+  it('displays posture overview card', async () => {
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText('Overall')).toBeInTheDocument();
+      expect(screen.getByText(/profiles above/)).toBeInTheDocument();
     });
   });
 
@@ -96,6 +96,8 @@ describe('ComplianceDashboard', () => {
       activeProfiles: 0,
       recentScans: [],
       frameworkScores: [],
+      postureStatus: [],
+      byInventory: [],
     });
 
     await renderDashboard();

@@ -296,6 +296,8 @@ export class ComplianceDatabase {
     await this.db('compliance_posture_snapshots').insert({
       id,
       profile_id: snapshot.profileId,
+      inventory_id: snapshot.inventoryId ?? null,
+      scan_id: snapshot.scanId ?? null,
       timestamp: snapshot.timestamp,
       total_hosts: snapshot.totalHosts,
       total_rules: snapshot.totalRules,
@@ -330,6 +332,8 @@ export class ComplianceDatabase {
     return {
       id: row.id as string,
       profileId: row.profile_id as string,
+      inventoryId: (row.inventory_id as number) ?? undefined,
+      scanId: (row.scan_id as string) ?? undefined,
       timestamp: toISOString(row.timestamp),
       totalHosts: row.total_hosts as number,
       totalRules: row.total_rules as number,

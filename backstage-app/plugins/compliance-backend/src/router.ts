@@ -459,6 +459,8 @@ export async function createRouter(
   async function savePostureFromFindings(
     findings: Array<{ status: string; host: string; ruleId: string }>,
     profileId: string,
+    inventoryId?: number,
+    scanId?: string,
   ): Promise<void> {
     const passCount = findings.filter(f => f.status === 'pass').length;
     const failCount = findings.filter(f => f.status === 'fail').length;
@@ -467,6 +469,8 @@ export async function createRouter(
     const total = passCount + failCount;
     await database.savePostureSnapshot({
       profileId,
+      inventoryId,
+      scanId,
       timestamp: new Date().toISOString(),
       totalHosts: uniqueHosts,
       totalRules: uniqueRules,
@@ -474,7 +478,7 @@ export async function createRouter(
       failCount,
       compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
     });
-    logger.info(`Saved posture snapshot for profile=${profileId}`);
+    logger.info(`Saved posture snapshot for profile=${profileId} inventory=${inventoryId ?? 'unknown'}`);
   }
 
   async function fetchLiveFindings(
@@ -522,7 +526,7 @@ export async function createRouter(
 
     if (parsed.length > 0) {
       try {
-        await savePostureFromFindings(parsed, dbScan?.profileId ?? resolvedScanId);
+        await savePostureFromFindings(parsed, dbScan?.profileId ?? resolvedScanId, dbScan?.inventoryId, dbScan?.id);
       } catch (snapshotError) {
         logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
       }
@@ -702,7 +706,7 @@ export async function createRouter(
       await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
       try {
-        await savePostureFromFindings(mapped, scan.profileId);
+        await savePostureFromFindings(mapped, scan.profileId, scan.inventoryId, scan.id);
       } catch (err) {
         logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -906,6 +910,19 @@ export async function createRouter(
   router.get('/dashboard', async (_req, res) => {
     const stats = await service.getDashboardStats();
     res.json(stats);
+  });
+
+  router.get('/dashboard/scans-for-profile/:profileId', async (req, res) => {
+    const { profileId } = req.params;
+    try {
+      const stats = await service.getDashboardStats();
+      const fw = stats.frameworkScores.find(f => f.profileId === profileId);
+      res.json(fw?.contributingScans ?? []);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get contributing scans: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve contributing scans' });
+    }
   });
 
   // ─── Posture history ────────────────────────────────────────────────

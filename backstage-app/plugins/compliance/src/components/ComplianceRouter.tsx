@@ -65,7 +65,6 @@ class ComplianceErrorBoundary extends React.Component<
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'profiles', label: 'Profiles' },
   { id: 'scan', label: 'New Scan' },
   { id: 'results', label: 'Results' },
   { id: 'remediations', label: 'Remediations' },
@@ -74,7 +73,6 @@ const TABS = [
 
 const tabRouteMap: Record<string, string> = {
   overview: '',
-  profiles: 'profiles/all',
   scan: 'scan',
   results: 'results',
   remediations: 'remediations',

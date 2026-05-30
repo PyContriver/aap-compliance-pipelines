@@ -17,6 +17,7 @@ import type {
   ComplianceProfile,
   MultiHostFinding,
   DashboardStats,
+  ContributingScan,
   LaunchScanRequest,
   LaunchScanResponse,
   LaunchRemediationRequest,
@@ -218,6 +219,12 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   getDashboardStats() {
     return this.request<DashboardStats>('/dashboard');
+  }
+
+  getContributingScans(profileId: string) {
+    return this.request<ContributingScan[]>(
+      `/dashboard/scans-for-profile/${encodeURIComponent(profileId)}`,
+    );
   }
 
   getPostureHistory(profileId?: string, days?: number) {

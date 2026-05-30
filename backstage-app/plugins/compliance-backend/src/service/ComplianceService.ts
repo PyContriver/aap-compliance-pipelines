@@ -1234,15 +1234,16 @@ export class ComplianceService {
       activeProfiles: 0,
       recentScans: [],
       frameworkScores: [],
+      postureStatus: [],
+      byInventory: [],
     };
 
     if (!this.database) return empty;
 
     try {
-      const scans = await this.database.getRecentScans(10);
+      const scans = await this.database.getRecentScans(50);
       const profiles = await this.database.listProfiles();
 
-      // Resolve inventory names from Controller
       const inventoryNameMap = new Map<number, string>();
       try {
         const inventories = await this.getInventories();
@@ -1250,46 +1251,134 @@ export class ComplianceService {
           inventoryNameMap.set(inv.id, inv.name);
         }
       } catch {
-        // Controller unavailable — fall back to "Inventory N"
+        // Controller unavailable
       }
+
       const completedScans = scans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
+
+      // Group latest scan by (profileId, inventoryId) — the core posture calculation
+      const latestByProfileInventory = new Map<string, typeof completedScans[0]>();
+      for (const scan of completedScans) {
+        const key = `${scan.profileId}::${scan.inventoryId}`;
+        const existing = latestByProfileInventory.get(key);
+        if (!existing || (scan.completedAt && scan.completedAt > (existing.completedAt || ''))) {
+          latestByProfileInventory.set(key, scan);
+        }
+      }
 
       const hostsSet = new Set<string>();
       let criticalFindings = 0;
       let pendingRemediation = 0;
-      const profileStats = new Map<string, { pass: number; fail: number; rules: number; lastScan: string }>();
 
-      // Use only the latest completed scan per profile
-      const latestByProfile = new Map<string, typeof completedScans[0]>();
-      for (const scan of completedScans) {
-        const existing = latestByProfile.get(scan.profileId);
-        if (!existing || (scan.completedAt && scan.completedAt > (existing.completedAt || ''))) {
-          latestByProfile.set(scan.profileId, scan);
-        }
-      }
+      // Per-profile aggregation across inventories
+      const profileAgg = new Map<string, {
+        pass: number; fail: number; rules: Set<string>; lastScan: string;
+        contributing: Array<{ scan: typeof completedScans[0]; pass: number; fail: number; rules: number }>;
+      }>();
 
-      for (const scan of latestByProfile.values()) {
+      // Per-(profile, inventory) stats for byInventory view
+      const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number }>();
+
+      for (const scan of latestByProfileInventory.values()) {
         const findings = await this.database.getFindingsByScanId(scan.id);
-        const uniqueRules = new Set(findings.map(f => f.ruleId));
+
+        let pass = 0;
+        let fail = 0;
+        const ruleIds = new Set<string>();
         for (const f of findings) {
           hostsSet.add(f.host);
+          ruleIds.add(f.ruleId);
+          if (f.status === 'pass') pass++;
           if (f.status === 'fail') {
+            fail++;
             pendingRemediation++;
             if (f.severity === 'CAT_I') criticalFindings++;
           }
         }
 
-        const pass = findings.filter(f => f.status === 'pass').length;
-        const fail = findings.filter(f => f.status === 'fail').length;
-        profileStats.set(scan.profileId, {
-          pass, fail, rules: uniqueRules.size,
-          lastScan: scan.completedAt || scan.startedAt,
+        const agg = profileAgg.get(scan.profileId) ?? {
+          pass: 0, fail: 0, rules: new Set<string>(), lastScan: '',
+          contributing: [],
+        };
+        agg.pass += pass;
+        agg.fail += fail;
+        for (const r of ruleIds) agg.rules.add(r);
+        const scanTs = scan.completedAt || scan.startedAt;
+        if (!agg.lastScan || scanTs > agg.lastScan) agg.lastScan = scanTs;
+        agg.contributing.push({ scan, pass, fail, rules: ruleIds.size });
+        profileAgg.set(scan.profileId, agg);
+
+        inventoryProfileStats.set(`${scan.profileId}::${scan.inventoryId}`, {
+          profileId: scan.profileId, inventoryId: scan.inventoryId, pass, fail,
         });
       }
 
       const profileNameMap = new Map(profiles.map(p => [p.id, p.displayName]));
+      const profilePlatformMap = new Map(profiles.map(p => [p.id, p.platform || 'RHEL 9']));
+      const TARGET_THRESHOLD = 80;
 
-      // Include ALL recent scans with per-scan pass rates.
+      const frameworkScores = profiles.map(p => {
+        const agg = profileAgg.get(p.id);
+        const total = agg ? agg.pass + agg.fail : 0;
+        const rate = total > 0 ? Math.round((agg!.pass / total) * 1000) / 10 : 0;
+        const contributingScans = (agg?.contributing ?? []).map(c => {
+          const cTotal = c.pass + c.fail;
+          return {
+            scanId: c.scan.id,
+            inventoryId: c.scan.inventoryId,
+            inventoryName: inventoryNameMap.get(c.scan.inventoryId) || `Inventory ${c.scan.inventoryId}`,
+            passRate: cTotal > 0 ? Math.round((c.pass / cTotal) * 1000) / 10 : 0,
+            passCount: c.pass,
+            failCount: c.fail,
+            ruleCount: c.rules,
+            timestamp: c.scan.completedAt || c.scan.startedAt,
+          };
+        });
+        return {
+          profileId: p.id,
+          name: p.displayName,
+          target: p.platform || 'RHEL 9',
+          rules: agg?.rules.size ?? 0,
+          rate,
+          passCount: agg?.pass ?? 0,
+          failCount: agg?.fail ?? 0,
+          lastScan: agg?.lastScan ?? '',
+          contributingScans,
+        };
+      });
+
+      const postureStatus = frameworkScores.map(fw => ({
+        profileId: fw.profileId,
+        name: fw.name,
+        rate: fw.rate,
+        aboveTarget: fw.rate >= TARGET_THRESHOLD,
+      }));
+
+      // Build by-inventory view
+      const inventoryIds = new Set<number>();
+      for (const scan of latestByProfileInventory.values()) {
+        inventoryIds.add(scan.inventoryId);
+      }
+      const byInventory = Array.from(inventoryIds).map(invId => ({
+        inventoryId: invId,
+        inventoryName: inventoryNameMap.get(invId) || `Inventory ${invId}`,
+        profileScores: profiles
+          .map(p => {
+            const stats = inventoryProfileStats.get(`${p.id}::${invId}`);
+            if (!stats) return null;
+            const total = stats.pass + stats.fail;
+            return {
+              profileId: p.id,
+              name: p.displayName,
+              rate: total > 0 ? Math.round((stats.pass / total) * 1000) / 10 : 0,
+              passCount: stats.pass,
+              failCount: stats.fail,
+            };
+          })
+          .filter((s): s is NonNullable<typeof s> => s !== null),
+      })).filter(inv => inv.profileScores.length > 0);
+
+      // Recent scans with pass rates
       const recentScansRaw = scans.slice(0, 8);
       const recentScans = await Promise.all(
         recentScansRaw.map(async scan => {
@@ -1314,19 +1403,6 @@ export class ComplianceService {
         }),
       );
 
-      const frameworkScores = profiles.map(p => {
-        const pStats = profileStats.get(p.id);
-        const total = pStats ? pStats.pass + pStats.fail : 0;
-        return {
-          profileId: p.id,
-          name: p.displayName,
-          target: p.platform || 'RHEL 9',
-          rules: pStats?.rules ?? 0,
-          rate: total > 0 ? Math.round((pStats!.pass / total) * 1000) / 10 : 0,
-          lastScan: pStats?.lastScan ?? '',
-        };
-      });
-
       return {
         hostsScanned: hostsSet.size,
         criticalFindings,
@@ -1334,6 +1410,8 @@ export class ComplianceService {
         activeProfiles: profiles.length,
         recentScans,
         frameworkScores,
+        postureStatus,
+        byInventory,
       };
     } catch (error) {
       this.logger.warn(`Dashboard stats aggregation failed: ${error}`);

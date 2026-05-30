@@ -64,6 +64,8 @@ async function createTables(database: Knex): Promise<void> {
     table => {
       table.string('id').primary();
       table.string('profile_id').notNullable();
+      table.integer('inventory_id').nullable();
+      table.string('scan_id').nullable();
       table
         .timestamp('timestamp')
         .notNullable()
