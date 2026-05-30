@@ -120,7 +120,7 @@ The P1 fixes are solid. The codebase is in good shape for a prototype: no `as an
 | ResultsViewer | 58.6% | Adequate for prototype |
 | RemediationProfileBuilder | 57.8% | Adequate for prototype |
 | ComplianceService | 53.0% | Adequate -- live mode paths untested by design |
-| CartridgeSettings | 51.7% | Adequate |
+| ProfileSettings | 51.7% | Adequate |
 | **RemediationExecution** | **0%** | Gap -- new component, needs test |
 | **ActiveJobsBanner** | **0%** | Gap -- new component, needs test |
 | **ScanProgress** | **10.5%** | Gap -- minimal coverage |

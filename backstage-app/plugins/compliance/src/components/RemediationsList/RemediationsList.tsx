@@ -74,10 +74,10 @@ export const RemediationsList = () => {
   useEffect(() => {
     Promise.all([
       api.getRemediationProfiles(),
-      api.getCartridges().catch(() => []),
-    ]).then(([data, cartridges]) => {
+      api.getRegisteredProfiles().catch(() => []),
+    ]).then(([data, profiles]) => {
       setRemediations(data);
-      setProfileNames(new Map(cartridges.map(c => [c.id, c.displayName])));
+      setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
     }).catch(err => {
       console.error('Failed to load remediation profiles:', err);
     }).finally(() => setLoading(false));

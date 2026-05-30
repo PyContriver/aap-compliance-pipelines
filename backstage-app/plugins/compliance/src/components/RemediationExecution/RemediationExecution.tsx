@@ -495,16 +495,16 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const launchVerificationScan = useCallback(async () => {
     setVerificationLaunching(true);
     try {
-      // Resolve cartridge to get workflowTemplateId for the scan
-      const cartridges = await api.getCartridges().catch(() => []);
-      const cartridge = cartridges.find(c => c.id === complianceProfileIdRef.current);
+      // Resolve profile to get workflowTemplateId for the scan
+      const profiles = await api.getRegisteredProfiles().catch(() => []);
+      const profile = profiles.find(c => c.id === complianceProfileIdRef.current);
 
       const result = await api.launchScan({
         profileId: complianceProfileIdRef.current,
         inventoryId: inventoryIdRef.current,
         evaluateOnly: true,
         scanType: 'verification',
-        workflowTemplateId: cartridge?.workflowTemplateId ?? undefined,
+        workflowTemplateId: profile?.workflowTemplateId ?? undefined,
       });
       navigate(`/compliance/results/${result.workflowJobId}`);
     } catch (err) {
@@ -531,7 +531,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
       }
 
-      // Resolve inventory ID from scan history or cartridge
+      // Resolve inventory ID from scan history or profile
       if (inventoryIdRef.current === 0) {
         try {
           const scans = await api.getScans();

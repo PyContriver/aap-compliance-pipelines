@@ -358,7 +358,7 @@ export class ComplianceService {
    *
    * Resolution order:
    *   1. Explicit `workflowTemplateId` from the scan request (user override)
-   *   2. Cartridge registry in the database (mapped per compliance profile)
+   *   2. Profile registry in the database (mapped per compliance profile)
    *   3. Name-based search on the Controller (fallback for unconfigured profiles)
    */
   private async resolveWorkflowTemplateId(
@@ -374,14 +374,14 @@ export class ComplianceService {
       return requestTemplateId;
     }
 
-    // (2) Look up the cartridge in the DB
+    // (2) Look up the profile in the DB
     if (this.database) {
-      const cartridge = await this.database.getCartridge(profileId);
-      if (cartridge?.workflowTemplateId) {
+      const profile = await this.database.getProfile(profileId);
+      if (profile?.workflowTemplateId) {
         this.logger.info(
-          `Using workflow template ${cartridge.workflowTemplateId} from cartridge registry (profile=${profileId})`,
+          `Using workflow template ${profile.workflowTemplateId} from profile registry (profile=${profileId})`,
         );
-        return cartridge.workflowTemplateId;
+        return profile.workflowTemplateId;
       }
     }
 
@@ -397,7 +397,7 @@ export class ComplianceService {
     if (!template) {
       throw new Error(
         `No compliance workflow job template found for profile ${profileId}. ` +
-        `Register one in the cartridge registry or provide workflowTemplateId in the scan request.`,
+        `Register one in the profile registry or provide workflowTemplateId in the scan request.`,
       );
     }
 
@@ -410,7 +410,7 @@ export class ComplianceService {
   /**
    * Resolve the remediate job template ID.
    *
-   * Looks up the workflow template from the cartridge registry, finds
+   * Looks up the workflow template from the profile registry, finds
    * the remediate node within it, and returns that node's JT ID.
    * Falls back to searching for a JT named "compliance-remediate".
    */
@@ -420,7 +420,7 @@ export class ComplianceService {
   ): Promise<number> {
     // The remediate JT is a standalone job template, not part of the
     // assessment workflow (which is gather → evaluate only). Resolution
-    // order: (1) name-based search on Controller, (2) cartridge registry.
+    // order: (1) name-based search on Controller, (2) profile registry.
     const result = await this.controllerClient!.listJobTemplates('compliance-remediate', token);
     if (result.results.length > 0) {
       this.logger.info(`Resolved remediate JT ${result.results[0].id} via name search`);
@@ -1181,7 +1181,7 @@ export class ComplianceService {
 
     try {
       const scans = await this.database.getRecentScans(10);
-      const profiles = await this.database.listCartridges();
+      const profiles = await this.database.listProfiles();
 
       // Resolve inventory names from Controller
       const inventoryNameMap = new Map<number, string>();

@@ -67,7 +67,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-import type { ComplianceCartridge, PlatformValidationResult } from '@aap-compliance/common';
+import type { ComplianceProfile, PlatformValidationResult } from '@aap-compliance/common';
 import { CertificationBadge } from '../shared/CertificationBadge';
 
 interface ProfileOption {
@@ -113,34 +113,34 @@ export const ScanLauncher = () => {
   // Backend-fetched data — start empty, no hardcoded fallback
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [inventories, setInventories] = useState<InventoryOption[]>([]);
-  const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
+  const [registeredProfiles, setRegisteredProfiles] = useState<ComplianceProfile[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      api.getCartridges().catch(err => {
-        console.error('Failed to load cartridges:', err);
-        return [] as ComplianceCartridge[];
+      api.getRegisteredProfiles().catch(err => {
+        console.error('Failed to load registered profiles:', err);
+        return [] as ComplianceProfile[];
       }),
       api.getProfiles().catch(err => {
-        console.error('Failed to load profiles:', err);
+        console.error('Failed to load display profiles:', err);
         return [];
       }),
       api.getInventories().catch(err => {
         console.error('Failed to load inventories:', err);
         return [] as Array<{ id: number; name: string; hostCount: number }>;
       }),
-    ]).then(([cartridgeData, profileData, inventoryData]) => {
-      setCartridges(cartridgeData);
-      if (cartridgeData.length > 0) {
-        setProfiles(cartridgeData.map(c => ({
+    ]).then(([registeredData, displayData, inventoryData]) => {
+      setRegisteredProfiles(registeredData);
+      if (registeredData.length > 0) {
+        setProfiles(registeredData.map(c => ({
           id: c.id,
           name: c.displayName,
           version: c.version || '',
           rules: c.ruleCount || 0,
         })));
-      } else if (profileData.length > 0) {
-        setProfiles(profileData.map(p => ({
+      } else if (displayData.length > 0) {
+        setProfiles(displayData.map(p => ({
           id: p.id,
           name: p.name,
           version: p.version,
@@ -160,14 +160,14 @@ export const ScanLauncher = () => {
   const doLaunch = async (gatherFacts?: boolean) => {
     setLaunchError(null);
     try {
-      const cartridge = cartridges.find(c => c.id === selectedProfile);
+      const profile = profiles.find(c => c.id === selectedProfile);
       const scanRequest: Parameters<typeof api.launchScan>[0] = {
         profileId: selectedProfile,
         inventoryId: inventory?.id ?? 0,
         evaluateOnly,
         scanType: scanTypeParam || 'assessment',
         limit: limit || undefined,
-        workflowTemplateId: cartridge?.workflowTemplateId ?? undefined,
+        workflowTemplateId: profile?.workflowTemplateId ?? undefined,
         gatherFacts: gatherFacts || needsFactGather,
       };
       const result = await api.launchScan(scanRequest);
@@ -238,8 +238,8 @@ export const ScanLauncher = () => {
                       <Box display="flex" alignItems="center" style={{ gap: 8 }} mb={1}>
                         <SecurityIcon color="primary" />
                         <Chip label={p.version} size="small" variant="outlined" />
-                        {cartridges.find(c => c.id === p.id)?.certification && (
-                          <CertificationBadge certification={cartridges.find(c => c.id === p.id)!.certification} />
+                        {registeredProfiles.find(c => c.id === p.id)?.certification && (
+                          <CertificationBadge certification={registeredProfiles.find(c => c.id === p.id)!.certification} />
                         )}
                       </Box>
                       <Typography variant="subtitle1">{p.name}</Typography>

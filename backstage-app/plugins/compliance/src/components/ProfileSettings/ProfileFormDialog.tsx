@@ -20,8 +20,8 @@ import {
 import { complianceApiRef } from '../../api';
 
 import type {
-  ComplianceCartridge,
-  SaveCartridgeRequest,
+  ComplianceProfile,
+  SaveProfileRequest,
   CertificationStatus,
 } from '@aap-compliance/common';
 
@@ -46,7 +46,7 @@ const FRAMEWORK_OPTIONS = [
   { value: 'NIST_800_53', label: 'NIST 800-53' },
 ];
 
-const EMPTY_FORM: SaveCartridgeRequest = {
+const EMPTY_FORM: SaveProfileRequest = {
   displayName: '',
   description: '',
   framework: 'DISA_STIG',
@@ -73,16 +73,16 @@ interface ExecutionEnvironment {
 
 interface ProfileFormDialogProps {
   open: boolean;
-  editCartridge: ComplianceCartridge | null;
+  editProfile: ComplianceProfile | null;
   workflowTemplates: WorkflowTemplate[];
   executionEnvironments: ExecutionEnvironment[];
   onClose: () => void;
-  onSave: (request: SaveCartridgeRequest) => Promise<void>;
+  onSave: (request: SaveProfileRequest) => Promise<void>;
 }
 
 export const ProfileFormDialog = ({
   open,
-  editCartridge,
+  editProfile,
   workflowTemplates,
   executionEnvironments,
   onClose,
@@ -91,7 +91,7 @@ export const ProfileFormDialog = ({
   const classes = useStyles();
   const api = useApi(complianceApiRef);
 
-  const [form, setForm] = useState<SaveCartridgeRequest>({ ...EMPTY_FORM });
+  const [form, setForm] = useState<SaveProfileRequest>({ ...EMPTY_FORM });
   const [certStatus, setCertStatus] = useState('uncertified');
   const [certAuthority, setCertAuthority] = useState('');
   const [saving, setSaving] = useState(false);
@@ -103,22 +103,22 @@ export const ProfileFormDialog = ({
 
   useEffect(() => {
     if (!open) return;
-    if (editCartridge) {
+    if (editProfile) {
       setAutoPopulateEnabled(false);
       setForm({
-        displayName: editCartridge.displayName,
-        description: editCartridge.description,
-        framework: editCartridge.framework,
-        version: editCartridge.version,
-        platform: editCartridge.platform,
-        platformSpec: editCartridge.platformSpec ?? null,
-        workflowTemplateId: editCartridge.workflowTemplateId,
-        eeId: editCartridge.eeId,
-        remediationPlaybookPath: editCartridge.remediationPlaybookPath,
-        scanTags: editCartridge.scanTags,
+        displayName: editProfile.displayName,
+        description: editProfile.description,
+        framework: editProfile.framework,
+        version: editProfile.version,
+        platform: editProfile.platform,
+        platformSpec: editProfile.platformSpec ?? null,
+        workflowTemplateId: editProfile.workflowTemplateId,
+        eeId: editProfile.eeId,
+        remediationPlaybookPath: editProfile.remediationPlaybookPath,
+        scanTags: editProfile.scanTags,
       });
-      setCertStatus(editCartridge.certification?.status || 'uncertified');
-      setCertAuthority(editCartridge.certification?.authority || '');
+      setCertStatus(editProfile.certification?.status || 'uncertified');
+      setCertAuthority(editProfile.certification?.authority || '');
       skipNextAutoPopulateRef.current = true;
       setAutoPopulateEnabled(true);
     } else {
@@ -128,7 +128,7 @@ export const ProfileFormDialog = ({
       setAutoPopulateEnabled(true);
     }
     setSaveError(null);
-  }, [open, editCartridge]);
+  }, [open, editProfile]);
 
   useEffect(() => {
     if (!autoPopulateEnabled || !form.workflowTemplateId) return;
@@ -175,7 +175,7 @@ export const ProfileFormDialog = ({
     setPendingAutoPopulate(null);
   };
 
-  const updateForm = (field: keyof SaveCartridgeRequest, value: unknown) => {
+  const updateForm = (field: keyof SaveProfileRequest, value: unknown) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -186,8 +186,8 @@ export const ProfileFormDialog = ({
       const certification = certStatus !== 'uncertified'
         ? { status: certStatus as CertificationStatus, authority: certAuthority, validationId: '', disclaimer: '' }
         : null;
-      const payload = editCartridge
-        ? { ...form, id: editCartridge.id, certification }
+      const payload = editProfile
+        ? { ...form, id: editProfile.id, certification }
         : { ...form, certification };
       await onSave(payload);
     } catch (err) {
@@ -200,7 +200,7 @@ export const ProfileFormDialog = ({
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{editCartridge ? 'Edit Compliance Profile' : 'Add Compliance Profile'}</DialogTitle>
+        <DialogTitle>{editProfile ? 'Edit Compliance Profile' : 'Add Compliance Profile'}</DialogTitle>
         <DialogContent>
           <div className={classes.dialogContent}>
             <Typography variant="subtitle2" style={{ marginBottom: 4 }}>
@@ -358,7 +358,7 @@ export const ProfileFormDialog = ({
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" color="primary" onClick={handleSave}
             disabled={saving || !form.displayName || !form.framework}>
-            {saving ? 'Saving...' : editCartridge ? 'Update' : 'Save'}
+            {saving ? 'Saving...' : editProfile ? 'Update' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

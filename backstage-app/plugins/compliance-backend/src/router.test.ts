@@ -173,8 +173,8 @@ function createMockDatabase() {
     getLatestFindings: jest.fn().mockResolvedValue([]),
     updateScanStatus: jest.fn().mockResolvedValue(undefined),
     updateScanErrorDetails: jest.fn().mockResolvedValue(undefined),
-    listCartridges: jest.fn().mockResolvedValue([]),
-    saveCartridge: jest.fn().mockResolvedValue({
+    listProfiles: jest.fn().mockResolvedValue([]),
+    saveProfile: jest.fn().mockResolvedValue({
       id: 'cart-1',
       displayName: 'RHEL 9 STIG',
       description: '',
@@ -189,8 +189,8 @@ function createMockDatabase() {
       createdAt: '2026-04-30T00:00:00.000Z',
       updatedAt: '2026-04-30T00:00:00.000Z',
     }),
-    getCartridge: jest.fn().mockResolvedValue(null),
-    deleteCartridge: jest.fn().mockResolvedValue(true),
+    getProfile: jest.fn().mockResolvedValue(null),
+    deleteProfile: jest.fn().mockResolvedValue(true),
     getPostureSnapshots: jest.fn().mockResolvedValue([]),
     savePostureSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
     upsertRuleMetadata: jest.fn().mockResolvedValue(0),
@@ -309,7 +309,7 @@ describe('compliance backend router', () => {
   describe('POST /scan/validate', () => {
     it('returns valid when profile has no platformSpec', async () => {
       const { app } = await createApp(undefined, {
-        getCartridge: jest.fn().mockResolvedValue({
+        getProfile: jest.fn().mockResolvedValue({
           id: 'p1', displayName: 'Test', platformSpec: null,
         }),
       });
@@ -332,7 +332,7 @@ describe('compliance backend router', () => {
           ]),
         },
         {
-          getCartridge: jest.fn().mockResolvedValue({
+          getProfile: jest.fn().mockResolvedValue({
             id: 'p1', displayName: 'STIG RHEL 9',
             platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
           }),
@@ -353,7 +353,7 @@ describe('compliance backend router', () => {
 
     it('returns valid when scanner_validates is true', async () => {
       const { app } = await createApp(undefined, {
-        getCartridge: jest.fn().mockResolvedValue({
+        getProfile: jest.fn().mockResolvedValue({
           id: 'p1', displayName: 'Tenable',
           platformSpec: { os_family: ['RedHat'], scanner_validates: true },
         }),
@@ -374,7 +374,7 @@ describe('compliance backend router', () => {
           getInventoryHostFacts: jest.fn().mockRejectedValue(new Error('Controller unreachable')),
         },
         {
-          getCartridge: jest.fn().mockResolvedValue({
+          getProfile: jest.fn().mockResolvedValue({
             id: 'p1', displayName: 'STIG',
             platformSpec: { os_family: ['RedHat'] },
           }),
@@ -399,7 +399,7 @@ describe('compliance backend router', () => {
           ]),
         },
         {
-          getCartridge: jest.fn().mockResolvedValue({
+          getProfile: jest.fn().mockResolvedValue({
             id: 'p1', displayName: 'STIG',
             platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
           }),
@@ -598,14 +598,14 @@ describe('compliance backend router', () => {
     });
   });
 
-  // ─── POST /cartridges ─────────────────────────────────────────────
+  // ─── POST /compliance-profiles ─────────────────────────────────────────────
 
-  describe('POST /cartridges', () => {
+  describe('POST /compliance-profiles', () => {
     it('returns 400 when displayName is missing', async () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: { framework: 'DISA_STIG' },
       });
 
@@ -617,7 +617,7 @@ describe('compliance backend router', () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: { displayName: 'RHEL 9 STIG' },
       });
 
@@ -629,7 +629,7 @@ describe('compliance backend router', () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -645,7 +645,7 @@ describe('compliance backend router', () => {
       const { app, database } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -658,16 +658,16 @@ describe('compliance backend router', () => {
       const body = res.body as any;
       expect(body.id).toBe('cart-1');
       expect(body.displayName).toBe('RHEL 9 STIG');
-      expect(database.saveCartridge).toHaveBeenCalledTimes(1);
+      expect(database.saveProfile).toHaveBeenCalledTimes(1);
     });
 
     it('returns 500 when database throws', async () => {
       const { app } = await createApp(undefined, {
-        saveCartridge: jest.fn().mockRejectedValue(new Error('DB error')),
+        saveProfile: jest.fn().mockRejectedValue(new Error('DB error')),
       });
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -682,7 +682,7 @@ describe('compliance backend router', () => {
       const { app, database } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -694,7 +694,7 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(201);
-      expect(database.saveCartridge).toHaveBeenCalledWith(
+      expect(database.saveProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
         }),
@@ -705,7 +705,7 @@ describe('compliance backend router', () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -721,7 +721,7 @@ describe('compliance backend router', () => {
       const { app } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -737,7 +737,7 @@ describe('compliance backend router', () => {
       const { app, database } = await createApp();
       const res = await testRequest(app, {
         method: 'POST',
-        path: '/cartridges',
+        path: '/compliance-profiles',
         body: {
           displayName: 'RHEL 9 STIG',
           framework: 'DISA_STIG',
@@ -746,17 +746,17 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(201);
-      expect(database.saveCartridge).toHaveBeenCalledWith(
+      expect(database.saveProfile).toHaveBeenCalledWith(
         expect.objectContaining({ platformSpec: null }),
       );
     });
   });
 
-  // ─── GET /cartridges/:id ─────────────────────────────────────────
+  // ─── GET /compliance-profiles/:id ─────────────────────────────────────────
 
-  describe('GET /cartridges/:id', () => {
-    it('returns 200 with the cartridge when found', async () => {
-      const cartridge = {
+  describe('GET /compliance-profiles/:id', () => {
+    it('returns 200 with the profile when found', async () => {
+      const profile = {
         id: 'cart-1',
         displayName: 'RHEL 9 STIG',
         description: '',
@@ -772,45 +772,45 @@ describe('compliance backend router', () => {
         updatedAt: '2026-04-30T00:00:00.000Z',
       };
       const { app, database } = await createApp(undefined, {
-        getCartridge: jest.fn().mockResolvedValue(cartridge),
+        getProfile: jest.fn().mockResolvedValue(profile),
       });
-      const res = await testRequest(app, { path: '/cartridges/cart-1' });
+      const res = await testRequest(app, { path: '/compliance-profiles/cart-1' });
 
       expect(res.status).toBe(200);
       expect((res.body as any).displayName).toBe('RHEL 9 STIG');
-      expect(database.getCartridge).toHaveBeenCalledWith('cart-1');
+      expect(database.getProfile).toHaveBeenCalledWith('cart-1');
     });
 
-    it('returns 404 when cartridge not found', async () => {
+    it('returns 404 when profile not found', async () => {
       const { app } = await createApp();
-      const res = await testRequest(app, { path: '/cartridges/nonexistent' });
+      const res = await testRequest(app, { path: '/compliance-profiles/nonexistent' });
 
       expect(res.status).toBe(404);
       expect((res.body as any).error).toMatch(/not found/i);
     });
   });
 
-  // ─── DELETE /cartridges/:id ───────────────────────────────────────
+  // ─── DELETE /compliance-profiles/:id ───────────────────────────────────────
 
-  describe('DELETE /cartridges/:id', () => {
+  describe('DELETE /compliance-profiles/:id', () => {
     it('returns 204 on successful delete', async () => {
       const { app, database } = await createApp();
       const res = await testRequest(app, {
         method: 'DELETE',
-        path: '/cartridges/cart-1',
+        path: '/compliance-profiles/cart-1',
       });
 
       expect(res.status).toBe(204);
-      expect(database.deleteCartridge).toHaveBeenCalledWith('cart-1');
+      expect(database.deleteProfile).toHaveBeenCalledWith('cart-1');
     });
 
-    it('returns 404 when cartridge not found', async () => {
+    it('returns 404 when profile not found', async () => {
       const { app } = await createApp(undefined, {
-        deleteCartridge: jest.fn().mockResolvedValue(false),
+        deleteProfile: jest.fn().mockResolvedValue(false),
       });
       const res = await testRequest(app, {
         method: 'DELETE',
-        path: '/cartridges/nonexistent',
+        path: '/compliance-profiles/nonexistent',
       });
 
       expect(res.status).toBe(404);
@@ -819,11 +819,11 @@ describe('compliance backend router', () => {
 
     it('returns 500 when database throws', async () => {
       const { app } = await createApp(undefined, {
-        deleteCartridge: jest.fn().mockRejectedValue(new Error('DB error')),
+        deleteProfile: jest.fn().mockRejectedValue(new Error('DB error')),
       });
       const res = await testRequest(app, {
         method: 'DELETE',
-        path: '/cartridges/cart-1',
+        path: '/compliance-profiles/cart-1',
       });
 
       expect(res.status).toBe(500);
@@ -1281,15 +1281,15 @@ describe('compliance backend router', () => {
     });
   });
 
-  // ─── GET /cartridges ──────────────────────────────────────────────
+  // ─── GET /compliance-profiles ──────────────────────────────────────────────
 
-  describe('GET /cartridges', () => {
-    it('returns 200 with cartridges from database', async () => {
+  describe('GET /compliance-profiles', () => {
+    it('returns 200 with profiles from database', async () => {
       const { app, database } = await createApp();
-      const res = await testRequest(app, { path: '/cartridges' });
+      const res = await testRequest(app, { path: '/compliance-profiles' });
 
       expect(res.status).toBe(200);
-      expect(database.listCartridges).toHaveBeenCalledTimes(1);
+      expect(database.listProfiles).toHaveBeenCalledTimes(1);
     });
   });
 

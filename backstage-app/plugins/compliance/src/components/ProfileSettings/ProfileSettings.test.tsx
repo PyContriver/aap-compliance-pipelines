@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { complianceApiRef } from '../../api/complianceApiRef';
-import { CartridgeSettings } from './CartridgeSettings';
+import { ProfileSettings } from './ProfileSettings';
 
 // Mock permission module — default to admin allowed
 jest.mock('@backstage/plugin-permission-react', () => ({
@@ -17,9 +17,9 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
     getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
     getProfiles: jest.fn().mockResolvedValue([]),
+    getRegisteredProfiles: jest.fn().mockResolvedValue([]),
     getScans: jest.fn().mockResolvedValue([]),
-    getCartridges: jest.fn().mockResolvedValue([]),
-    getCartridge: jest.fn().mockResolvedValue(null),
+    getRegisteredProfile: jest.fn().mockResolvedValue(null),
     getInventories: jest.fn().mockResolvedValue([]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),
@@ -34,8 +34,8 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: '1', name: 'test', description: '', complianceProfileId: '', targetInventory: '', selections: [], createdAt: '', updatedAt: '' }),
-    saveCartridge: jest.fn().mockResolvedValue({}),
-    deleteCartridge: jest.fn().mockResolvedValue(undefined),
+    saveRegisteredProfile: jest.fn().mockResolvedValue({}),
+    deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([]),
     ...overrides,
@@ -47,12 +47,12 @@ function renderWithApi(
 ) {
   return renderInTestApp(
     <TestApiProvider apis={[[complianceApiRef, mockApi]]}>
-      <CartridgeSettings />
+      <ProfileSettings />
     </TestApiProvider>,
   );
 }
 
-describe('CartridgeSettings', () => {
+describe('ProfileSettings', () => {
   it('renders the "Compliance Profiles" title', async () => {
     await renderWithApi();
 
@@ -61,7 +61,7 @@ describe('CartridgeSettings', () => {
     });
   });
 
-  it('shows empty state when no cartridges are configured', async () => {
+  it('shows empty state when no profiles are configured', async () => {
     await renderWithApi();
 
     await waitFor(() => {
@@ -89,9 +89,9 @@ describe('CartridgeSettings', () => {
     });
   });
 
-  it('shows cartridge rows when cartridges exist', async () => {
+  it('shows profile rows when profiles exist', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
         {
           id: 'cart-1',
           displayName: 'STIG for RHEL 9',
@@ -142,9 +142,9 @@ describe('CartridgeSettings', () => {
     permissionMock.usePermission = () => ({ allowed: true, loading: false });
   });
 
-  it('shows edit button for each cartridge row', async () => {
+  it('shows edit button for each profile row', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
         {
           id: 'cart-1',
           displayName: 'STIG for RHEL 9',
@@ -171,7 +171,7 @@ describe('CartridgeSettings', () => {
   });
 
   it('opens edit dialog with pre-populated form on edit click', async () => {
-    const cartridge = {
+    const profile = {
       id: 'cart-1',
       displayName: 'STIG for RHEL 9',
       description: 'DoD profile',
@@ -187,8 +187,8 @@ describe('CartridgeSettings', () => {
       updatedAt: '2025-01-01',
     };
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([cartridge]),
-      getCartridge: jest.fn().mockResolvedValue(cartridge),
+      getRegisteredProfiles: jest.fn().mockResolvedValue([profile]),
+      getRegisteredProfile: jest.fn().mockResolvedValue(profile),
     });
 
     await renderWithApi(mockApi);
@@ -208,8 +208,8 @@ describe('CartridgeSettings', () => {
     });
   });
 
-  it('calls saveCartridge with id when updating an existing profile', async () => {
-    const cartridge = {
+  it('calls saveProfile with id when updating an existing profile', async () => {
+    const profile = {
       id: 'cart-1',
       displayName: 'STIG for RHEL 9',
       description: '',
@@ -226,9 +226,9 @@ describe('CartridgeSettings', () => {
     };
     const saveMock = jest.fn().mockResolvedValue({});
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([cartridge]),
-      getCartridge: jest.fn().mockResolvedValue(cartridge),
-      saveCartridge: saveMock,
+      getRegisteredProfiles: jest.fn().mockResolvedValue([profile]),
+      getRegisteredProfile: jest.fn().mockResolvedValue(profile),
+      saveRegisteredProfile: saveMock,
     });
 
     await renderWithApi(mockApi);
@@ -254,7 +254,7 @@ describe('CartridgeSettings', () => {
 
   it('shows "Save" button when adding a new profile', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
         {
           id: 'cart-1',
           displayName: 'Existing',

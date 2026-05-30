@@ -14,7 +14,7 @@ import { ScanLauncher } from './ScanLauncher';
 import { ResultsViewer } from './ResultsViewer';
 import { RemediationProfileBuilder } from './RemediationProfileBuilder';
 import { RemediationExecution } from './RemediationExecution';
-import { CartridgeSettings } from './CartridgeSettings';
+import { ProfileSettings } from './ProfileSettings';
 import { RemediationsList } from './RemediationsList';
 import { ScanHistory } from './ScanHistory';
 import { ActiveJobsBanner } from './ActiveJobsBanner';
@@ -130,7 +130,7 @@ const ComplianceRouter = () => {
               <Route path="/execute/:jobId" element={<RemediationExecution viewMode={false} />} />
               <Route path="/remediation-result/:jobId" element={<RemediationExecution viewMode={true} />} />
               <Route path="/remediations" element={<RemediationsList />} />
-              <Route path="/settings" element={<CartridgeSettings />} />
+              <Route path="/settings" element={<ProfileSettings />} />
             </Routes>
           </ComplianceErrorBoundary>
         </Content>

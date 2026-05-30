@@ -35,7 +35,7 @@ The cast `(n.summary_fields as any)?.unified_job_template?.name` was unnecessary
 - `ProfileBrowser.tsx` (2 locations) -- getCartridges, getProfiles
 - `ScanLauncher.tsx` (3 locations) -- getCartridges, getProfiles, getInventories
 - `ComplianceDashboard.tsx` (1 location) -- getDashboardStats
-- `CartridgeSettings.tsx` (2 locations) -- loadCartridges, loadControllerResources
+- `ProfileSettings.tsx` (2 locations) -- loadCartridges, loadControllerResources
 - `ComplianceBackendClient.ts` (1 location) -- getRemediationProfile
 
 Every catch block now logs the error context. For `.catch(() => [])` patterns that return fallback data, the error is logged before returning the fallback.
@@ -78,7 +78,7 @@ The polling logic now tracks `timeoutId` and clears it in the cleanup function: 
 
 ### S1. `ruleCount` type safety (FIXED)
 
-`ComplianceCartridge` in `api.ts` now includes `ruleCount?: number`. No more `(c as any).ruleCount` casts anywhere in the codebase.
+`ComplianceProfile` in `api.ts` now includes `ruleCount?: number`. No more `(c as any).ruleCount` casts anywhere in the codebase.
 
 ### S4. `saveRemediationProfile` mock-only (FIXED)
 
@@ -102,7 +102,7 @@ The fallback inventories constant exists but is no longer used -- the code start
 
 ### R3. `listWorkflowJobTemplates` uses `name__startswith` (was S5)
 
-The Controller search filter `name__startswith` only finds templates whose name begins with the search term. For fuzzy searches, `name__icontains` would be more appropriate. Low risk since the cartridge registry lookup (S4 fix) is the primary resolution path.
+The Controller search filter `name__startswith` only finds templates whose name begins with the search term. For fuzzy searches, `name__icontains` would be more appropriate. Low risk since the profile registry lookup (S4 fix) is the primary resolution path.
 
 ### R4. No rate limiting or request deduplication on polling (was N4)
 
@@ -139,7 +139,7 @@ Verified that `./bin/start.sh mock` works end-to-end. Every service method has a
 **Mock data field alignment:**
 
 - `ComplianceScan.scanType`: Present in mock test data (`MOCK_SCANS` in `mockComplianceApi.ts`). The database `getRecentScans()` returns scans with `scanType` from the DB schema.
-- `ComplianceCartridge.ruleCount`: Present as optional field. Mock cartridges have it via enrichment in router.ts or via `cartridgeToDisplayProfile`.
+- `ComplianceProfile.ruleCount`: Present as optional field. Mock cartridges have it via enrichment in router.ts or via `cartridgeToDisplayProfile`.
 - `MultiHostFinding` fields (`description`, `fixText`, `checkText`, `category`, `disruption`, `parameters`): All present in `MockDataProvider.MOCK_FINDINGS` with the same types as the `MultiHostFinding` interface.
 - `RemediationSelection.scope`: Present in the type definition. The `buildRemediationPlan` method correctly handles both `failed_only` and `standardize_all` values with fallback to `failed_only`.
 
@@ -207,7 +207,7 @@ The `launchRemediation` flow builds an optimized plan using `buildRemediationPla
 | ResultsViewer.test.tsx | 6 | Pass |
 | RemediationProfileBuilder.test.tsx | 7 | Pass |
 | RemediationsList.test.tsx | 2 | Pass |
-| CartridgeSettings.test.tsx | 2 | Pass |
+| ProfileSettings.test.tsx | 2 | Pass |
 | **Total** | **191** | **Pass** |
 
 ---

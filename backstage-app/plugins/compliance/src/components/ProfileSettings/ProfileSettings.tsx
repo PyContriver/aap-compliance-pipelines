@@ -37,8 +37,8 @@ import { CertificationBadge } from '../shared/CertificationBadge';
 import { ProfileFormDialog } from './ProfileFormDialog';
 
 import type {
-  ComplianceCartridge,
-  SaveCartridgeRequest,
+  ComplianceProfile,
+  SaveProfileRequest,
 } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -153,7 +153,7 @@ const DataRetentionSettings = () => {
   );
 };
 
-export const CartridgeSettings = () => {
+export const ProfileSettings = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
@@ -162,23 +162,23 @@ export const CartridgeSettings = () => {
     permission: catalogEntityCreatePermission,
   });
 
-  const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
+  const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editCartridge, setEditCartridge] = useState<ComplianceCartridge | null>(null);
+  const [editProfile, setEditProfile] = useState<ComplianceProfile | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<ComplianceCartridge | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ComplianceProfile | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>([]);
   const [executionEnvironments, setExecutionEnvironments] = useState<ExecutionEnvironment[]>([]);
 
-  const loadCartridges = useCallback(async () => {
+  const loadProfiles = useCallback(async () => {
     try {
-      const data = await api.getCartridges();
-      setCartridges(data);
+      const data = await api.getRegisteredProfiles();
+      setProfiles(data);
     } catch (err) {
-      console.error('Failed to load cartridges:', err);
+      console.error('Failed to load profiles:', err);
     } finally {
       setLoading(false);
     }
@@ -199,39 +199,39 @@ export const CartridgeSettings = () => {
   }, [api]);
 
   useEffect(() => {
-    loadCartridges();
-  }, [loadCartridges]);
+    loadProfiles();
+  }, [loadProfiles]);
 
   const handleOpenDialog = () => {
-    setEditCartridge(null);
+    setEditProfile(null);
     loadControllerResources();
     setDialogOpen(true);
   };
 
-  const handleEditClick = async (cartridge: ComplianceCartridge) => {
-    const fresh = await api.getCartridge(cartridge.id);
+  const handleEditClick = async (profile: ComplianceProfile) => {
+    const fresh = await api.getRegisteredProfile(profile.id);
     if (!fresh) {
-      await loadCartridges();
+      await loadProfiles();
       return;
     }
-    setEditCartridge(fresh);
+    setEditProfile(fresh);
     loadControllerResources();
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
-    setEditCartridge(null);
+    setEditProfile(null);
   };
 
-  const handleSave = async (request: SaveCartridgeRequest) => {
-    await api.saveCartridge(request);
+  const handleSave = async (request: SaveProfileRequest) => {
+    await api.saveRegisteredProfile(request);
     handleCloseDialog();
-    await loadCartridges();
+    await loadProfiles();
   };
 
-  const handleDeleteClick = (cartridge: ComplianceCartridge) => {
-    setDeleteTarget(cartridge);
+  const handleDeleteClick = (profile: ComplianceProfile) => {
+    setDeleteTarget(profile);
     setDeleteError(null);
     setDeleteDialogOpen(true);
   };
@@ -240,10 +240,10 @@ export const CartridgeSettings = () => {
     if (!deleteTarget) return;
     setDeleteError(null);
     try {
-      await api.deleteCartridge(deleteTarget.id);
+      await api.deleteRegisteredProfile(deleteTarget.id);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
-      await loadCartridges();
+      await loadProfiles();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete profile');
     }
@@ -298,7 +298,7 @@ export const CartridgeSettings = () => {
           </Button>
         </div>
 
-        {cartridges.length === 0 ? (
+        {profiles.length === 0 ? (
           <div className={classes.emptyState}>
             <SettingsIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
@@ -329,7 +329,7 @@ export const CartridgeSettings = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {cartridges.map(c => (
+                {profiles.map(c => (
                   <TableRow key={c.id}>
                     <TableCell>
                       <Typography variant="body2" style={{ fontWeight: 500 }}>
@@ -369,7 +369,7 @@ export const CartridgeSettings = () => {
 
       <ProfileFormDialog
         open={dialogOpen}
-        editCartridge={editCartridge}
+        editProfile={editProfile}
         workflowTemplates={workflowTemplates}
         executionEnvironments={executionEnvironments}
         onClose={handleCloseDialog}

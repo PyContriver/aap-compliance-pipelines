@@ -218,7 +218,7 @@ export interface DashboardStats {
 }
 
 /** A compliance profile maps a standard (e.g., DISA STIG) to Controller resources. */
-export interface ComplianceCartridge {
+export interface ComplianceProfile {
   id: string;
   displayName: string;
   description: string;
@@ -253,7 +253,7 @@ export interface RemediationPlan {
 }
 
 /** Request to create or update a compliance profile registration. */
-export interface SaveCartridgeRequest {
+export interface SaveProfileRequest {
   id?: string;
   displayName: string;
   description: string;

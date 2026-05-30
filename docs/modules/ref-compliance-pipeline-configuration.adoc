@@ -86,8 +86,8 @@ Mutating endpoints that require admin permission:
 
 * `POST /scan` -- launch a compliance scan
 * `POST /remediate` -- apply remediation
-* `POST /cartridges` -- register a new compliance profile
-* `DELETE /cartridges/:id` -- remove a registered compliance profile
+* `POST /compliance-profiles` -- register a new compliance profile
+* `DELETE /compliance-profiles/:id` -- remove a registered compliance profile
 * `POST /remediation-profiles` -- save a remediation
 * `DELETE /remediation-profiles/:id` -- delete a remediation
 * `POST /settings` -- update data retention settings

@@ -26,7 +26,7 @@ import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import PolicyIcon from '@material-ui/icons/Policy';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { ComplianceCartridge } from '@aap-compliance/common';
+import type { ComplianceProfile } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   frameworkChip: {
@@ -63,7 +63,7 @@ interface DisplayProfile {
 }
 
 /** Map a compliance profile from the registry into the display format. */
-function cartridgeToDisplayProfile(c: ComplianceCartridge): DisplayProfile {
+function registrationToDisplayProfile(c: ComplianceProfile): DisplayProfile {
   return {
     id: c.id,
     name: c.displayName,
@@ -181,20 +181,20 @@ export const ProfileBrowser = () => {
     let cancelled = false;
 
     Promise.all([
-      api.getCartridges().catch(err => {
-        console.error('Failed to load cartridges:', err);
-        return [] as ComplianceCartridge[];
+      api.getRegisteredProfiles().catch(err => {
+        console.error('Failed to load profiles:', err);
+        return [] as ComplianceProfile[];
       }),
       api.getProfiles().catch(err => {
         console.error('Failed to load profiles:', err);
         return [];
       }),
-    ]).then(([cartridges, backendProfiles]) => {
+    ]).then(([profiles, backendProfiles]) => {
       if (cancelled) return;
 
-      if (cartridges.length > 0) {
-        const registryProfiles = cartridges.map(c => ({
-          ...cartridgeToDisplayProfile(c),
+      if (profiles.length > 0) {
+        const registryProfiles = profiles.map(c => ({
+          ...registrationToDisplayProfile(c),
           icon: frameworkIcon(c.framework),
         }));
         setProfiles(registryProfiles);

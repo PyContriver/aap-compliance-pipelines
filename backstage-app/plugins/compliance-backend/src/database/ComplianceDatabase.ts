@@ -10,8 +10,8 @@ import type {
   PostureSnapshot,
   RemediationProfile,
   RemediationSelection,
-  ComplianceCartridge,
-  SaveCartridgeRequest,
+  ComplianceProfile,
+  SaveProfileRequest,
   RuleMetadataRecord,
 } from '@aap-compliance/common';
 
@@ -489,71 +489,71 @@ export class ComplianceDatabase {
     };
   }
 
-  // ─── Cartridge registry ────────────────────────────────────────────
+  // ─── Profile registry ────────────────────────────────────────────
 
-  async listCartridges(): Promise<ComplianceCartridge[]> {
-    const rows = await this.db('compliance_cartridge_registry')
+  async listProfiles(): Promise<ComplianceProfile[]> {
+    const rows = await this.db('compliance_profile_registry')
       .orderBy('created_at', 'desc');
-    return rows.map(this.mapCartridgeRow);
+    return rows.map(this.mapProfileRow);
   }
 
-  async getCartridge(id: string): Promise<ComplianceCartridge | null> {
-    const row = await this.db('compliance_cartridge_registry')
+  async getProfile(id: string): Promise<ComplianceProfile | null> {
+    const row = await this.db('compliance_profile_registry')
       .where('id', id)
       .first();
     if (!row) return null;
-    return this.mapCartridgeRow(row);
+    return this.mapProfileRow(row);
   }
 
-  async saveCartridge(cartridge: SaveCartridgeRequest): Promise<ComplianceCartridge> {
+  async saveProfile(profile: SaveProfileRequest): Promise<ComplianceProfile> {
     const now = new Date().toISOString();
-    const id = cartridge.id || randomUUID();
+    const id = profile.id || randomUUID();
 
     const row = {
       id,
-      display_name: cartridge.displayName,
-      description: cartridge.description || '',
-      framework: cartridge.framework,
-      version: cartridge.version || '',
-      platform: cartridge.platform || '',
-      platform_spec: cartridge.platformSpec ? JSON.stringify(cartridge.platformSpec) : null,
-      certification: cartridge.certification ? JSON.stringify(cartridge.certification) : null,
-      workflow_template_id: cartridge.workflowTemplateId,
-      ee_id: cartridge.eeId,
-      remediation_playbook_path: cartridge.remediationPlaybookPath || '',
-      scan_tags: cartridge.scanTags || '',
+      display_name: profile.displayName,
+      description: profile.description || '',
+      framework: profile.framework,
+      version: profile.version || '',
+      platform: profile.platform || '',
+      platform_spec: profile.platformSpec ? JSON.stringify(profile.platformSpec) : null,
+      certification: profile.certification ? JSON.stringify(profile.certification) : null,
+      workflow_template_id: profile.workflowTemplateId,
+      ee_id: profile.eeId,
+      remediation_playbook_path: profile.remediationPlaybookPath || '',
+      scan_tags: profile.scanTags || '',
       updated_at: now,
     };
 
-    const existing = await this.db('compliance_cartridge_registry')
+    const existing = await this.db('compliance_profile_registry')
       .where('id', id)
       .first();
 
     if (existing) {
-      await this.db('compliance_cartridge_registry')
+      await this.db('compliance_profile_registry')
         .where('id', id)
         .update(row);
     } else {
-      await this.db('compliance_cartridge_registry').insert({
+      await this.db('compliance_profile_registry').insert({
         ...row,
         created_at: now,
       });
     }
 
-    return this.mapCartridgeRow({
+    return this.mapProfileRow({
       ...row,
       created_at: existing ? existing.created_at : now,
     });
   }
 
-  async deleteCartridge(id: string): Promise<boolean> {
-    const deleted = await this.db('compliance_cartridge_registry')
+  async deleteProfile(id: string): Promise<boolean> {
+    const deleted = await this.db('compliance_profile_registry')
       .where('id', id)
       .delete();
     return deleted > 0;
   }
 
-  private mapCartridgeRow(row: Record<string, unknown>): ComplianceCartridge {
+  private mapProfileRow(row: Record<string, unknown>): ComplianceProfile {
     return {
       id: row.id as string,
       displayName: row.display_name as string,

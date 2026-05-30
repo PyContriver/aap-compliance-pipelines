@@ -10,7 +10,7 @@ import type {
   ComplianceProfile,
   MultiHostFinding,
   DashboardStats,
-  ComplianceCartridge,
+  ComplianceProfile,
   RemediationProfile,
   ComplianceScan,
   PostureSnapshot,
@@ -183,7 +183,7 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
   ],
 };
 
-export const MOCK_CARTRIDGES: ComplianceCartridge[] = [
+export const MOCK_REGISTERED_PROFILES: ComplianceProfile[] = [
   {
     id: 'rhel9-stig',
     displayName: 'DISA STIG for RHEL 9',
@@ -304,10 +304,10 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     saveRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     deleteRemediationProfile: jest.fn().mockResolvedValue(undefined),
-    getCartridges: jest.fn().mockResolvedValue(MOCK_CARTRIDGES),
-    getCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
-    saveCartridge: jest.fn().mockResolvedValue(MOCK_CARTRIDGES[0]),
-    deleteCartridge: jest.fn().mockResolvedValue(undefined),
+    getRegisteredProfiles: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES),
+    getRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
+    saveRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
+    deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getJobTemplateDetail: jest.fn().mockResolvedValue({ id: 10, name: 'compliance-stig-scan', description: '', extra_vars: '{}' }),
     getControllerJobTemplates: jest.fn().mockResolvedValue([
       { id: 49, name: 'compliance-run-oscap', description: 'STIG assessment' },

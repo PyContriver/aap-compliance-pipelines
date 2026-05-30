@@ -105,11 +105,11 @@ export const RemediationProfileBuilder = () => {
     let cancelled = false;
     Promise.all([
       api.getFindings(jobId),
-      api.getCartridges().catch(() => []),
-    ]).then(([data, cartridges]) => {
+      api.getRegisteredProfiles().catch(() => []),
+    ]).then(([data, profiles]) => {
       if (cancelled) return;
       setAllFindings(data);
-      if (cartridges.length > 0) setResolvedProfileId(cartridges[0].id);
+      if (profiles.length > 0) setResolvedProfileId(profiles[0].id);
     }).catch(err => {
       console.error('Failed to load findings:', err);
     }).finally(() => {

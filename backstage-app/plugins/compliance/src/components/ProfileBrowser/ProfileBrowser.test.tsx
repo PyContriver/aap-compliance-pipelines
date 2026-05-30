@@ -14,9 +14,9 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
     getHealth: jest.fn().mockResolvedValue({ status: 'ok', dataSource: 'mock' }),
     getProfiles: jest.fn().mockResolvedValue([]),
+    getRegisteredProfiles: jest.fn().mockResolvedValue([]),
     getScans: jest.fn().mockResolvedValue([]),
-    getCartridges: jest.fn().mockResolvedValue([]),
-    getCartridge: jest.fn().mockResolvedValue(null),
+    getRegisteredProfile: jest.fn().mockResolvedValue(null),
     getInventories: jest.fn().mockResolvedValue([]),
     getFindings: jest.fn().mockResolvedValue([]),
     getWorkflowTemplates: jest.fn().mockResolvedValue([]),
@@ -31,8 +31,8 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: '1', name: 'test', description: '', complianceProfileId: '', targetInventory: '', selections: [], createdAt: '', updatedAt: '' }),
-    saveCartridge: jest.fn().mockResolvedValue({}),
-    deleteCartridge: jest.fn().mockResolvedValue(undefined),
+    saveRegisteredProfile: jest.fn().mockResolvedValue({}),
+    deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([]),
     ...overrides,
@@ -61,10 +61,9 @@ describe('ProfileBrowser', () => {
     });
   });
 
-  it('shows profile cards when cartridges exist', async () => {
+  it('shows profile cards when profiles exist', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
-        {
+      getRegisteredProfiles: jest.fn().mockResolvedValue([{
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD Security Technical Implementation Guide',
@@ -105,8 +104,7 @@ describe('ProfileBrowser', () => {
 
   it('shows "Registered" badge for registry profiles', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
-        {
+      getRegisteredProfiles: jest.fn().mockResolvedValue([{
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD STIG',
@@ -132,8 +130,7 @@ describe('ProfileBrowser', () => {
 
   it('shows "View Details" and "Launch Scan" buttons on profile cards', async () => {
     const mockApi = createMockApi({
-      getCartridges: jest.fn().mockResolvedValue([
-        {
+      getRegisteredProfiles: jest.fn().mockResolvedValue([{
           id: 'cart-1',
           displayName: 'DISA STIG for RHEL 9',
           description: 'DoD STIG',

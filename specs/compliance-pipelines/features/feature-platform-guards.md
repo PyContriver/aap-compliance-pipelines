@@ -55,7 +55,7 @@ interface PlatformSpec {
 - `PlatformSpec` TypeScript type in compliance-common
 - Migration 006: `platform_spec TEXT NULLABLE` on `compliance_cartridge_registry`
 - Database layer: JSON serialization/deserialization
-- Router: accept `platformSpec` in `POST /cartridges`
+- Router: accept `platformSpec` in `POST /compliance-profiles`
 - `PlatformValidator` utility: pure function validating hosts against spec
 - Settings form: OS Family, OS Version, Device Type inputs + scanner toggle
 - Comprehensive tests

@@ -20,8 +20,8 @@ describe('ScanLauncher', () => {
 
   beforeEach(() => {
     mockApi = createMockComplianceApi();
-    // Return no cartridges so ScanLauncher falls through to getProfiles data
-    mockApi.getCartridges.mockResolvedValue([]);
+    // Return no registered profiles so ScanLauncher falls through to display profile data
+    mockApi.getRegisteredProfiles.mockResolvedValue([]);
   });
 
   const renderLauncher = () =>
@@ -97,10 +97,10 @@ describe('ScanLauncher', () => {
     expect(screen.getByText('Evaluate only (recommended)')).toBeInTheDocument();
   });
 
-  it('calls getCartridges, getProfiles, and getInventories on mount', async () => {
+  it('calls getRegisteredProfiles, getProfiles, and getInventories on mount', async () => {
     await renderLauncher();
     await waitFor(() => {
-      expect(mockApi.getCartridges).toHaveBeenCalledTimes(1);
+      expect(mockApi.getRegisteredProfiles).toHaveBeenCalledTimes(1);
       expect(mockApi.getProfiles).toHaveBeenCalledTimes(1);
       expect(mockApi.getInventories).toHaveBeenCalledTimes(1);
     });

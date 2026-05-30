@@ -28,8 +28,8 @@ import type {
   WorkflowJobStatus,
   WorkflowNode,
   JobEvent,
-  ComplianceCartridge,
-  SaveCartridgeRequest,
+  ComplianceProfile,
+  SaveProfileRequest,
   PlatformValidationResult,
 } from '@aap-compliance/common';
 
@@ -265,26 +265,26 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
-  getCartridges() {
-    return this.request<ComplianceCartridge[]>('/cartridges');
+  getRegisteredProfiles() {
+    return this.request<ComplianceProfile[]>('/compliance-profiles');
   }
 
-  async getCartridge(id: string): Promise<ComplianceCartridge | null> {
+  async getRegisteredProfile(id: string): Promise<ComplianceProfile | null> {
     try {
-      return await this.request<ComplianceCartridge>(`/cartridges/${encodeURIComponent(id)}`);
+      return await this.request<ComplianceProfile>(`/compliance-profiles/${encodeURIComponent(id)}`);
     } catch {
       return null;
     }
   }
 
-  async saveCartridge(body: SaveCartridgeRequest) {
+  async saveRegisteredProfile(body: SaveProfileRequest) {
     const aapToken = await this.getAapToken();
-    return this.request<ComplianceCartridge>('/cartridges', { method: 'POST', body, aapToken });
+    return this.request<ComplianceProfile>('/compliance-profiles', { method: 'POST', body, aapToken });
   }
 
-  async deleteCartridge(id: string) {
+  async deleteRegisteredProfile(id: string) {
     const aapToken = await this.getAapToken();
-    return this.request<void>(`/cartridges/${encodeURIComponent(id)}`, {
+    return this.request<void>(`/compliance-profiles/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       aapToken,
     });

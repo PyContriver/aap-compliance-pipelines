@@ -52,8 +52,8 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Backend (plugins/compliance-backend)                                │
 │  ├─ REST API Router - Express routes                                │
-│  │   ├─ POST /cartridges - Add compliance profile                   │
-│  │   ├─ GET  /cartridges - List compliance profiles                 │
+│  │   ├─ POST /compliance-profiles - Add compliance profile                   │
+│  │   ├─ GET  /compliance-profiles - List compliance profiles                 │
 │  │   ├─ POST /scans - Launch scan                                   │
 │  │   ├─ GET  /scans/:id/findings - Get findings                     │
 │  │   ├─ POST /profiles - Save remediation                           │
@@ -227,8 +227,8 @@ plugins/compliance/
 │   │   │   ├── ProfileManager.tsx         # Saved profiles list
 │   │   │   └── ApplyProfileDialog.tsx     # Apply to new findings
 │   │   ├── ComplianceSettings/
-│   │   │   ├── CartridgeSettings.tsx      # Admin compliance profile list
-│   │   │   └── CartridgeForm.tsx          # Add/edit compliance profile form
+│   │   │   ├── ProfileSettings.tsx      # Admin compliance profile list
+│   │   │   └── ProfileForm.tsx          # Add/edit compliance profile form
 │   │   └── ExportDialog/
 │   │       └── ExportDialog.tsx           # Format + scope selection
 │   ├── hooks/
@@ -250,7 +250,7 @@ plugins/compliance-backend/
 │   │   └── migrations/
 │   │       └── 20260423_001_init.ts       # All compliance tables
 │   ├── service/
-│   │   ├── CartridgeService.ts            # Compliance profile CRUD + validation
+│   │   ├── ComplianceService.ts            # Compliance profile CRUD + validation
 │   │   ├── ScanService.ts                 # Workflow invocation + parsing
 │   │   ├── FindingsService.ts             # Finding storage + query
 │   │   ├── ProfileService.ts              # Profile CRUD + application
@@ -365,21 +365,21 @@ CREATE INDEX idx_posture_created ON compliance_posture(created_at);
 ### Compliance Profile Management
 
 ```
-POST /api/compliance/cartridges          # Add compliance profile
+POST /api/compliance/compliance-profiles          # Add compliance profile
   { displayName, standardId, eeId, workflowTemplateId, scannerTier?, config? }
   → { id, displayName, standardId, eeId, eeName, workflowTemplateId, workflowTemplateName, status }
 
-GET  /api/compliance/cartridges          # List compliance profiles
+GET  /api/compliance/compliance-profiles          # List compliance profiles
   → [{ id, displayName, standardId, eeName, workflowTemplateName, status, createdAt }]
 
-GET  /api/compliance/cartridges/:id      # Get compliance profile details
+GET  /api/compliance/compliance-profiles/:id      # Get compliance profile details
   → { id, displayName, standardId, eeId, eeName, workflowTemplateId, workflowTemplateName, scannerTier, status, config, createdAt, updatedAt }
 
-PUT  /api/compliance/cartridges/:id      # Update compliance profile
+PUT  /api/compliance/compliance-profiles/:id      # Update compliance profile
   { displayName?, eeId?, workflowTemplateId?, config? }
   → { id, ...updated fields }
 
-DELETE /api/compliance/cartridges/:id    # Delete compliance profile
+DELETE /api/compliance/compliance-profiles/:id    # Delete compliance profile
   → { success: true }
 ```
 
@@ -532,8 +532,8 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Write Knex database migrations for all compliance tables (5 migrations, including multi-inventory support)
 - [x] Implement `DatabaseHandler` with CRUD operations for all entities
 - [x] Implement `AapGatewayClient` for AAP Gateway API communication
-- [x] Implement `CartridgeService` for compliance profile CRUD with EE/workflow validation via Gateway API
-- [x] Implement compliance profile REST API endpoints (`/cartridges`)
+- [x] Implement `ComplianceService` for compliance profile CRUD with EE/workflow validation via Gateway API
+- [x] Implement compliance profile REST API endpoints (`/compliance-profiles`)
 - [x] Package compliance Ansible collection with EE profile definition (3 profiles: STIG, CIS L1, CIS L2)
 - [x] Unit tests for all services (271 tests across 12 suites)
 
@@ -559,7 +559,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Build frontend `ProfileBuilder` component (rule toggles, scope selection, parameter overrides)
 - [x] Build frontend `ExecutionPreview` component (rule x host matrix)
 - [x] Build frontend `ProfileManager` component (save, load, apply remediations)
-- [x] Build frontend `CartridgeSettings` admin page — redesigned with discovery-first layout, auto-populate with confirmation dialog, fetches both JTs and WJTs
+- [x] Build frontend `ProfileSettings` admin page — redesigned with discovery-first layout, auto-populate with confirmation dialog, fetches both JTs and WJTs
 - [x] Implement remediation REST API endpoints
 - [x] Implement automatic verification re-scan trigger after remediation
 - [x] Build before/after comparison view
@@ -576,6 +576,8 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
 **Current versions**: Backend v0.7.6, Frontend v0.5.4, 271 tests across 12 suites, 11 ADRs
+
+**Terminology alignment (2026-05-30)**: Renamed all internal "cartridge" references to "compliance profile" — types (`ComplianceProfile`, `SaveProfileRequest`), DB table (`compliance_profile_registry` via migration 008), API routes (`/compliance-profiles`), component directory (`ProfileSettings/`), and 35+ source files. API methods for registered profiles use `getRegisteredProfiles`/`saveRegisteredProfile` to disambiguate from the display profile endpoint (`getProfiles`). Old migrations preserved with historical table name. No external API contract existed — clean rename with zero backwards-compatibility concerns.
 
 ### Phase 5: EDA Integration (1 week — stretch goal)
 

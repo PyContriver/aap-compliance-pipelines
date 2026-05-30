@@ -90,7 +90,7 @@ async function createTables(database: Knex): Promise<void> {
   });
 
   await database.schema.createTable(
-    'compliance_cartridge_registry',
+    'compliance_profile_registry',
     table => {
       table.string('id').primary();
       table.string('display_name').notNullable();
@@ -412,16 +412,16 @@ describe('ComplianceDatabase', () => {
     });
   });
 
-  // ─── Cartridge CRUD ──────────────────────────────────────────────
+  // ─── Profile CRUD ──────────────────────────────────────────────
 
-  describe('listCartridges + saveCartridge + deleteCartridge', () => {
-    it('starts with an empty cartridge list', async () => {
-      const list = await complianceDb.listCartridges();
+  describe('listProfiles + saveProfile + deleteProfile', () => {
+    it('starts with an empty profile list', async () => {
+      const list = await complianceDb.listProfiles();
       expect(list).toEqual([]);
     });
 
-    it('saves and lists a cartridge', async () => {
-      const saved = await complianceDb.saveCartridge({
+    it('saves and lists a profile', async () => {
+      const saved = await complianceDb.saveProfile({
         displayName: 'RHEL 9 STIG',
         description: 'DISA STIG for RHEL 9',
         framework: 'DISA_STIG',
@@ -441,13 +441,13 @@ describe('ComplianceDatabase', () => {
       expect(saved.createdAt).toBeDefined();
       expect(saved.updatedAt).toBeDefined();
 
-      const list = await complianceDb.listCartridges();
+      const list = await complianceDb.listProfiles();
       expect(list).toHaveLength(1);
       expect(list[0].id).toBe(saved.id);
     });
 
-    it('updates an existing cartridge when ID matches', async () => {
-      const saved = await complianceDb.saveCartridge({
+    it('updates an existing profile when ID matches', async () => {
+      const saved = await complianceDb.saveProfile({
         displayName: 'RHEL 9 STIG',
         description: '',
         framework: 'DISA_STIG',
@@ -459,7 +459,7 @@ describe('ComplianceDatabase', () => {
         scanTags: '',
       });
 
-      const updated = await complianceDb.saveCartridge({
+      const updated = await complianceDb.saveProfile({
         id: saved.id,
         displayName: 'RHEL 9 STIG (Updated)',
         description: 'Updated description',
@@ -476,12 +476,12 @@ describe('ComplianceDatabase', () => {
       expect(updated.displayName).toBe('RHEL 9 STIG (Updated)');
       expect(updated.version).toBe('V2R8');
 
-      const list = await complianceDb.listCartridges();
+      const list = await complianceDb.listProfiles();
       expect(list).toHaveLength(1);
     });
 
-    it('deletes a cartridge and returns true', async () => {
-      const saved = await complianceDb.saveCartridge({
+    it('deletes a profile and returns true', async () => {
+      const saved = await complianceDb.saveProfile({
         displayName: 'RHEL 9 STIG',
         description: '',
         framework: 'DISA_STIG',
@@ -493,20 +493,20 @@ describe('ComplianceDatabase', () => {
         scanTags: '',
       });
 
-      const deleted = await complianceDb.deleteCartridge(saved.id);
+      const deleted = await complianceDb.deleteProfile(saved.id);
       expect(deleted).toBe(true);
 
-      const list = await complianceDb.listCartridges();
+      const list = await complianceDb.listProfiles();
       expect(list).toEqual([]);
     });
 
-    it('returns false when deleting a nonexistent cartridge', async () => {
-      const deleted = await complianceDb.deleteCartridge('nonexistent');
+    it('returns false when deleting a nonexistent profile', async () => {
+      const deleted = await complianceDb.deleteProfile('nonexistent');
       expect(deleted).toBe(false);
     });
 
-    it('retrieves a cartridge by ID', async () => {
-      const saved = await complianceDb.saveCartridge({
+    it('retrieves a profile by ID', async () => {
+      const saved = await complianceDb.saveProfile({
         displayName: 'CIS Benchmark',
         description: 'CIS Level 1',
         framework: 'CIS',
@@ -518,14 +518,14 @@ describe('ComplianceDatabase', () => {
         scanTags: '',
       });
 
-      const found = await complianceDb.getCartridge(saved.id);
+      const found = await complianceDb.getProfile(saved.id);
       expect(found).not.toBeNull();
       expect(found!.displayName).toBe('CIS Benchmark');
       expect(found!.framework).toBe('CIS');
     });
 
-    it('returns null for nonexistent cartridge ID', async () => {
-      const found = await complianceDb.getCartridge('nonexistent');
+    it('returns null for nonexistent profile ID', async () => {
+      const found = await complianceDb.getProfile('nonexistent');
       expect(found).toBeNull();
     });
 
@@ -537,7 +537,7 @@ describe('ComplianceDatabase', () => {
         scanner_validates: false,
       };
 
-      const saved = await complianceDb.saveCartridge({
+      const saved = await complianceDb.saveProfile({
         displayName: 'RHEL 9 STIG with Platform Spec',
         description: '',
         framework: 'DISA_STIG',
@@ -552,7 +552,7 @@ describe('ComplianceDatabase', () => {
 
       expect(saved.platformSpec).toEqual(platformSpec);
 
-      const found = await complianceDb.getCartridge(saved.id);
+      const found = await complianceDb.getProfile(saved.id);
       expect(found).not.toBeNull();
       expect(found!.platformSpec).toEqual(platformSpec);
       expect(found!.platformSpec!.os_family).toEqual(['RedHat']);
@@ -560,7 +560,7 @@ describe('ComplianceDatabase', () => {
     });
 
     it('stores null platformSpec when not provided', async () => {
-      const saved = await complianceDb.saveCartridge({
+      const saved = await complianceDb.saveProfile({
         displayName: 'No Platform Spec',
         description: '',
         framework: 'CIS',
@@ -574,7 +574,7 @@ describe('ComplianceDatabase', () => {
 
       expect(saved.platformSpec).toBeNull();
 
-      const found = await complianceDb.getCartridge(saved.id);
+      const found = await complianceDb.getProfile(saved.id);
       expect(found!.platformSpec).toBeNull();
     });
   });

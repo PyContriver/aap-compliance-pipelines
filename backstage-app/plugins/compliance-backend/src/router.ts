@@ -31,7 +31,7 @@ import type {
   LaunchScanRequest,
   LaunchRemediationRequest,
   SaveRemediationProfileRequest,
-  SaveCartridgeRequest,
+  SaveProfileRequest,
   IngestFinding,
 } from '@aap-compliance/common';
 
@@ -337,15 +337,15 @@ export async function createRouter(
     }
 
     try {
-      const cartridge = await database.getCartridge(profileId);
-      if (!cartridge?.platformSpec || cartridge.platformSpec.scanner_validates) {
+      const profile = await database.getProfile(profileId);
+      if (!profile?.platformSpec || profile.platformSpec.scanner_validates) {
         res.json({ valid: true, matchedHosts: [], mismatchedHosts: [], factsAvailable: true });
         return;
       }
 
       const hostFacts = await service.getInventoryHostFacts(inventoryId, userToken);
       const factsAvailable = hostFacts.some(h => !!(h.ansible_os_family || h.ansible_distribution_major_version || h.device_type));
-      const result = validatePlatform(cartridge.platformSpec, hostFacts);
+      const result = validatePlatform(profile.platformSpec, hostFacts);
       res.json({ ...result, factsAvailable });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -1012,12 +1012,12 @@ export async function createRouter(
 
   // ─── Compliance profile registry ────────────────────────────────────
 
-  router.get('/cartridges', async (_req, res) => {
-    const cartridges = await database.listCartridges();
+  router.get('/compliance-profiles', async (_req, res) => {
+    const profiles = await database.listProfiles();
 
     // TODO: N+1 queries — replace with single aggregation query when profile count grows
     const enriched = await Promise.all(
-      cartridges.map(async c => {
+      profiles.map(async c => {
         const findings = await database.getLatestFindings(c.id);
         const uniqueRules = new Set(findings.map(f => f.ruleId)).size;
         return { ...c, ruleCount: uniqueRules };
@@ -1027,15 +1027,15 @@ export async function createRouter(
     res.json(enriched);
   });
 
-  router.get('/cartridges/:id', async (req, res) => {
+  router.get('/compliance-profiles/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      const cartridge = await database.getCartridge(id);
-      if (!cartridge) {
+      const profile = await database.getProfile(id);
+      if (!profile) {
         res.status(404).json({ error: 'Compliance profile not found' });
         return;
       }
-      res.json(cartridge);
+      res.json(profile);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get compliance profile: ${msg}`);
@@ -1043,7 +1043,7 @@ export async function createRouter(
     }
   });
 
-  router.post('/cartridges', async (req, res) => {
+  router.post('/compliance-profiles', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;
 
     const body = req.body;
@@ -1070,7 +1070,7 @@ export async function createRouter(
       }
     }
 
-    const saveRequest: SaveCartridgeRequest = {
+    const saveRequest: SaveProfileRequest = {
       id: body.id,
       displayName: body.displayName.trim(),
       description: body.description ?? '',
@@ -1086,8 +1086,8 @@ export async function createRouter(
     };
 
     try {
-      const cartridge = await database.saveCartridge(saveRequest);
-      res.status(201).json(cartridge);
+      const profile = await database.saveProfile(saveRequest);
+      res.status(201).json(profile);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to save compliance profile: ${msg}`);
@@ -1095,12 +1095,12 @@ export async function createRouter(
     }
   });
 
-  router.delete('/cartridges/:id', async (req, res) => {
+  router.delete('/compliance-profiles/:id', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;
 
     const { id } = req.params;
     try {
-      const deleted = await database.deleteCartridge(id);
+      const deleted = await database.deleteProfile(id);
       if (!deleted) {
         res.status(404).json({ error: 'Compliance profile not found' });
         return;

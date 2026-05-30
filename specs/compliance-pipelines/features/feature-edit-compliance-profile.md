@@ -11,7 +11,7 @@ The Settings tab only supported Add and Delete for compliance profiles. Editing 
 ## Design Approach
 
 - Reuse the existing Add dialog in edit mode — no new UI components
-- Add `GET /cartridges/:id` backend route for fresh data fetch on edit click
+- Add `GET /compliance-profiles/:id` backend route for fresh data fetch on edit click
 - Use the existing `saveCartridge()` upsert logic in the backend (checks if ID exists, updates if so)
 - Add `editingId` state to track create vs edit mode in the frontend
 - Fetch fresh profile data on edit click via `getCartridge()` to detect stale/deleted profiles
@@ -29,7 +29,7 @@ If a profile is deleted by another user while the edit dialog is about to open, 
 ## Implementation Scope
 
 **Shipped:**
-- Backend: `GET /cartridges/:id` route (read-only, no permission check — matches all other GET routes)
+- Backend: `GET /compliance-profiles/:id` route (read-only, no permission check — matches all other GET routes)
 - Frontend API: `getCartridge(id)` method on `ComplianceBackendClient` and `ComplianceApi` interface
 - Frontend UI: Edit icon button (pencil) next to Delete, form pre-populated on click, conditional dialog title ("Edit" vs "Add") and button label ("Update" vs "Save")
 - `handleEditClick` fetches fresh data via `getCartridge()` before opening dialog
@@ -43,18 +43,18 @@ If a profile is deleted by another user while the edit dialog is about to open, 
 
 | File | Change |
 |------|--------|
-| `plugins/compliance-backend/src/router.ts` | `GET /cartridges/:id` route |
+| `plugins/compliance-backend/src/router.ts` | `GET /compliance-profiles/:id` route |
 | `plugins/compliance-backend/src/router.test.ts` | 2 tests for new route |
 | `plugins/compliance/src/api/complianceApiRef.ts` | `getCartridge()` on interface |
 | `plugins/compliance/src/api/ComplianceBackendClient.ts` | `getCartridge()` implementation |
-| `plugins/compliance/src/components/CartridgeSettings/CartridgeSettings.tsx` | Edit button, form population, conditional labels, stale edit guard |
-| `plugins/compliance/src/components/CartridgeSettings/CartridgeSettings.test.tsx` | 4 edit flow tests |
+| `plugins/compliance/src/components/ProfileSettings/ProfileSettings.tsx` | Edit button, form population, conditional labels, stale edit guard |
+| `plugins/compliance/src/components/ProfileSettings/ProfileSettings.test.tsx` | 4 edit flow tests |
 | `plugins/compliance/src/__testutils__/mockComplianceApi.ts` | Mock updated |
 | 3 other test files | Mock stubs added |
 
 ## Testing
 
-- Backend: GET /cartridges/:id — 200 with cartridge, 404 when missing
+- Backend: GET /compliance-profiles/:id — 200 with cartridge, 404 when missing
 - Frontend: edit button visible, form pre-populated on click, save sends id, add mode shows Save button
 - Architect review: all PASS after WARN fixes (stale edit guard, test coverage)
 - 251 tests, 12 suites, all passing

@@ -22,8 +22,7 @@ import type {
   WorkflowJobStatus,
   WorkflowNode,
   JobEvent,
-  ComplianceCartridge,
-  SaveCartridgeRequest,
+  SaveProfileRequest,
   PlatformValidationResult,
 } from '@aap-compliance/common';
 
@@ -52,10 +51,10 @@ export interface ComplianceApi {
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
   deleteRemediationProfile(id: string): Promise<void>;
   validateScan(body: { profileId: string; inventoryId: number }): Promise<PlatformValidationResult>;
-  getCartridges(): Promise<ComplianceCartridge[]>;
-  getCartridge(id: string): Promise<ComplianceCartridge | null>;
-  saveCartridge(body: SaveCartridgeRequest): Promise<ComplianceCartridge>;
-  deleteCartridge(id: string): Promise<void>;
+  getRegisteredProfiles(): Promise<ComplianceProfile[]>;
+  getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
+  saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
+  deleteRegisteredProfile(id: string): Promise<void>;
   getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string }>;
   getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;

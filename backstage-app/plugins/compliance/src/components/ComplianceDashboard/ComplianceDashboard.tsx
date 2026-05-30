@@ -28,7 +28,7 @@ import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import { ComplianceGauge } from './ComplianceGauge';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
-import type { DashboardStats, PostureSnapshot, ComplianceCartridge } from '@aap-compliance/common';
+import type { DashboardStats, PostureSnapshot, ComplianceProfile } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   section: {
@@ -305,7 +305,7 @@ export const ComplianceDashboard = () => {
   const api = useApi(complianceApiRef);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
-  const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
+  const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -318,11 +318,11 @@ export const ComplianceDashboard = () => {
         console.error('Failed to load posture history:', err);
         return [] as PostureSnapshot[];
       }),
-      api.getCartridges().catch(() => [] as ComplianceCartridge[]),
+      api.getRegisteredProfiles().catch(() => [] as ComplianceProfile[]),
     ]).then(([dashboardStats, history, carts]) => {
       setStats(dashboardStats);
       setPostureHistory(history);
-      setCartridges(carts);
+      setProfiles(carts);
     }).finally(() => setLoading(false));
   }, [api]);
 
@@ -643,7 +643,7 @@ export const ComplianceDashboard = () => {
                     <Box display="flex" alignItems="center" style={{ gap: 8 }}>
                       <Typography variant="h6" gutterBottom>{fw.name}</Typography>
                       {(() => {
-                        const cart = cartridges.find(c => c.id === fw.profileId);
+                        const cart = profiles.find(c => c.id === fw.profileId);
                         if (!cart?.certification) return null;
                         return <CertificationBadge certification={cart.certification} style={{ marginBottom: 8 }} />;
                       })()}

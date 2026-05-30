@@ -53,10 +53,10 @@ The `compliance_cartridge_registry` table (or profile registration API) gains a 
 - **Positive:** Profile creators declare platform requirements once; the plugin enforces everywhere.
 - **Positive:** `not_applicable` status for mismatched hosts is clearer than silent failure.
 - **Negative:** Requires host facts to be available before scan launch (may need a gather_facts pre-check or cached facts from Controller).
-- **Negative:** Adds a column to the cartridge registry and a validation step to the scan launch flow.
+- **Negative:** Adds a column to the profile registry and a validation step to the scan launch flow.
 
 ## Implementation notes
 
-- The platform spec is stored as JSON in the cartridge registry, not as separate columns — flexible for future platform types.
+- The platform spec is stored as JSON in the profile registry, not as separate columns — flexible for future platform types.
 - Pre-launch validation should be a warning by default, not a hard block — the user may know their inventory better than the cached facts suggest.
 - For Tier 2+ scanners, `scanner_validates: true` is the escape hatch that keeps the plugin from second-guessing the external scanner's targeting.

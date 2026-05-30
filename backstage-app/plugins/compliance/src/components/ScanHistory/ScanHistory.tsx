@@ -31,7 +31,7 @@ import AssessmentIcon from '@material-ui/icons/Assessment';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
-import type { ComplianceScan, ComplianceCartridge, ScanCertification } from '@aap-compliance/common';
+import type { ComplianceScan, ComplianceProfile, ScanCertification } from '@aap-compliance/common';
 import { ScanProgress } from '../ScanProgress';
 
 const useStyles = makeStyles(theme => ({
@@ -99,10 +99,10 @@ export const ScanHistory = () => {
   useEffect(() => {
     Promise.all([
       refreshScans(),
-      api.getCartridges().then(cs => {
+      api.getRegisteredProfiles().then(cs => {
         setProfileMap(new Map(cs.map(c => [c.id, { name: c.displayName, certification: c.certification }])));
       }).catch(err => {
-        console.error('Failed to load cartridges for profile names:', err);
+        console.error('Failed to load profiles for profile names:', err);
       }),
     ]).finally(() => setLoading(false));
   }, [api]);

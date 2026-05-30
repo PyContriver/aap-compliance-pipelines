@@ -102,8 +102,8 @@ export const ResultsViewer = () => {
         setScanType(match.scanType);
       }
       if (match) {
-        api.getCartridges().then(cartridges => {
-          const cart = cartridges.find(c => c.id === match.profileId);
+        api.getRegisteredProfiles().then(profiles => {
+          const cart = profiles.find(c => c.id === match.profileId);
           if (cart) {
             setProfileName(cart.displayName);
             setFrameworkLabel(cart.framework);

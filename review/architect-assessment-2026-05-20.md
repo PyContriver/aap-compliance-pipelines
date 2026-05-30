@@ -81,7 +81,7 @@ This is one of the strongest parts of the prototype.
 The model is extensible:
 
 - `ComplianceFramework` type already includes `'DISA_STIG' | 'CIS' | 'PCI_DSS' | 'HIPAA' | 'NIST_800_53'`.
-- The `ComplianceCartridge` DB schema stores `framework`, `version`, and `platform` as independent fields.
+- The `ComplianceProfile` DB schema stores `framework`, `version`, and `platform` as independent fields.
 - The developer guide provides explicit Tier 2 and Tier 3 collection structures for Windows, network devices, and commercial scanner adapters.
 - The CFF JSON schema includes `cis_id`, `cce_id`, and `cci_id` fields alongside `stig_id`, so cross-framework correlation is designed in.
 
@@ -107,7 +107,7 @@ Two-tier token model is correctly implemented:
 
 **B3. Workflow/JT configuration**
 
-The 3-tier template resolution (explicit request -> DB cartridge registry -> name-based search) is well-designed. The code at `ComplianceService.resolveWorkflowTemplateId()` handles all three cases with clear logging.
+The 3-tier template resolution (explicit request -> DB profile registry -> name-based search) is well-designed. The code at `ComplianceService.resolveWorkflowTemplateId()` handles all three cases with clear logging.
 
 For remediation, `resolveRemediateJobTemplateId()` correctly walks the workflow template nodes to find the remediate JT by identifier or name, then falls back to a name-based search.
 
@@ -194,7 +194,7 @@ The Knex-based schema is clean:
 | ResultsViewer.test.tsx (6) | Findings display, severity filtering | Adequate |
 | RemediationProfileBuilder.test.tsx (7) | Rule selection, scope, parameter editing | Adequate for prototype |
 | RemediationsList.test.tsx (2) | Basic rendering | Minimal |
-| CartridgeSettings.test.tsx (2) | Basic rendering | Minimal |
+| ProfileSettings.test.tsx (2) | Basic rendering | Minimal |
 
 **Overall assessment:** The backend (router, service, database) is well-tested with 127 tests covering business logic and edge cases. The frontend tests are adequate for prototype stage but would need deeper interaction testing (e.g., full remediation flow, scan launch -> poll -> results display) before shipping.
 

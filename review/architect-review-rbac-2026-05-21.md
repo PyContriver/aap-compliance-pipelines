@@ -18,8 +18,8 @@ The compliance plugin RBAC implementation is **architecturally sound** and follo
   - `POST /remediate` -- line 507
   - `POST /remediation-profiles` -- line 642
   - `DELETE /remediation-profiles/:id` -- line 675
-  - `POST /cartridges` -- line 711
-  - `DELETE /cartridges/:id` -- line 752
+  - `POST /compliance-profiles` -- line 711
+  - `DELETE /compliance-profiles/:id` -- line 752
   - `POST /settings` -- line 149
   - `POST /cleanup` -- line 159
 - **Read-only endpoints** are correctly open to all authenticated users (auth handled by httpRouter policies in plugin.ts).
@@ -34,7 +34,7 @@ The compliance plugin RBAC implementation is **architecturally sound** and follo
 All components using mutating operations check `usePermission({ permission: catalogEntityCreatePermission })`:
 
 - **ScanLauncher.tsx** (line 95) -- `canLaunchScan` disables the Launch button
-- **CartridgeSettings.tsx** (line 188-189) -- `isAdmin` gates the entire Settings page with "Access Denied" fallback
+- **ProfileSettings.tsx** (line 188-189) -- `isAdmin` gates the entire Settings page with "Access Denied" fallback
 - **RemediationProfileBuilder.tsx** (line 70) -- `canRemediate` disables the Apply button
 - **RemediationsList.tsx** (line 70-71) -- `isAdmin` gates the Delete button with tooltip
 
@@ -86,7 +86,7 @@ Zero `as any` casts found in production code (only in test mocks, which is expec
 - `router.ts` scan status auto-update catch -- now has comment explaining offline controller tolerance
 
 **Remaining silent catches (acceptable):**
-- Frontend `useEffect` data-loading catches in `RemediationExecution.tsx`, `ScanProgress.tsx`, `ActiveJobsBanner.tsx`, `CartridgeSettings.tsx`, `ScanHistory.tsx` -- these are UI polling/loading patterns where failure is non-fatal and the component gracefully falls back to empty state or previous data. Adding noisy logging here would spam the browser console during offline development.
+- Frontend `useEffect` data-loading catches in `RemediationExecution.tsx`, `ScanProgress.tsx`, `ActiveJobsBanner.tsx`, `ProfileSettings.tsx`, `ScanHistory.tsx` -- these are UI polling/loading patterns where failure is non-fatal and the component gracefully falls back to empty state or previous data. Adding noisy logging here would spam the browser console during offline development.
 - Backend `ControllerClient.ts` line 141 -- error body parse failure in the error handler itself (double-fault protection).
 
 ### console.error Usage in Frontend -- ACCEPTABLE

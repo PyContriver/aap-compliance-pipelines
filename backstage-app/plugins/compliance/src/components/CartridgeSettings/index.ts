@@ -1,1 +1,0 @@
-export { CartridgeSettings } from './CartridgeSettings';

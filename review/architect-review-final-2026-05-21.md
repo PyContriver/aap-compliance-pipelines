@@ -7,7 +7,7 @@
 ## Changes Reviewed
 
 12 files changed (+325 lines) across 4 commits since last review:
-- Data retention settings UI (CartridgeSettings)
+- Data retention settings UI (ProfileSettings)
 - CSV/JSON export (ExportButton)
 - Backend settings/cleanup endpoints (router, plugin.ts)
 - Database cleanup method (ComplianceDatabase)

@@ -41,8 +41,8 @@ Senior architect review of the compliance plugin codebase. All issues found were
 - `POST /scan`: validates `profileId` (non-empty string), `inventoryId` (positive integer), `workflowTemplateId` (optional positive integer)
 - `POST /remediate`: validates `profileId`, `inventoryId`, `selections` (array with per-item ruleId/enabled validation)
 - `POST /remediation-profiles`: validates `name` (non-empty string), `selections` (array)
-- `POST /cartridges`: validates `displayName`, `framework` (non-empty strings), `workflowTemplateId` (optional positive integer)
-- `DELETE /cartridges/:id`, `DELETE /remediation-profiles/:id`: id from URL params, 404 on not found
+- `POST /compliance-profiles`: validates `displayName`, `framework` (non-empty strings), `workflowTemplateId` (optional positive integer)
+- `DELETE /compliance-profiles/:id`, `DELETE /remediation-profiles/:id`: id from URL params, 404 on not found
 
 **Token handling:** Correct. User AAP token flows via `x-aap-token` header. Backend resolves to service token when user token is absent. No tokens are logged or exposed in responses.
 
@@ -94,7 +94,7 @@ Files with 0% statement coverage:
 
 **API factory:** Uses `createApiFactory` with `discoveryApiRef` + `fetchApiRef` injection, matching upstream `AnsibleApiClient` pattern.
 
-**Auth flow:** Uses `catalogEntityCreatePermission` for permission checks on the frontend (ScanLauncher, RemediationProfileBuilder, CartridgeSettings), matching the upstream Ansible Portal pattern.
+**Auth flow:** Uses `catalogEntityCreatePermission` for permission checks on the frontend (ScanLauncher, RemediationProfileBuilder, ProfileSettings), matching the upstream Ansible Portal pattern.
 
 **Database migrations:** Knex-based with proper table naming (`compliance_knex_migrations`). Two migration files covering all tables. Batch inserts with 100-row limit.
 
@@ -126,7 +126,7 @@ All router endpoints are now covered by auth policies in `plugin.ts`:
 | `/profiles` | GET | unauthenticated |
 | `/scans` | GET | unauthenticated |
 | `/findings` | GET | unauthenticated |
-| `/cartridges` | GET/POST | unauthenticated |
+| `/compliance-profiles` | GET/POST | unauthenticated |
 | `/inventories` | GET | unauthenticated |
 | `/dashboard` | GET | unauthenticated |
 | `/posture` | GET | unauthenticated |

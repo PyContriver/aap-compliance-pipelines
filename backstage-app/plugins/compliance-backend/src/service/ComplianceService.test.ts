@@ -61,7 +61,7 @@ function createMockConfig(
 
 function createMockDatabase(): jest.Mocked<ComplianceDatabase> {
   return {
-    getCartridge: jest.fn(),
+    getProfile: jest.fn(),
     getFindingsByScanId: jest.fn(),
     saveFindingsForScan: jest.fn(),
     updateScanStatus: jest.fn(),
@@ -75,9 +75,9 @@ function createMockDatabase(): jest.Mocked<ComplianceDatabase> {
     listRemediationProfiles: jest.fn(),
     getRemediationProfile: jest.fn(),
     deleteRemediationProfile: jest.fn(),
-    listCartridges: jest.fn(),
-    saveCartridge: jest.fn(),
-    deleteCartridge: jest.fn(),
+    listProfiles: jest.fn(),
+    saveProfile: jest.fn(),
+    deleteProfile: jest.fn(),
     getScanByWorkflowJobId: jest.fn(),
   } as unknown as jest.Mocked<ComplianceDatabase>;
 }
@@ -414,12 +414,12 @@ describe('ComplianceService', () => {
         undefined,
         1,
       );
-      expect(mockDb.getCartridge).not.toHaveBeenCalled();
+      expect(mockDb.getProfile).not.toHaveBeenCalled();
       expect(mockListWorkflowJobTemplates).not.toHaveBeenCalled();
     });
 
-    it('tier 2: uses cartridge from DB when no explicit ID', async () => {
-      mockDb.getCartridge.mockResolvedValue({
+    it('tier 2: uses profile from DB when no explicit ID', async () => {
+      mockDb.getProfile.mockResolvedValue({
         id: 'rhel9-stig',
         displayName: 'STIG',
         description: '',
@@ -441,7 +441,7 @@ describe('ComplianceService', () => {
         evaluateOnly: true,
       });
 
-      expect(mockDb.getCartridge).toHaveBeenCalledWith('rhel9-stig');
+      expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
       expect(mockLaunchWorkflow).toHaveBeenCalledWith(
         77,
         expect.any(Object),
@@ -454,7 +454,7 @@ describe('ComplianceService', () => {
     });
 
     it('tier 3: falls back to name-based search on Controller', async () => {
-      mockDb.getCartridge.mockResolvedValue(null);
+      mockDb.getProfile.mockResolvedValue(null);
 
       await service.launchScan({
         profileId: 'rhel9-stig',
@@ -462,7 +462,7 @@ describe('ComplianceService', () => {
         evaluateOnly: true,
       });
 
-      expect(mockDb.getCartridge).toHaveBeenCalledWith('rhel9-stig');
+      expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
       expect(mockListWorkflowJobTemplates).toHaveBeenCalledWith(
         'compliance',
         undefined,
@@ -478,7 +478,7 @@ describe('ComplianceService', () => {
     });
 
     it('tier 3: throws when no matching template is found', async () => {
-      mockDb.getCartridge.mockResolvedValue(null);
+      mockDb.getProfile.mockResolvedValue(null);
       mockListWorkflowJobTemplates.mockResolvedValue({
         count: 0,
         results: [],
