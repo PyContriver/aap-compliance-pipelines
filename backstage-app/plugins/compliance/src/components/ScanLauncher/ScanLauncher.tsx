@@ -70,19 +70,18 @@ const useStyles = makeStyles(theme => ({
 import type { ComplianceCartridge, PlatformValidationResult } from '@aap-compliance/common';
 import { CertificationBadge } from '../shared/CertificationBadge';
 
-// Fallback data used while the backend is loading
-const FALLBACK_PROFILES = [
-  { id: 'rhel9-stig', name: 'DISA STIG for RHEL 9', version: 'V2R8', rules: 366 },
-  { id: 'rhel9-cis-l1', name: 'CIS Benchmark RHEL 9 — Level 1', version: '1.0.0', rules: 189 },
-  { id: 'rhel9-pci-dss', name: 'PCI-DSS v4.0 for RHEL 9', version: '4.0', rules: 142 },
-];
+interface ProfileOption {
+  id: string;
+  name: string;
+  version: string;
+  rules: number;
+}
 
-const FALLBACK_INVENTORIES = [
-  { id: 1, name: 'production-web-servers', hostCount: 24 },
-  { id: 2, name: 'staging-db-servers', hostCount: 6 },
-  { id: 3, name: 'dev-servers', hostCount: 8 },
-  { id: 4, name: 'all-rhel9-hosts', hostCount: 38 },
-];
+interface InventoryOption {
+  id: number;
+  name: string;
+  hostCount: number;
+}
 
 const steps = ['Select Profile', 'Select Targets', 'Review & Launch'];
 
@@ -112,8 +111,8 @@ export const ScanLauncher = () => {
   const [platformWarning, setPlatformWarning] = useState<PlatformValidationResult | null>(null);
 
   // Backend-fetched data — start empty, no hardcoded fallback
-  const [profiles, setProfiles] = useState<typeof FALLBACK_PROFILES>([]);
-  const [inventories, setInventories] = useState<typeof FALLBACK_INVENTORIES>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [inventories, setInventories] = useState<InventoryOption[]>([]);
   const [cartridges, setCartridges] = useState<ComplianceCartridge[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 

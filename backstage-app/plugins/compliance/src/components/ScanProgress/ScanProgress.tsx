@@ -112,6 +112,7 @@ export const ScanProgress = ({
   const [serverElapsed, setServerElapsed] = useState(0);
   const [localElapsed, setLocalElapsed] = useState(0);
   const [hostProgress, setHostProgress] = useState('');
+  const isSimpleJob = useRef(false);
   const completeFired = useRef(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -145,17 +146,16 @@ export const ScanProgress = ({
 
     const pollStatus = async () => {
       try {
-        const [status, wfNodes] = await Promise.all([
-          api.getWorkflowStatus(workflowJobId),
-          api.getWorkflowNodes(workflowJobId),
-        ]);
-
+        const status = await api.getWorkflowStatus(workflowJobId);
         if (cancelled) return;
 
         setOverallStatus(status.status);
         setServerElapsed(status.elapsed);
 
         let mapped: NodeStatus[];
+        const wfNodes = isSimpleJob.current ? [] : await api.getWorkflowNodes(workflowJobId);
+        if (cancelled) return;
+
         if (wfNodes.length > 0) {
           mapped = nodeIds.map(id => {
             const node = wfNodes.find(
@@ -169,6 +169,7 @@ export const ScanProgress = ({
             };
           });
         } else {
+          isSimpleJob.current = true;
           mapped = [{ identifier: 'run-oscap', status: status.status, jobId: workflowJobId }];
         }
         setNodes(mapped);

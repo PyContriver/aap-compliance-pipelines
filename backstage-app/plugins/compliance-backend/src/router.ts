@@ -654,6 +654,15 @@ export async function createRouter(
       return;
     }
 
+    const MAX_FINDING_SIZE = 100 * 1024;
+    for (let i = 0; i < findings.length; i++) {
+      const size = JSON.stringify(findings[i]).length;
+      if (size > MAX_FINDING_SIZE) {
+        res.status(400).json({ error: `findings[${i}] exceeds maximum size (${MAX_FINDING_SIZE} bytes)` });
+        return;
+      }
+    }
+
     try {
       const scan = await database.getScanById(scanId);
       if (!scan) {

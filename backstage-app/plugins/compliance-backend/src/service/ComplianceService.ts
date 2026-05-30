@@ -60,7 +60,7 @@ interface RuleMetadata {
   }>;
 }
 
-function loadRulesMetadata(): Map<string, RuleMetadata> {
+function loadRulesMetadata(logger: LoggerService): Map<string, RuleMetadata> {
   const map = new Map<string, RuleMetadata>();
   // Check package-root rules/ first (dist-dynamic: __dirname is dist/service/,
   // so ../../rules/ reaches package root), then collections path (local dev)
@@ -94,7 +94,7 @@ function loadRulesMetadata(): Map<string, RuleMetadata> {
     }
   } catch (err) {
     // Expected in dev/mock mode or dist-dynamic without bundled rules.
-    console.warn(`Rules metadata not loaded: ${err instanceof Error ? err.message : String(err)}`);
+    logger.debug(`Rules metadata not loaded: ${err instanceof Error ? err.message : String(err)}`);
   }
   return map;
 }
@@ -186,7 +186,7 @@ export class ComplianceService {
 
   private getRulesMetadata(): Map<string, RuleMetadata> {
     if (!this.rulesMetadata) {
-      this.rulesMetadata = loadRulesMetadata();
+      this.rulesMetadata = loadRulesMetadata(this.logger);
       this.logger.info(`Loaded ${this.rulesMetadata.size} rule metadata entries`);
     }
     return this.rulesMetadata;
