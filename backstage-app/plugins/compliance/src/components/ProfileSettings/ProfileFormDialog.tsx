@@ -100,6 +100,7 @@ export const ProfileFormDialog = ({
   const [autoPopulateEnabled, setAutoPopulateEnabled] = useState(false);
   const skipNextAutoPopulateRef = useRef(false);
   const [pendingAutoPopulate, setPendingAutoPopulate] = useState<Record<string, unknown> | null>(null);
+  const [detectedEeId, setDetectedEeId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -142,7 +143,7 @@ export const ProfileFormDialog = ({
       try {
         const vars = JSON.parse(detail.extra_vars || '{}');
         if (detail.execution_environment) {
-          vars._execution_environment = detail.execution_environment;
+          setDetectedEeId(detail.execution_environment);
         }
         if (Object.keys(vars).length > 0) {
           setPendingAutoPopulate(vars);
@@ -163,7 +164,7 @@ export const ProfileFormDialog = ({
       version: (vars.version as string) || prev.version,
       platform: (vars.platform as string) || prev.platform,
       remediationPlaybookPath: (vars.remediation_playbook as string) || prev.remediationPlaybookPath,
-      eeId: (vars._execution_environment as number) ?? prev.eeId,
+      eeId: detectedEeId ?? prev.eeId,
       platformSpec: {
         ...prev.platformSpec,
         os_family: (vars.os_family as string[]) || prev.platformSpec?.os_family,

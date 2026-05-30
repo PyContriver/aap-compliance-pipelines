@@ -23,7 +23,7 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 
 import { randomUUID } from 'crypto';
 
-import { ComplianceService } from './service/ComplianceService';
+import { ComplianceService, buildRuleMetadataRecords } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
 import { validatePlatform } from './service/PlatformValidator';
 
@@ -143,7 +143,7 @@ export async function createRouter(
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
   router.use((req, res, next) => {
-    if (req.path === '/findings/ingest') return next();
+    if (req.path.startsWith('/findings/ingest')) return next();
     express.json({ limit: '1mb' })(req, res, next);
   });
 
@@ -691,29 +691,8 @@ export async function createRouter(
 
       const count = await database.saveFindingsForScan(scanId, mapped);
 
-      // Extract per-rule metadata from the raw findings and persist
-      // to the normalized rule_metadata table. This is the primary
-      // source of title, description, fix_text, check_text for display.
       try {
-        const ruleMap = new Map<string, Record<string, unknown>>();
-        for (const raw of findings) {
-          const ruleId = raw.rule_id as string;
-          if (ruleId && !ruleMap.has(ruleId)) {
-            ruleMap.set(ruleId, raw);
-          }
-        }
-        const metadataRecords = Array.from(ruleMap.values()).map(raw => ({
-          ruleId: raw.rule_id as string,
-          stigId: (raw.stig_id as string) || '',
-          title: (raw.title as string) || (raw.rule_id as string),
-          description: (raw.description as string) || '',
-          checkText: (raw.check_text as string) || '',
-          fixText: (raw.fix_text as string) || '',
-          category: (raw.category as string) || '',
-          disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
-          scanner: (raw.scanner as string) || 'openscap',
-          updatedAt: new Date().toISOString(),
-        }));
+        const metadataRecords = buildRuleMetadataRecords(findings as Array<Record<string, unknown>>);
         const metaCount = await database.upsertRuleMetadata(metadataRecords);
         logger.info(`Upserted ${metaCount} rule metadata records`);
       } catch (metaErr) {

@@ -125,6 +125,30 @@ interface RawControllerFinding {
 
 export type DataSource = 'mock' | 'live';
 
+export function buildRuleMetadataRecords(
+  rawFindings: Array<Record<string, unknown>>,
+): import('@aap-compliance/common').RuleMetadataRecord[] {
+  const ruleMap = new Map<string, Record<string, unknown>>();
+  for (const raw of rawFindings) {
+    const ruleId = raw.rule_id as string;
+    if (ruleId && !ruleMap.has(ruleId)) {
+      ruleMap.set(ruleId, raw);
+    }
+  }
+  return Array.from(ruleMap.values()).map(raw => ({
+    ruleId: raw.rule_id as string,
+    stigId: (raw.stig_id as string) || '',
+    title: (raw.title as string) || (raw.rule_id as string),
+    description: (raw.description as string) || '',
+    checkText: (raw.check_text as string) || '',
+    fixText: (raw.fix_text as string) || '',
+    category: (raw.category as string) || '',
+    disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
+    scanner: (raw.scanner as string) || 'openscap',
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
 export class ComplianceService {
   private readonly dataSource: DataSource;
   private readonly controllerClient: ControllerClient | null;
@@ -336,6 +360,8 @@ export class ComplianceService {
         extraVars,
         token,
         request.limit,
+        undefined,
+        request.inventoryId,
       );
       launch = { ...jtLaunch, workflow_job: undefined };
     }
@@ -502,6 +528,7 @@ export class ComplianceService {
       token,
       limit,
       jobTags,
+      request.inventoryId,
     );
 
     const workflowJobId = launch.id;
@@ -640,10 +667,8 @@ export class ComplianceService {
           `Persisted ${findings.length} findings for scan ${scanId}`,
         );
 
-        // Extract rule metadata from the raw events (same as /findings/ingest).
-        // Without this, titles are missing and task grouping breaks.
         try {
-          const ruleMap = new Map<string, Record<string, unknown>>();
+          const allRawFindings: Array<Record<string, unknown>> = [];
           for (const event of events) {
             const res = (event.event_data as Record<string, unknown>)?.res as Record<string, unknown> | undefined;
             if (!res) continue;
@@ -654,27 +679,11 @@ export class ComplianceService {
               ((factsSource.compliance_results as Record<string, unknown>)?.findings as Array<Record<string, unknown>>) ??
               ((factsSource.compliance_report as Record<string, unknown>)?.findings as Array<Record<string, unknown>>);
             if (rawFindings && Array.isArray(rawFindings)) {
-              for (const raw of rawFindings) {
-                const ruleId = raw.rule_id as string;
-                if (ruleId && !ruleMap.has(ruleId)) {
-                  ruleMap.set(ruleId, raw);
-                }
-              }
+              allRawFindings.push(...rawFindings);
             }
           }
-          if (ruleMap.size > 0) {
-            const metadataRecords = Array.from(ruleMap.values()).map(raw => ({
-              ruleId: raw.rule_id as string,
-              stigId: (raw.stig_id as string) || '',
-              title: (raw.title as string) || (raw.rule_id as string),
-              description: (raw.description as string) || '',
-              checkText: (raw.check_text as string) || '',
-              fixText: (raw.fix_text as string) || '',
-              category: (raw.category as string) || '',
-              disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
-              scanner: (raw.scanner as string) || 'openscap',
-              updatedAt: new Date().toISOString(),
-            }));
+          if (allRawFindings.length > 0) {
+            const metadataRecords = buildRuleMetadataRecords(allRawFindings);
             const metaCount = await this.database.upsertRuleMetadata(metadataRecords);
             this.logger.info(`Upserted ${metaCount} rule metadata records from event parsing`);
           }
@@ -1281,7 +1290,7 @@ export class ComplianceService {
             const scanFindings = await this.database!.getFindingsByScanId(scan.id);
             if (scanFindings.length > 0) {
               const pass = scanFindings.filter(f => f.status === 'pass').length;
-              passRate = Math.round((pass / scanFindings.length) * 100);
+              passRate = Math.round((pass / scanFindings.length) * 1000) / 10;
             }
           }
           return {
@@ -1305,7 +1314,7 @@ export class ComplianceService {
           name: p.displayName,
           target: p.platform || 'RHEL 9',
           rules: pStats?.rules ?? 0,
-          rate: total > 0 ? Math.round((pStats!.pass / total) * 100) : 0,
+          rate: total > 0 ? Math.round((pStats!.pass / total) * 1000) / 10 : 0,
           lastScan: pStats?.lastScan ?? '',
         };
       });
