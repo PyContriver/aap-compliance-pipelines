@@ -828,10 +828,15 @@ controller_templates:
     job_type: check
     inventory: compliance-<platform>-inventory
     project: compliance-content
-    playbook: playbooks/scan.yml
+    playbook: playbooks/run_oscap.yml
     ask_inventory_on_launch: true
     ask_limit_on_launch: true
     survey_enabled: true
+    extra_vars:
+      profile_name: "{{ profile_name }}"
+      framework: "{{ framework }}"
+      remediate_jt_name: "compliance-remediate-<platform>-<framework>"
+      remediation_playbook: "playbooks/remediate.yml"
 
   - name: compliance-remediate-<platform>-<framework>
     organization: compliance
@@ -852,7 +857,7 @@ controller_templates:
     job_type: check
     inventory: compliance-<platform>-inventory
     project: compliance-content
-    playbook: playbooks/scan.yml
+    playbook: playbooks/run_oscap.yml
     ask_inventory_on_launch: true
 ```
 
@@ -1331,6 +1336,8 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
 - [ ] Scan results POSTed to Backstage `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
+- [ ] Assessment JT default `extra_vars` include `remediate_jt_name` for Settings form auto-populate
+- [ ] Assessment JT default `extra_vars` include `remediation_playbook` for auto-populate
 
 ### Portal / Backstage Integration
 
@@ -1391,7 +1398,7 @@ profile:
   version: "V2R8 | v1.0.0 | etc."
   platform: "RHEL 9 | Windows Server 2022 | etc."
   scanner: "openscap | powerstig | custom"
-  xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
+  oscap_xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
   remediation_playbook: "playbooks/remediate.yml"
   remediate_jt_name: "compliance-remediate-<framework>-<platform>"
   certification:
@@ -1411,7 +1418,7 @@ profile:
 | `framework` | Compliance Framework | Auto-populated | User must select from dropdown. Document in README. |
 | `version` | Framework Version | Auto-populated | User must enter manually. Document in README. |
 | `scanner` | Scanner Type | Auto-populated | User must select from dropdown. |
-| `xccdf_profile` | XCCDF Profile ID | Auto-populated (used by the scan playbook) | User must set in JT extra_vars. Document in README. |
+| `oscap_xccdf_profile` | XCCDF Profile ID | Auto-populated (used by the scan playbook) | User must set in JT extra_vars. Document in README. |
 | `remediation_playbook` | Remediation Playbook | Auto-populated | User must enter the playbook path manually. |
 | `remediate_jt_name` | Remediate Job Template | Auto-populated; resolved by matching the JT name from Controller's JT list | Falls back to name search for `compliance-remediate`. For multi-profile deployments, always set this to avoid profile/JT mismatch. |
 | `certification.status` | Certification Badge | Auto-populated; displayed as a badge on scan results | Defaults to `uncertified`. Document in README. |

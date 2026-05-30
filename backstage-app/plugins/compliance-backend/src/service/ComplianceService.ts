@@ -457,7 +457,7 @@ export class ComplianceService {
 
     const result = await this.controllerClient!.listJobTemplates('compliance-remediate', token);
     if (result.results.length > 0) {
-      this.logger.info(`Resolved remediate JT ${result.results[0].id} via name search (profile has no remediateJtId)`);
+      this.logger.warn(`Profile has no remediateJtId set — falling back to name search. This may pick the wrong JT in multi-profile deployments. Resolved remediate JT ${result.results[0].id}`);
       return result.results[0].id;
     }
 

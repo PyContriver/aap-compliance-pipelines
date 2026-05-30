@@ -28,7 +28,6 @@ import type {
   WorkflowJobStatus,
   WorkflowNode,
   JobEvent,
-  ComplianceProfile,
   SaveProfileRequest,
   PlatformValidationResult,
 } from '@aap-compliance/common';

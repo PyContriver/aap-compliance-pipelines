@@ -104,7 +104,12 @@ export const ProfileFormDialog = ({
   const [detectedEeId, setDetectedEeId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setAutoPopulateEnabled(false);
+      setPendingAutoPopulate(null);
+      setDetectedEeId(null);
+      return;
+    }
     if (editProfile) {
       setAutoPopulateEnabled(false);
       setForm({

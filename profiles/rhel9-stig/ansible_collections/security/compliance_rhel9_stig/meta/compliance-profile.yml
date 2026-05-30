@@ -13,8 +13,9 @@ profile:
   version: "V2R8"
   platform: "RHEL 9"
   scanner: "openscap"
-  xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
+  oscap_xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
   remediation_playbook: "playbooks/remediate.yml"
+  remediate_jt_name: "compliance-remediate-stig-rhel9"
   certification:
     status: "certified"
     authority: "NIST SCAP 1.2"

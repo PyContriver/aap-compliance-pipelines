@@ -15,14 +15,16 @@ export function validatePlatform(
 ): PlatformValidationResult {
   // If no spec or scanner_validates, all hosts match
   if (!spec || spec.scanner_validates) {
-    return { valid: true, matchedHosts: hosts.map(h => h.hostname), mismatchedHosts: [] };
+    return { valid: true, matchedHosts: hosts.map(h => h.hostname), mismatchedHosts: [], factsAvailable: true };
   }
 
   const matched: string[] = [];
   const mismatched: Array<{ hostname: string; reason: string }> = [];
+  let anyHostHasFacts = false;
 
   for (const host of hosts) {
     const hasFacts = !!(host.ansible_os_family || host.ansible_distribution_major_version || host.device_type);
+    if (hasFacts) anyHostHasFacts = true;
     if (!hasFacts) {
       matched.push(host.hostname);
       continue;
@@ -53,5 +55,6 @@ export function validatePlatform(
     valid: mismatched.length === 0,
     matchedHosts: matched,
     mismatchedHosts: mismatched,
+    factsAvailable: anyHostHasFacts,
   };
 }

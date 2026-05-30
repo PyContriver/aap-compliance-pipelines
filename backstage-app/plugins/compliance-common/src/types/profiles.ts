@@ -1,6 +1,10 @@
 export type ComplianceFramework = 'DISA_STIG' | 'CIS' | 'PCI_DSS' | 'HIPAA' | 'NIST_800_53';
 
-export interface ComplianceProfile {
+/**
+ * @deprecated Use `ComplianceProfile` from `./api` instead.
+ * Retained only for backward compatibility with legacy mock/display code.
+ */
+export interface LegacyComplianceProfile {
   id: string;
   name: string;
   framework: ComplianceFramework;

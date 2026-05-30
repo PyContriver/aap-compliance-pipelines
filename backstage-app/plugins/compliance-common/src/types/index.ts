@@ -9,7 +9,7 @@ export type {
 
 export type {
   ComplianceFramework,
-  ComplianceProfile,
+  LegacyComplianceProfile,
   RemediationSelection,
   RemediationProfile,
 } from './profiles';

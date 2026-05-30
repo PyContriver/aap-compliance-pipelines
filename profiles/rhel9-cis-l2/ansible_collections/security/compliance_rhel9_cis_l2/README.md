@@ -76,6 +76,8 @@ A single JT runs the full assessment:
 
 Remediation is launched as a separate standalone JT with `ask_tags_on_launch: true` and `ask_variables_on_launch: true`. The Backstage plugin passes selected rule IDs as `job_tags`.
 
+The assessment JT's default extra_vars should include `remediate_jt_name` to enable auto-populate in the Backstage compliance Settings form.
+
 ## Playbooks
 
 | Playbook | Runs On | Description |
