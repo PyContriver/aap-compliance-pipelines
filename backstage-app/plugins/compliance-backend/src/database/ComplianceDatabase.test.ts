@@ -100,6 +100,7 @@ async function createTables(database: Knex): Promise<void> {
       table.string('platform').defaultTo('');
       table.text('platform_spec').nullable();
       table.integer('workflow_template_id').nullable();
+      table.integer('remediate_jt_id').nullable();
       table.integer('ee_id').nullable();
       table.text('remediation_playbook_path').defaultTo('');
       table.string('scan_tags').defaultTo('');
