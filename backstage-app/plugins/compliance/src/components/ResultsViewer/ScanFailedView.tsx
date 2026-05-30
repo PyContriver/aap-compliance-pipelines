@@ -9,6 +9,7 @@ interface ScanFailedViewProps {
   scanFailed: string;
   isWorkflowPoll: boolean;
   jobId?: string;
+  scanType?: 'assessment' | 'verification';
   onComplete: () => void;
   onFailed: (status: string) => void;
 }
@@ -17,10 +18,12 @@ export const ScanFailedView = ({
   scanFailed,
   isWorkflowPoll,
   jobId,
+  scanType = 'assessment',
   onComplete,
   onFailed,
 }: ScanFailedViewProps) => {
   const navigate = useNavigate();
+  const isVerification = scanType === 'verification';
 
   return (
     <>
@@ -28,7 +31,7 @@ export const ScanFailedView = ({
         <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
           Compliance
         </Typography>
-        <Typography>Scan Failed</Typography>
+        <Typography>{isVerification ? 'Verification Failed' : 'Scan Failed'}</Typography>
       </Breadcrumbs>
 
       <Box mt={2} />
@@ -38,6 +41,7 @@ export const ScanFailedView = ({
           workflowJobId={Number(jobId)}
           onComplete={onComplete}
           onFailed={onFailed}
+          scanType={scanType}
         />
       )}
 

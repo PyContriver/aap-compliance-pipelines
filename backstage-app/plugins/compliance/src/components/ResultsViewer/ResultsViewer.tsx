@@ -290,7 +290,7 @@ export const ResultsViewer = () => {
     if (showProgress && isWorkflowPoll && jobId) {
       return (
         <Box p={4}>
-          <ScanProgress workflowJobId={Number(jobId)} onComplete={triggerFetch} onFailed={handleScanFailed} />
+          <ScanProgress workflowJobId={Number(jobId)} onComplete={triggerFetch} onFailed={handleScanFailed} scanType={scanType} />
         </Box>
       );
     }
@@ -310,6 +310,7 @@ export const ResultsViewer = () => {
         scanFailed={scanFailed}
         isWorkflowPoll={isWorkflowPoll}
         jobId={jobId}
+        scanType={scanType}
         onComplete={triggerFetch}
         onFailed={handleScanFailed}
       />

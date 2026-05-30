@@ -280,7 +280,11 @@ function groupTasksByRule(
   selections: RemediationSelection[],
   findingsMap: Map<string, MultiHostFinding>,
 ): RuleGroup[] {
-  // Build a map of rule title prefixes for anchor detection
+  const PREREQ_TASKS = new Set([
+    'gathering facts', 'gather the package facts', 'gather the service facts',
+    'gather the package facts', 'populate service facts',
+  ]);
+
   const enabledRules = selections.filter(s => s.enabled);
   const ruleTitleMap = new Map<string, { ruleId: string; stigId: string; title: string }>();
   for (const sel of enabledRules) {
@@ -293,15 +297,27 @@ function groupTasksByRule(
     });
   }
 
-  // Sequential assignment: walk tasks in order, detect rule boundaries
+  // Phase 1: Identify prereq tasks and the first non-prereq index
   const prereqTasks: RemediationTask[] = [];
+  let firstRuleTaskIdx = tasks.length;
+  for (let i = 0; i < tasks.length; i++) {
+    if (PREREQ_TASKS.has(tasks[i].name.toLowerCase())) {
+      prereqTasks.push(tasks[i]);
+    } else {
+      firstRuleTaskIdx = i;
+      break;
+    }
+  }
+
+  // Phase 2: Try title-prefix matching for remaining tasks
   const ruleTaskMap = new Map<string, RemediationTask[]>();
   let currentRuleId: string | null = null;
+  let hasAnyAnchor = false;
 
-  for (const task of tasks) {
+  for (let i = firstRuleTaskIdx; i < tasks.length; i++) {
+    const task = tasks[i];
     const taskLower = task.name.toLowerCase();
 
-    // Check if this task anchors to a new rule (title prefix match)
     let anchoredRule: string | null = null;
     for (const [ruleId, meta] of ruleTitleMap) {
       const prefix = meta.title.toLowerCase();
@@ -313,14 +329,73 @@ function groupTasksByRule(
 
     if (anchoredRule) {
       currentRuleId = anchoredRule;
+      hasAnyAnchor = true;
     }
 
     if (currentRuleId) {
       const existing = ruleTaskMap.get(currentRuleId) || [];
       existing.push(task);
       ruleTaskMap.set(currentRuleId, existing);
-    } else {
-      prereqTasks.push(task);
+    }
+  }
+
+  // Phase 3: If title matching left unassigned tasks, fall back to
+  // positional assignment. CaC playbooks run tasks in job_tags order,
+  // so tasks between anchors belong to rules in selection order.
+  const assignedCount = Array.from(ruleTaskMap.values()).reduce((s, t) => s + t.length, 0);
+  const remainingTasks = tasks.length - firstRuleTaskIdx;
+
+  if (assignedCount < remainingTasks || !hasAnyAnchor) {
+    ruleTaskMap.clear();
+    const ruleOrder = enabledRules.map(s => s.ruleId);
+    let ruleIdx = 0;
+    currentRuleId = ruleOrder[0] ?? null;
+
+    for (let i = firstRuleTaskIdx; i < tasks.length; i++) {
+      const task = tasks[i];
+      const taskLower = task.name.toLowerCase();
+
+      // Check if this task anchors to a specific rule
+      let anchoredIdx = -1;
+      for (let r = ruleIdx; r < ruleOrder.length; r++) {
+        const meta = ruleTitleMap.get(ruleOrder[r]);
+        if (meta && meta.title.toLowerCase().length > 5 && taskLower.startsWith(meta.title.toLowerCase())) {
+          anchoredIdx = r;
+          break;
+        }
+      }
+
+      if (anchoredIdx >= 0) {
+        ruleIdx = anchoredIdx;
+        currentRuleId = ruleOrder[ruleIdx];
+      } else if (currentRuleId && ruleIdx < ruleOrder.length - 1) {
+        // Check if the NEXT rule's title matches — signals a boundary
+        const nextMeta = ruleTitleMap.get(ruleOrder[ruleIdx + 1]);
+        if (nextMeta && nextMeta.title.toLowerCase().length > 5 && taskLower.startsWith(nextMeta.title.toLowerCase())) {
+          ruleIdx++;
+          currentRuleId = ruleOrder[ruleIdx];
+        }
+      }
+
+      if (currentRuleId) {
+        const existing = ruleTaskMap.get(currentRuleId) || [];
+        existing.push(task);
+        ruleTaskMap.set(currentRuleId, existing);
+      }
+    }
+
+    // If still no anchors found at all, distribute evenly by assuming
+    // tasks appear in contiguous blocks per rule in tag order.
+    if (!hasAnyAnchor && ruleOrder.length > 1) {
+      const allRuleTasks = tasks.slice(firstRuleTaskIdx);
+      const perRule = Math.ceil(allRuleTasks.length / ruleOrder.length);
+      ruleTaskMap.clear();
+      for (let r = 0; r < ruleOrder.length; r++) {
+        const chunk = allRuleTasks.slice(r * perRule, (r + 1) * perRule);
+        if (chunk.length > 0) {
+          ruleTaskMap.set(ruleOrder[r], chunk);
+        }
+      }
     }
   }
 

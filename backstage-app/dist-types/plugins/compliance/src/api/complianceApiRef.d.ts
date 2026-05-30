@@ -55,6 +55,7 @@ export interface ComplianceApi {
         name: string;
         description: string;
         extra_vars: string;
+        execution_environment: number | null;
     }>;
     getControllerJobTemplates(): Promise<Array<{
         id: number;

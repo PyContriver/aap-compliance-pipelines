@@ -106,6 +106,7 @@ export declare class ComplianceBackendClient implements ComplianceApi {
         name: string;
         description: string;
         extra_vars: string;
+        execution_environment: number | null;
     }>;
     getControllerJobTemplates(): Promise<{
         id: number;
