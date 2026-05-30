@@ -25,7 +25,7 @@ For Portal/RHDH installation instructions, see [docs/deployment-guide.md](docs/d
 ```bash
 # Clone the repository (pick one)
 git clone https://github.com/cross-logic/aap-compliance-pipelines.git          # GitHub (public)
-git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git  # GitLab (Red Hat internal)
+git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git  # GitLab (Red Hat internal, requires VPN)
 cd aap-compliance-pipelines/backstage-app
 
 # Install dependencies and set up hooks

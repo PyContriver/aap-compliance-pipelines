@@ -13,7 +13,7 @@ Level 2 - Server profile.
 | Scanner | OpenSCAP (`oscap xccdf eval`) |
 | Profile ID | `xccdf_org.ssgproject.content_profile_cis` |
 | Datastream | `ssg-rhel9-ds.xml` |
-| Rule count | ~190 (includes all L1 rules; varies by `scap-security-guide` version) |
+| Rule count | ~262 (includes all L1 rules plus additional hardening; varies by `scap-security-guide` version) |
 | Remediation source | ComplianceAsCode (CaC) via `scap-security-guide` |
 
 ## CIS Level 2 vs Level 1

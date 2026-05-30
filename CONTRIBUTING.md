@@ -4,8 +4,8 @@
 
 This repository contains a compliance vertical for Ansible Automation Platform, delivered as a Backstage/RHDH plugin. It can run standalone (local development) or as a dynamic plugin inside the Ansible Portal (RHDH).
 
-**Jira Feature:** [ANSTRAT-2216](https://redhat.atlassian.net/browse/ANSTRAT-2216)
-**GitLab:** [gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines](https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines)
+**Jira Feature:** [ANSTRAT-2216](https://redhat.atlassian.net/browse/ANSTRAT-2216) (Red Hat internal)
+**GitLab:** [gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines](https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines) (Red Hat internal)
 
 ## Architecture
 
@@ -40,7 +40,7 @@ aap-compliance-pipelines/
 ### Quick Start
 
 ```bash
-git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git
+git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git  # Red Hat internal
 cd aap-compliance-pipelines/backstage-app
 yarn install
 
@@ -124,7 +124,7 @@ Feature branches use `feature/description` or `claude/description` naming.
 | Environment | Role | URL |
 |---|---|---|
 | **Local** | Development + testing | `http://localhost:3000` (frontend), `:7007` (backend) |
-| **Netrunner Portal** | Staging + demo | `https://dev-portal-netrunner.demoredhat.com/` |
+| **Netrunner Portal** | Staging + demo (Red Hat internal) | `https://dev-portal-netrunner.demoredhat.com/` |
 
 - **Local** always runs the feature branch code (source, hot reload, SQLite, guest auth)
 - **Netrunner** always runs the latest `main` (dist-dynamic tarballs, PostgreSQL, RHAAP OAuth)

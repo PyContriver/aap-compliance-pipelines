@@ -15,7 +15,7 @@ Self-contained MVP for an AAP compliance vertical — Backstage plugin + RHEL ST
 
 ## Lab Connection
 
-AAP 2.6 lab at `192.168.128.128`. Compliance resources isolated in `compliance-prototype` organization.
+AAP 2.6 lab at `<aap-lab-host>` (local dev environment). Compliance resources isolated in `compliance-prototype` organization.
 All AAP resources prefixed `compliance-*`.
 
 ## Development
@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 11+ suites
+yarn test             # Run tests across 12 suites
 yarn build            # Build all packages
 ```
 
@@ -85,5 +85,5 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 270+ tests across 12+ suites (frontend + backend + database)
+- 271 tests across 12 suites (frontend + backend + database) + 57 collection unit tests
 - 10 formal ADRs in `specs/compliance-pipelines/decisions/`

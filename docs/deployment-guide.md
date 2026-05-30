@@ -7,7 +7,7 @@ The compliance plugins can run in two modes: as part of a standalone Backstage d
 | Environment | Role | Database | Auth | Plugin Loading |
 |---|---|---|---|---|
 | **Local** (`localhost:3000`) | Development + testing | SQLite | Guest (no login) | Direct source (hot reload) |
-| **Portal / RHDH** (e.g., `dev-portal-netrunner.demoredhat.com`) | Staging + demo + production | PostgreSQL | AAP Gateway OAuth2 | dist-dynamic tarballs |
+| **Portal / RHDH** (e.g., `dev-portal-netrunner.demoredhat.com`, internal demo) | Staging + demo + production | PostgreSQL | AAP Gateway OAuth2 | dist-dynamic tarballs |
 
 **Local is for development and testing.** Feature branches are developed and tested here first -- mock mode for UI work, live mode for end-to-end scans against a lab AAP instance. Hot reload makes iteration fast.
 

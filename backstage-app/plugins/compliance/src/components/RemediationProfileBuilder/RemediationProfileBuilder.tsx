@@ -409,7 +409,7 @@ export const RemediationProfileBuilder = () => {
         </div>
       </div>
       {/* Search bar with select/deselect visible */}
-      <Box display="flex" alignItems="center" gap={1} mb={2} style={{ gap: 8 }}>
+      <Box display="flex" alignItems="center" mb={2} style={{ gap: 8 }}>
         <TextField
           placeholder="Search rules by name, ID, STIG ID, or description..."
           variant="outlined"
