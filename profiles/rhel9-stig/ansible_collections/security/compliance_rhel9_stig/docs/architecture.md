@@ -22,8 +22,8 @@ Target hosts (RHEL 9)              Execution node (EE)
                                             v
                                    +-----------------+
                                    | Backstage plugin|
-                                   | (reads CFF JSON |
-                                   |  from job events)|
+                                   | (receives CFF   |
+                                   |  via Direct POST)|
                                    +-----------------+
 ```
 
@@ -83,12 +83,12 @@ Play 2 runs on `localhost` in the same container as Play 1:
    - Maps severity (high/medium/low) to CAT_I/CAT_II/CAT_III
    - Maps status (pass/fail/error/notapplicable/notchecked) to CFF values
    - Extracts title, description, fix_text, stig_id from rule metadata
-3. **Set `compliance_report` fact** -- The backend reads this from job events
+3. **POST findings directly** -- If `backstage_api_url` and `ingest_token` are set, POSTs CFF JSON to the plugin's `/findings/ingest` endpoint (ADR-007, ADR-010). Falls back to setting `compliance_report` as an Ansible fact for job event parsing.
 4. **Write JSON artifact** -- `/tmp/compliance_report.json`
 
 ### Plugin Consumption
 
-The Backstage backend polls Controller for job events from the assessment job. It reads the `compliance_report` Ansible fact from Play 2's normalize task, which contains CFF-compliant findings. The frontend renders these findings with no knowledge of the underlying scanner.
+The primary delivery channel is Direct POST: Play 2 POSTs CFF JSON findings directly to the Backstage plugin API using a per-scan ingest token. As a fallback, the backend can poll Controller for job events and read the `compliance_report` Ansible fact from the normalize task. The frontend renders these findings with no knowledge of the underlying scanner.
 
 ## OpenSCAP Integration Details
 

@@ -45,6 +45,7 @@ If the JTs were created manually (without `install.yml`), set these fields manua
 - **Datastream:** `ssg-rhel9-ds.xml` from scap-security-guide
 - **Profile ID:** `xccdf_org.ssgproject.content_profile_cis`
 - **Level:** 2 - Server
+- **Rule Count:** ~262 (varies by scap-security-guide version; L2 includes all L1 rules plus additional hardening)
 - **Remediation:** ComplianceAsCode playbook from scap-security-guide (`rhel9-playbook-cis.yml`)
 - **Certification:** Conformant (CIS-CAT Pro is the CIS-certified scanner)
 
