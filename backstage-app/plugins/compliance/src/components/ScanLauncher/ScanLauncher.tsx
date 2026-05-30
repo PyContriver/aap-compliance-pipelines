@@ -75,6 +75,7 @@ interface ProfileOption {
   name: string;
   version: string;
   rules: number;
+  workflowTemplateId?: number | null;
 }
 
 interface InventoryOption {
@@ -137,14 +138,16 @@ export const ScanLauncher = () => {
           id: c.id,
           name: c.displayName,
           version: c.version || '',
-          rules: c.ruleCount || 0,
+          rules: c.ruleCount ?? 0,
+          workflowTemplateId: c.workflowTemplateId,
         })));
       } else if (displayData.length > 0) {
         setProfiles(displayData.map(p => ({
           id: p.id,
-          name: p.name,
+          name: p.displayName,
           version: p.version,
-          rules: p.ruleCount,
+          rules: p.ruleCount ?? 0,
+          workflowTemplateId: p.workflowTemplateId,
         })));
       }
       setInventories(inventoryData);

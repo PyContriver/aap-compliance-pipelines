@@ -16,7 +16,7 @@ Target hosts (RHEL 9)              Execution node (EE)
 | 2. Receive datastream    |<-copy-| scap-security-guide       |
 |    (ssg-rhel9-ds.xml)    |       | (ssg-rhel9-ds.xml, ~15MB) |
 | 3. oscap xccdf eval      |       |                           |
-|    --profile cis_l1      |       |                           |
+|    --profile cis_server_l1|       |                           |
 | 4. Return XCCDF XML     |-fetch->| 5. normalize_xccdf        |
 | 5. Cleanup               |       |    (XML -> CFF JSON)      |
 | 6. Remove oscap          |       | 6. compliance_report.json |
@@ -75,6 +75,8 @@ A single JT runs the full assessment:
 - **JT `compliance-scan-cis-l1-rhel9`** -- runs `run_oscap.yml` with SSH creds + become. Play 1 scans targets, Play 2 normalizes on localhost (same container).
 
 Remediation is launched as a separate standalone JT with `ask_tags_on_launch: true` and `ask_variables_on_launch: true`. The Backstage plugin passes selected rule IDs as `job_tags`.
+
+The assessment JT's default extra_vars should include `remediate_jt_name` to enable auto-populate in the Backstage compliance Settings form.
 
 ## Playbooks
 

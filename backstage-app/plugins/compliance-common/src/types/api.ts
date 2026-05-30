@@ -3,7 +3,7 @@
  */
 
 import type { Finding, ScanResult, FindingParameter } from './findings';
-import type { ComplianceProfile, RemediationProfile, RemediationSelection } from './profiles';
+import type { RemediationProfile, RemediationSelection } from './profiles';
 
 /**
  * Scanner certification status for a compliance profile.

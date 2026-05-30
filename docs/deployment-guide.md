@@ -136,12 +136,8 @@ Run the setup playbook to create all required Controller resources with correct 
 
 ```bash
 ansible-playbook profiles/rhel9-stig/install.yml \
-  -e controller_host=https://aap.example.com \
-  -e controller_username=admin \
-  -e controller_password='changeme' \
-  -e target_host=192.168.1.100 \
-  -e target_ssh_user=root \
-  -e target_ssh_password='changeme'
+  -e aap_host=https://aap.example.com \
+  -e aap_token=<your-token>
 ```
 
 ### Required Settings
@@ -171,6 +167,8 @@ After provisioning, verify the settings in the AAP Controller UI:
 2. Confirm "Prompt on launch" is checked for Inventory
 3. Confirm the Execution Environment is set to `Compliance STIG RHEL 9`
 4. Open the remediation JT and confirm "Prompt on launch" is checked for Inventory, Job Tags, and Variables
+
+> **Note:** The JT name depends on which profile was installed (e.g., `compliance-scan-stig-rhel9`, `compliance-scan-cis-l1-rhel9`).
 
 ## Configuration
 

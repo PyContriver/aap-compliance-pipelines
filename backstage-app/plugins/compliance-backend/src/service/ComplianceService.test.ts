@@ -167,7 +167,7 @@ describe('ComplianceService', () => {
 
       expect(profiles.length).toBeGreaterThan(0);
       expect(profiles[0]).toHaveProperty('id');
-      expect(profiles[0]).toHaveProperty('name');
+      expect(profiles[0]).toHaveProperty('displayName');
       expect(profiles[0]).toHaveProperty('framework');
     });
 

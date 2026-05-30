@@ -322,7 +322,7 @@ When adding or modifying job templates:
 2. The assessment JT's default `extra_vars` must include `remediate_jt_name` and `remediation_playbook` -- these are used by the Settings form auto-populate to link the profile to its remediation JT
 3. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
 4. All JTs must specify `execution_environment` -- the compliance EE with oscap and scap-security-guide (JTs using the default EE will fail because it lacks oscap)
-5. Use `oscap_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
+5. Use `oscap_xccdf_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
 6. Use the profile's `install.yml` to register resources, or create them manually via the Controller API
 
 ### CaC Title Matching Convention

@@ -70,7 +70,7 @@ Each profile has the same pipeline structure:
 2. `normalize.yml` (standalone utility): same normalization logic, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
 
-Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010).
+Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010), `remediate_jt_name` (auto-populate for Settings form), `remediation_playbook` (auto-populate).
 
 Key files in the EE (same for all profiles — `scap-security-guide` ships all datastreams):
 - `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (all profiles)

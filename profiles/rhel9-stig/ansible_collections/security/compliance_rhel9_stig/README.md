@@ -72,9 +72,11 @@ ansible-playbook security.compliance_rhel9_stig.remediate -i inventory \
 
 A single JT runs the full assessment:
 
-- **JT `compliance-run-oscap`** -- runs `run_oscap.yml` with SSH creds + become. Play 1 scans targets, Play 2 normalizes on localhost (same container).
+- **JT `compliance-scan-stig-rhel9`** -- runs `run_oscap.yml` with SSH creds + become. Play 1 scans targets, Play 2 normalizes on localhost (same container).
 
 Remediation is launched as a separate standalone JT with `ask_tags_on_launch: true` and `ask_variables_on_launch: true`. The Backstage plugin passes selected rule IDs as `job_tags`.
+
+The assessment JT's default extra_vars should include `remediate_jt_name` to enable auto-populate in the Backstage compliance Settings form.
 
 ## Playbooks
 

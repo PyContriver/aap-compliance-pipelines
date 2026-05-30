@@ -7,8 +7,9 @@ profile:
   version: "v1.0.0"
   platform: "RHEL 9"
   scanner: "openscap"
-  xccdf_profile: "xccdf_org.ssgproject.content_profile_cis_server_l1"
+  oscap_xccdf_profile: "xccdf_org.ssgproject.content_profile_cis_server_l1"
   remediation_playbook: "playbooks/remediate.yml"
+  remediate_jt_name: "compliance-remediate-cis-l1-rhel9"
   certification:
     status: "conformant"
     authority: "CIS"
