@@ -106,10 +106,15 @@ export const RemediationProfileBuilder = () => {
     Promise.all([
       api.getFindings(jobId),
       api.getRegisteredProfiles().catch(() => []),
-    ]).then(([data, profiles]) => {
+      api.getScans().catch(() => []),
+    ]).then(([data, profiles, scans]) => {
       if (cancelled) return;
       setAllFindings(data);
-      if (profiles.length > 0) setResolvedProfileId(profiles[0].id);
+      if (profiles.length > 0) {
+        const scan = scans.find(s => s.id === jobId || String(s.workflowJobId) === jobId);
+        const matchedProfile = scan ? profiles.find(p => p.id === scan.profileId) : undefined;
+        setResolvedProfileId(matchedProfile?.id ?? profiles[0].id);
+      }
     }).catch(err => {
       console.error('Failed to load findings:', err);
     }).finally(() => {

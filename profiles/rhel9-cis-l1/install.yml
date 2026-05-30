@@ -68,6 +68,8 @@
             framework: "{{ profile.framework }}"
             certification_status: "{{ profile.certification_status }}"
             certification_authority: "{{ profile.certification_authority }}"
+            remediate_jt_name: "{{ profile.remediate_jt_name }}"
+            remediation_playbook: "{{ profile.remediate_playbook }}"
             oscap_xccdf_profile: "xccdf_org.ssgproject.content_profile_cis_server_l1"
         validate_certs: false
         status_code: [200, 201]

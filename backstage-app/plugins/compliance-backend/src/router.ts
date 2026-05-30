@@ -1061,6 +1061,7 @@ export async function createRouter(
       platform: body.platform ?? '',
       platformSpec: body.platformSpec ?? null,
       workflowTemplateId: body.workflowTemplateId ?? null,
+      remediateJtId: body.remediateJtId ?? null,
       eeId: body.eeId ?? null,
       remediationPlaybookPath: body.remediationPlaybookPath ?? '',
       scanTags: body.scanTags ?? '',

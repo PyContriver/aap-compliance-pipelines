@@ -324,6 +324,7 @@ export const ProfileSettings = () => {
                   <TableCell>Version</TableCell>
                   <TableCell>Platform</TableCell>
                   <TableCell>Scan Job Template</TableCell>
+                  <TableCell>Remediate Job Template</TableCell>
                   <TableCell>Execution Environment</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
@@ -350,6 +351,7 @@ export const ProfileSettings = () => {
                     <TableCell>{c.version || '--'}</TableCell>
                     <TableCell>{c.platform || '--'}</TableCell>
                     <TableCell>{c.workflowTemplateId ? `ID ${c.workflowTemplateId}` : '--'}</TableCell>
+                    <TableCell>{c.remediateJtId ? `ID ${c.remediateJtId}` : 'Auto'}</TableCell>
                     <TableCell>{c.eeId ? `ID ${c.eeId}` : '--'}</TableCell>
                     <TableCell>
                       <IconButton size="small" onClick={() => handleEditClick(c)} aria-label="edit compliance profile">

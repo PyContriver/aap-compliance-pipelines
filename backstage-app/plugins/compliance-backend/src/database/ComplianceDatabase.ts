@@ -359,6 +359,7 @@ export class ComplianceDatabase {
         .update({
           name: profile.name,
           description: profile.description,
+          profile_id: profile.profileId,
           scan_id: profile.scanId ?? null,
           selections_json: JSON.stringify(profile.selections),
           updated_at: now,
@@ -519,6 +520,7 @@ export class ComplianceDatabase {
       platform_spec: profile.platformSpec ? JSON.stringify(profile.platformSpec) : null,
       certification: profile.certification ? JSON.stringify(profile.certification) : null,
       workflow_template_id: profile.workflowTemplateId,
+      remediate_jt_id: profile.remediateJtId ?? null,
       ee_id: profile.eeId,
       remediation_playbook_path: profile.remediationPlaybookPath || '',
       scan_tags: profile.scanTags || '',
@@ -563,6 +565,7 @@ export class ComplianceDatabase {
       platform: (row.platform as string) || '',
       platformSpec: safeJsonParse(row.platform_spec),
       workflowTemplateId: (row.workflow_template_id as number) ?? null,
+      remediateJtId: (row.remediate_jt_id as number) ?? null,
       eeId: (row.ee_id as number) ?? null,
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',

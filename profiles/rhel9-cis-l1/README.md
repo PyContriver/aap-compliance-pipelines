@@ -29,12 +29,15 @@ ansible-playbook install.yml \
 
 ### 3. Register in Compliance Plugin
 
-In the Backstage compliance plugin Settings tab, create a new profile:
+In the Backstage compliance plugin Settings tab, create a new profile and select the **Assessment JT** (`compliance-scan-cis-l1-rhel9`). All fields below auto-populate from the JT's default extra_vars:
 - **Framework:** CIS Benchmark
 - **Version:** v1.0.0
 - **Platform:** RHEL 9
 - **Assessment JT:** compliance-scan-cis-l1-rhel9
-- **Remediation JT:** compliance-remediate-cis-l1-rhel9
+- **Remediate JT:** compliance-remediate-cis-l1-rhel9 (auto-populated from `remediate_jt_name`)
+- **Certification:** Conformant (CIS)
+
+If the JTs were created manually (without `install.yml`), set these fields manually. The Remediate JT field is required for multi-profile deployments to avoid launching the wrong remediation.
 
 ## Scanner Details
 

@@ -307,9 +307,10 @@ Each compliance profile is self-contained under `profiles/`. To add a new one:
 3. Set the XCCDF profile ID in `run_oscap.yml` (e.g., `cis_server_l1`)
 4. Set the remediation playbook path in `remediate.yml`
 5. Set certification parameters (`certification_status`, `certification_authority`)
-6. Update the EE definition if different scanner packages are needed
-7. Run `ansible-test sanity` and `ansible-test units` to verify
-8. See `docs/compliance-profile-developer-guide.md` for the full guide
+6. Set `remediate_jt_name` in `install.yml` (the scan JT's `extra_vars` must include this so the Settings form can auto-populate the Remediate Job Template). Without it, multi-profile deployments will launch the wrong remediation JT.
+7. Update the EE definition if different scanner packages are needed
+8. Run `ansible-test sanity` and `ansible-test units` to verify
+9. See `docs/compliance-profile-developer-guide.md` for the full guide
 
 The normalizer (`normalize_xccdf.py`) is framework-aware and handles STIG, CIS, and custom profiles via the `framework` parameter.
 
@@ -318,10 +319,11 @@ The normalizer (`normalize_xccdf.py`) is framework-aware and handles STIG, CIS, 
 When adding or modifying job templates:
 
 1. The assessment JT (`compliance-run-oscap`) must have `ask_inventory_on_launch: true` -- the plugin passes the user-selected inventory at launch time
-2. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
-3. All JTs must specify `execution_environment` -- the compliance EE with oscap and scap-security-guide (JTs using the default EE will fail because it lacks oscap)
-4. Use `oscap_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
-5. Use the profile's `install.yml` to register resources, or create them manually via the Controller API
+2. The assessment JT's default `extra_vars` must include `remediate_jt_name` and `remediation_playbook` -- these are used by the Settings form auto-populate to link the profile to its remediation JT
+3. The remediation JT must have `ask_tags_on_launch: true` and `ask_variables_on_launch: true` because it is launched directly (not via workflow) with `job_tags` for selective rule remediation
+4. All JTs must specify `execution_environment` -- the compliance EE with oscap and scap-security-guide (JTs using the default EE will fail because it lacks oscap)
+5. Use `oscap_profile` (not `compliance_profile`) for the XCCDF profile variable to avoid collision with the backend's `compliance_profile` extra_var (UUID)
+6. Use the profile's `install.yml` to register resources, or create them manually via the Controller API
 
 ### CaC Title Matching Convention
 

@@ -913,6 +913,13 @@ The plugin resolves the assessment job template in two ways:
 1. **Compliance profile registration** -- The admin maps a job template ID in the Settings page. The plugin uses this ID directly.
 2. **Name search fallback** -- If the ID is not set, the plugin searches for job templates matching the compliance profile's naming convention (e.g., `compliance-run-oscap`).
 
+#### Remediation JT Resolution
+
+The plugin resolves the remediation job template per compliance profile:
+
+1. **Compliance profile registration** -- The Remediate Job Template ID stored in the profile registry. This is auto-populated from the `remediate_jt_name` extra_var when registering the profile, or set manually. **This is the recommended path for multi-profile deployments.**
+2. **Name search fallback** -- If not set, the plugin searches for JTs matching `compliance-remediate`. This works for single-profile deployments but will pick the wrong JT when multiple remediation JTs exist (e.g., `compliance-remediate-stig-rhel9` and `compliance-remediate-cis-l1-rhel9`).
+
 #### Configuration Checklist
 
 | Resource | Setting | Value | Why |
@@ -1076,6 +1083,7 @@ When an admin selects a scan JT that was provisioned via `install.yml`, fields m
 | **Compliance standard identifier** | Auto-populated or manual entry | Machine identifier (e.g., `rhel9-stig-v2r8`) |
 | **Execution Environment** | AAP Gateway API dropdown | The EE built from the compliance profile's `ee/execution-environment.yml` |
 | **Assessment job template** | AAP Gateway API dropdown | The JT running `run_oscap.yml` (scan + normalize). Selecting a JT triggers auto-populate. |
+| **Remediate job template** | Auto-populated or AAP Gateway API dropdown | The standalone JT running `remediate.yml`. Auto-populated from `remediate_jt_name` in the assessment JT's extra_vars. If not set, the plugin falls back to name search for JTs matching `compliance-remediate`. |
 | **Remediation playbook path** | Auto-populated or manual entry | Path to the remediation playbook inside the EE |
 | **Scanner tier** | Auto-populated or manual selection | 1 (built-in), 2 (BYOS), or 3 (hybrid) |
 | **Platform requirements** | Auto-populated or from collection metadata | Platform spec declaring supported OS/device types (see below). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form. |
@@ -1385,6 +1393,7 @@ profile:
   scanner: "openscap | powerstig | custom"
   xccdf_profile: "xccdf_org.ssgproject.content_profile_stig"
   remediation_playbook: "playbooks/remediate.yml"
+  remediate_jt_name: "compliance-remediate-<framework>-<platform>"
   certification:
     status: "certified | conformant | uncertified"
     authority: "NIST SCAP 1.2 | CIS | etc."
@@ -1404,6 +1413,7 @@ profile:
 | `scanner` | Scanner Type | Auto-populated | User must select from dropdown. |
 | `xccdf_profile` | XCCDF Profile ID | Auto-populated (used by the scan playbook) | User must set in JT extra_vars. Document in README. |
 | `remediation_playbook` | Remediation Playbook | Auto-populated | User must enter the playbook path manually. |
+| `remediate_jt_name` | Remediate Job Template | Auto-populated; resolved by matching the JT name from Controller's JT list | Falls back to name search for `compliance-remediate`. For multi-profile deployments, always set this to avoid profile/JT mismatch. |
 | `certification.status` | Certification Badge | Auto-populated; displayed as a badge on scan results | Defaults to `uncertified`. Document in README. |
 | `certification.authority` | Certifying Authority | Auto-populated; displayed alongside the badge | Empty if not set. Document in README. |
 | `certification.disclaimer` | Certification Disclaimer | Auto-populated; shown in tooltip | Not displayed. Optional but recommended for `conformant` profiles. |
@@ -1411,8 +1421,8 @@ profile:
 
 **Auto-populate flow:**
 
-When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, and `certification_authority` keys, the form fields auto-populate. All fields remain editable -- the auto-populate provides defaults, not constraints.
+When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, `certification_authority`, `remediate_jt_name`, and `remediation_playbook` keys, the form fields auto-populate. For `remediate_jt_name`, the plugin resolves the name against the Controller's JT list to set the Remediate Job Template ID. All fields remain editable -- the auto-populate provides defaults, not constraints.
 
 If the JT has no extra_vars (e.g., a manually created JT without `install.yml`), the user fills in the fields manually. After the first scan, the CFF output confirms the profile metadata via the self-healing path.
 
-**install.yml and extra_vars:** The `install.yml` playbook in each profile reads `meta/compliance-profile.yml` and uses `infra.aap_configuration` to set the values as default `extra_vars` on the scan JT. This is the bridge between the collection metadata and the auto-populate behavior. If you skip `install.yml` and create the JT manually, ensure you set the same extra_vars keys, or document the values in the profile README for manual entry.
+**install.yml and extra_vars:** The `install.yml` playbook in each profile reads `meta/compliance-profile.yml` and uses `infra.aap_configuration` to set the values as default `extra_vars` on the scan JT. This is the bridge between the collection metadata and the auto-populate behavior. If you skip `install.yml` and create the JT manually, ensure you set the same extra_vars keys -- in particular `remediate_jt_name` and `remediation_playbook` which link the assessment profile to its remediation JT. Without `remediate_jt_name`, the plugin falls back to a generic name search and may launch the wrong remediation JT in multi-profile deployments. Document all values in the profile README for manual entry.
