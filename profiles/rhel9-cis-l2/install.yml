@@ -61,6 +61,7 @@
           playbook: "{{ profile.scan_playbook }}"
           inventory: "{{ inventory_name }}"
           ask_variables_on_launch: true
+          ask_inventory_on_launch: true
           use_fact_cache: true
           extra_vars:
             profile_name: "{{ profile.name }}"
@@ -88,6 +89,7 @@
           playbook: "{{ profile.remediate_playbook }}"
           inventory: "{{ inventory_name }}"
           ask_variables_on_launch: true
+          ask_inventory_on_launch: true
           ask_tags_on_launch: true
         validate_certs: false
         status_code: [200, 201]
