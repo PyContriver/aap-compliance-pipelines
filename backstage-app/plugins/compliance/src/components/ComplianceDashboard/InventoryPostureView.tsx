@@ -6,7 +6,7 @@ import { ComplianceGauge } from './ComplianceGauge';
 const useStyles = makeStyles(theme => ({
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
     gap: theme.spacing(2),
     padding: theme.spacing(1, 0),
   },
@@ -21,10 +21,11 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     flexWrap: 'wrap' as const,
     justifyContent: 'center',
-    gap: theme.spacing(1),
+    gap: theme.spacing(3),
   },
   gaugeSlot: {
-    width: 100,
+    flex: '0 0 120px',
+    maxWidth: 140,
   },
 }));
 
