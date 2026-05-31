@@ -843,12 +843,14 @@ export async function createRouter(
       }
     }
 
-    // Dedup guard: reject if an identical remediation was launched within 5s
+    // Dedup guard: reject if a remediation for this profile is already
+    // running/pending on Controller, or was launched within 30s.
     const dedupKey = `remediate:${body.profileId}:${body.selections.filter((s: {enabled: boolean}) => s.enabled).map((s: {ruleId: string}) => s.ruleId).sort().join(',')}`;
     const now = Date.now();
-    if (recentRemediations.has(dedupKey) && now - recentRemediations.get(dedupKey)! < 5000) {
-      logger.warn(`Duplicate remediation blocked (${now - recentRemediations.get(dedupKey)!}ms since last)`);
-      res.status(409).json({ error: 'Duplicate remediation request — already launched' });
+    const lastLaunch = recentRemediations.get(dedupKey);
+    if (lastLaunch && now - lastLaunch < 30_000) {
+      logger.warn(`Duplicate remediation blocked (${now - lastLaunch}ms since last)`);
+      res.status(409).json({ error: 'Duplicate remediation request — already launched. Wait for the current run to complete.' });
       return;
     }
     recentRemediations.set(dedupKey, now);
