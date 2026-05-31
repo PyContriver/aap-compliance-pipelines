@@ -142,6 +142,8 @@ export async function createRouter(
 ): Promise<express.Router> {
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
+  const recentRemediations = new Map<string, number>();
+
   router.use((req, res, next) => {
     if (req.path.startsWith('/findings/ingest')) return next();
     express.json({ limit: '1mb' })(req, res, next);
@@ -840,6 +842,16 @@ export async function createRouter(
         return;
       }
     }
+
+    // Dedup guard: reject if an identical remediation was launched within 5s
+    const dedupKey = `remediate:${body.profileId}:${body.selections.filter((s: {enabled: boolean}) => s.enabled).map((s: {ruleId: string}) => s.ruleId).sort().join(',')}`;
+    const now = Date.now();
+    if (recentRemediations.has(dedupKey) && now - recentRemediations.get(dedupKey)! < 5000) {
+      logger.warn(`Duplicate remediation blocked (${now - recentRemediations.get(dedupKey)!}ms since last)`);
+      res.status(409).json({ error: 'Duplicate remediation request — already launched' });
+      return;
+    }
+    recentRemediations.set(dedupKey, now);
 
     const remediateRequest: LaunchRemediationRequest = {
       profileId: body.profileId,
