@@ -510,35 +510,15 @@ export class ComplianceService {
       token,
     );
 
-    // If plan produced 0 groups (e.g., all selected rules already pass),
-    // use the selected rule IDs as tags directly and target all hosts.
+    // If plan produced 0 groups, the selected rules have no failing hosts
+    // in the latest findings for this profile. Fail with a clear message
+    // instead of launching against incorrect hosts.
     if (plan.groups.length === 0) {
-      const enabledRuleIds = request.selections
-        .filter(s => s.enabled)
-        .map(s => s.ruleId);
-      if (enabledRuleIds.length > 0) {
-        const allHosts = new Set<string>();
-        for (const f of findings) {
-          f.hosts.forEach(h => allHosts.add(h.host));
-        }
-        this.logger.info(
-          `Plan produced 0 groups — using ${enabledRuleIds.length} selected rule IDs as tags directly`,
-        );
-
-        const launch = await this.controllerClient!.launchJobTemplate(
-          resolvedJtId,
-          {},
-          token,
-          allHosts.size > 0 ? Array.from(allHosts).join(',') : request.limit,
-          enabledRuleIds.join(','),
-          request.inventoryId,
-        );
-        return {
-          remediationId: `remediation-${launch.id}`,
-          workflowJobId: launch.id,
-          status: launch.status,
-        };
-      }
+      const enabledCount = request.selections.filter(s => s.enabled).length;
+      throw new Error(
+        `No failing hosts found for the ${enabledCount} selected rule(s). ` +
+        `Run a new scan for this profile before launching remediation.`,
+      );
     }
 
     // Launch one JT per plan group. Each group has its own scoped host
@@ -586,14 +566,14 @@ export class ComplianceService {
 
   // ─── Findings ───────────────────────────────────────────────────────
 
-  async getFindings(scanId?: string): Promise<MultiHostFinding[]> {
+  async getFindings(scanId?: string, profileId?: string): Promise<MultiHostFinding[]> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getFindings();
     }
 
     if (!scanId) {
       if (this.database) {
-        const latest = await this.database.getLatestFindings();
+        const latest = await this.database.getLatestFindings(profileId);
         if (latest.length > 0) return this.storedFindingsToMultiHost(latest);
       }
       return [];
@@ -972,7 +952,10 @@ export class ComplianceService {
   }
 
   private storedFindingsToMultiHost(stored: StoredFinding[]): MultiHostFinding[] {
-    const byRule = this.groupFindingsByRule(stored);
+    // Filter out localhost findings — these are artifacts from the normalize
+    // play (Play 2) which runs on localhost inside the EE container.
+    const filtered = stored.filter(f => f.host !== 'localhost');
+    const byRule = this.groupFindingsByRule(filtered);
     return this.buildMultiHostFindings(byRule, new Map(), this.getRulesMetadata());
   }
 

@@ -883,11 +883,11 @@ export async function createRouter(
     }
 
     try {
-      // Always use the LATEST findings for host scoping — the remediation
-      // profile defines which rules to fix, but the host targets must
-      // reflect the current state, not a stale scan snapshot.
-      const findings = await service.getFindings();
-      logger.info(`Findings for remediation (latest): ${findings.length} rules`);
+      // Use the latest findings FOR THIS PROFILE for host scoping.
+      // Scoping by profileId ensures STIG remediations use STIG findings
+      // (not CIS findings that happen to be more recent).
+      const findings = await service.getFindings(undefined, remediateRequest.profileId);
+      logger.info(`Findings for remediation (profile=${remediateRequest.profileId}): ${findings.length} rules`);
 
       // Build the plan for the response (the service also builds it
       // internally for the actual launch, so the plan in the response
