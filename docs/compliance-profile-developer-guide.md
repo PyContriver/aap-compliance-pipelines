@@ -917,6 +917,7 @@ The plugin launches the remediation JT **directly** (not through the assessment 
 
 The remediation JT must have:
 
+- `become_enabled: true` -- CaC remediation playbooks assume root privileges. Without this, tasks that modify system configuration (sysctl, PAM, package install) fail with permission errors. The CaC playbooks do not set `become: true` at the play level — they delegate privilege escalation to the execution environment.
 - `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
 - `ask_inventory_on_launch: true` -- allows inventory override (same as workflow nodes)

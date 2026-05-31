@@ -150,7 +150,7 @@ registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
 |`compliance-remediate`
 |Run
 |`remediate.yml`
-|`ask_inventory_on_launch: true`, `ask_limit_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
+|`become_enabled: true`, `ask_inventory_on_launch: true`, `ask_limit_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
 |===
 
 === Assessment architecture
