@@ -577,6 +577,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
   const completeFired = useRef(false);
+  const launchFired = useRef(false);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
   // Selections and findings for rule grouping
@@ -620,6 +621,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
 
   // Launch the remediation via the backend
   const launchRemediation = useCallback(async () => {
+    if (launchFired.current) return;
+    launchFired.current = true;
     try {
       // Load selections from the saved remediation profile
       let loadedSelections: RemediationSelection[] = [];
