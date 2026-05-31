@@ -57,6 +57,8 @@ export interface LaunchRemediationResponse {
   remediationId: string;
   workflowJobId: number;
   status: string;
+  /** All job IDs when remediation splits into multiple groups (per host-set). */
+  allJobIds?: number[];
 }
 
 /** Posture snapshot for historical trend tracking. */

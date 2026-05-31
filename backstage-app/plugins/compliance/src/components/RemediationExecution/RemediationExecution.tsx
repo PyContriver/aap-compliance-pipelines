@@ -573,6 +573,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [progress, setProgress] = useState(0);
   const [tasks, setTasks] = useState<RemediationTask[]>([]);
   const [workflowJobId, setWorkflowJobId] = useState<number | null>(null);
+  const [allJobIds, setAllJobIds] = useState<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
@@ -684,6 +685,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         scanId,
       });
       setWorkflowJobId(result.workflowJobId);
+      setAllJobIds(result.allJobIds ?? [result.workflowJobId]);
       setPhase('preparing');
     } catch (err) {
       setPhase('failed');
@@ -783,45 +785,63 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
     [selections],
   );
 
-  // Poll the remediate job directly (not a workflow — remediation
-  // launches the JT with native job_tags for proper scoping).
+  // Poll all remediation jobs. When remediation splits into multiple
+  // groups (different host sets), each group is a separate JT launch.
+  // We poll all of them in a single interval and merge task events.
   useEffect(() => {
-    if (!workflowJobId) return undefined;
+    const jobIds = allJobIds.length > 0 ? allJobIds : (workflowJobId ? [workflowJobId] : []);
+    if (jobIds.length === 0) return undefined;
 
     let cancelled = false;
 
     const pollStatus = async () => {
       try {
-        const jobStatus = await api.getJobStatus(workflowJobId).catch(() => null);
-        if (cancelled || !jobStatus) return;
+        const statuses = await Promise.all(
+          jobIds.map(id => api.getJobStatus(id).catch(() => null)),
+        );
+        if (cancelled) return;
 
-        setOverallStatus(jobStatus.status);
-        setElapsed(jobStatus.elapsed ?? 0);
+        const validStatuses = statuses.filter(Boolean);
+        if (validStatuses.length === 0) return;
 
-        if (jobStatus.status === 'successful') {
+        const maxElapsed = Math.max(...validStatuses.map(s => s!.elapsed ?? 0));
+        setElapsed(maxElapsed);
+
+        const allSuccessful = validStatuses.every(s => s!.status === 'successful');
+        const anyRunning = validStatuses.some(s => s!.status === 'running' || s!.status === 'waiting');
+        const anyFailed = validStatuses.some(s => TERMINAL_STATUSES.includes(s!.status) && s!.status !== 'successful');
+
+        if (allSuccessful) {
+          setOverallStatus('successful');
           setPhase('complete');
           setProgress(100);
-        } else if (jobStatus.status === 'running' || jobStatus.status === 'waiting') {
-          setPhase('running');
-        } else if (TERMINAL_STATUSES.includes(jobStatus.status)) {
+        } else if (anyFailed && !anyRunning) {
+          const failedJob = validStatuses.find(s => s!.failed);
+          setOverallStatus('failed');
           setPhase('failed');
           setErrorMessage(
-            jobStatus.failed
-              ? `Remediation failed after ${formatElapsed(jobStatus.elapsed ?? 0)}`
-              : `Remediation ${jobStatus.status}`,
+            failedJob
+              ? `Remediation failed after ${formatElapsed(failedJob.elapsed ?? 0)}`
+              : 'Remediation failed',
           );
           setProgress(100);
+        } else if (anyRunning) {
+          setOverallStatus('running');
+          setPhase('running');
         }
 
-        // Fetch task-level events directly from the job
+        // Fetch and merge task events from all jobs
         try {
-          const events = await api.getJobEvents(workflowJobId);
+          const allEvents = await Promise.all(
+            jobIds.map(id => api.getJobEvents(id).catch(() => [])),
+          );
           if (!cancelled) {
-            const extracted = extractTasksFromEvents(events, knownRuleIds);
+            const mergedEvents = allEvents.flat();
+            const extracted = extractTasksFromEvents(mergedEvents, knownRuleIds);
             if (extracted.length > 0) {
               setTasks(extracted);
               const done = extracted.filter(t => t.status === 'completed' || t.status === 'failed').length;
-              if (jobStatus.status === 'running') {
+              if (anyRunning) {
                 setProgress(Math.round((done / extracted.length) * 100));
               }
             }
@@ -830,7 +850,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           // Job events may not be available yet
         }
 
-        if (TERMINAL_STATUSES.includes(jobStatus.status) && !completeFired.current) {
+        if ((allSuccessful || (anyFailed && !anyRunning)) && !completeFired.current) {
           completeFired.current = true;
         }
       } catch {
@@ -845,7 +865,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       cancelled = true;
       clearInterval(interval);
     };
-  }, [api, workflowJobId, knownRuleIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, workflowJobId, allJobIds.length, knownRuleIds]);
 
   // Group tasks by rule
   const { groups: ruleGroups, approximateGrouping } = useMemo(() => {

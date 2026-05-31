@@ -580,6 +580,7 @@ export class ComplianceService {
       remediationId: `remediation-${primary.id}`,
       workflowJobId: primary.id,
       status: primary.status,
+      allJobIds: launches.map(l => l.id),
     };
   }
 
