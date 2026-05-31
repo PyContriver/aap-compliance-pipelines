@@ -920,6 +920,7 @@ The remediation JT must have:
 - `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
 - `ask_inventory_on_launch: true` -- allows inventory override (same as workflow nodes)
+- `ask_limit_on_launch: true` -- allows the plugin to scope remediation to only the hosts that failed each rule. Without this, Controller ignores the `limit` parameter and runs against the full inventory. When different rules fail on different host subsets, the plugin launches separate JTs per host group, each with its own `limit`.
 
 > **CRITICAL: Rule IDs must match CaC tag names exactly.** The rule `id` field in the rules YAML is passed directly as `job_tags` to the remediation JT. The CaC playbook filters tasks by these tags. If a rule ID doesn't match a CaC tag, no remediation tasks will run for that rule. CaC tag names are the directory names under `ComplianceAsCode/content/linux_os/guide/` (e.g., `mount_option_tmp_noexec`, not `mount_tmp_noexec`). Always verify rule IDs against the CaC source before shipping a profile.
 
