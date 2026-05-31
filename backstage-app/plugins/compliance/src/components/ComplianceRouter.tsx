@@ -87,7 +87,7 @@ const ComplianceRouter = () => {
   const getSelectedTab = (): number => {
     const path = location.pathname.replace(/^\/compliance\/?/, '');
     if (path.startsWith('scan')) return 1;
-    if (path.startsWith('results') || path.startsWith('remediation/') || path.startsWith('execute')) return 2;
+    if (path.startsWith('results') || path.startsWith('remediation/') || path.startsWith('execute') || path.startsWith('remediation-result')) return 2;
     if (path === 'remediations' || path.startsWith('remediation-edit/')) return 3;
     if (path.startsWith('settings')) return 4;
     return 0;

@@ -286,6 +286,7 @@ function groupTasksByRule(
   ]);
 
   const enabledRules = selections.filter(s => s.enabled);
+  const enabledRuleIds = new Set(enabledRules.map(s => s.ruleId));
   const ruleTitleMap = new Map<string, { ruleId: string; stigId: string; title: string }>();
   for (const sel of enabledRules) {
     const finding = findingsMap.get(sel.ruleId);
@@ -357,16 +358,15 @@ function groupTasksByRule(
   const prereqTasks: RemediationTask[] = [];
   let firstRuleTaskIdx = tasks.length;
   for (let i = 0; i < tasks.length; i++) {
-    const taskLower = tasks[i].name.toLowerCase();
-    // Check if this task anchors to a rule
-    if (findAnchor(taskLower) !== null) {
+    // Check pre-computed ruleId from event_data.role first
+    if (tasks[i].ruleId && enabledRuleIds.has(tasks[i].ruleId)) {
       firstRuleTaskIdx = i;
       break;
     }
-    // Also break on tasks that match PREREQ_TASKS explicitly (backward compat)
-    if (!PREREQ_TASKS.has(taskLower)) {
-      // Not a known prereq and not an anchor — still treat as prereq since
-      // it appears before the first rule-anchored task
+    const taskLower = tasks[i].name.toLowerCase();
+    if (findAnchor(taskLower) !== null) {
+      firstRuleTaskIdx = i;
+      break;
     }
     prereqTasks.push(tasks[i]);
   }
@@ -378,7 +378,9 @@ function groupTasksByRule(
 
   for (let i = firstRuleTaskIdx; i < tasks.length; i++) {
     const task = tasks[i];
-    const anchoredRule = findAnchor(task.name.toLowerCase());
+    const anchoredRule = (task.ruleId && enabledRuleIds.has(task.ruleId))
+      ? task.ruleId
+      : findAnchor(task.name.toLowerCase());
 
     if (anchoredRule) {
       currentRuleId = anchoredRule;
@@ -407,7 +409,9 @@ function groupTasksByRule(
 
     for (let i = firstRuleTaskIdx; i < tasks.length; i++) {
       const task = tasks[i];
-      const anchoredRule = findAnchor(task.name.toLowerCase());
+      const anchoredRule = (task.ruleId && enabledRuleIds.has(task.ruleId))
+        ? task.ruleId
+        : findAnchor(task.name.toLowerCase());
 
       if (anchoredRule) {
         const idx = ruleOrder.indexOf(anchoredRule);
@@ -686,6 +690,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       setWorkflowJobId(result.workflowJobId);
       setAllJobIds(result.allJobIds ?? [result.workflowJobId]);
       setPhase('preparing');
+      // Replace URL so page refresh enters view mode instead of re-launching
+      window.history.replaceState(null, '', `/compliance/remediation-result/${result.workflowJobId}`);
     } catch (err) {
       setPhase('failed');
       setErrorMessage(
