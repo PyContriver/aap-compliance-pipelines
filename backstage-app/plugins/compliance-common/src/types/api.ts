@@ -2,7 +2,7 @@
  * Types for the compliance backend REST API and Controller integration.
  */
 
-import type { Finding, ScanResult, FindingParameter } from './findings';
+import type { FindingParameter } from './findings';
 import type { RemediationProfile, RemediationSelection } from './profiles';
 
 /**

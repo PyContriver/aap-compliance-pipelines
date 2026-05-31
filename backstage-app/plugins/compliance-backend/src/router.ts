@@ -863,15 +863,11 @@ export async function createRouter(
     }
 
     try {
-      // Fetch findings for the remediation plan. Try the provided scanId
-      // first; if it returns nothing (e.g., old profile with non-numeric
-      // scanId), fall back to the latest findings.
-      let findings = await service.getFindings(body.scanId);
-      if (findings.length === 0 && body.scanId) {
-        logger.info(`No findings for scanId=${body.scanId}, falling back to latest`);
-        findings = await service.getFindings();
-      }
-      logger.info(`Findings for remediation: ${findings.length} rules`);
+      // Always use the LATEST findings for host scoping — the remediation
+      // profile defines which rules to fix, but the host targets must
+      // reflect the current state, not a stale scan snapshot.
+      const findings = await service.getFindings();
+      logger.info(`Findings for remediation (latest): ${findings.length} rules`);
 
       // Build the plan for the response (the service also builds it
       // internally for the actual launch, so the plan in the response
