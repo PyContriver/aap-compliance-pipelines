@@ -473,7 +473,16 @@ export const ComplianceDashboard = () => {
               ))}
             </div>
           ) : (
-            <InventoryPostureView byInventory={stats.byInventory} />
+            <InventoryPostureView
+              byInventory={stats.byInventory}
+              onGaugeClick={(profileId, inventoryId) => {
+                const fw = stats.frameworkScores.find(f => f.profileId === profileId);
+                const scan = fw?.contributingScans.find(s => s.inventoryId === inventoryId);
+                if (scan) {
+                  navigate(`results/${scan.scanId}`);
+                }
+              }}
+            />
           )}
         </InfoCard>
       </div>

@@ -31,9 +31,10 @@ const useStyles = makeStyles(theme => ({
 
 interface InventoryPostureViewProps {
   byInventory: InventoryPosture[];
+  onGaugeClick?: (profileId: string, inventoryId: number) => void;
 }
 
-export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({ byInventory }) => {
+export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({ byInventory, onGaugeClick }) => {
   const classes = useStyles();
 
   if (byInventory.length === 0) {
@@ -56,6 +57,8 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({ byIn
                   value={ps.rate}
                   label={ps.name}
                   subtitle={`${ps.passCount}/${ps.passCount + ps.failCount}`}
+                  clickable={!!onGaugeClick}
+                  onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
                 />
               </div>
             ))}
