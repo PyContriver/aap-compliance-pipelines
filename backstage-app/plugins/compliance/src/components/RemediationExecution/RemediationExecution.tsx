@@ -808,14 +808,15 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         setElapsed(maxElapsed);
 
         const allSuccessful = validStatuses.every(s => s!.status === 'successful');
-        const anyRunning = validStatuses.some(s => s!.status === 'running' || s!.status === 'waiting');
+        const anyInProgress = validStatuses.some(s => s!.status === 'running' || s!.status === 'waiting' || s!.status === 'pending' || s!.status === 'new');
+        const allTerminal = validStatuses.every(s => TERMINAL_STATUSES.includes(s!.status));
         const anyFailed = validStatuses.some(s => TERMINAL_STATUSES.includes(s!.status) && s!.status !== 'successful');
 
         if (allSuccessful) {
           setOverallStatus('successful');
           setPhase('complete');
           setProgress(100);
-        } else if (anyFailed && !anyRunning) {
+        } else if (anyFailed && allTerminal) {
           const failedJob = validStatuses.find(s => s!.failed);
           setOverallStatus('failed');
           setPhase('failed');
@@ -825,7 +826,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
               : 'Remediation failed',
           );
           setProgress(100);
-        } else if (anyRunning) {
+        } else if (anyInProgress) {
           setOverallStatus('running');
           setPhase('running');
         }
@@ -850,7 +851,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           // Job events may not be available yet
         }
 
-        if ((allSuccessful || (anyFailed && !anyRunning)) && !completeFired.current) {
+        if ((allSuccessful || (anyFailed && allTerminal)) && !completeFired.current) {
           completeFired.current = true;
         }
       } catch {
