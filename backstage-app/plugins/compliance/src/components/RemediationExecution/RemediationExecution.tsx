@@ -297,24 +297,78 @@ function groupTasksByRule(
     });
   }
 
+  /**
+   * Extract significant words (>3 chars, lowercased) from a string,
+   * filtering out common stop words that don't contribute to matching.
+   */
+  const extractWords = (text: string): string[] => {
+    const stopWords = new Set(['with', 'from', 'that', 'this', 'have', 'been', 'will', 'should', 'must', 'shall', 'ensure', 'verify']);
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !stopWords.has(w));
+  };
+
+  /**
+   * Find which rule a task belongs to using multiple matching strategies:
+   * 1. Prefix match: task name starts with the rule title (original STIG behavior)
+   * 2. Substring match: rule title appears within the task name
+   * 3. CIS section number: stigId (e.g. "1.4.1") appears in the task name
+   * 4. Tokenized word overlap: 50%+ of title words appear in task name
+   */
   const findAnchor = (taskLower: string): string | null => {
+    // Strategy 1: Prefix match (works well for STIG)
     for (const [ruleId, meta] of ruleTitleMap) {
       const prefix = meta.title.toLowerCase();
       if (prefix.length > 5 && taskLower.startsWith(prefix)) return ruleId;
     }
+    // Strategy 2: Substring match (rule title is contained in task name)
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const title = meta.title.toLowerCase();
+      if (title.length > 5 && taskLower.includes(title)) return ruleId;
+    }
+    // Strategy 3: CIS section number match (e.g. "1.4.1" in task name)
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const sid = meta.stigId;
+      if (sid && /^\d+\.\d+/.test(sid) && taskLower.includes(sid)) return ruleId;
+    }
+    // Strategy 4: Tokenized word overlap (>=50% of title words in task name)
+    let bestMatch: string | null = null;
+    let bestOverlap = 0;
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const titleWords = extractWords(meta.title);
+      if (titleWords.length < 2) continue;
+      const taskWords = new Set(extractWords(taskLower));
+      const overlap = titleWords.filter(w => taskWords.has(w)).length;
+      const ratio = overlap / titleWords.length;
+      if (ratio >= 0.5 && overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestMatch = ruleId;
+      }
+    }
+    if (bestMatch) return bestMatch;
     return null;
   };
 
-  // Phase 1: Identify prereq tasks and the first non-prereq index
+  // Phase 1: Identify prereq tasks — all tasks before the first rule-anchored
+  // task are treated as prereqs. This handles both STIG and CIS playbooks
+  // regardless of their specific prereq task naming conventions.
   const prereqTasks: RemediationTask[] = [];
   let firstRuleTaskIdx = tasks.length;
   for (let i = 0; i < tasks.length; i++) {
-    if (PREREQ_TASKS.has(tasks[i].name.toLowerCase())) {
-      prereqTasks.push(tasks[i]);
-    } else {
+    const taskLower = tasks[i].name.toLowerCase();
+    // Check if this task anchors to a rule
+    if (findAnchor(taskLower) !== null) {
       firstRuleTaskIdx = i;
       break;
     }
+    // Also break on tasks that match PREREQ_TASKS explicitly (backward compat)
+    if (!PREREQ_TASKS.has(taskLower)) {
+      // Not a known prereq and not an anchor — still treat as prereq since
+      // it appears before the first rule-anchored task
+    }
+    prereqTasks.push(tasks[i]);
   }
 
   // Phase 2: Try title-prefix matching for remaining tasks

@@ -194,26 +194,28 @@ def parse_xccdf_results(filepath, framework='auto'):
             fix_text = ''
             for fix_el in rule.findall(f'{{{ns}}}fix' if ns else 'fix'):
                 sys_attr = fix_el.get('system', '')
-                if 'ansible' in sys_attr and fix_el.text:
-                    fix_text = fix_el.text
+                el_text = ''.join(fix_el.itertext()).strip()
+                if 'ansible' in sys_attr and el_text:
+                    fix_text = el_text
                     break
             if not fix_text:
                 for fix_el in rule.findall(f'{{{ns}}}fix' if ns else 'fix'):
-                    if fix_el.text:
-                        fix_text = fix_el.text
+                    el_text = ''.join(fix_el.itertext()).strip()
+                    if el_text:
+                        fix_text = el_text
                         break
             # Fall back to <fixtext> if present (non-SSG XCCDF)
             if not fix_text:
                 fixtext_el = rule.find(f'{{{ns}}}fixtext' if ns else 'fixtext')
-                if fixtext_el is not None and fixtext_el.text:
-                    fix_text = fixtext_el.text
+                if fixtext_el is not None:
+                    fix_text = ''.join(fixtext_el.itertext()).strip()
 
             # SSG uses <rationale> instead of inline <check-content>
             rationale_el = rule.find(f'{{{ns}}}rationale' if ns else 'rationale')
-            check_text = rationale_el.text if rationale_el is not None and rationale_el.text else ''
+            check_text = ''.join(rationale_el.itertext()).strip() if rationale_el is not None else ''
 
             title = title_el.text if title_el is not None and title_el.text else ''
-            description = desc_el.text if desc_el is not None and desc_el.text else ''
+            description = ''.join(desc_el.itertext()).strip() if desc_el is not None else ''
 
             # Extract control IDs from <ident> and <reference> elements.
             # All available IDs are collected; the primary ID used in the
