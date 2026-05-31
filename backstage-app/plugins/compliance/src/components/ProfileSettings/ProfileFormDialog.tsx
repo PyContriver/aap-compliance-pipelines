@@ -17,6 +17,7 @@ import {
   Box,
   makeStyles,
 } from '@material-ui/core';
+import Autocomplete from '@material-ui/lab/Autocomplete';
 import { complianceApiRef } from '../../api';
 
 import type {
@@ -303,14 +304,20 @@ export const ProfileFormDialog = ({
               value={form.description} onChange={e => updateForm('description', e.target.value)}
               className={classes.formField} />
 
-            <FormControl variant="outlined" fullWidth className={classes.formField}>
-              <InputLabel>Compliance Standard</InputLabel>
-              <Select value={form.framework} onChange={e => updateForm('framework', e.target.value)} label="Compliance Standard">
-                {FRAMEWORK_OPTIONS.map(f => (
-                  <MenuItem key={f.value} value={f.value}>{f.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              freeSolo
+              options={FRAMEWORK_OPTIONS.map(f => f.value)}
+              getOptionLabel={opt => {
+                const found = FRAMEWORK_OPTIONS.find(f => f.value === opt);
+                return found ? found.label : String(opt);
+              }}
+              value={form.framework}
+              onChange={(_, val) => updateForm('framework', val || '')}
+              onInputChange={(_, val) => updateForm('framework', val)}
+              renderInput={params => (
+                <TextField {...params} label="Compliance Standard" variant="outlined" placeholder="e.g., DISA STIG, CIS, SOC2" className={classes.formField} />
+              )}
+            />
 
             <TextField label="Standard Version" variant="outlined" fullWidth placeholder="e.g., V2R8"
               value={form.version} onChange={e => updateForm('version', e.target.value)} className={classes.formField} />

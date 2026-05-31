@@ -165,7 +165,9 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
 export const MOCK_DASHBOARD_STATS: DashboardStats = {
   hostsScanned: 38,
   criticalFindings: 5,
+  criticalFindingsDelta: -2,
   pendingRemediation: 12,
+  pendingRemediationDelta: -4,
   activeProfiles: 3,
   recentScans: [
     {
@@ -197,9 +199,23 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
     },
   ],
   frameworkScores: [
-    { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, lastScan: '2026-04-28' },
-    { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 92, lastScan: '2026-04-27' },
-    { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 85, lastScan: '2026-04-25' },
+    { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2026-04-28', contributingScans: [{ scanId: 's1', inventoryId: 1, inventoryName: 'prod-servers', passRate: 78, passCount: 285, failCount: 81, ruleCount: 366, timestamp: '2026-04-28' }] },
+    { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 92, passCount: 174, failCount: 15, lastScan: '2026-04-27', contributingScans: [{ scanId: 's2', inventoryId: 2, inventoryName: 'staging-servers', passRate: 92, passCount: 174, failCount: 15, ruleCount: 189, timestamp: '2026-04-27' }] },
+    { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 85, passCount: 121, failCount: 21, lastScan: '2026-04-25', contributingScans: [{ scanId: 's3', inventoryId: 1, inventoryName: 'prod-servers', passRate: 85, passCount: 121, failCount: 21, ruleCount: 142, timestamp: '2026-04-25' }] },
+  ],
+  postureStatus: [
+    { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, aboveTarget: false },
+    { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 92, aboveTarget: true },
+    { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 85, aboveTarget: true },
+  ],
+  byInventory: [
+    { inventoryId: 1, inventoryName: 'prod-servers', profileScores: [
+      { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, passCount: 285, failCount: 81 },
+      { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 85, passCount: 121, failCount: 21 },
+    ] },
+    { inventoryId: 2, inventoryName: 'staging-servers', profileScores: [
+      { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 92, passCount: 174, failCount: 15 },
+    ] },
   ],
 };
 
@@ -320,6 +336,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
       status: 'pending',
     } as LaunchRemediationResponse),
     getDashboardStats: jest.fn().mockResolvedValue(MOCK_DASHBOARD_STATS),
+    getContributingScans: jest.fn().mockResolvedValue([]),
     getPostureHistory: jest.fn().mockResolvedValue([] as PostureSnapshot[]),
     getRemediationProfiles: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES),
     getRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),

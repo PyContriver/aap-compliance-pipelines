@@ -328,7 +328,9 @@ export class MockDataProvider {
     return {
       hostsScanned: 12,
       criticalFindings: 8,
+      criticalFindingsDelta: -3,
       pendingRemediation: 15,
+      pendingRemediationDelta: -5,
       activeProfiles: 3,
       recentScans: [
         { id: '1', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 78, timestamp: '2 hours ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
@@ -337,9 +339,33 @@ export class MockDataProvider {
         { id: '4', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'dev-servers', passRate: 62, timestamp: '3 days ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
       ],
       frameworkScores: [
-        { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, lastScan: '2 hours ago' },
-        { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 85, lastScan: '1 day ago' },
-        { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 62, lastScan: '3 days ago' },
+        { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2 hours ago', contributingScans: [
+          { scanId: 's1', inventoryId: 1, inventoryName: 'production-web-servers', passRate: 78, passCount: 285, failCount: 81, ruleCount: 366, timestamp: '2 hours ago' },
+          { scanId: 's4', inventoryId: 3, inventoryName: 'dev-servers', passRate: 62, passCount: 227, failCount: 139, ruleCount: 366, timestamp: '3 days ago' },
+        ] },
+        { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 85, passCount: 160, failCount: 29, lastScan: '1 day ago', contributingScans: [
+          { scanId: 's2', inventoryId: 2, inventoryName: 'staging-db-servers', passRate: 85, passCount: 160, failCount: 29, ruleCount: 189, timestamp: '1 day ago' },
+        ] },
+        { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 62, passCount: 88, failCount: 54, lastScan: '3 days ago', contributingScans: [
+          { scanId: 's5', inventoryId: 1, inventoryName: 'production-web-servers', passRate: 62, passCount: 88, failCount: 54, ruleCount: 142, timestamp: '3 days ago' },
+        ] },
+      ],
+      postureStatus: [
+        { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, aboveTarget: false },
+        { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 85, aboveTarget: true },
+        { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 62, aboveTarget: false },
+      ],
+      byInventory: [
+        { inventoryId: 1, inventoryName: 'production-web-servers', profileScores: [
+          { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, passCount: 285, failCount: 81 },
+          { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 62, passCount: 88, failCount: 54 },
+        ] },
+        { inventoryId: 2, inventoryName: 'staging-db-servers', profileScores: [
+          { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 85, passCount: 160, failCount: 29 },
+        ] },
+        { inventoryId: 3, inventoryName: 'dev-servers', profileScores: [
+          { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 62, passCount: 227, failCount: 139 },
+        ] },
       ],
     };
   }
@@ -348,16 +374,16 @@ export class MockDataProvider {
     const now = Date.now();
     const day = 86_400_000;
     return [
-      { id: '1',  profileId: 'rhel9-stig', timestamp: new Date(now - 30 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 165, failCount: 201, compliancePct: 45 },
-      { id: '2',  profileId: 'rhel9-stig', timestamp: new Date(now - 27 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 176, failCount: 190, compliancePct: 48 },
-      { id: '3',  profileId: 'rhel9-stig', timestamp: new Date(now - 24 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 190, failCount: 176, compliancePct: 52 },
-      { id: '4',  profileId: 'rhel9-stig', timestamp: new Date(now - 21 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 201, failCount: 165, compliancePct: 55 },
-      { id: '5',  profileId: 'rhel9-stig', timestamp: new Date(now - 18 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 216, failCount: 150, compliancePct: 59 },
-      { id: '6',  profileId: 'rhel9-stig', timestamp: new Date(now - 14 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 227, failCount: 139, compliancePct: 62 },
-      { id: '7',  profileId: 'rhel9-stig', timestamp: new Date(now - 10 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 238, failCount: 128, compliancePct: 65 },
-      { id: '8',  profileId: 'rhel9-stig', timestamp: new Date(now - 7 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 249, failCount: 117, compliancePct: 68 },
-      { id: '9',  profileId: 'rhel9-stig', timestamp: new Date(now - 3 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 256, failCount: 110, compliancePct: 70 },
-      { id: '10', profileId: 'rhel9-stig', timestamp: new Date(now - 1 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 264, failCount: 102, compliancePct: 72 },
+      { id: '1',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t1',  timestamp: new Date(now - 30 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 165, failCount: 201, compliancePct: 45 },
+      { id: '2',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t2',  timestamp: new Date(now - 27 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 176, failCount: 190, compliancePct: 48 },
+      { id: '3',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t3',  timestamp: new Date(now - 24 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 190, failCount: 176, compliancePct: 52 },
+      { id: '4',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t4',  timestamp: new Date(now - 21 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 201, failCount: 165, compliancePct: 55 },
+      { id: '5',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t5',  timestamp: new Date(now - 18 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 216, failCount: 150, compliancePct: 59 },
+      { id: '6',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t6',  timestamp: new Date(now - 14 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 227, failCount: 139, compliancePct: 62 },
+      { id: '7',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t7',  timestamp: new Date(now - 10 * day).toISOString(), totalHosts: 20, totalRules: 366, passCount: 238, failCount: 128, compliancePct: 65 },
+      { id: '8',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t8',  timestamp: new Date(now - 7 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 249, failCount: 117, compliancePct: 68 },
+      { id: '9',  profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t9',  timestamp: new Date(now - 3 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 256, failCount: 110, compliancePct: 70 },
+      { id: '10', profileId: 'rhel9-stig', inventoryId: 1, scanId: 's-t10', timestamp: new Date(now - 1 * day).toISOString(),  totalHosts: 20, totalRules: 366, passCount: 264, failCount: 102, compliancePct: 72 },
     ];
   }
 

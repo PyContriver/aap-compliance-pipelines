@@ -17,6 +17,7 @@ import type {
   LaunchRemediationRequest,
   LaunchRemediationResponse,
   PostureSnapshot,
+  ContributingScan,
   RemediationProfile,
   SaveRemediationProfileRequest,
   WorkflowJobStatus,
@@ -45,6 +46,7 @@ export interface ComplianceApi {
   getJobEvents(jobId: number): Promise<JobEvent[]>;
   launchRemediation(body: LaunchRemediationRequest): Promise<LaunchRemediationResponse>;
   getDashboardStats(): Promise<DashboardStats>;
+  getContributingScans(profileId: string): Promise<ContributingScan[]>;
   getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
   getRemediationProfiles(): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;

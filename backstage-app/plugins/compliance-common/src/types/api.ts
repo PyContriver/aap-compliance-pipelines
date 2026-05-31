@@ -2,7 +2,7 @@
  * Types for the compliance backend REST API and Controller integration.
  */
 
-import type { Finding, ScanResult, FindingParameter } from './findings';
+import type { FindingParameter } from './findings';
 import type { RemediationProfile, RemediationSelection } from './profiles';
 
 /**
@@ -48,7 +48,7 @@ export interface LaunchRemediationRequest {
   inventoryId: number;
   selections: RemediationSelection[];
   limit?: string;
-  /** Scan ID to load findings from, used to build the remediation plan. */
+  /** Scan ID for display context and tracking only. Host scoping always uses latest findings. */
   scanId?: string;
 }
 
@@ -57,18 +57,34 @@ export interface LaunchRemediationResponse {
   remediationId: string;
   workflowJobId: number;
   status: string;
+  /** All job IDs when remediation splits into multiple groups (per host-set). */
+  allJobIds?: number[];
 }
 
 /** Posture snapshot for historical trend tracking. */
 export interface PostureSnapshot {
   id: string;
   profileId: string;
+  inventoryId?: number;
+  scanId?: string;
   timestamp: string;
   totalHosts: number;
   totalRules: number;
   passCount: number;
   failCount: number;
   compliancePct: number;
+}
+
+/** A scan that contributes to a profile's posture score. */
+export interface ContributingScan {
+  scanId: string;
+  inventoryId: number;
+  inventoryName: string;
+  passRate: number;
+  passCount: number;
+  failCount: number;
+  ruleCount: number;
+  timestamp: string;
 }
 
 /** Scan record stored in the database. */
@@ -200,11 +216,34 @@ export interface RecentScan {
   scanner?: string;
 }
 
+/** Per-profile posture status for the overview card. */
+export interface ProfilePostureStatus {
+  profileId: string;
+  name: string;
+  rate: number;
+  aboveTarget: boolean;
+}
+
+/** Per-inventory posture breakdown for dual-axis view. */
+export interface InventoryPosture {
+  inventoryId: number;
+  inventoryName: string;
+  profileScores: Array<{
+    profileId: string;
+    name: string;
+    rate: number;
+    passCount: number;
+    failCount: number;
+  }>;
+}
+
 /** Dashboard stats summary. */
 export interface DashboardStats {
   hostsScanned: number;
   criticalFindings: number;
+  criticalFindingsDelta?: number;
   pendingRemediation: number;
+  pendingRemediationDelta?: number;
   activeProfiles: number;
   recentScans: RecentScan[];
   frameworkScores: Array<{
@@ -213,8 +252,13 @@ export interface DashboardStats {
     target: string;
     rules: number;
     rate: number;
+    passCount: number;
+    failCount: number;
     lastScan: string;
+    contributingScans: ContributingScan[];
   }>;
+  postureStatus: ProfilePostureStatus[];
+  byInventory: InventoryPosture[];
 }
 
 /** A compliance profile maps a standard (e.g., DISA STIG) to Controller resources. */

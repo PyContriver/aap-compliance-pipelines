@@ -140,6 +140,28 @@ export class ComplianceDatabase {
     return rows.map(this.mapScanRow);
   }
 
+  async getLatestScanPerProfileInventory(): Promise<ComplianceScan[]> {
+    const rows = await this.db('compliance_scans as s')
+      .join(
+        this.db('compliance_scans')
+          .select('profile_id', 'inventory_id')
+          .max('completed_at as max_completed')
+          .where('status', 'completed')
+          .whereNot('scanner', 'remediation')
+          .groupBy('profile_id', 'inventory_id')
+          .as('latest'),
+        function () {
+          this.on('s.profile_id', 'latest.profile_id')
+            .andOn('s.inventory_id', 'latest.inventory_id')
+            .andOn('s.completed_at', 'latest.max_completed');
+        },
+      )
+      .where('s.status', 'completed')
+      .whereNot('s.scanner', 'remediation')
+      .orderBy('s.completed_at', 'desc');
+    return rows.map(this.mapScanRow);
+  }
+
   private mapScanRow(row: Record<string, unknown>): ComplianceScan {
     return {
       id: row.id as string,
@@ -272,6 +294,30 @@ export class ComplianceDatabase {
     return rows.map(this.mapFindingRow);
   }
 
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>> {
+    if (scanIds.length === 0) return new Map();
+    const rows = await this.db('compliance_findings')
+      .select('scan_id', 'status', 'severity', 'host', 'rule_id')
+      .whereIn('scan_id', scanIds);
+    const result = new Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>();
+    for (const row of rows) {
+      const sid = row.scan_id as string;
+      let entry = result.get(sid);
+      if (!entry) {
+        entry = { pass: 0, fail: 0, catI: 0, hosts: new Set(), rules: new Set() };
+        result.set(sid, entry);
+      }
+      entry.hosts.add(row.host as string);
+      entry.rules.add(row.rule_id as string);
+      if (row.status === 'pass') entry.pass++;
+      if (row.status === 'fail') {
+        entry.fail++;
+        if (row.severity === 'CAT_I') entry.catI++;
+      }
+    }
+    return result;
+  }
+
   private mapFindingRow(row: Record<string, unknown>): StoredFinding {
     return {
       id: row.id as string,
@@ -296,6 +342,8 @@ export class ComplianceDatabase {
     await this.db('compliance_posture_snapshots').insert({
       id,
       profile_id: snapshot.profileId,
+      inventory_id: snapshot.inventoryId ?? null,
+      scan_id: snapshot.scanId ?? null,
       timestamp: snapshot.timestamp,
       total_hosts: snapshot.totalHosts,
       total_rules: snapshot.totalRules,
@@ -330,6 +378,8 @@ export class ComplianceDatabase {
     return {
       id: row.id as string,
       profileId: row.profile_id as string,
+      inventoryId: (row.inventory_id as number) ?? undefined,
+      scanId: (row.scan_id as string) ?? undefined,
       timestamp: toISOString(row.timestamp),
       totalHosts: row.total_hosts as number,
       totalRules: row.total_rules as number,

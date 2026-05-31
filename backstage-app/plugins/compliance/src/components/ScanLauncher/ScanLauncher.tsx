@@ -528,8 +528,10 @@ export const ScanLauncher = () => {
             <Button
               variant="contained"
               color="primary"
+              disabled={launching}
               onClick={() => {
                 setPlatformWarning(null);
+                setLaunching(true);
                 doLaunch();
               }}
             >

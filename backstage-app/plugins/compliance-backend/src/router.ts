@@ -142,6 +142,14 @@ export async function createRouter(
 ): Promise<express.Router> {
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
+  const recentRemediations = new Map<string, number>();
+  setInterval(() => {
+    const cutoff = Date.now() - 60_000;
+    for (const [key, ts] of recentRemediations) {
+      if (ts < cutoff) recentRemediations.delete(key);
+    }
+  }, 60_000);
+
   router.use((req, res, next) => {
     if (req.path.startsWith('/findings/ingest')) return next();
     express.json({ limit: '1mb' })(req, res, next);
@@ -459,6 +467,8 @@ export async function createRouter(
   async function savePostureFromFindings(
     findings: Array<{ status: string; host: string; ruleId: string }>,
     profileId: string,
+    inventoryId?: number,
+    scanId?: string,
   ): Promise<void> {
     const passCount = findings.filter(f => f.status === 'pass').length;
     const failCount = findings.filter(f => f.status === 'fail').length;
@@ -467,6 +477,8 @@ export async function createRouter(
     const total = passCount + failCount;
     await database.savePostureSnapshot({
       profileId,
+      inventoryId,
+      scanId,
       timestamp: new Date().toISOString(),
       totalHosts: uniqueHosts,
       totalRules: uniqueRules,
@@ -474,7 +486,7 @@ export async function createRouter(
       failCount,
       compliancePct: total > 0 ? Math.round((passCount / total) * 100) : 0,
     });
-    logger.info(`Saved posture snapshot for profile=${profileId}`);
+    logger.info(`Saved posture snapshot for profile=${profileId} inventory=${inventoryId ?? 'unknown'}`);
   }
 
   async function fetchLiveFindings(
@@ -522,7 +534,7 @@ export async function createRouter(
 
     if (parsed.length > 0) {
       try {
-        await savePostureFromFindings(parsed, dbScan?.profileId ?? resolvedScanId);
+        await savePostureFromFindings(parsed, dbScan?.profileId ?? resolvedScanId, dbScan?.inventoryId, dbScan?.id);
       } catch (snapshotError) {
         logger.warn(`Failed to save posture snapshot: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
       }
@@ -702,7 +714,7 @@ export async function createRouter(
       await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
       try {
-        await savePostureFromFindings(mapped, scan.profileId);
+        await savePostureFromFindings(mapped, scan.profileId, scan.inventoryId, scan.id);
       } catch (err) {
         logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -768,7 +780,7 @@ export async function createRouter(
       return;
     }
     try {
-      let nodes;
+      let nodes: import('@aap-compliance/common').WorkflowNode[];
       try {
         nodes = await service.getWorkflowNodes(jobId, userToken);
       } catch (err) {
@@ -837,6 +849,18 @@ export async function createRouter(
       }
     }
 
+    // Dedup guard: reject if a remediation for this profile is already
+    // running/pending on Controller, or was launched within 30s.
+    const dedupKey = `remediate:${body.profileId}:${body.selections.filter((s: {enabled: boolean}) => s.enabled).map((s: {ruleId: string}) => s.ruleId).sort().join(',')}`;
+    const now = Date.now();
+    const lastLaunch = recentRemediations.get(dedupKey);
+    if (lastLaunch && now - lastLaunch < 60_000) {
+      logger.warn(`Duplicate remediation blocked (${now - lastLaunch}ms since last)`);
+      res.status(409).json({ error: 'Duplicate remediation request — already launched. Wait for the current run to complete.' });
+      return;
+    }
+    recentRemediations.set(dedupKey, now);
+
     const remediateRequest: LaunchRemediationRequest = {
       profileId: body.profileId,
       inventoryId: body.inventoryId,
@@ -859,15 +883,11 @@ export async function createRouter(
     }
 
     try {
-      // Fetch findings for the remediation plan. Try the provided scanId
-      // first; if it returns nothing (e.g., old profile with non-numeric
-      // scanId), fall back to the latest findings.
-      let findings = await service.getFindings(body.scanId);
-      if (findings.length === 0 && body.scanId) {
-        logger.info(`No findings for scanId=${body.scanId}, falling back to latest`);
-        findings = await service.getFindings();
-      }
-      logger.info(`Findings for remediation: ${findings.length} rules`);
+      // Always use the LATEST findings for host scoping — the remediation
+      // profile defines which rules to fix, but the host targets must
+      // reflect the current state, not a stale scan snapshot.
+      const findings = await service.getFindings();
+      logger.info(`Findings for remediation (latest): ${findings.length} rules`);
 
       // Build the plan for the response (the service also builds it
       // internally for the actual launch, so the plan in the response
@@ -906,6 +926,19 @@ export async function createRouter(
   router.get('/dashboard', async (_req, res) => {
     const stats = await service.getDashboardStats();
     res.json(stats);
+  });
+
+  router.get('/dashboard/scans-for-profile/:profileId', async (req, res) => {
+    const { profileId } = req.params;
+    try {
+      const stats = await service.getDashboardStats();
+      const fw = stats.frameworkScores.find(f => f.profileId === profileId);
+      res.json(fw?.contributingScans ?? []);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get contributing scans: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve contributing scans' });
+    }
   });
 
   // ─── Posture history ────────────────────────────────────────────────

@@ -297,24 +297,78 @@ function groupTasksByRule(
     });
   }
 
+  /**
+   * Extract significant words (>3 chars, lowercased) from a string,
+   * filtering out common stop words that don't contribute to matching.
+   */
+  const extractWords = (text: string): string[] => {
+    const stopWords = new Set(['with', 'from', 'that', 'this', 'have', 'been', 'will', 'should', 'must', 'shall', 'ensure', 'verify']);
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !stopWords.has(w));
+  };
+
+  /**
+   * Find which rule a task belongs to using multiple matching strategies:
+   * 1. Prefix match: task name starts with the rule title (original STIG behavior)
+   * 2. Substring match: rule title appears within the task name
+   * 3. CIS section number: stigId (e.g. "1.4.1") appears in the task name
+   * 4. Tokenized word overlap: 50%+ of title words appear in task name
+   */
   const findAnchor = (taskLower: string): string | null => {
+    // Strategy 1: Prefix match (works well for STIG)
     for (const [ruleId, meta] of ruleTitleMap) {
       const prefix = meta.title.toLowerCase();
       if (prefix.length > 5 && taskLower.startsWith(prefix)) return ruleId;
     }
+    // Strategy 2: Substring match (rule title is contained in task name)
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const title = meta.title.toLowerCase();
+      if (title.length > 5 && taskLower.includes(title)) return ruleId;
+    }
+    // Strategy 3: CIS section number match (e.g. "1.4.1" in task name)
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const sid = meta.stigId;
+      if (sid && /^\d+\.\d+/.test(sid) && taskLower.includes(sid)) return ruleId;
+    }
+    // Strategy 4: Tokenized word overlap (>=50% of title words in task name)
+    let bestMatch: string | null = null;
+    let bestOverlap = 0;
+    for (const [ruleId, meta] of ruleTitleMap) {
+      const titleWords = extractWords(meta.title);
+      if (titleWords.length < 2) continue;
+      const taskWords = new Set(extractWords(taskLower));
+      const overlap = titleWords.filter(w => taskWords.has(w)).length;
+      const ratio = overlap / titleWords.length;
+      if (ratio >= 0.5 && overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestMatch = ruleId;
+      }
+    }
+    if (bestMatch) return bestMatch;
     return null;
   };
 
-  // Phase 1: Identify prereq tasks and the first non-prereq index
+  // Phase 1: Identify prereq tasks — all tasks before the first rule-anchored
+  // task are treated as prereqs. This handles both STIG and CIS playbooks
+  // regardless of their specific prereq task naming conventions.
   const prereqTasks: RemediationTask[] = [];
   let firstRuleTaskIdx = tasks.length;
   for (let i = 0; i < tasks.length; i++) {
-    if (PREREQ_TASKS.has(tasks[i].name.toLowerCase())) {
-      prereqTasks.push(tasks[i]);
-    } else {
+    const taskLower = tasks[i].name.toLowerCase();
+    // Check if this task anchors to a rule
+    if (findAnchor(taskLower) !== null) {
       firstRuleTaskIdx = i;
       break;
     }
+    // Also break on tasks that match PREREQ_TASKS explicitly (backward compat)
+    if (!PREREQ_TASKS.has(taskLower)) {
+      // Not a known prereq and not an anchor — still treat as prereq since
+      // it appears before the first rule-anchored task
+    }
+    prereqTasks.push(tasks[i]);
   }
 
   // Phase 2: Try title-prefix matching for remaining tasks
@@ -519,10 +573,11 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [progress, setProgress] = useState(0);
   const [tasks, setTasks] = useState<RemediationTask[]>([]);
   const [workflowJobId, setWorkflowJobId] = useState<number | null>(null);
+  const [allJobIds, setAllJobIds] = useState<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
-  const completeFired = useRef(false);
+  const launchFired = useRef(false);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
   // Selections and findings for rule grouping
@@ -566,6 +621,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
 
   // Launch the remediation via the backend
   const launchRemediation = useCallback(async () => {
+    if (launchFired.current) return;
+    launchFired.current = true;
     try {
       // Load selections from the saved remediation profile
       let loadedSelections: RemediationSelection[] = [];
@@ -627,6 +684,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         scanId,
       });
       setWorkflowJobId(result.workflowJobId);
+      setAllJobIds(result.allJobIds ?? [result.workflowJobId]);
       setPhase('preparing');
     } catch (err) {
       setPhase('failed');
@@ -726,45 +784,64 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
     [selections],
   );
 
-  // Poll the remediate job directly (not a workflow — remediation
-  // launches the JT with native job_tags for proper scoping).
+  // Poll all remediation jobs. When remediation splits into multiple
+  // groups (different host sets), each group is a separate JT launch.
+  // We poll all of them in a single interval and merge task events.
   useEffect(() => {
-    if (!workflowJobId) return undefined;
+    const jobIds = allJobIds.length > 0 ? allJobIds : (workflowJobId ? [workflowJobId] : []);
+    if (jobIds.length === 0) return undefined;
 
     let cancelled = false;
 
     const pollStatus = async () => {
       try {
-        const jobStatus = await api.getJobStatus(workflowJobId).catch(() => null);
-        if (cancelled || !jobStatus) return;
+        const statuses = await Promise.all(
+          jobIds.map(id => api.getJobStatus(id).catch(() => null)),
+        );
+        if (cancelled) return;
 
-        setOverallStatus(jobStatus.status);
-        setElapsed(jobStatus.elapsed ?? 0);
+        const validStatuses = statuses.filter(Boolean);
+        if (validStatuses.length === 0) return;
 
-        if (jobStatus.status === 'successful') {
+        const maxElapsed = Math.max(...validStatuses.map(s => s!.elapsed ?? 0));
+        setElapsed(maxElapsed);
+
+        const allSuccessful = validStatuses.every(s => s!.status === 'successful');
+        const anyInProgress = validStatuses.some(s => s!.status === 'running' || s!.status === 'waiting' || s!.status === 'pending' || s!.status === 'new');
+        const allTerminal = validStatuses.every(s => TERMINAL_STATUSES.includes(s!.status));
+        const anyFailed = validStatuses.some(s => TERMINAL_STATUSES.includes(s!.status) && s!.status !== 'successful');
+
+        if (allSuccessful) {
+          setOverallStatus('successful');
           setPhase('complete');
           setProgress(100);
-        } else if (jobStatus.status === 'running' || jobStatus.status === 'waiting') {
-          setPhase('running');
-        } else if (TERMINAL_STATUSES.includes(jobStatus.status)) {
+        } else if (anyFailed && allTerminal) {
+          const failedJob = validStatuses.find(s => s!.failed);
+          setOverallStatus('failed');
           setPhase('failed');
           setErrorMessage(
-            jobStatus.failed
-              ? `Remediation failed after ${formatElapsed(jobStatus.elapsed ?? 0)}`
-              : `Remediation ${jobStatus.status}`,
+            failedJob
+              ? `Remediation failed after ${formatElapsed(failedJob.elapsed ?? 0)}`
+              : 'Remediation failed',
           );
           setProgress(100);
+        } else if (anyInProgress) {
+          setOverallStatus('running');
+          setPhase('running');
         }
 
-        // Fetch task-level events directly from the job
+        // Fetch and merge task events from all jobs
         try {
-          const events = await api.getJobEvents(workflowJobId);
+          const allEvents = await Promise.all(
+            jobIds.map(id => api.getJobEvents(id).catch(() => [])),
+          );
           if (!cancelled) {
-            const extracted = extractTasksFromEvents(events, knownRuleIds);
+            const mergedEvents = allEvents.flat();
+            const extracted = extractTasksFromEvents(mergedEvents, knownRuleIds);
             if (extracted.length > 0) {
               setTasks(extracted);
               const done = extracted.filter(t => t.status === 'completed' || t.status === 'failed').length;
-              if (jobStatus.status === 'running') {
+              if (anyInProgress) {
                 setProgress(Math.round((done / extracted.length) * 100));
               }
             }
@@ -773,9 +850,6 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           // Job events may not be available yet
         }
 
-        if (TERMINAL_STATUSES.includes(jobStatus.status) && !completeFired.current) {
-          completeFired.current = true;
-        }
       } catch {
         // API not available yet
       }
@@ -788,7 +862,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       cancelled = true;
       clearInterval(interval);
     };
-  }, [api, workflowJobId, knownRuleIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, workflowJobId, allJobIds.length, knownRuleIds]);
 
   // Group tasks by rule
   const { groups: ruleGroups, approximateGrouping } = useMemo(() => {
@@ -870,7 +945,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/compliance/results/${jobId}`)}
           >
-            Scan Results
+            Results
           </Typography>
           <Typography>Remediation</Typography>
         </Breadcrumbs>

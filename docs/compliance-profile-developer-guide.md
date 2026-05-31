@@ -555,10 +555,35 @@ Every compliance profile MUST include a normalizer module. The normalizer is the
 
 > **IMPORTANT: The plugin does not enrich findings.** It displays exactly what it receives via the CFF pipeline. All metadata — descriptions, check/fix text, parameter definitions — must be populated by the findings source:
 >
-> - **Tier 1 (OpenSCAP + normalizer)**: The `normalize_xccdf` module extracts all rule metadata (title, description, fix_text, severity, stig_id) directly from the XCCDF datastream. No external rules YAML is needed -- the SCAP Security Guide datastream contains complete metadata for all 366 STIG rules.
-> - **Tier 2 (external scanner + normalizer)**: The normalizer must map scanner output to CFF AND populate all metadata fields. External scanners often provide their own descriptions (e.g., Tenable findings include rich descriptions); the normalizer maps these to CFF fields. For metadata the scanner doesn't provide, the normalizer can read from a supplementary rules YAML or mapping file included in the collection.
+> - **Tier 1 (OpenSCAP + normalizer)**: The `normalize_xccdf` module extracts rule metadata at scan time from the XCCDF datastream. However, some rules in the SSG datastream lack `<description>`, `<rationale>`, or `<fix>` elements. To provide complete metadata, each collection ships a **build-time extracted rules YAML** (see "Rule Metadata Lifecycle" below).
+> - **Tier 2 (external scanner + normalizer)**: The normalizer must map scanner output to CFF AND populate all metadata fields. External scanners often provide their own descriptions (e.g., Tenable findings include rich descriptions); the normalizer maps these to CFF fields. For metadata the scanner doesn't provide, the normalizer can read from the collection's rules YAML.
 >
 > This design keeps compliance profiles self-contained: adding a new profile to Controller (Git project + workflow + JTs) makes it work end-to-end without repackaging or redeploying the plugin.
+
+### Rule Metadata Lifecycle
+
+Each collection ships a `rules/*.yml` file containing pre-extracted rule metadata (title, description, check_text, fix_text, severity, control identifiers) for every rule in its XCCDF profile. This file is the **authoritative fallback** when the normalizer's scan-time extraction returns empty fields.
+
+**How it's generated:**
+
+```bash
+python3 scripts/extract_rule_metadata.py \
+    /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml \
+    --profile cis_server_l1 --framework CIS --version v1.0.0 \
+    -o rules/cis_l1_rhel9.yml
+```
+
+**How it stays current:**
+
+The rules YAML is tied to the `scap-security-guide` RPM version installed in the Execution Environment. The EE build definition (`ee/execution-environment.yml`) runs `extract_rule_metadata.py` as an `append_final` step after installing SSG, so rebuilding the EE with a newer SSG automatically regenerates the rules file with updated metadata.
+
+For local development, re-run the extraction script against the SSG datastream from the latest release at https://github.com/ComplianceAsCode/content/releases.
+
+**Data flow priority:**
+
+1. Scan-time extraction (normalizer → Direct POST → DB) — highest priority, always used when present
+2. Build-time rules YAML (collection `rules/*.yml`) — fallback for fields the normalizer didn't populate
+3. Empty — displayed as "No description available" in the UI
 
 ### Implementation Pattern
 
@@ -892,9 +917,11 @@ The plugin launches the remediation JT **directly** (not through the assessment 
 
 The remediation JT must have:
 
+- `become_enabled: true` -- CaC remediation playbooks assume root privileges. Without this, tasks that modify system configuration (sysctl, PAM, package install) fail with permission errors. The CaC playbooks do not set `become: true` at the play level — they delegate privilege escalation to the execution environment.
 - `ask_tags_on_launch: true` -- allows the plugin to pass selected rule IDs as `job_tags`
 - `ask_variables_on_launch: true` -- allows parameter overrides via `extra_vars`
 - `ask_inventory_on_launch: true` -- allows inventory override (same as workflow nodes)
+- `ask_limit_on_launch: true` -- allows the plugin to scope remediation to only the hosts that failed each rule. Without this, Controller ignores the `limit` parameter and runs against the full inventory. When different rules fail on different host subsets, the plugin launches separate JTs per host group, each with its own `limit`.
 
 > **CRITICAL: Rule IDs must match CaC tag names exactly.** The rule `id` field in the rules YAML is passed directly as `job_tags` to the remediation JT. The CaC playbook filters tasks by these tags. If a rule ID doesn't match a CaC tag, no remediation tasks will run for that rule. CaC tag names are the directory names under `ComplianceAsCode/content/linux_os/guide/` (e.g., `mount_option_tmp_noexec`, not `mount_tmp_noexec`). Always verify rule IDs against the CaC source before shipping a profile.
 

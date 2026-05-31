@@ -79,7 +79,15 @@ The compliance {ExecEnvShort} runs on execution nodes and must include all scann
 
 |`/usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml`
 |ComplianceAsCode (CaC) remediation playbook imported by `remediate.yml`. Each task is tagged with its rule ID for selective execution via `job_tags`.
+
+|`<collection_path>/rules/*.yml`
+|Pre-extracted rule metadata (title, description, check text, fix text, severity). Generated at {ExecEnvShort} build time from the XCCDF datastream by `extract_rule_metadata.py`. Used as a fallback when scan-time extraction returns incomplete metadata.
 |===
+
+[NOTE]
+====
+The rule metadata YAML is regenerated automatically when the {ExecEnvShort} is rebuilt. Its content is tied to the version of `scap-security-guide` installed in the {ExecEnvShort}. Updating `scap-security-guide` and rebuilding the {ExecEnvShort} is the only step required to keep rule descriptions current.
+====
 
 === Ansible collections
 
@@ -142,7 +150,7 @@ registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
 |`compliance-remediate`
 |Run
 |`remediate.yml`
-|`ask_inventory_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
+|`become_enabled: true`, `ask_inventory_on_launch: true`, `ask_limit_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`
 |===
 
 === Assessment architecture
