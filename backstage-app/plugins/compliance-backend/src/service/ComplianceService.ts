@@ -500,76 +500,86 @@ export class ComplianceService {
       return MockDataProvider.launchRemediation();
     }
 
-    // Build the optimized remediation plan from selections + findings
+    // Build the optimized remediation plan from selections + findings.
+    // The plan groups rules by their target host set — rules that fail on
+    // the same hosts are grouped together into one JT launch.
     const plan = this.buildRemediationPlan(request.selections, findings);
 
-    // Collect rule IDs (tags) and host limits from the plan groups.
-    let allTags = plan.groups.flatMap(g => g.tags);
-    const allHosts = new Set<string>();
-    const mergedExtraVars: Record<string, unknown> = {};
-    for (const group of plan.groups) {
-      group.limit.split(',').filter(Boolean).forEach(h => allHosts.add(h));
-      Object.assign(mergedExtraVars, group.extraVars);
-    }
+    const resolvedJtId = await this.resolveRemediateJobTemplateId(
+      request.profileId,
+      token,
+    );
 
     // If plan produced 0 groups (e.g., all selected rules already pass),
     // use the selected rule IDs as tags directly and target all hosts.
-    if (allTags.length === 0) {
+    if (plan.groups.length === 0) {
       const enabledRuleIds = request.selections
         .filter(s => s.enabled)
         .map(s => s.ruleId);
       if (enabledRuleIds.length > 0) {
-        allTags = enabledRuleIds;
+        const allHosts = new Set<string>();
         for (const f of findings) {
           f.hosts.forEach(h => allHosts.add(h.host));
         }
         this.logger.info(
           `Plan produced 0 groups — using ${enabledRuleIds.length} selected rule IDs as tags directly`,
         );
+
+        const launch = await this.controllerClient!.launchJobTemplate(
+          resolvedJtId,
+          {},
+          token,
+          allHosts.size > 0 ? Array.from(allHosts).join(',') : request.limit,
+          enabledRuleIds.join(','),
+          request.inventoryId,
+        );
+        return {
+          remediationId: `remediation-${launch.id}`,
+          workflowJobId: launch.id,
+          status: launch.status,
+        };
       }
     }
 
-    const limit = allHosts.size > 0
-      ? Array.from(allHosts).join(',')
-      : request.limit;
+    // Launch one JT per plan group. Each group has its own scoped host
+    // limit and rule tags, so hosts only get remediated for the rules
+    // they actually failed.
+    const launches: Array<{ id: number; status: string }> = [];
+    for (const group of plan.groups) {
+      const jobTags = group.tags.join(',');
+      const limit = group.limit || request.limit;
 
-    const jobTags = allTags.length > 0 ? allTags.join(',') : undefined;
+      this.logger.info(
+        `Launching remediate JT ${resolvedJtId} group ${launches.length + 1}/${plan.groups.length}` +
+        ` (${group.ruleCount} rules, ${group.hostCount} hosts)` +
+        ` limit=${limit} job_tags=${jobTags}`,
+      );
 
-    // Launch the remediate JT directly with native job_tags.
-    // This is the proper AAP pattern: the CaC playbook's tasks are tagged
-    // per rule ID, and the Controller applies --tags at the CLI level.
-    // No wrapper or subprocess needed.
-    //
-    // We don't use the workflow for remediation because workflow-level
-    // job_tags don't propagate to child JTs in AAP. Direct JT launch
-    // is the correct mechanism for scoped remediation.
-    const resolvedJtId = await this.resolveRemediateJobTemplateId(
-      request.profileId,
-      token,
-    );
+      const launch = await this.controllerClient!.launchJobTemplate(
+        resolvedJtId,
+        group.extraVars,
+        token,
+        limit,
+        jobTags,
+        request.inventoryId,
+      );
+      launches.push({ id: launch.id, status: launch.status });
+    }
 
-    this.logger.info(
-      `Launching remediate JT ${resolvedJtId} for profile=${request.profileId}` +
-      ` (${allTags.length} rules, ${allHosts.size} hosts)` +
-      (limit ? ` limit=${limit}` : '') +
-      (jobTags ? ` job_tags=${jobTags}` : ''),
-    );
-
-    const launch = await this.controllerClient!.launchJobTemplate(
-      resolvedJtId,
-      mergedExtraVars,
-      token,
-      limit,
-      jobTags,
-      request.inventoryId,
-    );
-
-    const workflowJobId = launch.id;
+    // Return the first job ID for frontend tracking. When there's only
+    // one group (the common case), this is the sole job. When there are
+    // multiple, the frontend tracks the first and the rest run in parallel.
+    const primary = launches[0];
+    if (launches.length > 1) {
+      this.logger.info(
+        `Launched ${launches.length} remediation jobs: ${launches.map(l => l.id).join(', ')}`,
+      );
+    }
 
     return {
-      remediationId: `remediation-${workflowJobId}`,
-      workflowJobId,
-      status: launch.status,
+      remediationId: `remediation-${primary.id}`,
+      workflowJobId: primary.id,
+      status: primary.status,
     };
   }
 
