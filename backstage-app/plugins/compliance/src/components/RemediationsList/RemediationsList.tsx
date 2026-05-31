@@ -32,8 +32,9 @@ import VisibilityIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AddIcon from '@material-ui/icons/Add';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 import { complianceApiRef } from '../../api';
-import type { RemediationProfile } from '@aap-compliance/common';
+import type { RemediationProfile, ComplianceScan } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -61,6 +62,7 @@ export const RemediationsList = () => {
   const api = useApi(complianceApiRef);
   const [remediations, setRemediations] = useState<RemediationProfile[]>([]);
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
+  const [lastRunMap, setLastRunMap] = useState<Map<string, ComplianceScan>>(new Map());
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -75,9 +77,19 @@ export const RemediationsList = () => {
     Promise.all([
       api.getRemediationProfiles(),
       api.getRegisteredProfiles().catch(() => []),
-    ]).then(([data, profiles]) => {
+      api.getScans().catch(() => []),
+    ]).then(([data, profiles, scans]) => {
       setRemediations(data);
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
+      const runMap = new Map<string, ComplianceScan>();
+      for (const scan of scans) {
+        if (scan.scanner !== 'remediation') continue;
+        const existing = runMap.get(scan.profileId);
+        if (!existing || (scan.startedAt > existing.startedAt)) {
+          runMap.set(scan.profileId, scan);
+        }
+      }
+      setLastRunMap(runMap);
     }).catch(err => {
       console.error('Failed to load remediation profiles:', err);
     }).finally(() => setLoading(false));
@@ -186,19 +198,31 @@ export const RemediationsList = () => {
                       >
                         <VisibilityIcon fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        size="small"
-                        title="Apply this remediation"
-                        onClick={() => {
-                          const scanId = r.scanId || '';
-                          const params = new URLSearchParams();
-                          params.set('profileId', r.id);
-                          if (scanId) params.set('scanId', scanId);
-                          navigate(`/compliance/execute/${r.id}?${params.toString()}`);
-                        }}
-                      >
-                        <PlayArrowIcon fontSize="small" />
-                      </IconButton>
+                      {lastRunMap.has(r.complianceProfileId) && (
+                        <Tooltip title="View last run results">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              const lastRun = lastRunMap.get(r.complianceProfileId)!;
+                              navigate(`/compliance/remediation-result/${lastRun.workflowJobId}`);
+                            }}
+                          >
+                            <AssessmentIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Launch this remediation">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            params.set('profileId', r.id);
+                            navigate(`/compliance/execute/${r.id}?${params.toString()}`);
+                          }}
+                        >
+                          <PlayArrowIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title={isAdmin ? 'Delete this remediation' : 'Admin permission required'}>
                         <span>
                           <IconButton
