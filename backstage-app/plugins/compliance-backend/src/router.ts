@@ -780,7 +780,7 @@ export async function createRouter(
       return;
     }
     try {
-      let nodes;
+      let nodes: import('@aap-compliance/common').WorkflowNode[];
       try {
         nodes = await service.getWorkflowNodes(jobId, userToken);
       } catch (err) {

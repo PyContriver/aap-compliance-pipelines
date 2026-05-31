@@ -1328,7 +1328,7 @@ export class ComplianceService {
 
       const profileAgg = new Map<string, {
         pass: number; fail: number; rules: Set<string>; lastScan: string;
-        contributing: Array<{ scan: typeof completedScans[0]; pass: number; fail: number; rules: number }>;
+        contributing: Array<{ scan: typeof postureScans[0]; pass: number; fail: number; rules: number }>;
       }>();
 
       const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number }>();
