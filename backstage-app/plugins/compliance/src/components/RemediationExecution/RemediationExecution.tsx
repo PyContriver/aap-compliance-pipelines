@@ -945,7 +945,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/compliance/results/${jobId}`)}
           >
-            Scan Results
+            Results
           </Typography>
           <Typography>Remediation</Typography>
         </Breadcrumbs>

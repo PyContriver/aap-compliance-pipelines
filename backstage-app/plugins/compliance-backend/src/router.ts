@@ -854,7 +854,7 @@ export async function createRouter(
     const dedupKey = `remediate:${body.profileId}:${body.selections.filter((s: {enabled: boolean}) => s.enabled).map((s: {ruleId: string}) => s.ruleId).sort().join(',')}`;
     const now = Date.now();
     const lastLaunch = recentRemediations.get(dedupKey);
-    if (lastLaunch && now - lastLaunch < 30_000) {
+    if (lastLaunch && now - lastLaunch < 60_000) {
       logger.warn(`Duplicate remediation blocked (${now - lastLaunch}ms since last)`);
       res.status(409).json({ error: 'Duplicate remediation request — already launched. Wait for the current run to complete.' });
       return;
