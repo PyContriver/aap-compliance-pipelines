@@ -94,7 +94,7 @@ The closest competitor -- also Ansible-based, also generates playbooks.
 | **Creation** | Auto-save on 2s debounce timer in RemediationProfileBuilder. Saves on any selection change. | `RemediationProfileBuilder.tsx` L194-214 |
 | **Listing** | Flat list ordered by created_at desc. Shows name, profile, rule count, dates. | `RemediationsList.tsx` |
 | **Execution** | "Apply" button navigates to `/compliance/execute/:id` with scanId in query params. Launches JT directly with job_tags. | `RemediationExecution.tsx` L622-694 |
-| **Dedup** | In-memory 5-second window dedup on launch (`recentRemediations` Map). No persistent dedup. | `router.ts` L846-854 |
+| **Dedup** | In-memory 60-second window dedup on launch (`recentRemediations` Map) + frontend URL replacement (after launch, URL switches from `/execute/` to `/remediation-result/` so refresh enters view mode). No persistent dedup. | `router.ts` L846-854, `RemediationExecution.tsx` |
 | **Scan linkage** | `scanId` stored at profile creation time. Used to load findings for display but execution always uses latest findings. | `router.ts` L878-882 |
 | **Cleanup** | Manual delete only. No auto-cleanup, no archival, no expiration. | `RemediationsList.tsx` L86-98 |
 | **History** | None. No execution log, no status tracking, no run count. | -- |
@@ -127,7 +127,7 @@ The closest competitor -- also Ansible-based, also generates playbooks.
 | Lifecycle states | Partial (implicit) | N/A (continuous) | Full (5+ states) | Full | Full | Full (5 states) | **None** | Critical |
 | Execution history | Yes (per-plan) | N/A (continuous) | Yes (ITSM) | Yes | Yes (ticket sync) | Yes | **None** | Critical |
 | Stale plan handling | Readiness checks | N/A | Auto-close on scan | Re-detect | Re-detect | Dynamic projects | **None** | High |
-| Dedup / uniqueness | Name uniqueness | N/A | CMDB correlation | One per control | One per control | Per-solution | **5s timer only** | High |
+| Dedup / uniqueness | Name uniqueness | N/A | CMDB correlation | One per control | One per control | Per-solution | **60s timer + URL guard** | High |
 | Archive / soft-delete | Archive + delete | Waiver expiry | Project close | Resolve + close | Resolve | Project expire | **Hard delete only** | Medium |
 | Verification linkage | Auto-appended scan | Continuous | Next scan auto-closes | Continuous monitoring | Continuous | Validation scans | **Manual, no link** | High |
 | SLA / deadline | N/A | Waiver expiry dates | Severity-based SLAs | Severity-based SLAs | N/A | Project deadlines | **None** | Low (P3) |

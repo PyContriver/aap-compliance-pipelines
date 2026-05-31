@@ -32,7 +32,11 @@ Remediate JTs must have:
 
 2. **Sequential execution.** Controller may queue groups sequentially (one slot on the execution node). The frontend handles this by treating `pending` as in-progress and waiting for all jobs to reach terminal state.
 
-3. **Server-side dedup.** A 60-second time-based guard prevents duplicate launches from page reloads or multi-browser access. Proper fix is execution history tracking.
+3. **Server-side dedup.** A 60-second time-based guard prevents duplicate launches from multi-browser access. Page refresh re-launches are now prevented at the frontend layer: after a successful launch, `window.history.replaceState` switches the URL from `/execute/` to `/remediation-result/`, so refresh enters view mode instead of re-executing.
+
+## Task Grouping
+
+CaC remediation playbooks produce many setup tasks per rule (e.g., "Declare list of syscalls", "Check existence of...") whose names don't match rule titles. The frontend uses `event_data.role` from Controller job events to anchor these tasks to their rule. This takes priority over name-based matching, ensuring setup tasks appear under the correct rule group rather than in "Pre-Requisite Tasks".
 
 ## Alternatives Considered
 
