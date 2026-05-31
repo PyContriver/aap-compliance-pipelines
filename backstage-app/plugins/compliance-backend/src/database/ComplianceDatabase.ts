@@ -140,6 +140,28 @@ export class ComplianceDatabase {
     return rows.map(this.mapScanRow);
   }
 
+  async getLatestScanPerProfileInventory(): Promise<ComplianceScan[]> {
+    const rows = await this.db('compliance_scans as s')
+      .join(
+        this.db('compliance_scans')
+          .select('profile_id', 'inventory_id')
+          .max('completed_at as max_completed')
+          .where('status', 'completed')
+          .whereNot('scanner', 'remediation')
+          .groupBy('profile_id', 'inventory_id')
+          .as('latest'),
+        function () {
+          this.on('s.profile_id', 'latest.profile_id')
+            .andOn('s.inventory_id', 'latest.inventory_id')
+            .andOn('s.completed_at', 'latest.max_completed');
+        },
+      )
+      .where('s.status', 'completed')
+      .whereNot('s.scanner', 'remediation')
+      .orderBy('s.completed_at', 'desc');
+    return rows.map(this.mapScanRow);
+  }
+
   private mapScanRow(row: Record<string, unknown>): ComplianceScan {
     return {
       id: row.id as string,

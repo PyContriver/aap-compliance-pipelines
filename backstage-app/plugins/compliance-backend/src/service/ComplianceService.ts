@@ -1276,7 +1276,11 @@ export class ComplianceService {
     if (!this.database) return empty;
 
     try {
-      const scans = await this.database.getRecentScans(20);
+      // Fetch latest scan per (profileId, inventoryId) directly from DB —
+      // no arbitrary limit, so profiles don't disappear when remediation
+      // noise pushes them out of a "recent N" window.
+      const postureScans = await this.database.getLatestScanPerProfileInventory();
+      const recentScans = await this.database.getRecentScans(8);
       const profiles = await this.database.listProfiles();
 
       const inventoryNameMap = new Map<number, string>();
@@ -1289,18 +1293,21 @@ export class ComplianceService {
         this.logger.warn(`Failed to fetch inventories: ${err instanceof Error ? err.message : String(err)}`);
       }
 
-      const completedScans = scans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
-
-      // Group latest + previous scan by (profileId, inventoryId) — the core posture calculation
-      const latestByProfileInventory = new Map<string, typeof completedScans[0]>();
-      const previousByProfileInventory = new Map<string, typeof completedScans[0]>();
-      for (const scan of completedScans) {
+      // postureScans already contains only the latest per (profileId, inventoryId)
+      const latestByProfileInventory = new Map<string, typeof postureScans[0]>();
+      for (const scan of postureScans) {
         const key = `${scan.profileId}::${scan.inventoryId}`;
-        const existing = latestByProfileInventory.get(key);
-        if (!existing || (scan.completedAt && scan.completedAt > (existing.completedAt || ''))) {
-          if (existing) previousByProfileInventory.set(key, existing);
-          latestByProfileInventory.set(key, scan);
-        } else {
+        latestByProfileInventory.set(key, scan);
+      }
+
+      // For deltas, fetch the second-latest per group from recent history
+      const allCompletedScans = await this.database.getRecentScans(100);
+      const completedAssessments = allCompletedScans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
+      const previousByProfileInventory = new Map<string, typeof postureScans[0]>();
+      for (const scan of completedAssessments) {
+        const key = `${scan.profileId}::${scan.inventoryId}`;
+        const latest = latestByProfileInventory.get(key);
+        if (latest && scan.id !== latest.id) {
           const prev = previousByProfileInventory.get(key);
           if (!prev || (scan.completedAt && scan.completedAt > (prev.completedAt || ''))) {
             previousByProfileInventory.set(key, scan);
@@ -1312,7 +1319,7 @@ export class ComplianceService {
       const allScanIds = new Set<string>();
       for (const scan of latestByProfileInventory.values()) allScanIds.add(scan.id);
       for (const scan of previousByProfileInventory.values()) allScanIds.add(scan.id);
-      scans.slice(0, 8).forEach(s => { if (s.status === 'completed' && s.scanner !== 'remediation') allScanIds.add(s.id); });
+      recentScans.forEach(s => { if (s.status === 'completed' && s.scanner !== 'remediation') allScanIds.add(s.id); });
       const batchStats = await this.database.getAggregatedStatsByScanIds(Array.from(allScanIds));
 
       const hostsSet = new Set<string>();
@@ -1418,7 +1425,7 @@ export class ComplianceService {
       })).filter(inv => inv.profileScores.length > 0);
 
       // Recent scans with pass rates (using batch stats, no extra queries)
-      const recentScans = scans.slice(0, 8).map(scan => {
+      const recentScansList = recentScans.map(scan => {
         let passRate = 0;
         if (scan.status === 'completed' && scan.scanner !== 'remediation') {
           const scanStats = batchStats.get(scan.id);
@@ -1459,7 +1466,7 @@ export class ComplianceService {
         pendingRemediation,
         ...(hasPrevious ? { pendingRemediationDelta: pendingRemediation - prevPending } : {}),
         activeProfiles: profiles.length,
-        recentScans,
+        recentScans: recentScansList,
         frameworkScores,
         postureStatus,
         byInventory,
