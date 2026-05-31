@@ -81,10 +81,11 @@ describe('ComplianceDashboard', () => {
     expect(screen.getAllByText('PCI-DSS v4.0').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('displays posture overview card', async () => {
+  it('displays trend deltas on stat cards', async () => {
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText(/profiles above/)).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText('4')).toBeInTheDocument();
     });
   });
 

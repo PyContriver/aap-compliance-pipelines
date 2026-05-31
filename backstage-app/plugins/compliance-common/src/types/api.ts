@@ -239,7 +239,9 @@ export interface InventoryPosture {
 export interface DashboardStats {
   hostsScanned: number;
   criticalFindings: number;
+  criticalFindingsDelta?: number;
   pendingRemediation: number;
+  pendingRemediationDelta?: number;
   activeProfiles: number;
   recentScans: RecentScan[];
   frameworkScores: Array<{

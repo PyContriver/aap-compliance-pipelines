@@ -328,7 +328,9 @@ export class MockDataProvider {
     return {
       hostsScanned: 12,
       criticalFindings: 8,
+      criticalFindingsDelta: -3,
       pendingRemediation: 15,
+      pendingRemediationDelta: -5,
       activeProfiles: 3,
       recentScans: [
         { id: '1', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 78, timestamp: '2 hours ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },

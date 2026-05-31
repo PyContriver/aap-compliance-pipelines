@@ -27,8 +27,9 @@ import SettingsIcon from '@material-ui/icons/Settings';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import BuildIcon from '@material-ui/icons/Build';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
+import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
+import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
 import { ComplianceGauge } from './ComplianceGauge';
-import { PostureOverviewCard } from './PostureOverviewCard';
 import { ContributingScansPopover } from './ContributingScansPopover';
 import { InventoryPostureView } from './InventoryPostureView';
 import { complianceApiRef } from '../../api';
@@ -80,6 +81,15 @@ const useStyles = makeStyles(theme => ({
   critical: { color: '#C9190B' },
   warning: { color: '#F0AB00' },
   success: { color: '#3E8635' },
+  statDelta: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    marginTop: theme.spacing(0.25),
+    gap: 2,
+    '& svg': { fontSize: '0.85rem' },
+  },
   quickAction: {
     display: 'flex',
     alignItems: 'center',
@@ -450,9 +460,6 @@ export const ComplianceDashboard = () => {
         }>
           {postureView === 'profile' ? (
             <div className={classes.row} style={{ justifyContent: 'center' }}>
-              <div className={classes.gaugeItem}>
-                <PostureOverviewCard postureStatus={stats.postureStatus} />
-              </div>
               {stats.frameworkScores.map(fw => (
                 <div className={classes.gaugeItem} key={fw.profileId}>
                   <ComplianceGauge
@@ -494,6 +501,14 @@ export const ComplianceDashboard = () => {
               <div className={classes.statCard}>
                 <Typography className={`${classes.statValue} ${classes.critical}`}>{stats.criticalFindings}</Typography>
                 <Typography className={classes.statLabel}>Critical (CAT I)</Typography>
+                {stats.criticalFindingsDelta != null && stats.criticalFindingsDelta !== 0 && (
+                  <Typography className={classes.statDelta} style={{ color: stats.criticalFindingsDelta > 0 ? '#C9190B' : '#3E8635' }}>
+                    {stats.criticalFindingsDelta > 0
+                      ? <><ArrowUpwardIcon />{stats.criticalFindingsDelta}</>
+                      : <><ArrowDownwardIcon />{Math.abs(stats.criticalFindingsDelta)}</>
+                    }
+                  </Typography>
+                )}
               </div>
             </InfoCard>
           </div>
@@ -502,6 +517,14 @@ export const ComplianceDashboard = () => {
               <div className={classes.statCard}>
                 <Typography className={`${classes.statValue} ${classes.warning}`}>{stats.pendingRemediation}</Typography>
                 <Typography className={classes.statLabel}>Pending Remediation</Typography>
+                {stats.pendingRemediationDelta != null && stats.pendingRemediationDelta !== 0 && (
+                  <Typography className={classes.statDelta} style={{ color: stats.pendingRemediationDelta > 0 ? '#C9190B' : '#3E8635' }}>
+                    {stats.pendingRemediationDelta > 0
+                      ? <><ArrowUpwardIcon />{stats.pendingRemediationDelta}</>
+                      : <><ArrowDownwardIcon />{Math.abs(stats.pendingRemediationDelta)}</>
+                    }
+                  </Typography>
+                )}
               </div>
             </InfoCard>
           </div>

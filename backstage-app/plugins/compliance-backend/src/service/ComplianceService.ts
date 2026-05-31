@@ -1256,19 +1256,27 @@ export class ComplianceService {
 
       const completedScans = scans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
 
-      // Group latest scan by (profileId, inventoryId) — the core posture calculation
+      // Group latest + previous scan by (profileId, inventoryId) — the core posture calculation
       const latestByProfileInventory = new Map<string, typeof completedScans[0]>();
+      const previousByProfileInventory = new Map<string, typeof completedScans[0]>();
       for (const scan of completedScans) {
         const key = `${scan.profileId}::${scan.inventoryId}`;
         const existing = latestByProfileInventory.get(key);
         if (!existing || (scan.completedAt && scan.completedAt > (existing.completedAt || ''))) {
+          if (existing) previousByProfileInventory.set(key, existing);
           latestByProfileInventory.set(key, scan);
+        } else {
+          const prev = previousByProfileInventory.get(key);
+          if (!prev || (scan.completedAt && scan.completedAt > (prev.completedAt || ''))) {
+            previousByProfileInventory.set(key, scan);
+          }
         }
       }
 
       // Batch-fetch aggregated stats for all needed scans in a single query
       const allScanIds = new Set<string>();
       for (const scan of latestByProfileInventory.values()) allScanIds.add(scan.id);
+      for (const scan of previousByProfileInventory.values()) allScanIds.add(scan.id);
       scans.slice(0, 8).forEach(s => { if (s.status === 'completed' && s.scanner !== 'remediation') allScanIds.add(s.id); });
       const batchStats = await this.database.getAggregatedStatsByScanIds(Array.from(allScanIds));
 
@@ -1396,10 +1404,25 @@ export class ComplianceService {
         };
       });
 
+      // Compute deltas vs previous scan set
+      let prevCritical = 0;
+      let prevPending = 0;
+      let hasPrevious = false;
+      for (const scan of previousByProfileInventory.values()) {
+        const prevStats = batchStats.get(scan.id);
+        if (prevStats) {
+          prevCritical += prevStats.catI;
+          prevPending += prevStats.fail;
+          hasPrevious = true;
+        }
+      }
+
       return {
         hostsScanned: hostsSet.size,
         criticalFindings,
+        ...(hasPrevious ? { criticalFindingsDelta: criticalFindings - prevCritical } : {}),
         pendingRemediation,
+        ...(hasPrevious ? { pendingRemediationDelta: pendingRemediation - prevPending } : {}),
         activeProfiles: profiles.length,
         recentScans,
         frameworkScores,

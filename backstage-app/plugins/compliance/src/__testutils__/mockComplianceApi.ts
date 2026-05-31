@@ -165,7 +165,9 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
 export const MOCK_DASHBOARD_STATS: DashboardStats = {
   hostsScanned: 38,
   criticalFindings: 5,
+  criticalFindingsDelta: -2,
   pendingRemediation: 12,
+  pendingRemediationDelta: -4,
   activeProfiles: 3,
   recentScans: [
     {
