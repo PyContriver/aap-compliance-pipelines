@@ -190,18 +190,20 @@ export const RemediationProfileBuilder = () => {
   const profileNameRef = useRef(profileName); profileNameRef.current = profileName;
   const profileDescriptionRef = useRef(profileDescription); profileDescriptionRef.current = profileDescription;
   const savedProfileIdRef = useRef(savedProfileId); savedProfileIdRef.current = savedProfileId;
+  const savingInProgress = useRef(false);
 
   const performAutoSave = useCallback(async () => {
     const name = profileNameRef.current;
-    if (!name) return;
+    if (!name || savingInProgress.current) return;
+    savingInProgress.current = true;
     setAutoSaveStatus('saving'); setSaveError(null);
     try {
       const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selectionsRef.current[f.ruleId]?.enabled ?? false, parameters: selectionsRef.current[f.ruleId]?.parameters ?? {}, scope: selectionsRef.current[f.ruleId]?.scope }));
       const effectiveScanId = isEditMode ? (editProfile?.scanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
       const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections });
-      if (!savedProfileIdRef.current) { setSavedProfileId(saved.id); }
+      if (!savedProfileIdRef.current) { savedProfileIdRef.current = saved.id; setSavedProfileId(saved.id); }
       setAutoSaveStatus('saved');
-    } catch (err) { setAutoSaveStatus('error'); setSaveError(err instanceof Error ? err.message : 'Auto-save failed'); }
+    } catch (err) { setAutoSaveStatus('error'); setSaveError(err instanceof Error ? err.message : 'Auto-save failed'); } finally { savingInProgress.current = false; }
   }, [api, allFindings, editProfile, isEditMode, jobId]);
 
   const hasInitializedRef = useRef(false);

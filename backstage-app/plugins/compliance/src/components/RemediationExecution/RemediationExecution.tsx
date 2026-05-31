@@ -577,7 +577,6 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
-  const completeFired = useRef(false);
   const launchFired = useRef(false);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
@@ -842,7 +841,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             if (extracted.length > 0) {
               setTasks(extracted);
               const done = extracted.filter(t => t.status === 'completed' || t.status === 'failed').length;
-              if (anyRunning) {
+              if (anyInProgress) {
                 setProgress(Math.round((done / extracted.length) * 100));
               }
             }
@@ -851,9 +850,6 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           // Job events may not be available yet
         }
 
-        if ((allSuccessful || (anyFailed && allTerminal)) && !completeFired.current) {
-          completeFired.current = true;
-        }
       } catch {
         // API not available yet
       }

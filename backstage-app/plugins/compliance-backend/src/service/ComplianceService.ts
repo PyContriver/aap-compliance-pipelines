@@ -1301,18 +1301,17 @@ export class ComplianceService {
         latestByProfileInventory.set(key, scan);
       }
 
-      // For deltas, fetch the second-latest per group from recent history
-      const allCompletedScans = await this.database.getRecentScans(100);
-      const completedAssessments = allCompletedScans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
+      // For deltas, find the second-latest scan per group by excluding
+      // the latest IDs from the same per-profile-inventory query results.
+      const allPostureScans = await this.database.getRecentScans(50);
+      const completedAssessments = allPostureScans.filter(s => s.status === 'completed' && s.scanner !== 'remediation');
+      const latestIds = new Set(Array.from(latestByProfileInventory.values()).map(s => s.id));
       const previousByProfileInventory = new Map<string, typeof postureScans[0]>();
       for (const scan of completedAssessments) {
+        if (latestIds.has(scan.id)) continue;
         const key = `${scan.profileId}::${scan.inventoryId}`;
-        const latest = latestByProfileInventory.get(key);
-        if (latest && scan.id !== latest.id) {
-          const prev = previousByProfileInventory.get(key);
-          if (!prev || (scan.completedAt && scan.completedAt > (prev.completedAt || ''))) {
-            previousByProfileInventory.set(key, scan);
-          }
+        if (!previousByProfileInventory.has(key)) {
+          previousByProfileInventory.set(key, scan);
         }
       }
 

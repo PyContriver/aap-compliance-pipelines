@@ -48,7 +48,7 @@ export interface LaunchRemediationRequest {
   inventoryId: number;
   selections: RemediationSelection[];
   limit?: string;
-  /** Scan ID to load findings from, used to build the remediation plan. */
+  /** Scan ID for display context and tracking only. Host scoping always uses latest findings. */
   scanId?: string;
 }
 

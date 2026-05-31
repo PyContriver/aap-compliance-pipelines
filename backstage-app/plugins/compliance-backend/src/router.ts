@@ -143,6 +143,12 @@ export async function createRouter(
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
   const recentRemediations = new Map<string, number>();
+  setInterval(() => {
+    const cutoff = Date.now() - 60_000;
+    for (const [key, ts] of recentRemediations) {
+      if (ts < cutoff) recentRemediations.delete(key);
+    }
+  }, 60_000);
 
   router.use((req, res, next) => {
     if (req.path.startsWith('/findings/ingest')) return next();
