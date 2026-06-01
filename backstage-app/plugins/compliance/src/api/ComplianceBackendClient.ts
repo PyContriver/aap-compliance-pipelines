@@ -25,6 +25,8 @@ import type {
   PostureSnapshot,
   ComplianceScan,
   RemediationProfile,
+  RemediationExecution,
+  RemediationProfileStatus,
   SaveRemediationProfileRequest,
   WorkflowJobStatus,
   WorkflowNode,
@@ -235,8 +237,9 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<PostureSnapshot[]>(`/posture${q}`);
   }
 
-  getRemediationProfiles() {
-    return this.request<RemediationProfile[]>('/remediation-profiles');
+  getRemediationProfiles(statusFilter?: RemediationProfileStatus) {
+    const q = statusFilter ? `?status=${statusFilter}` : '';
+    return this.request<RemediationProfile[]>(`/remediation-profiles${q}`);
   }
 
   async getRemediationProfile(id: string) {
@@ -262,6 +265,38 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<void>(`/remediation-profiles/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
+  }
+
+  updateRemediationProfileStatus(id: string, status: RemediationProfileStatus) {
+    return this.request<RemediationProfile>(
+      `/remediation-profiles/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: { status } },
+    );
+  }
+
+  // ─── Remediation executions (ADR-014) ───────────────────────────────
+
+  getRemediationExecutions(profileId: string, limit?: number) {
+    const params = new URLSearchParams({ profileId });
+    if (limit) params.set('limit', String(limit));
+    return this.request<RemediationExecution[]>(`/remediation-executions?${params}`);
+  }
+
+  async getRemediationExecution(id: string) {
+    try {
+      return await this.request<RemediationExecution>(
+        `/remediation-executions/${encodeURIComponent(id)}`,
+      );
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  updateRemediationExecution(id: string, update: Partial<RemediationExecution>) {
+    return this.request<RemediationExecution>(
+      `/remediation-executions/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: update },
+    );
   }
 
   validateScan(body: { profileId: string; inventoryId: number }) {

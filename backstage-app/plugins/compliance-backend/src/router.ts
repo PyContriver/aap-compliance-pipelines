@@ -910,7 +910,17 @@ export async function createRouter(
         hostsTargeted: plan.totalHosts,
       });
 
-      const result = await service.launchRemediation(remediateRequest, findings, userToken);
+      let result;
+      try {
+        result = await service.launchRemediation(remediateRequest, findings, userToken);
+      } catch (launchErr) {
+        // Launch failed — mark execution as failed so the inventory is unlocked
+        await database.updateExecutionStatus(execution.id, {
+          status: 'failed',
+          completedAt: new Date().toISOString(),
+        });
+        throw launchErr;
+      }
 
       // Update execution with job IDs and mark as running
       await database.updateExecutionStatus(execution.id, {
@@ -919,19 +929,23 @@ export async function createRouter(
         allJobIds: result.allJobIds || [result.workflowJobId],
       });
 
-      // Record the remediation as a scan-like event (dual-write during Phase 1,
-      // deprecated in Phase 3 per ADR-014 §3).
-      await database.createScan({
-        profileId: remediateRequest.profileId,
-        inventoryId: remediateRequest.inventoryId,
-        scanner: 'remediation',
-        scanType: 'assessment',
-        workflowJobId: result.workflowJobId,
-        status: 'running',
-        startedAt: new Date().toISOString(),
-        completedAt: null,
-        errorDetails: null,
-      });
+      // Dual-write: scan record for active jobs banner (deprecated in Phase 3).
+      // Isolated so its failure doesn't block the response.
+      try {
+        await database.createScan({
+          profileId: remediateRequest.profileId,
+          inventoryId: remediateRequest.inventoryId,
+          scanner: 'remediation',
+          scanType: 'assessment',
+          workflowJobId: result.workflowJobId,
+          status: 'running',
+          startedAt: new Date().toISOString(),
+          completedAt: null,
+          errorDetails: null,
+        });
+      } catch (scanErr) {
+        logger.warn(`Failed to create dual-write scan record: ${scanErr instanceof Error ? scanErr.message : scanErr}`);
+      }
 
       res.json({ ...result, executionId: execution.id, plan });
     } catch (error) {
@@ -964,13 +978,20 @@ export async function createRouter(
   });
 
   router.patch('/remediation-executions/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const execution = await database.getExecutionById(req.params.id);
     if (!execution) {
       res.status(404).json({ error: 'Execution not found' });
       return;
     }
+    const validStatuses = ['pending', 'running', 'succeeded', 'failed', 'cancelled'];
     const { status, completedAt, elapsedSeconds, rulesApplied, rulesFailed,
             hostsTargeted, hostsSucceeded, hostsFailed, primaryJobId, allJobIds } = req.body;
+    if (status && !validStatuses.includes(status)) {
+      res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
+      return;
+    }
     await database.updateExecutionStatus(req.params.id, {
       status: status ?? execution.status,
       completedAt, elapsedSeconds, rulesApplied, rulesFailed,
@@ -983,6 +1004,8 @@ export async function createRouter(
   // ─── Remediation profile status (ADR-014 §2) ──────────────────────
 
   router.patch('/remediation-profiles/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
     const { status } = req.body;
     if (!status || !['draft', 'saved', 'archived'].includes(status)) {
       res.status(400).json({ error: 'status must be one of: draft, saved, archived' });
@@ -1037,6 +1060,21 @@ export async function createRouter(
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   router.get('/remediation-profiles', async (req, res) => {
+    // Stale execution recovery (ADR-014 architect review): on list load,
+    // check for executions stuck in 'running' >4 hours and mark as failed.
+    try {
+      const stale = await database.getStaleRunningExecutions(4);
+      for (const exec of stale) {
+        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt})`);
+        await database.updateExecutionStatus(exec.id, {
+          status: 'failed',
+          completedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);
+    }
+
     const statusFilter = req.query.status as string | undefined;
     const validStatuses = ['draft', 'saved', 'archived'];
     const filter = statusFilter && validStatuses.includes(statusFilter)
