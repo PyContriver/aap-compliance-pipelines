@@ -468,7 +468,7 @@ export const RemediationsList = () => {
                               <IconButton
                                 size="small"
                                 disabled={r.status === 'archived'}
-                                onClick={() => navigate(`/compliance/execute/${r.id}`)}
+                                onClick={() => navigate(`/compliance/execute/launch?profileId=${r.id}`)}
                               >
                                 <PlayArrowIcon fontSize="small" />
                               </IconButton>
