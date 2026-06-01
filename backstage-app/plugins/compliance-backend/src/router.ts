@@ -234,7 +234,7 @@ export async function createRouter(
             }
           }
           const terminal = ['successful', 'failed', 'error', 'canceled'];
-          if (terminal.includes(status.status)) {
+          if (terminal.includes(status.status) && scan.status !== 'completed') {
             const newStatus = status.status === 'successful' ? 'completed' : 'failed';
             await database.updateScanStatus(scan.id, newStatus, status.finished ?? new Date().toISOString());
             scan.status = newStatus as typeof scan.status;
@@ -528,8 +528,14 @@ export async function createRouter(
     }
 
     if (dbScan) {
-      const scanStatus = st === 'successful' ? 'completed' : 'failed';
-      await database.updateScanStatus(dbScan.id, scanStatus, new Date().toISOString());
+      // Don't downgrade a scan already marked completed by Direct POST ingest.
+      // Controller reports "failed" when any host is unreachable, even if findings
+      // were successfully ingested from the reachable hosts.
+      const alreadyCompleted = dbScan.status === 'completed';
+      if (!alreadyCompleted) {
+        const scanStatus = st === 'successful' ? 'completed' : 'failed';
+        await database.updateScanStatus(dbScan.id, scanStatus, new Date().toISOString());
+      }
     }
 
     if (parsed.length > 0) {
@@ -849,18 +855,6 @@ export async function createRouter(
       }
     }
 
-    // Dedup guard: reject if a remediation for this profile is already
-    // running/pending on Controller, or was launched within 30s.
-    const dedupKey = `remediate:${body.profileId}:${body.selections.filter((s: {enabled: boolean}) => s.enabled).map((s: {ruleId: string}) => s.ruleId).sort().join(',')}`;
-    const now = Date.now();
-    const lastLaunch = recentRemediations.get(dedupKey);
-    if (lastLaunch && now - lastLaunch < 60_000) {
-      logger.warn(`Duplicate remediation blocked (${now - lastLaunch}ms since last)`);
-      res.status(409).json({ error: 'Duplicate remediation request — already launched. Wait for the current run to complete.' });
-      return;
-    }
-    recentRemediations.set(dedupKey, now);
-
     const remediateRequest: LaunchRemediationRequest = {
       profileId: body.profileId,
       inventoryId: body.inventoryId,
@@ -875,50 +869,182 @@ export async function createRouter(
       ` with ${body.selections.length} selections (${enabledCount} enabled)` +
       (body.scanId ? ` (scan=${body.scanId})` : ''),
     );
-    if (enabledCount > 0) {
-      const enabledRules = body.selections
-        .filter((s: { enabled: boolean }) => s.enabled)
-        .map((s: { ruleId: string }) => s.ruleId);
-      logger.info(`Enabled rules: ${enabledRules.join(', ')}`);
-    }
 
     try {
+      // Concurrent execution guard (ADR-014 §6): create execution record
+      // with status='pending'. The partial unique index on (inventory_id)
+      // WHERE status IN ('pending','running') enforces at most one active
+      // remediation per inventory — no TOCTOU race.
+      const resolvedProfileId = body.remediationProfileId;
+      let execution: Awaited<ReturnType<typeof database.createExecution>> | null = null;
+      if (resolvedProfileId) {
+        execution = await database.createExecution({
+          remediationProfileId: resolvedProfileId,
+          inventoryId: body.inventoryId,
+          informingScanId: body.scanId || undefined,
+          createdBy: undefined, // TODO: extract from Backstage identity
+        });
+      }
+
+      if (resolvedProfileId && !execution) {
+        const running = await database.getRunningExecutionForInventory(body.inventoryId);
+        logger.warn(`Concurrent execution guard: blocked remediation on inventory ${body.inventoryId}`);
+        res.status(409).json({
+          error: {
+            name: 'ConflictError',
+            message: 'A remediation is already running on this inventory',
+            detail: running ? {
+              executionId: running.id,
+              profileId: running.remediationProfileId,
+              startedAt: running.startedAt,
+              status: running.status,
+            } : undefined,
+          },
+        });
+        return;
+      }
+
       // Use the latest findings FOR THIS PROFILE for host scoping.
-      // Scoping by profileId ensures STIG remediations use STIG findings
-      // (not CIS findings that happen to be more recent).
       const findings = await service.getFindings(undefined, remediateRequest.profileId);
       logger.info(`Findings for remediation (profile=${remediateRequest.profileId}): ${findings.length} rules`);
 
-      // Build the plan for the response (the service also builds it
-      // internally for the actual launch, so the plan in the response
-      // reflects what was actually executed).
       const plan = service.buildRemediationPlan(remediateRequest.selections, findings);
       logger.info(
         `Remediation plan: ${plan.groups.length} groups, ${plan.totalRules} rules, ${plan.totalHosts} hosts`,
       );
 
-      const result = await service.launchRemediation(remediateRequest, findings, userToken);
+      if (execution) {
+        await database.updateExecutionStatus(execution.id, {
+          status: 'pending',
+          rulesApplied: plan.totalRules,
+          hostsTargeted: plan.totalHosts,
+        });
+      }
 
-      // Record the remediation as a scan-like event so it appears
-      // in the active jobs banner and Recent Activity.
-      await database.createScan({
-        profileId: remediateRequest.profileId,
-        inventoryId: remediateRequest.inventoryId,
-        scanner: 'remediation',
-        scanType: 'assessment',
-        workflowJobId: result.workflowJobId,
-        status: 'running',
-        startedAt: new Date().toISOString(),
-        completedAt: null,
-        errorDetails: null,
-      });
+      let result;
+      try {
+        result = await service.launchRemediation(remediateRequest, findings, userToken);
+      } catch (launchErr) {
+        if (execution) {
+          await database.updateExecutionStatus(execution.id, {
+            status: 'failed',
+            completedAt: new Date().toISOString(),
+          });
+        }
+        throw launchErr;
+      }
 
-      res.json({ ...result, plan });
+      if (execution) {
+        await database.updateExecutionStatus(execution.id, {
+          status: 'running',
+          primaryJobId: result.workflowJobId,
+          allJobIds: result.allJobIds || [result.workflowJobId],
+        });
+      }
+
+      // Dual-write: scan record for active jobs banner (deprecated in Phase 3).
+      // Isolated so its failure doesn't block the response.
+      try {
+        await database.createScan({
+          profileId: remediateRequest.profileId,
+          inventoryId: remediateRequest.inventoryId,
+          scanner: 'remediation',
+          scanType: 'assessment',
+          workflowJobId: result.workflowJobId,
+          status: 'running',
+          startedAt: new Date().toISOString(),
+          completedAt: null,
+          errorDetails: null,
+        });
+      } catch (scanErr) {
+        logger.warn(`Failed to create dual-write scan record: ${scanErr instanceof Error ? scanErr.message : scanErr}`);
+      }
+
+      res.json({ ...result, executionId: execution?.id ?? null, plan });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to launch remediation: ${msg}`);
-      res.status(500).json({ error: 'Failed to launch remediation' });
+      const isUserError = msg.includes('No failing hosts') || msg.includes('No compliance remediate job template');
+      if (isUserError) {
+        logger.warn(`Remediation blocked: ${msg}`);
+        res.status(422).json({ error: msg });
+      } else {
+        logger.error(`Failed to launch remediation: ${msg}`);
+        res.status(500).json({ error: msg });
+      }
     }
+  });
+
+  // ─── Remediation executions (ADR-014) ─────────────────────────────
+
+  router.get('/remediation-executions', async (req, res) => {
+    const profileId = req.query.profileId as string | undefined;
+    const limit = parseInt(req.query.limit as string, 10) || 20;
+    if (profileId) {
+      const executions = await database.getExecutionsByProfileId(profileId, limit);
+      res.json(executions);
+    } else {
+      res.status(400).json({ error: 'profileId query parameter is required' });
+    }
+  });
+
+  router.get('/remediation-executions/:id', async (req, res) => {
+    const execution = await database.getExecutionById(req.params.id);
+    if (!execution) {
+      res.status(404).json({ error: 'Execution not found' });
+      return;
+    }
+    res.json(execution);
+  });
+
+  router.patch('/remediation-executions/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
+    const execution = await database.getExecutionById(req.params.id);
+    if (!execution) {
+      res.status(404).json({ error: 'Execution not found' });
+      return;
+    }
+    const validStatuses = ['pending', 'running', 'succeeded', 'failed', 'cancelled'];
+    const { status, completedAt, elapsedSeconds, rulesApplied, rulesFailed,
+            hostsTargeted, hostsSucceeded, hostsFailed, primaryJobId, allJobIds } = req.body;
+    if (status && !validStatuses.includes(status)) {
+      res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
+      return;
+    }
+    await database.updateExecutionStatus(req.params.id, {
+      status: status ?? execution.status,
+      completedAt, elapsedSeconds, rulesApplied, rulesFailed,
+      hostsTargeted, hostsSucceeded, hostsFailed, primaryJobId, allJobIds,
+    });
+    const updated = await database.getExecutionById(req.params.id);
+    res.json(updated);
+  });
+
+  // ─── Remediation profile status (ADR-014 §2) ──────────────────────
+
+  router.patch('/remediation-profiles/:id', async (req, res) => {
+    if (!await requirePermission(req, res, httpAuth, permissions)) return;
+
+    const { status } = req.body;
+    if (!status || !['draft', 'saved', 'archived'].includes(status)) {
+      res.status(400).json({ error: 'status must be one of: draft, saved, archived' });
+      return;
+    }
+    // Prevent archiving a profile pinned as golden standard (ADR-014 §7 / Q6)
+    if (status === 'archived') {
+      const isPinned = await database.isProfilePinnedAsBaseline(req.params.id);
+      if (isPinned) {
+        res.status(409).json({ error: 'Cannot archive a profile pinned as a golden standard. Unpin it first.' });
+        return;
+      }
+    }
+    const updated = await database.updateRemediationProfileStatus(req.params.id, status);
+    if (!updated) {
+      res.status(404).json({ error: 'Remediation profile not found' });
+      return;
+    }
+    const profile = await database.getRemediationProfile(req.params.id);
+    res.json(profile);
   });
 
   // ─── Dashboard stats ───────────────────────────────────────────────
@@ -952,8 +1078,42 @@ export async function createRouter(
 
   // ─── Remediations (saved rule selections) ──────────────────────────
 
-  router.get('/remediation-profiles', async (_req, res) => {
-    const profiles = await service.getRemediationProfiles();
+  router.get('/remediation-profiles', async (req, res) => {
+    // Stale execution recovery (ADR-014 architect review): on list load,
+    // check for executions stuck in 'pending'/'running' >4 hours.
+    // Query Controller for actual job status before marking as failed.
+    try {
+      const stale = await database.getStaleRunningExecutions(4);
+      for (const exec of stale) {
+        let resolvedStatus: 'succeeded' | 'failed' = 'failed';
+        if (exec.primaryJobId) {
+          try {
+            const job = await service.getJobStatus(exec.primaryJobId);
+            if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
+              continue; // still running on Controller — don't mark as failed
+            }
+            resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
+          } catch (controllerErr) {
+            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping (fail-safe): ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
+            continue;
+          }
+        }
+        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt}) → ${resolvedStatus}`);
+        await database.updateExecutionStatus(exec.id, {
+          status: resolvedStatus,
+          completedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);
+    }
+
+    const statusFilter = req.query.status as string | undefined;
+    const validStatuses = ['draft', 'saved', 'archived', 'all'];
+    const filter = statusFilter && validStatuses.includes(statusFilter)
+      ? statusFilter as 'draft' | 'saved' | 'archived' | 'all'
+      : undefined;
+    const profiles = await service.getRemediationProfiles(filter);
     res.json(profiles);
   });
 
@@ -1020,6 +1180,10 @@ export async function createRouter(
       res.status(204).send();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('Only draft') || msg.includes('Cannot delete') || msg.includes('RESTRICT')) {
+        res.status(409).json({ error: msg });
+        return;
+      }
       logger.error(`Failed to delete remediation profile: ${msg}`);
       res.status(500).json({ error: 'Failed to delete remediation profile' });
     }

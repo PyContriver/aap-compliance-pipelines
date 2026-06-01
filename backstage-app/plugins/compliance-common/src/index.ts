@@ -36,5 +36,9 @@ export type {
   RemediationPlan,
   RuleMetadataRecord,
   IngestFinding,
+  RemediationProfileStatus,
+  RemediationExecutionStatus,
+  RemediationExecution,
+  BaselineTarget,
 } from './types';
 

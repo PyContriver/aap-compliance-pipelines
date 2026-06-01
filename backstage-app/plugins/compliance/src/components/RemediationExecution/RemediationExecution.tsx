@@ -34,7 +34,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { JobEvent, MultiHostFinding, RemediationSelection } from '@aap-compliance/common';
+import type { JobEvent, MultiHostFinding, RemediationSelection, RemediationExecutionStatus } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   progressSection: {
@@ -578,10 +578,18 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [tasks, setTasks] = useState<RemediationTask[]>([]);
   const [workflowJobId, setWorkflowJobId] = useState<number | null>(null);
   const [allJobIds, setAllJobIds] = useState<number[]>([]);
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
+  const executionPatched = useRef(false);
+
+  // Reset refs when route params change (component reuse across routes)
+  useEffect(() => {
+    launchFired.current = false;
+    executionPatched.current = false;
+  }, [jobId]);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
   // Selections and findings for rule grouping
@@ -686,17 +694,22 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         inventoryId: inventoryIdRef.current,
         selections: loadedSelections,
         scanId,
+        remediationProfileId: remediationProfileId || undefined,
       });
       setWorkflowJobId(result.workflowJobId);
       setAllJobIds(result.allJobIds ?? [result.workflowJobId]);
+      if (result.executionId) setExecutionId(result.executionId);
       setPhase('preparing');
       // Replace URL so page refresh enters view mode instead of re-launching
       window.history.replaceState(null, '', `/compliance/remediation-result/${result.workflowJobId}`);
     } catch (err) {
       setPhase('failed');
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Failed to launch remediation workflow',
-      );
+      const raw = err instanceof Error ? err.message : 'Failed to launch remediation workflow';
+      // Extract the actual error message from the API response JSON
+      let msg = raw;
+      const jsonMatch = raw.match(/\{.*"error"\s*:\s*"([^"]+)"/);
+      if (jsonMatch) msg = jsonMatch[1];
+      setErrorMessage(msg);
     }
   }, [api, remediationProfileId, scanId]);
 
@@ -837,23 +850,45 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
 
         // Fetch and merge task events from all jobs
+        let extractedTasks: RemediationTask[] = [];
         try {
           const allEvents = await Promise.all(
             jobIds.map(id => api.getJobEvents(id).catch(() => [])),
           );
           if (!cancelled) {
             const mergedEvents = allEvents.flat();
-            const extracted = extractTasksFromEvents(mergedEvents, knownRuleIds);
-            if (extracted.length > 0) {
-              setTasks(extracted);
-              const done = extracted.filter(t => t.status === 'completed' || t.status === 'failed').length;
+            extractedTasks = extractTasksFromEvents(mergedEvents, knownRuleIds);
+            if (extractedTasks.length > 0) {
+              setTasks(extractedTasks);
+              const done = extractedTasks.filter(t => t.status === 'completed' || t.status === 'failed').length;
               if (anyInProgress) {
-                setProgress(Math.round((done / extracted.length) * 100));
+                setProgress(Math.round((done / extractedTasks.length) * 100));
               }
             }
           }
         } catch {
           // Job events may not be available yet
+        }
+
+        // PATCH execution record on terminal state (ADR-014 §1)
+        if (allTerminal && executionId && !executionPatched.current) {
+          executionPatched.current = true;
+          const execStatus: RemediationExecutionStatus = allSuccessful ? 'succeeded' : 'failed';
+          // Count rules (not tasks) — group by ruleId, exclude pre-requisites
+          const ruleIds = new Set(extractedTasks.map(t => t.ruleId).filter(r => r && r !== 'pre-requisite'));
+          const failedRuleIds = new Set(extractedTasks.filter(t => t.status === 'failed').map(t => t.ruleId).filter(r => r && r !== 'pre-requisite'));
+          const uniqueHosts = new Set(extractedTasks.flatMap(t => t.hosts.map(h => h.host)));
+          const failedHosts = new Set(extractedTasks.flatMap(t => t.hosts.filter(h => h.status === 'failed').map(h => h.host)));
+          api.updateRemediationExecution(executionId, {
+            status: execStatus,
+            completedAt: new Date().toISOString(),
+            elapsedSeconds: maxElapsed,
+            rulesApplied: ruleIds.size > 0 ? ruleIds.size : undefined,
+            rulesFailed: failedRuleIds.size > 0 ? failedRuleIds.size : undefined,
+            hostsTargeted: uniqueHosts.size > 0 ? uniqueHosts.size : undefined,
+            hostsSucceeded: uniqueHosts.size > 0 ? uniqueHosts.size - failedHosts.size : undefined,
+            hostsFailed: failedHosts.size > 0 ? failedHosts.size : undefined,
+          }).catch(() => {});
         }
 
       } catch {

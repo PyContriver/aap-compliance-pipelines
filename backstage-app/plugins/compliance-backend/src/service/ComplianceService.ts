@@ -561,6 +561,7 @@ export class ComplianceService {
       workflowJobId: primary.id,
       status: primary.status,
       allJobIds: launches.map(l => l.id),
+      executionId: '', // TODO: wire up execution creation in route handler (Step 5)
     };
   }
 
@@ -1475,12 +1476,14 @@ export class ComplianceService {
 
   // ─── Remediations (saved rule selections) ──────────────────────────
 
-  async getRemediationProfiles(): Promise<RemediationProfile[]> {
+  async getRemediationProfiles(statusFilter?: 'draft' | 'saved' | 'archived' | 'all'): Promise<RemediationProfile[]> {
     if (this.dataSource === 'mock') {
-      return MockDataProvider.getRemediationProfiles();
+      const profiles = MockDataProvider.getRemediationProfiles();
+      if (!statusFilter || statusFilter === 'all') return profiles;
+      return profiles.filter(p => p.status === statusFilter);
     }
     if (!this.database) return [];
-    return this.database.listRemediationProfiles();
+    return this.database.listRemediationProfiles(statusFilter);
   }
 
   async getRemediationProfile(id: string): Promise<RemediationProfile | null> {
@@ -1502,16 +1505,18 @@ export class ComplianceService {
         name: request.name,
         description: request.description,
         profileId: request.complianceProfileId,
-        scanId: request.scanId,
+        creationScanId: request.creationScanId ?? request.scanId,
         selections: request.selections,
+        status: request.status,
       });
       return {
         id: saved.id,
         name: request.name,
         description: request.description,
         complianceProfileId: request.complianceProfileId,
-        scanId: request.scanId,
+        creationScanId: request.creationScanId ?? request.scanId,
         targetInventory: '',
+        status: request.status ?? 'saved',
         selections: request.selections,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1524,8 +1529,9 @@ export class ComplianceService {
       name: request.name,
       description: request.description,
       complianceProfileId: request.complianceProfileId,
-      scanId: request.scanId,
+      creationScanId: request.creationScanId ?? request.scanId,
       targetInventory: '',
+      status: request.status ?? 'saved',
       selections: request.selections,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

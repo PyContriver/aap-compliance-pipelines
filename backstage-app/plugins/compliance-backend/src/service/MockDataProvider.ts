@@ -321,6 +321,7 @@ export class MockDataProvider {
       remediationId: `mock-remediation-${MockDataProvider.jobCounter}`,
       workflowJobId: MockDataProvider.jobCounter,
       status: 'pending',
+      executionId: `mock-execution-${MockDataProvider.jobCounter}`,
     };
   }
 

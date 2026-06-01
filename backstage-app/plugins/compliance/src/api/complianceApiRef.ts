@@ -19,6 +19,8 @@ import type {
   PostureSnapshot,
   ContributingScan,
   RemediationProfile,
+  RemediationExecution,
+  RemediationProfileStatus,
   SaveRemediationProfileRequest,
   WorkflowJobStatus,
   WorkflowNode,
@@ -48,10 +50,14 @@ export interface ComplianceApi {
   getDashboardStats(): Promise<DashboardStats>;
   getContributingScans(profileId: string): Promise<ContributingScan[]>;
   getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
-  getRemediationProfiles(): Promise<RemediationProfile[]>;
+  getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
   deleteRemediationProfile(id: string): Promise<void>;
+  updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<RemediationProfile>;
+  getRemediationExecutions(profileId: string, limit?: number): Promise<RemediationExecution[]>;
+  getRemediationExecution(id: string): Promise<RemediationExecution | null>;
+  updateRemediationExecution(id: string, update: Partial<RemediationExecution>): Promise<RemediationExecution>;
   validateScan(body: { profileId: string; inventoryId: number }): Promise<PlatformValidationResult>;
   getRegisteredProfiles(): Promise<ComplianceProfile[]>;
   getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
