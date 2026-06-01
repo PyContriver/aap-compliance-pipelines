@@ -59,6 +59,46 @@ export interface LaunchRemediationResponse {
   status: string;
   /** All job IDs when remediation splits into multiple groups (per host-set). */
   allJobIds?: number[];
+  /** Execution record ID for tracking this launch (ADR-014). */
+  executionId: string;
+}
+
+/** Remediation profile lifecycle status (ADR-014 §2). */
+export type RemediationProfileStatus = 'draft' | 'saved' | 'archived';
+
+/** Remediation execution status — system-derived from Controller job state (ADR-014 §2). */
+export type RemediationExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+/** A remediation execution record — one row per launch (ADR-014 §1). */
+export interface RemediationExecution {
+  id: string;
+  remediationProfileId: string;
+  inventoryId: number;
+  informingScanId: string | null;
+  primaryJobId: number | null;
+  allJobIds: number[];
+  status: RemediationExecutionStatus;
+  startedAt: string;
+  completedAt: string | null;
+  elapsedSeconds: number | null;
+  rulesApplied: number | null;
+  rulesFailed: number | null;
+  hostsTargeted: number | null;
+  hostsSucceeded: number | null;
+  hostsFailed: number | null;
+  planSummary: RemediationPlan | null;
+  verificationScanId: string | null;
+  createdBy: string | null;
+}
+
+/** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */
+export interface BaselineTarget {
+  id: string;
+  remediationProfileId: string;
+  complianceProfileId: string;
+  inventoryId: number;
+  pinnedAt: string;
+  pinnedBy: string | null;
 }
 
 /** Posture snapshot for historical trend tracking. */
@@ -198,9 +238,12 @@ export interface SaveRemediationProfileRequest {
   name: string;
   description: string;
   complianceProfileId: string;
-  /** The scan ID (workflow job ID) whose findings were used to build this remediation. */
+  /** The scan active when this profile was created (renamed from scanId — ADR-014 Q7). */
+  creationScanId?: string;
+  /** @deprecated Use creationScanId. Accepted for backward compatibility. */
   scanId?: string;
   selections: RemediationSelection[];
+  status?: import('./api').RemediationProfileStatus;
 }
 
 /** Recent scan entry for dashboard display. */

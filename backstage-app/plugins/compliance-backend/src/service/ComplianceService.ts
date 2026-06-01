@@ -561,6 +561,7 @@ export class ComplianceService {
       workflowJobId: primary.id,
       status: primary.status,
       allJobIds: launches.map(l => l.id),
+      executionId: '', // TODO: wire up execution creation in route handler (Step 5)
     };
   }
 
@@ -1502,16 +1503,18 @@ export class ComplianceService {
         name: request.name,
         description: request.description,
         profileId: request.complianceProfileId,
-        scanId: request.scanId,
+        creationScanId: request.creationScanId ?? request.scanId,
         selections: request.selections,
+        status: request.status,
       });
       return {
         id: saved.id,
         name: request.name,
         description: request.description,
         complianceProfileId: request.complianceProfileId,
-        scanId: request.scanId,
+        creationScanId: request.creationScanId ?? request.scanId,
         targetInventory: '',
+        status: request.status ?? 'saved',
         selections: request.selections,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1524,8 +1527,9 @@ export class ComplianceService {
       name: request.name,
       description: request.description,
       complianceProfileId: request.complianceProfileId,
-      scanId: request.scanId,
+      creationScanId: request.creationScanId ?? request.scanId,
       targetInventory: '',
+      status: request.status ?? 'saved',
       selections: request.selections,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

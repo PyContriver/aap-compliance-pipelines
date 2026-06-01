@@ -42,4 +42,8 @@ export type {
   ScanCertification,
   PlatformValidationResult,
   IngestFinding,
+  RemediationProfileStatus,
+  RemediationExecutionStatus,
+  RemediationExecution,
+  BaselineTarget,
 } from './api';

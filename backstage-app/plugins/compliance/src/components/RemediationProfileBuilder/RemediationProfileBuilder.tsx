@@ -89,7 +89,7 @@ export const RemediationProfileBuilder = () => {
       .then(profile => {
         if (cancelled || !profile) { if (!cancelled) setLoading(false); return undefined; }
         setEditProfile(profile); setProfileName(profile.name); setProfileDescription(profile.description); setSavedProfileId(profile.id);
-        const scanIdToUse = profile.scanId && /^\d+$/.test(profile.scanId) ? profile.scanId : undefined;
+        const scanIdToUse = profile.creationScanId && /^\d+$/.test(profile.creationScanId) ? profile.creationScanId : undefined;
         return scanIdToUse ? api.getFindings(scanIdToUse) : api.getFindings();
       })
       .then(data => { if (!cancelled && data) setAllFindings(data); })
@@ -199,7 +199,7 @@ export const RemediationProfileBuilder = () => {
     setAutoSaveStatus('saving'); setSaveError(null);
     try {
       const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selectionsRef.current[f.ruleId]?.enabled ?? false, parameters: selectionsRef.current[f.ruleId]?.parameters ?? {}, scope: selectionsRef.current[f.ruleId]?.scope }));
-      const effectiveScanId = isEditMode ? (editProfile?.scanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
+      const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
       const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections });
       if (!savedProfileIdRef.current) { savedProfileIdRef.current = saved.id; setSavedProfileId(saved.id); }
       setAutoSaveStatus('saved');
@@ -443,7 +443,7 @@ export const RemediationProfileBuilder = () => {
             setLaunching(true);
             try {
               const enabledSelections = allFindings.filter(f => selections[f.ruleId]?.enabled).map(f => ({ ruleId: f.ruleId, enabled: true, scope: selections[f.ruleId].scope ?? 'failed_only' as const, parameters: selections[f.ruleId].parameters }));
-              const effectiveScanId = isEditMode ? (editProfile?.scanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
+              const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
               const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName || editProfile?.name || 'Remediation', description: profileDescription || editProfile?.description || '', complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: enabledSelections });
               const params = new URLSearchParams(); params.set('profileId', saved.id); params.set('scanId', effectiveScanId);
               navigate(`/compliance/execute/${effectiveScanId}?${params.toString()}`);

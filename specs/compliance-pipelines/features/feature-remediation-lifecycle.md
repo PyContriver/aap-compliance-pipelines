@@ -106,8 +106,8 @@ New columns (migration 011):
 |--------|------|---------|-------------|
 | `status` | TEXT NOT NULL | `'saved'` | `draft`, `saved`, `archived` |
 | `created_by` | TEXT | NULL | Backstage user ref |
-| `execution_count` | INTEGER NOT NULL | `0` | Denormalized, incremented on launch |
-| `last_executed_at` | TEXT | NULL | ISO timestamp of most recent launch |
+| ~~`execution_count`~~ | — | — | Removed: derived at query time via `COUNT(*)` on executions table to avoid dual-write |
+| ~~`last_executed_at`~~ | — | — | Removed: derived at query time via `MAX(started_at)` on executions table |
 
 Uniqueness: `(profile_id, name)` where `status != 'archived'` (enforced in application code for SQLite compat).
 
@@ -134,7 +134,7 @@ Uniqueness: `(profile_id, name)` where `status != 'archived'` (enforced in appli
 | `verification_scan_id` | TEXT | FK to scans (filled after verification) |
 | `created_by` | TEXT | Backstage user ref |
 
-Indexes: `(remediation_profile_id)`, `(inventory_id, status)` (for concurrent execution guard), `(started_at)`
+Indexes: `(remediation_profile_id)`, `(started_at)`. Partial unique index: `UNIQUE(inventory_id) WHERE status IN ('pending', 'running')` (concurrent execution guard — enforces at most one active remediation per inventory at the DB level, eliminating TOCTOU races).
 
 No per-host or per-rule results stored — Controller is the source of truth. Detailed results fetched live via `GET /api/controller/v2/jobs/{id}/job_events/`.
 
@@ -143,12 +143,15 @@ No per-host or per-rule results stored — Controller is the source of truth. De
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | TEXT PK | UUID |
-| `remediation_profile_id` | TEXT NOT NULL | FK to profiles — the golden standard rule set |
+| `remediation_profile_id` | TEXT NOT NULL | FK (RESTRICT) to profiles — the golden standard rule set |
+| `compliance_profile_id` | TEXT NOT NULL | The compliance profile (e.g., STIG) — denormalized from the remediation profile for uniqueness |
 | `inventory_id` | INTEGER NOT NULL | Controller inventory ID |
 | `pinned_at` | TEXT NOT NULL | ISO timestamp |
 | `pinned_by` | TEXT | Backstage user ref who pinned it |
 
-Uniqueness: `(remediation_profile_id, inventory_id)` — one golden standard per profile × inventory pair.
+Uniqueness: `(compliance_profile_id, inventory_id)` — one golden standard per compliance standard × inventory pair. Prevents conflicting baseline scores from two remediation profiles under the same standard.
+
+FK constraints: `remediation_profile_id` uses ON DELETE RESTRICT — cannot delete/archive a profile while it is pinned as a golden standard (enforced at DB level, not just UI).
 
 ---
 
@@ -217,10 +220,11 @@ The execution table adds **0.5%** of the findings table's growth rate. With defa
 ### Migration 011: `20260601_011_remediation_lifecycle.ts`
 
 1. Rename `compliance_remediation_profiles.scan_id` → `creation_scan_id` (Q7 — disambiguates from execution table's `informing_scan_id` and `verification_scan_id`)
-2. Add `status`, `created_by`, `execution_count`, `last_executed_at` to `compliance_remediation_profiles`
-3. Create `compliance_remediation_executions` table (with `inventory_id` for concurrent execution guard)
-4. Create `compliance_baseline_targets` table (golden standard bindings — §7)
-5. Backfill: derive execution records from existing `scanner='remediation'` scan records
+2. Add `status`, `created_by` to `compliance_remediation_profiles` (execution_count/last_executed_at derived at query time — no dual-write)
+3. Create `compliance_remediation_executions` table with partial unique index on `(inventory_id) WHERE status IN ('pending', 'running')` for TOCTOU-safe concurrent guard
+4. Create `compliance_baseline_targets` table with unique `(compliance_profile_id, inventory_id)` and FK RESTRICT on `remediation_profile_id`
+5. Add FK from `compliance_posture_snapshots.scan_id` to `compliance_scans.id` ON DELETE SET NULL (fixes missing cascade)
+6. Backfill: derive execution records from existing `scanner='remediation'` scan records (best-effort, skip unmatched with warning log)
 
 Existing profiles get `status='saved'` (all were explicitly saved). Backfill matches remediation scans to profiles by `profile_id` and creates lightweight execution records.
 

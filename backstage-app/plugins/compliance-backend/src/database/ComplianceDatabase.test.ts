@@ -46,8 +46,10 @@ async function createTables(database: Knex): Promise<void> {
       table.string('name').notNullable();
       table.text('description').defaultTo('');
       table.string('profile_id').notNullable();
-      table.string('scan_id').nullable();
+      table.string('creation_scan_id').nullable();
       table.text('selections_json').notNullable();
+      table.string('status').notNullable().defaultTo('saved');
+      table.string('created_by').nullable();
       table
         .timestamp('created_at')
         .notNullable()
@@ -58,6 +60,47 @@ async function createTables(database: Knex): Promise<void> {
         .defaultTo(database.fn.now());
     },
   );
+
+  await database.schema.createTable('compliance_remediation_executions', table => {
+    table.string('id').primary();
+    table.string('remediation_profile_id').notNullable()
+      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table.integer('inventory_id').notNullable();
+    table.string('informing_scan_id').nullable();
+    table.integer('primary_job_id').nullable();
+    table.text('all_job_ids').nullable();
+    table.string('status').notNullable().defaultTo('pending');
+    table.string('started_at').notNullable();
+    table.string('completed_at').nullable();
+    table.float('elapsed_seconds').nullable();
+    table.integer('rules_applied').nullable();
+    table.integer('rules_failed').nullable();
+    table.integer('hosts_targeted').nullable();
+    table.integer('hosts_succeeded').nullable();
+    table.integer('hosts_failed').nullable();
+    table.text('plan_summary').nullable();
+    table.string('verification_scan_id').nullable();
+    table.string('created_by').nullable();
+    table.index(['remediation_profile_id']);
+    table.index(['started_at']);
+  });
+
+  await database.raw(`
+    CREATE UNIQUE INDEX idx_one_active_per_inventory
+    ON compliance_remediation_executions (inventory_id)
+    WHERE status IN ('pending', 'running')
+  `);
+
+  await database.schema.createTable('compliance_baseline_targets', table => {
+    table.string('id').primary();
+    table.string('remediation_profile_id').notNullable()
+      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table.string('compliance_profile_id').notNullable();
+    table.integer('inventory_id').notNullable();
+    table.string('pinned_at').notNullable();
+    table.string('pinned_by').nullable();
+    table.unique(['compliance_profile_id', 'inventory_id']);
+  });
 
   await database.schema.createTable(
     'compliance_posture_snapshots',

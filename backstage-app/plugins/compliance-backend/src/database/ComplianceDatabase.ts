@@ -13,6 +13,10 @@ import type {
   ComplianceProfile,
   SaveProfileRequest,
   RuleMetadataRecord,
+  RemediationExecution,
+  RemediationExecutionStatus,
+  RemediationProfileStatus,
+  BaselineTarget,
 } from '@aap-compliance/common';
 
 function toISOString(value: unknown): string {
@@ -397,11 +401,17 @@ export class ComplianceDatabase {
       name: string;
       description: string;
       profileId: string;
+      creationScanId?: string;
+      /** @deprecated Use creationScanId */
       scanId?: string;
       selections: RemediationSelection[];
+      status?: RemediationProfileStatus;
+      createdBy?: string;
     },
   ): Promise<{ id: string }> {
     const now = new Date().toISOString();
+    const scanId = profile.creationScanId ?? profile.scanId ?? null;
+    const status = profile.status ?? 'saved';
 
     if (profile.id) {
       await this.db('compliance_remediation_profiles')
@@ -410,8 +420,9 @@ export class ComplianceDatabase {
           name: profile.name,
           description: profile.description,
           profile_id: profile.profileId,
-          scan_id: profile.scanId ?? null,
+          creation_scan_id: scanId,
           selections_json: JSON.stringify(profile.selections),
+          status,
           updated_at: now,
         });
       return { id: profile.id };
@@ -423,18 +434,42 @@ export class ComplianceDatabase {
       name: profile.name,
       description: profile.description,
       profile_id: profile.profileId,
-      scan_id: profile.scanId ?? null,
+      creation_scan_id: scanId,
       selections_json: JSON.stringify(profile.selections),
+      status,
+      created_by: profile.createdBy ?? null,
       created_at: now,
       updated_at: now,
     });
     return { id };
   }
 
-  async listRemediationProfiles(): Promise<RemediationProfile[]> {
-    const rows = await this.db('compliance_remediation_profiles')
+  async listRemediationProfiles(statusFilter?: RemediationProfileStatus): Promise<RemediationProfile[]> {
+    let query = this.db('compliance_remediation_profiles')
+      .select('compliance_remediation_profiles.*')
+      .select(
+        this.db.raw('(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count'),
+      )
+      .select(
+        this.db.raw('(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at'),
+      )
       .orderBy('created_at', 'desc');
-    return rows.map(this.mapRemediationProfileRow);
+
+    if (statusFilter) {
+      query = query.where('compliance_remediation_profiles.status', statusFilter);
+    } else {
+      query = query.whereNot('compliance_remediation_profiles.status', 'archived');
+    }
+
+    const rows = await query;
+    return rows.map((row: Record<string, unknown>) => this.mapRemediationProfileRow(row));
+  }
+
+  async updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<boolean> {
+    const updated = await this.db('compliance_remediation_profiles')
+      .where('id', id)
+      .update({ status, updated_at: new Date().toISOString() });
+    return updated > 0;
   }
 
   async getRemediationProfile(id: string): Promise<RemediationProfile | null> {
@@ -464,12 +499,210 @@ export class ComplianceDatabase {
       name: row.name as string,
       description: (row.description as string) || '',
       complianceProfileId: row.profile_id as string,
-      scanId: (row.scan_id as string) || undefined,
+      creationScanId: (row.creation_scan_id as string) || undefined,
       targetInventory: '',
+      status: (row.status as RemediationProfileStatus) || 'saved',
+      createdBy: (row.created_by as string) || undefined,
       selections,
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
+      executionCount: (row.execution_count as number) ?? undefined,
+      lastExecutedAt: toISOStringOrNull(row.last_executed_at),
     };
+  }
+
+  // ─── Remediation executions (ADR-014 §1) ───────────────────────────
+
+  /**
+   * Create an execution record and enforce the concurrent execution guard.
+   * Uses the partial unique index on (inventory_id) WHERE status IN ('pending','running')
+   * to prevent TOCTOU races. Returns null if the inventory is already locked.
+   */
+  async createExecution(execution: {
+    remediationProfileId: string;
+    inventoryId: number;
+    informingScanId?: string;
+    planSummary?: object;
+    createdBy?: string;
+  }): Promise<RemediationExecution | null> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    try {
+      await this.db('compliance_remediation_executions').insert({
+        id,
+        remediation_profile_id: execution.remediationProfileId,
+        inventory_id: execution.inventoryId,
+        informing_scan_id: execution.informingScanId ?? null,
+        primary_job_id: null,
+        all_job_ids: null,
+        status: 'pending',
+        started_at: now,
+        completed_at: null,
+        elapsed_seconds: null,
+        rules_applied: null,
+        rules_failed: null,
+        hosts_targeted: null,
+        hosts_succeeded: null,
+        hosts_failed: null,
+        plan_summary: execution.planSummary ? JSON.stringify(execution.planSummary) : null,
+        verification_scan_id: null,
+        created_by: execution.createdBy ?? null,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('UNIQUE constraint failed') || msg.includes('unique') || msg.includes('duplicate')) {
+        return null; // concurrent execution guard triggered
+      }
+      throw err;
+    }
+    return this.getExecutionById(id);
+  }
+
+  async getExecutionById(id: string): Promise<RemediationExecution | null> {
+    const row = await this.db('compliance_remediation_executions').where('id', id).first();
+    if (!row) return null;
+    return this.mapExecutionRow(row);
+  }
+
+  async getExecutionsByProfileId(profileId: string, limit: number = 20): Promise<RemediationExecution[]> {
+    const rows = await this.db('compliance_remediation_executions')
+      .where('remediation_profile_id', profileId)
+      .orderBy('started_at', 'desc')
+      .limit(limit);
+    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+  }
+
+  /** Get the currently running/pending execution for an inventory (for UI display). */
+  async getRunningExecutionForInventory(inventoryId: number): Promise<RemediationExecution | null> {
+    const row = await this.db('compliance_remediation_executions')
+      .where('inventory_id', inventoryId)
+      .whereIn('status', ['pending', 'running'])
+      .first();
+    if (!row) return null;
+    return this.mapExecutionRow(row);
+  }
+
+  async updateExecutionStatus(
+    id: string,
+    update: {
+      status: RemediationExecutionStatus;
+      completedAt?: string;
+      elapsedSeconds?: number;
+      primaryJobId?: number;
+      allJobIds?: number[];
+      rulesApplied?: number;
+      rulesFailed?: number;
+      hostsTargeted?: number;
+      hostsSucceeded?: number;
+      hostsFailed?: number;
+    },
+  ): Promise<void> {
+    const row: Record<string, unknown> = { status: update.status };
+    if (update.completedAt !== undefined) row.completed_at = update.completedAt;
+    if (update.elapsedSeconds !== undefined) row.elapsed_seconds = update.elapsedSeconds;
+    if (update.primaryJobId !== undefined) row.primary_job_id = update.primaryJobId;
+    if (update.allJobIds !== undefined) row.all_job_ids = JSON.stringify(update.allJobIds);
+    if (update.rulesApplied !== undefined) row.rules_applied = update.rulesApplied;
+    if (update.rulesFailed !== undefined) row.rules_failed = update.rulesFailed;
+    if (update.hostsTargeted !== undefined) row.hosts_targeted = update.hostsTargeted;
+    if (update.hostsSucceeded !== undefined) row.hosts_succeeded = update.hostsSucceeded;
+    if (update.hostsFailed !== undefined) row.hosts_failed = update.hostsFailed;
+    await this.db('compliance_remediation_executions').where('id', id).update(row);
+  }
+
+  async updateVerificationScanId(executionId: string, scanId: string): Promise<void> {
+    await this.db('compliance_remediation_executions')
+      .where('id', executionId)
+      .update({ verification_scan_id: scanId });
+  }
+
+  /**
+   * Recover stale executions stuck in running state (ADR-014 architect review).
+   * Returns IDs of executions that need Controller status reconciliation.
+   */
+  async getStaleRunningExecutions(maxAgeHours: number = 4): Promise<RemediationExecution[]> {
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - maxAgeHours);
+    const rows = await this.db('compliance_remediation_executions')
+      .where('status', 'running')
+      .where('started_at', '<', cutoff.toISOString());
+    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+  }
+
+  private mapExecutionRow(row: Record<string, unknown>): RemediationExecution {
+    return {
+      id: row.id as string,
+      remediationProfileId: row.remediation_profile_id as string,
+      inventoryId: row.inventory_id as number,
+      informingScanId: (row.informing_scan_id as string) ?? null,
+      primaryJobId: (row.primary_job_id as number) ?? null,
+      allJobIds: safeJsonParse<number[]>(row.all_job_ids) ?? [],
+      status: row.status as RemediationExecutionStatus,
+      startedAt: toISOString(row.started_at),
+      completedAt: toISOStringOrNull(row.completed_at),
+      elapsedSeconds: (row.elapsed_seconds as number) ?? null,
+      rulesApplied: (row.rules_applied as number) ?? null,
+      rulesFailed: (row.rules_failed as number) ?? null,
+      hostsTargeted: (row.hosts_targeted as number) ?? null,
+      hostsSucceeded: (row.hosts_succeeded as number) ?? null,
+      hostsFailed: (row.hosts_failed as number) ?? null,
+      planSummary: safeJsonParse(row.plan_summary),
+      verificationScanId: (row.verification_scan_id as string) ?? null,
+      createdBy: (row.created_by as string) ?? null,
+    };
+  }
+
+  // ─── Baseline targets (ADR-014 §7) ────────────────────────────────
+
+  async pinBaselineTarget(target: {
+    remediationProfileId: string;
+    complianceProfileId: string;
+    inventoryId: number;
+    pinnedBy?: string;
+  }): Promise<BaselineTarget> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    await this.db('compliance_baseline_targets').insert({
+      id,
+      remediation_profile_id: target.remediationProfileId,
+      compliance_profile_id: target.complianceProfileId,
+      inventory_id: target.inventoryId,
+      pinned_at: now,
+      pinned_by: target.pinnedBy ?? null,
+    });
+    return {
+      id,
+      remediationProfileId: target.remediationProfileId,
+      complianceProfileId: target.complianceProfileId,
+      inventoryId: target.inventoryId,
+      pinnedAt: now,
+      pinnedBy: target.pinnedBy ?? null,
+    };
+  }
+
+  async unpinBaselineTarget(id: string): Promise<boolean> {
+    const deleted = await this.db('compliance_baseline_targets').where('id', id).delete();
+    return deleted > 0;
+  }
+
+  async getBaselineTargetsForProfile(complianceProfileId: string): Promise<BaselineTarget[]> {
+    const rows = await this.db('compliance_baseline_targets')
+      .where('compliance_profile_id', complianceProfileId);
+    return rows.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      remediationProfileId: row.remediation_profile_id as string,
+      complianceProfileId: row.compliance_profile_id as string,
+      inventoryId: row.inventory_id as number,
+      pinnedAt: toISOString(row.pinned_at),
+      pinnedBy: (row.pinned_by as string) ?? null,
+    }));
+  }
+
+  async isProfilePinnedAsBaseline(remediationProfileId: string): Promise<boolean> {
+    const row = await this.db('compliance_baseline_targets')
+      .where('remediation_profile_id', remediationProfileId)
+      .first();
+    return !!row;
   }
 
   // ─── Rule metadata ─────────────────────────────────────────────────

@@ -29,10 +29,19 @@ export interface RemediationProfile {
   name: string;
   description: string;
   complianceProfileId: string;
-  /** The scan ID (workflow job ID) whose findings were used to create this profile. */
-  scanId?: string;
+  /** The scan active when this profile was originally created (renamed from scanId — ADR-014 Q7). */
+  creationScanId?: string;
   targetInventory: string;
+  /** Profile lifecycle status (ADR-014 §2). */
+  status: import('./api').RemediationProfileStatus;
+  createdBy?: string;
   selections: RemediationSelection[];
   createdAt: string;
   updatedAt: string;
+  /** Computed from executions table — not stored on the profile (ADR-014 architect review). */
+  executionCount?: number;
+  /** Computed from executions table — not stored on the profile. */
+  lastExecutedAt?: string | null;
+  /** Latest execution record, joined at query time. */
+  latestExecution?: import('./api').RemediationExecution | null;
 }
