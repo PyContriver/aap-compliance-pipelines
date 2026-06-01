@@ -444,7 +444,7 @@ export class ComplianceDatabase {
     return { id };
   }
 
-  async listRemediationProfiles(statusFilter?: RemediationProfileStatus): Promise<RemediationProfile[]> {
+  async listRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]> {
     let query = this.db('compliance_remediation_profiles')
       .select('compliance_remediation_profiles.*')
       .select(
@@ -455,9 +455,9 @@ export class ComplianceDatabase {
       )
       .orderBy('created_at', 'desc');
 
-    if (statusFilter) {
+    if (statusFilter && statusFilter !== 'all') {
       query = query.where('compliance_remediation_profiles.status', statusFilter);
-    } else {
+    } else if (!statusFilter) {
       query = query.whereNot('compliance_remediation_profiles.status', 'archived');
     }
 
@@ -469,7 +469,7 @@ export class ComplianceDatabase {
     const profileIds = profiles.map(p => p.id);
     const latestExecs = await this.db('compliance_remediation_executions as e1')
       .whereIn('e1.remediation_profile_id', profileIds)
-      .whereRaw('e1.started_at = (SELECT MAX(e2.started_at) FROM compliance_remediation_executions e2 WHERE e2.remediation_profile_id = e1.remediation_profile_id)')
+      .whereRaw('e1.id = (SELECT e2.id FROM compliance_remediation_executions e2 WHERE e2.remediation_profile_id = e1.remediation_profile_id ORDER BY e2.started_at DESC, e2.id DESC LIMIT 1)')
       .select('*');
 
     const execByProfile = new Map<string, RemediationExecution>();

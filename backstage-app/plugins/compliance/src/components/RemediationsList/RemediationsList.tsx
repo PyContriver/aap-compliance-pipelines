@@ -230,9 +230,8 @@ export const RemediationsList = () => {
 
   const loadProfiles = useCallback(async () => {
     try {
-      const backendFilter = statusFilter === 'active' ? undefined
-        : statusFilter === 'all' ? undefined
-        : statusFilter as RemediationProfileStatus;
+      const backendFilter: RemediationProfileStatus | 'all' | undefined =
+        statusFilter === 'active' ? undefined : statusFilter;
 
       const [data, profiles, inventories] = await Promise.all([
         api.getRemediationProfiles(backendFilter),
@@ -240,12 +239,7 @@ export const RemediationsList = () => {
         api.getInventories().catch(() => []),
       ]);
 
-      let filtered = data;
-      if (statusFilter === 'active') {
-        filtered = data.filter(r => r.status !== 'archived');
-      }
-
-      setRemediations(filtered);
+      setRemediations(data);
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
       setInventoryNames(new Map(inventories.map(inv => [inv.id, inv.name])));
     } catch (err) {

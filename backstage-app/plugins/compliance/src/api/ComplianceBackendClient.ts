@@ -237,7 +237,7 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<PostureSnapshot[]>(`/posture${q}`);
   }
 
-  getRemediationProfiles(statusFilter?: RemediationProfileStatus) {
+  getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all') {
     const q = statusFilter ? `?status=${statusFilter}` : '';
     return this.request<RemediationProfile[]>(`/remediation-profiles${q}`);
   }

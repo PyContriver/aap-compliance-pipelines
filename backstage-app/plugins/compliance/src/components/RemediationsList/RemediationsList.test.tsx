@@ -253,6 +253,38 @@ describe('RemediationsList', () => {
     });
   });
 
+  it('passes "all" to backend when All filter is selected', async () => {
+    const mockApi = createMockApi({
+      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE]),
+    });
+    await renderWithApi(mockApi);
+    await waitFor(() => {
+      expect(screen.getByText('STIG SSH Hardening')).toBeInTheDocument();
+    });
+
+    // MUI Select: mouseDown on the select element opens the listbox
+    const selectInput = screen.getByLabelText('Filter');
+    fireEvent.mouseDown(selectInput);
+    await waitFor(() => {
+      const listbox = screen.getByRole('listbox');
+      expect(listbox).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('option', { name: 'All' }));
+    await waitFor(() => {
+      expect(mockApi.getRemediationProfiles).toHaveBeenCalledWith('all');
+    });
+  });
+
+  it('does not crash when API rejects', async () => {
+    const mockApi = createMockApi({
+      getRemediationProfiles: jest.fn().mockRejectedValue(new Error('API down')),
+    });
+    await renderWithApi(mockApi);
+    await waitFor(() => {
+      expect(screen.getByText('No active remediations')).toBeInTheDocument();
+    });
+  });
+
   it('fetches execution history when row is expanded', async () => {
     const mockApi = createMockApi({
       getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE]),

@@ -1476,10 +1476,11 @@ export class ComplianceService {
 
   // ─── Remediations (saved rule selections) ──────────────────────────
 
-  async getRemediationProfiles(statusFilter?: 'draft' | 'saved' | 'archived'): Promise<RemediationProfile[]> {
+  async getRemediationProfiles(statusFilter?: 'draft' | 'saved' | 'archived' | 'all'): Promise<RemediationProfile[]> {
     if (this.dataSource === 'mock') {
       const profiles = MockDataProvider.getRemediationProfiles();
-      return statusFilter ? profiles.filter(p => p.status === statusFilter) : profiles;
+      if (!statusFilter || statusFilter === 'all') return profiles;
+      return profiles.filter(p => p.status === statusFilter);
     }
     if (!this.database) return [];
     return this.database.listRemediationProfiles(statusFilter);

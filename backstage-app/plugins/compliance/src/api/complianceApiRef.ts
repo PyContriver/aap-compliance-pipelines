@@ -50,7 +50,7 @@ export interface ComplianceApi {
   getDashboardStats(): Promise<DashboardStats>;
   getContributingScans(profileId: string): Promise<ContributingScan[]>;
   getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
-  getRemediationProfiles(statusFilter?: RemediationProfileStatus): Promise<RemediationProfile[]>;
+  getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;
   deleteRemediationProfile(id: string): Promise<void>;

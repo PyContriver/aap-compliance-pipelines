@@ -1090,9 +1090,9 @@ export async function createRouter(
     }
 
     const statusFilter = req.query.status as string | undefined;
-    const validStatuses = ['draft', 'saved', 'archived'];
+    const validStatuses = ['draft', 'saved', 'archived', 'all'];
     const filter = statusFilter && validStatuses.includes(statusFilter)
-      ? statusFilter as 'draft' | 'saved' | 'archived'
+      ? statusFilter as 'draft' | 'saved' | 'archived' | 'all'
       : undefined;
     const profiles = await service.getRemediationProfiles(filter);
     res.json(profiles);
