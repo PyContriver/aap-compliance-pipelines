@@ -40,7 +40,7 @@ AAP Controller is the source of truth for all execution data. The plugin stores 
 | Explicit lifecycle states on executions | Rapid7 InsightVM (`Open > Awaiting Verification > Closed`) | Yes — `pending > running > succeeded > failed > cancelled` |
 | Validation scans transition status | InsightVM | Yes — `verification_scan_id` on execution record |
 | Plan name uniqueness per org | Red Hat Insights | Yes — unique `(name, compliance_profile_id)` |
-| Waiver/exception expiry | Chef InSpec | Adopted as draft cleanup (7-day TTL for unexecuted drafts) |
+| Waiver/exception expiry | Chef InSpec | Deferred — drafts persist indefinitely (upsert prevents orphan proliferation, Q4) |
 | Corrective change tracking | Puppet (`corrective_change` boolean per resource) | Deferred — requires comparing pre/post scan results |
 | Auto-close on next scan | Qualys (auto-close incident), Drata, Vanta | Deferred |
 | SLA tracking | Qualys (severity-based), Drata (24h/15d/60d/90d) | Deferred |
@@ -90,13 +90,15 @@ AAP Controller is the source of truth for all execution data. The plugin stores 
 
 1. User archives a profile → `status='archived'`, hidden from default list
 2. Filter dropdown: "Active" (default), "All", "Drafts", "Archived"
-3. Backend cleanup: delete draft profiles older than 7 days with `execution_count=0`
+3. Drafts persist indefinitely until explicitly deleted by user (upsert prevents orphan proliferation — see Q4)
 
 ---
 
 ## 4. Data Model
 
 ### Modified: `compliance_remediation_profiles`
+
+Renamed column (migration 011): `scan_id` → `creation_scan_id` (disambiguates from execution table's `informing_scan_id` and `verification_scan_id`).
 
 New columns (migration 011):
 
@@ -115,6 +117,7 @@ Uniqueness: `(profile_id, name)` where `status != 'archived'` (enforced in appli
 |--------|------|-------------|
 | `id` | TEXT PK | UUID |
 | `remediation_profile_id` | TEXT NOT NULL | FK to profiles |
+| `inventory_id` | INTEGER NOT NULL | Controller inventory ID (for concurrent execution guard §6) |
 | `informing_scan_id` | TEXT | Assessment scan used for host scoping |
 | `primary_job_id` | INTEGER | First Controller job ID |
 | `all_job_ids` | TEXT | JSON array of all Controller job IDs |
@@ -131,9 +134,21 @@ Uniqueness: `(profile_id, name)` where `status != 'archived'` (enforced in appli
 | `verification_scan_id` | TEXT | FK to scans (filled after verification) |
 | `created_by` | TEXT | Backstage user ref |
 
-Indexes: `(remediation_profile_id)`, `(status)`, `(started_at)`
+Indexes: `(remediation_profile_id)`, `(inventory_id, status)` (for concurrent execution guard), `(started_at)`
 
 No per-host or per-rule results stored — Controller is the source of truth. Detailed results fetched live via `GET /api/controller/v2/jobs/{id}/job_events/`.
+
+### New: `compliance_baseline_targets`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | TEXT PK | UUID |
+| `remediation_profile_id` | TEXT NOT NULL | FK to profiles — the golden standard rule set |
+| `inventory_id` | INTEGER NOT NULL | Controller inventory ID |
+| `pinned_at` | TEXT NOT NULL | ISO timestamp |
+| `pinned_by` | TEXT | Backstage user ref who pinned it |
+
+Uniqueness: `(remediation_profile_id, inventory_id)` — one golden standard per profile × inventory pair.
 
 ---
 
@@ -193,7 +208,7 @@ Response includes lifecycle fields + optional `latestExecution` (joined from exe
 | `compliance_remediation_profiles` | ~10-20 rows | Negligible |
 | **`compliance_remediation_executions`** (new) | 0 | **~555 KB/year** |
 
-The execution table adds **0.5%** of the findings table's growth rate. No retention policy needed for years.
+The execution table adds **0.5%** of the findings table's growth rate. With default "Indefinite" retention, no storage concern for years. Configurable retention (Settings > Data Management) available for deployments with strict storage budgets — see Q3 resolution and ADR-014 §8.
 
 ---
 
@@ -201,9 +216,11 @@ The execution table adds **0.5%** of the findings table's growth rate. No retent
 
 ### Migration 011: `20260601_011_remediation_lifecycle.ts`
 
-1. Add `status`, `created_by`, `execution_count`, `last_executed_at` to `compliance_remediation_profiles`
-2. Create `compliance_remediation_executions` table
-3. Backfill: derive execution records from existing `scanner='remediation'` scan records
+1. Rename `compliance_remediation_profiles.scan_id` → `creation_scan_id` (Q7 — disambiguates from execution table's `informing_scan_id` and `verification_scan_id`)
+2. Add `status`, `created_by`, `execution_count`, `last_executed_at` to `compliance_remediation_profiles`
+3. Create `compliance_remediation_executions` table (with `inventory_id` for concurrent execution guard)
+4. Create `compliance_baseline_targets` table (golden standard bindings — §7)
+5. Backfill: derive execution records from existing `scanner='remediation'` scan records
 
 Existing profiles get `status='saved'` (all were explicitly saved). Backfill matches remediation scans to profiles by `profile_id` and creates lightweight execution records.
 
@@ -225,17 +242,53 @@ Existing profiles get `status='saved'` (all were explicitly saved). Backfill mat
 
 | Phase | Scope | Effort |
 |-------|-------|--------|
-| **1: Foundation** | Migration, execution CRUD, create on launch, update on completion, list/detail endpoints, RemediationsList columns | 3-4 days |
+| **1: Foundation** | Migration 011 (incl. `scan_id` rename, `compliance_baseline_targets`), execution CRUD, create on launch, update on completion, concurrent execution guard, list/detail endpoints, RemediationsList with MUI table | 3-4 days |
 | **2: Verification** | Pass executionId to verification scan, verification linkage, RemediationDetail component | 1-2 days |
-| **3: Cleanup** | Stop creating remediation scan records, auto-save drafts + upsert, draft cleanup, name uniqueness, "Save" button | 1-2 days |
-| **4: Future** | SLA, auto-close, ITSM integration, execution comparison | Deferred |
+| **3: Cleanup** | Stop creating remediation scan records, auto-save drafts + upsert, name uniqueness, "Save" button | 1-2 days |
+| **4: Data Management** | Settings > Data Management UI (two retention dropdowns + help popover), background purge job, cascade-safe deletes | P2b |
+| **5: Audit Export** | Export compliance report (date range, profile/inventory filters, local + Controller data sources, CSV/JSON bundle) | P3 |
+| **6: Future** | SLA, auto-close, ITSM integration, execution comparison | Deferred |
 
 ---
 
 ## 10. Open Questions
 
-1. **Concurrent execution guard:** Prevent launching a profile that already has a running execution? (Leaning yes — check for `status='running'` before launch.)
-2. **Execution retention:** Keep indefinitely or align with findings retention? (Leaning: keep indefinitely — rows are tiny, audit value is high.)
-3. **Draft cleanup frequency:** Configurable via settings? (Leaning yes.)
-4. **Re-run button:** Allow re-launching from a completed execution with same profile selections? (Leaning: add in Phase 2.)
-5. **`scanId` rename:** Rename to `creation_scan_id` for clarity? (Defer to Phase 3.)
+1. ~~**Concurrent execution guard:**~~ **RESOLVED (2026-06-01).** Hard reject, not queue. Block launch when any execution with `status='running'` exists for the same inventory, regardless of profile. Covers both same-profile and cross-profile cases because Controller has no cross-JT inventory mutex — concurrent remediation playbooks cause package-manager locks, config file races, and service restart conflicts. Industry precedent: Chef uses node-level `flock()` (blocks until complete), Puppet uses PID lockfile (hard reject). We follow Puppet's pattern — reject with a clear message naming the running remediation. See ADR-014 §6.
+2. ~~**Re-run button / remediation profile reuse:**~~ **RESOLVED (2026-06-01).** Remediation profiles are inventory-independent policy templates, not tied to a specific inventory. The inventory is selected at launch time. Re-run is natural — the profile persists, the user launches it against any inventory. A separate "pin as golden standard" action binds a profile to an inventory for dual-layer dashboard reporting (standard posture vs baseline posture). This achieves the same effect as Drata/Vanta's "out of scope" pattern through AAP's execution model. See ADR-014 §7.
+3. ~~**Execution retention:**~~ **RESOLVED (2026-06-01).** Indefinite by default, configurable via Settings > Data Management. Two retention groups to avoid cascade conflicts:
+
+   - **Assessment data** (scans + findings + posture snapshots): cascade together. Purging a scan deletes its findings and snapshots.
+   - **Remediation data** (execution history): independent. If `verification_scan_id` references a purged scan, UI shows "Assessment data no longer available locally — view in Automation Controller."
+
+   Both default to "Indefinite." Options: 30d / 60d / 90d / 6mo / 1yr / Indefinite. No conflict possible between groups — assessment and remediation data are independently purgeable.
+
+   **Competitive basis:** Platforms storing metadata + pointers (Insights, Qualys, Drata, Vanta, InsightVM) keep execution records indefinitely — audit trails are the value proposition. Platforms storing full execution payloads (Chef Automate, Puppet Enterprise) use configurable TTLs (14-60 days default) due to storage costs. Our model follows the metadata + pointers camp (~555 KB/year for executions). Controller retains all job history, task events, and logs as the source of truth regardless of local retention settings.
+
+   **Help text pattern:** Data Management section includes a contextual help popover (MUI `IconButton` + `Popover`, matching downstream `HelpButton` pattern from ansible-hub-ui) explaining: (1) this manages the local database only, (2) Automation Controller remains the source of truth for all execution data, (3) historical data beyond the retention window can be retrieved via Audit Export.
+
+   **Implementation:** P2b — two dropdowns in Settings, background purge job, cascade-safe delete queries. See §8 in ADR-014.
+4. ~~**Draft cleanup frequency:**~~ **RESOLVED (2026-06-01).** No automatic cleanup. Drafts persist until explicitly deleted by the user. The orphan proliferation problem is solved by upsert semantics (§5) — auto-save updates an existing draft for the same `(name, compliance_profile_id)` instead of creating new rows. Drafts are lightweight rows with negligible storage. Automatic cleanup risks deleting in-progress work on profiles that may become golden standards (§7).
+5. ~~**Status column / RemediationsList at scale:**~~ **RESOLVED (2026-06-01).** Two chips per row: profile status (`Draft`, `Saved`, `Archived`) + latest execution outcome with inventory name. Design follows Drata/Vanta list management patterns adapted to MUI (Backstage uses Material UI, not PatternFly):
+
+   **List management pattern:**
+   - Flat paginated table (MUI Table), server-side pagination, 20 per page
+   - Free-text search on profile name (MUI TextField)
+   - Multi-axis filter bar: status (draft/saved/archived), compliance profile, inventory
+   - Bulk selection via checkbox column with toolbar bulk actions (archive, delete drafts)
+   - Golden standard indicator (star/badge) on profiles pinned as baselines (§7)
+   - Expandable rows for execution history across inventories
+
+   **Competitive basis:** Drata uses flat paginated tables with 50+ server-side filter params, free-text search, bulk owner assign and bulk scope marking. Vanta uses sidebar category grouping, urgency-based sort, checkbox bulk-assign. Both use server-side pagination (20-50/page), compact status icons, no nested grouping. Neither exposes column-header sorting.
+
+   **Why two chips:** Profile status and execution status are independent concepts (a `Saved` profile can have a `Failed` execution). With inventory-independent profiles (§7), the execution chip must name which inventory it ran against. Profiles with no executions show the profile status chip alone.
+
+6. ~~**Archive vs Delete:**~~ **RESOLVED (2026-06-01).** Archive for saved profiles, delete for drafts only. A saved profile that was once a golden standard is part of the audit trail and must not be permanently deletable. Archived profiles are hidden from the default RemediationsList view but recoverable via a status filter (`Archived`). Drafts are work-in-progress with no execution history and can be freely deleted. Profiles currently pinned as a golden standard (§7) cannot be archived until unpinned — the UI disables the archive action and explains why.
+
+   **Scope:**
+   - `Draft` → delete (permanent) or save (transitions to `Saved`)
+   - `Saved` → archive (transitions to `Archived`, hidden from default view)
+   - `Saved` + pinned as golden standard → archive blocked until unpinned
+   - `Archived` → restore (transitions back to `Saved`) or stays hidden
+   - No permanent delete for `Saved` or `Archived` profiles
+
+7. ~~**`scanId` rename:**~~ **RESOLVED (2026-06-01).** Rename `compliance_remediation_profiles.scan_id` → `creation_scan_id` in migration 011. With the new execution table introducing `informing_scan_id` (assessment scan at launch time) and `verification_scan_id` (post-remediation verification), the profile's `scan_id` is ambiguous — it records which scan was active when the profile was originally created, a distinct third concept. Renaming in the same migration avoids shipping ambiguous naming and a second migration later. Blast radius is small: migration, DB class, and remediation creation flow.
