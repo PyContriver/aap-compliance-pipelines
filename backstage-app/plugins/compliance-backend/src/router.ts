@@ -963,8 +963,14 @@ export async function createRouter(
       res.json({ ...result, executionId: execution?.id ?? null, plan });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to launch remediation: ${msg}`);
-      res.status(500).json({ error: 'Failed to launch remediation' });
+      const isUserError = msg.includes('No failing hosts') || msg.includes('No compliance remediate job template');
+      if (isUserError) {
+        logger.warn(`Remediation blocked: ${msg}`);
+        res.status(422).json({ error: msg });
+      } else {
+        logger.error(`Failed to launch remediation: ${msg}`);
+        res.status(500).json({ error: msg });
+      }
     }
   });
 

@@ -704,13 +704,12 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       window.history.replaceState(null, '', `/compliance/remediation-result/${result.workflowJobId}`);
     } catch (err) {
       setPhase('failed');
-      const msg = err instanceof Error ? err.message : 'Failed to launch remediation workflow';
-      // Handle concurrent execution guard (409)
-      if (msg.includes('409') && msg.includes('already running')) {
-        setErrorMessage('A remediation is already running on this inventory. Wait for it to complete before launching another.');
-      } else {
-        setErrorMessage(msg);
-      }
+      const raw = err instanceof Error ? err.message : 'Failed to launch remediation workflow';
+      // Extract the actual error message from the API response JSON
+      let msg = raw;
+      const jsonMatch = raw.match(/\{.*"error"\s*:\s*"([^"]+)"/);
+      if (jsonMatch) msg = jsonMatch[1];
+      setErrorMessage(msg);
     }
   }, [api, remediationProfileId, scanId]);
 
