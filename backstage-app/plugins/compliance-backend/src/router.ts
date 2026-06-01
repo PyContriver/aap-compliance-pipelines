@@ -528,8 +528,14 @@ export async function createRouter(
     }
 
     if (dbScan) {
-      const scanStatus = st === 'successful' ? 'completed' : 'failed';
-      await database.updateScanStatus(dbScan.id, scanStatus, new Date().toISOString());
+      // Don't downgrade a scan already marked completed by Direct POST ingest.
+      // Controller reports "failed" when any host is unreachable, even if findings
+      // were successfully ingested from the reachable hosts.
+      const alreadyCompleted = dbScan.status === 'completed';
+      if (!alreadyCompleted) {
+        const scanStatus = st === 'successful' ? 'completed' : 'failed';
+        await database.updateScanStatus(dbScan.id, scanStatus, new Date().toISOString());
+      }
     }
 
     if (parsed.length > 0) {
