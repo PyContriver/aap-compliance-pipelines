@@ -43,7 +43,7 @@ jobs:
         run: yarn install
 
       - name: Generate type declarations
-        run: yarn tsc
+        run: yarn tsc --build
 
       - name: Build all packages
         run: yarn build
@@ -74,7 +74,7 @@ jobs:
         run: yarn install
 
       - name: Generate type declarations
-        run: yarn tsc
+        run: yarn tsc --build
 
       - name: Build all packages
         run: yarn build
