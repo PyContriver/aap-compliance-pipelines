@@ -1086,6 +1086,7 @@ describe('compliance backend router', () => {
           profileId: 'rhel9-stig',
           inventoryId: 1,
           selections: [{ ruleId: 'rule-1', enabled: true }],
+          remediationProfileId: 'rem-profile-1',
         },
       });
 

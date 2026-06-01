@@ -50,6 +50,8 @@ export interface LaunchRemediationRequest {
   limit?: string;
   /** Scan ID for display context and tracking only. Host scoping always uses latest findings. */
   scanId?: string;
+  /** Remediation profile UUID for execution tracking (ADR-014). */
+  remediationProfileId?: string;
 }
 
 /** Response from launching remediation. */

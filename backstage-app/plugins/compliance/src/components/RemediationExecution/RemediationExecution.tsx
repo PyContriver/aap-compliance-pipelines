@@ -694,6 +694,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         inventoryId: inventoryIdRef.current,
         selections: loadedSelections,
         scanId,
+        remediationProfileId: remediationProfileId || undefined,
       });
       setWorkflowJobId(result.workflowJobId);
       setAllJobIds(result.allJobIds ?? [result.workflowJobId]);

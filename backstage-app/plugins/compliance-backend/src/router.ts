@@ -869,14 +869,18 @@ export async function createRouter(
       // with status='pending'. The partial unique index on (inventory_id)
       // WHERE status IN ('pending','running') enforces at most one active
       // remediation per inventory — no TOCTOU race.
-      const execution = await database.createExecution({
-        remediationProfileId: body.remediationProfileId || body.profileId,
-        inventoryId: body.inventoryId,
-        informingScanId: body.scanId || undefined,
-        createdBy: undefined, // TODO: extract from Backstage identity
-      });
+      const resolvedProfileId = body.remediationProfileId;
+      let execution: Awaited<ReturnType<typeof database.createExecution>> | null = null;
+      if (resolvedProfileId) {
+        execution = await database.createExecution({
+          remediationProfileId: resolvedProfileId,
+          inventoryId: body.inventoryId,
+          informingScanId: body.scanId || undefined,
+          createdBy: undefined, // TODO: extract from Backstage identity
+        });
+      }
 
-      if (!execution) {
+      if (resolvedProfileId && !execution) {
         const running = await database.getRunningExecutionForInventory(body.inventoryId);
         logger.warn(`Concurrent execution guard: blocked remediation on inventory ${body.inventoryId}`);
         res.status(409).json({
@@ -903,31 +907,34 @@ export async function createRouter(
         `Remediation plan: ${plan.groups.length} groups, ${plan.totalRules} rules, ${plan.totalHosts} hosts`,
       );
 
-      // Store plan summary on execution record
-      await database.updateExecutionStatus(execution.id, {
-        status: 'pending',
-        rulesApplied: plan.totalRules,
-        hostsTargeted: plan.totalHosts,
-      });
+      if (execution) {
+        await database.updateExecutionStatus(execution.id, {
+          status: 'pending',
+          rulesApplied: plan.totalRules,
+          hostsTargeted: plan.totalHosts,
+        });
+      }
 
       let result;
       try {
         result = await service.launchRemediation(remediateRequest, findings, userToken);
       } catch (launchErr) {
-        // Launch failed — mark execution as failed so the inventory is unlocked
-        await database.updateExecutionStatus(execution.id, {
-          status: 'failed',
-          completedAt: new Date().toISOString(),
-        });
+        if (execution) {
+          await database.updateExecutionStatus(execution.id, {
+            status: 'failed',
+            completedAt: new Date().toISOString(),
+          });
+        }
         throw launchErr;
       }
 
-      // Update execution with job IDs and mark as running
-      await database.updateExecutionStatus(execution.id, {
-        status: 'running',
-        primaryJobId: result.workflowJobId,
-        allJobIds: result.allJobIds || [result.workflowJobId],
-      });
+      if (execution) {
+        await database.updateExecutionStatus(execution.id, {
+          status: 'running',
+          primaryJobId: result.workflowJobId,
+          allJobIds: result.allJobIds || [result.workflowJobId],
+        });
+      }
 
       // Dual-write: scan record for active jobs banner (deprecated in Phase 3).
       // Isolated so its failure doesn't block the response.
@@ -947,7 +954,7 @@ export async function createRouter(
         logger.warn(`Failed to create dual-write scan record: ${scanErr instanceof Error ? scanErr.message : scanErr}`);
       }
 
-      res.json({ ...result, executionId: execution.id, plan });
+      res.json({ ...result, executionId: execution?.id ?? null, plan });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to launch remediation: ${msg}`);
