@@ -4,7 +4,7 @@ import {
   InfoCard,
   Progress,
 } from '@backstage/core-components';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
@@ -213,6 +213,7 @@ export const RemediationsList = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const alertApi = useApi(alertApiRef);
   const [remediations, setRemediations] = useState<RemediationProfile[]>([]);
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const [inventoryNames, setInventoryNames] = useState<Map<number, string>>(new Map());
@@ -242,12 +243,15 @@ export const RemediationsList = () => {
       setRemediations(data);
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
       setInventoryNames(new Map(inventories.map(inv => [inv.id, inv.name])));
+      setExecutionHistory(new Map());
+      setExpandedProfiles(new Set());
     } catch (err) {
-      console.error('Failed to load remediation profiles:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to load remediations: ${msg}`, severity: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [api, statusFilter]);
+  }, [api, alertApi, statusFilter]);
 
   useEffect(() => { loadProfiles(); }, [loadProfiles]);
 
@@ -262,7 +266,8 @@ export const RemediationsList = () => {
           const execs = await api.getRemediationExecutions(profileId, 10);
           setExecutionHistory(prev => new Map(prev).set(profileId, execs));
         } catch (err) {
-          console.error('Failed to load execution history:', err);
+          const msg = err instanceof Error ? err.message : String(err);
+          alertApi.post({ message: `Failed to load execution history: ${msg}`, severity: 'error' });
         }
       }
     }
@@ -276,7 +281,8 @@ export const RemediationsList = () => {
       await api.deleteRemediationProfile(deleteTarget.id);
       setRemediations(prev => prev.filter(r => r.id !== deleteTarget.id));
     } catch (err) {
-      console.error('Failed to delete remediation profile:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to delete: ${msg}`, severity: 'error' });
     } finally {
       setActionInProgress(false);
       setDeleteTarget(null);
@@ -295,7 +301,8 @@ export const RemediationsList = () => {
         setRemediations(prev => prev.map(r => r.id === archiveTarget.id ? { ...r, status: newStatus as RemediationProfileStatus } : r));
       }
     } catch (err) {
-      console.error('Failed to update profile status:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
     } finally {
       setActionInProgress(false);
       setArchiveTarget(null);
@@ -461,7 +468,7 @@ export const RemediationsList = () => {
                               <IconButton
                                 size="small"
                                 disabled={r.status === 'archived'}
-                                onClick={() => navigate(`/compliance/execute/${r.id}?profileId=${r.id}`)}
+                                onClick={() => navigate(`/compliance/execute/${r.id}`)}
                               >
                                 <PlayArrowIcon fontSize="small" />
                               </IconButton>

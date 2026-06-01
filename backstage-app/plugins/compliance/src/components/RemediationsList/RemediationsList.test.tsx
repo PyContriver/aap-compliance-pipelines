@@ -2,12 +2,14 @@ import React from 'react';
 import '@testing-library/jest-dom';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { RemediationsList } from './RemediationsList';
 import type { RemediationProfile, RemediationExecution } from '@aap-compliance/common';
 
+let mockPermissionAllowed = true;
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true, loading: false }),
+  usePermission: () => ({ allowed: mockPermissionAllowed, loading: false }),
 }));
 
 const SAVED_PROFILE: RemediationProfile = {
@@ -127,17 +129,24 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   };
 }
 
+const mockAlertApi = { post: jest.fn() };
+
 function renderWithApi(
   mockApi: ReturnType<typeof createMockApi> = createMockApi(),
 ) {
   return renderInTestApp(
-    <TestApiProvider apis={[[complianceApiRef, mockApi]]}>
+    <TestApiProvider apis={[[complianceApiRef, mockApi], [alertApiRef, mockAlertApi]]}>
       <RemediationsList />
     </TestApiProvider>,
   );
 }
 
 describe('RemediationsList', () => {
+  beforeEach(() => {
+    mockPermissionAllowed = true;
+    mockAlertApi.post.mockClear();
+  });
+
   it('renders the title and filter dropdown', async () => {
     await renderWithApi();
     await waitFor(() => {
@@ -275,14 +284,30 @@ describe('RemediationsList', () => {
     });
   });
 
-  it('does not crash when API rejects', async () => {
+  it('posts alert when API rejects', async () => {
     const mockApi = createMockApi({
       getRemediationProfiles: jest.fn().mockRejectedValue(new Error('API down')),
     });
     await renderWithApi(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('No active remediations')).toBeInTheDocument();
+      expect(mockAlertApi.post).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'error', message: expect.stringContaining('API down') }),
+      );
     });
+  });
+
+  it('hides archive and disables delete for non-admin users', async () => {
+    mockPermissionAllowed = false;
+    const mockApi = createMockApi({
+      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE, DRAFT_PROFILE]),
+    });
+    await renderWithApi(mockApi);
+    await waitFor(() => {
+      expect(screen.getByText('STIG SSH Hardening')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('archive-rem-1')).not.toBeInTheDocument();
+    const deleteBtn = screen.getByTestId('delete-rem-2').closest('button')!;
+    expect(deleteBtn).toBeDisabled();
   });
 
   it('fetches execution history when row is expanded', async () => {

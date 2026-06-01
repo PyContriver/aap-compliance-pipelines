@@ -492,10 +492,24 @@ export class ComplianceDatabase {
 
   async getRemediationProfile(id: string): Promise<RemediationProfile | null> {
     const row = await this.db('compliance_remediation_profiles')
-      .where('id', id)
+      .select('compliance_remediation_profiles.*')
+      .select(
+        this.db.raw('(SELECT COUNT(*) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as execution_count'),
+      )
+      .select(
+        this.db.raw('(SELECT MAX(started_at) FROM compliance_remediation_executions WHERE remediation_profile_id = compliance_remediation_profiles.id) as last_executed_at'),
+      )
+      .where('compliance_remediation_profiles.id', id)
       .first();
     if (!row) return null;
-    return this.mapRemediationProfileRow(row);
+    const profile = this.mapRemediationProfileRow(row);
+    const latestExec = await this.db('compliance_remediation_executions')
+      .where('remediation_profile_id', id)
+      .orderBy('started_at', 'desc')
+      .orderBy('id', 'desc')
+      .first();
+    profile.latestExecution = latestExec ? this.mapExecutionRow(latestExec) : null;
+    return profile;
   }
 
   /**
@@ -540,6 +554,7 @@ export class ComplianceDatabase {
       updatedAt: toISOString(row.updated_at),
       executionCount: (row.execution_count as number) ?? undefined,
       lastExecutedAt: toISOStringOrNull(row.last_executed_at),
+      latestExecution: null,
     };
   }
 
