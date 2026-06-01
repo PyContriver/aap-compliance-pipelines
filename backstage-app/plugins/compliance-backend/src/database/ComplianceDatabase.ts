@@ -643,7 +643,7 @@ export class ComplianceDatabase {
     const cutoff = new Date();
     cutoff.setHours(cutoff.getHours() - maxAgeHours);
     const rows = await this.db('compliance_remediation_executions')
-      .where('status', 'running')
+      .whereIn('status', ['pending', 'running'])
       .where('started_at', '<', cutoff.toISOString());
     return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
   }

@@ -1061,13 +1061,27 @@ export async function createRouter(
 
   router.get('/remediation-profiles', async (req, res) => {
     // Stale execution recovery (ADR-014 architect review): on list load,
-    // check for executions stuck in 'running' >4 hours and mark as failed.
+    // check for executions stuck in 'pending'/'running' >4 hours.
+    // Query Controller for actual job status before marking as failed.
     try {
       const stale = await database.getStaleRunningExecutions(4);
       for (const exec of stale) {
-        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt})`);
+        let resolvedStatus: 'succeeded' | 'failed' = 'failed';
+        if (exec.primaryJobId) {
+          try {
+            const job = await service.getJobStatus(exec.primaryJobId);
+            if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
+              continue; // still running on Controller — don't mark as failed
+            }
+            resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
+          } catch {
+            // Controller unreachable — leave as-is (fail-safe)
+            continue;
+          }
+        }
+        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt}) → ${resolvedStatus}`);
         await database.updateExecutionStatus(exec.id, {
-          status: 'failed',
+          status: resolvedStatus,
           completedAt: new Date().toISOString(),
         });
       }
