@@ -462,7 +462,25 @@ export class ComplianceDatabase {
     }
 
     const rows = await query;
-    return rows.map((row: Record<string, unknown>) => this.mapRemediationProfileRow(row));
+    const profiles = rows.map((row: Record<string, unknown>) => this.mapRemediationProfileRow(row));
+
+    if (profiles.length === 0) return profiles;
+
+    const profileIds = profiles.map(p => p.id);
+    const latestExecs = await this.db('compliance_remediation_executions as e1')
+      .whereIn('e1.remediation_profile_id', profileIds)
+      .whereRaw('e1.started_at = (SELECT MAX(e2.started_at) FROM compliance_remediation_executions e2 WHERE e2.remediation_profile_id = e1.remediation_profile_id)')
+      .select('*');
+
+    const execByProfile = new Map<string, RemediationExecution>();
+    for (const row of latestExecs) {
+      execByProfile.set(row.remediation_profile_id as string, this.mapExecutionRow(row));
+    }
+    for (const profile of profiles) {
+      profile.latestExecution = execByProfile.get(profile.id) ?? null;
+    }
+
+    return profiles;
   }
 
   async updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<boolean> {

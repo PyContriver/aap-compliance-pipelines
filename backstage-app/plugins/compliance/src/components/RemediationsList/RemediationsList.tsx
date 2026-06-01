@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   InfoCard,
@@ -23,18 +23,48 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
+  Collapse,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   makeStyles,
   Tooltip,
 } from '@material-ui/core';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
+import ArchiveIcon from '@material-ui/icons/Archive';
+import UnarchiveIcon from '@material-ui/icons/Unarchive';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AddIcon from '@material-ui/icons/Add';
-import AssessmentIcon from '@material-ui/icons/Assessment';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import { complianceApiRef } from '../../api';
-import type { RemediationProfile, ComplianceScan } from '@aap-compliance/common';
+import type {
+  RemediationProfile,
+  RemediationExecution,
+  RemediationProfileStatus,
+  RemediationExecutionStatus,
+} from '@aap-compliance/common';
+
+type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
+
+const STATUS_CHIP_COLORS: Record<RemediationProfileStatus, { bg: string; fg: string }> = {
+  draft: { bg: '#FFF3E0', fg: '#E65100' },
+  saved: { bg: '#E8F5E9', fg: '#2E7D32' },
+  archived: { bg: '#ECEFF1', fg: '#546E7A' },
+};
+
+const EXEC_CHIP_COLORS: Record<RemediationExecutionStatus, { bg: string; fg: string }> = {
+  pending: { bg: '#FFF3E0', fg: '#E65100' },
+  running: { bg: '#E3F2FD', fg: '#1565C0' },
+  succeeded: { bg: '#E8F5E9', fg: '#2E7D32' },
+  failed: { bg: '#FFEBEE', fg: '#C62828' },
+  cancelled: { bg: '#ECEFF1', fg: '#546E7A' },
+};
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -46,6 +76,16 @@ const useStyles = makeStyles(theme => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing(2),
+    gap: theme.spacing(2),
+  },
+  filterRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+  },
+  statusFilter: {
+    minWidth: 140,
   },
   nameCell: {
     fontWeight: 500,
@@ -54,7 +94,120 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     gap: theme.spacing(0.5),
   },
+  statusChips: {
+    display: 'flex',
+    gap: theme.spacing(0.5),
+    flexWrap: 'wrap',
+  },
+  statusChip: {
+    height: 22,
+    fontSize: '0.75rem',
+  },
+  expandedRow: {
+    backgroundColor: theme.palette.type === 'dark' ? '#1a1a1a' : '#FAFAFA',
+  },
+  executionTable: {
+    '& th': {
+      fontWeight: 600,
+      fontSize: '0.75rem',
+      padding: theme.spacing(0.5, 1),
+    },
+    '& td': {
+      fontSize: '0.8rem',
+      padding: theme.spacing(0.5, 1),
+    },
+  },
+  muted: {
+    color: theme.palette.text.secondary,
+  },
 }));
+
+function formatRelativeDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString();
+}
+
+function formatDuration(seconds: number | null): string {
+  if (seconds == null) return '—';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const min = Math.floor(seconds / 60);
+  const sec = Math.round(seconds % 60);
+  return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
+}
+
+function ExecutionHistoryRow({
+  execution,
+  inventoryNames,
+}: {
+  execution: RemediationExecution;
+  inventoryNames: Map<number, string>;
+}) {
+  const classes = useStyles();
+  const navigate = useNavigate();
+  const execColor = EXEC_CHIP_COLORS[execution.status];
+
+  return (
+    <TableRow>
+      <TableCell>{formatRelativeDate(execution.startedAt)}</TableCell>
+      <TableCell>
+        <Chip
+          label={execution.status}
+          size="small"
+          className={classes.statusChip}
+          style={{ backgroundColor: execColor.bg, color: execColor.fg }}
+        />
+      </TableCell>
+      <TableCell>{inventoryNames.get(execution.inventoryId) || `Inventory #${execution.inventoryId}`}</TableCell>
+      <TableCell>
+        {execution.rulesApplied != null ? (
+          <>
+            {execution.rulesApplied}
+            {execution.rulesFailed ? (
+              <span style={{ color: '#C62828' }}> ({execution.rulesFailed} failed)</span>
+            ) : null}
+          </>
+        ) : '—'}
+      </TableCell>
+      <TableCell>
+        {execution.hostsTargeted != null ? (
+          <>
+            {execution.hostsTargeted}
+            {execution.hostsFailed ? (
+              <span style={{ color: '#C62828' }}> ({execution.hostsFailed} failed)</span>
+            ) : null}
+          </>
+        ) : '—'}
+      </TableCell>
+      <TableCell>{formatDuration(execution.elapsedSeconds)}</TableCell>
+      <TableCell>
+        <div className={classes.actions}>
+          {execution.verificationScanId && (
+            <Chip label="Verified" size="small" className={classes.statusChip} style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }} />
+          )}
+          {execution.primaryJobId && (
+            <Tooltip title="View execution details">
+              <IconButton
+                size="small"
+                onClick={() => navigate(`/compliance/remediation-result/${execution.primaryJobId}`)}
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export const RemediationsList = () => {
   const classes = useStyles();
@@ -62,50 +215,96 @@ export const RemediationsList = () => {
   const api = useApi(complianceApiRef);
   const [remediations, setRemediations] = useState<RemediationProfile[]>([]);
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
-  const [lastRunMap, setLastRunMap] = useState<Map<string, ComplianceScan>>(new Map());
+  const [inventoryNames, setInventoryNames] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
+  const [executionHistory, setExecutionHistory] = useState<Map<string, RemediationExecution[]>>(new Map());
   const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<RemediationProfile | null>(null);
+  const [actionInProgress, setActionInProgress] = useState(false);
 
-  // Admin permission gate: reuse catalogEntityCreatePermission following
-  // the self-service plugin pattern (two-tier: admin vs read-only).
   const { allowed: isAdmin } = usePermission({
     permission: catalogEntityCreatePermission,
   });
 
-  useEffect(() => {
-    Promise.all([
-      api.getRemediationProfiles(),
-      api.getRegisteredProfiles().catch(() => []),
-      api.getScans().catch(() => []),
-    ]).then(([data, profiles, scans]) => {
-      setRemediations(data);
+  const loadProfiles = useCallback(async () => {
+    try {
+      const backendFilter = statusFilter === 'active' ? undefined
+        : statusFilter === 'all' ? undefined
+        : statusFilter as RemediationProfileStatus;
+
+      const [data, profiles, inventories] = await Promise.all([
+        api.getRemediationProfiles(backendFilter),
+        api.getRegisteredProfiles().catch(() => []),
+        api.getInventories().catch(() => []),
+      ]);
+
+      let filtered = data;
+      if (statusFilter === 'active') {
+        filtered = data.filter(r => r.status !== 'archived');
+      }
+
+      setRemediations(filtered);
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
-      const runMap = new Map<string, ComplianceScan>();
-      for (const scan of scans) {
-        if (scan.scanner !== 'remediation') continue;
-        const existing = runMap.get(scan.profileId);
-        if (!existing || (scan.startedAt > existing.startedAt)) {
-          runMap.set(scan.profileId, scan);
+      setInventoryNames(new Map(inventories.map(inv => [inv.id, inv.name])));
+    } catch (err) {
+      console.error('Failed to load remediation profiles:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, statusFilter]);
+
+  useEffect(() => { loadProfiles(); }, [loadProfiles]);
+
+  const toggleExpanded = async (profileId: string) => {
+    const next = new Set(expandedProfiles);
+    if (next.has(profileId)) {
+      next.delete(profileId);
+    } else {
+      next.add(profileId);
+      if (!executionHistory.has(profileId)) {
+        try {
+          const execs = await api.getRemediationExecutions(profileId, 10);
+          setExecutionHistory(prev => new Map(prev).set(profileId, execs));
+        } catch (err) {
+          console.error('Failed to load execution history:', err);
         }
       }
-      setLastRunMap(runMap);
-    }).catch(err => {
-      console.error('Failed to load remediation profiles:', err);
-    }).finally(() => setLoading(false));
-  }, [api]);
+    }
+    setExpandedProfiles(next);
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
+    setActionInProgress(true);
     try {
       await api.deleteRemediationProfile(deleteTarget.id);
       setRemediations(prev => prev.filter(r => r.id !== deleteTarget.id));
     } catch (err) {
       console.error('Failed to delete remediation profile:', err);
     } finally {
-      setDeleting(false);
+      setActionInProgress(false);
       setDeleteTarget(null);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    setActionInProgress(true);
+    try {
+      const newStatus = archiveTarget.status === 'archived' ? 'saved' : 'archived';
+      await api.updateRemediationProfileStatus(archiveTarget.id, newStatus as RemediationProfileStatus);
+      if (statusFilter === 'active' && newStatus === 'archived') {
+        setRemediations(prev => prev.filter(r => r.id !== archiveTarget.id));
+      } else {
+        setRemediations(prev => prev.map(r => r.id === archiveTarget.id ? { ...r, status: newStatus as RemediationProfileStatus } : r));
+      }
+    } catch (err) {
+      console.error('Failed to update profile status:', err);
+    } finally {
+      setActionInProgress(false);
+      setArchiveTarget(null);
     }
   };
 
@@ -115,8 +314,7 @@ export const RemediationsList = () => {
     <InfoCard title="Remediations">
       <div className={classes.headerRow}>
         <Typography variant="body2" color="textSecondary">
-          Saved remediations capture your rule selections, parameter overrides, and scope
-          choices. Re-apply them to new scans or share across teams.
+          Saved remediation profiles capture your rule selections. Launch them against any inventory.
         </Typography>
         <Button
           variant="outlined"
@@ -128,145 +326,261 @@ export const RemediationsList = () => {
         </Button>
       </div>
 
+      <div className={classes.filterRow}>
+        <FormControl variant="outlined" size="small" className={classes.statusFilter}>
+          <InputLabel id="status-filter-label">Filter</InputLabel>
+          <Select
+            labelId="status-filter-label"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+            label="Filter"
+          >
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="draft">Drafts</MenuItem>
+            <MenuItem value="archived">Archived</MenuItem>
+          </Select>
+        </FormControl>
+        <Typography variant="caption" className={classes.muted}>
+          {remediations.length} profile{remediations.length !== 1 ? 's' : ''}
+        </Typography>
+      </div>
+
       {remediations.length === 0 ? (
         <div className={classes.emptyState}>
           <SettingsIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
-            No saved remediations
+            {statusFilter === 'active' ? 'No active remediations' :
+             statusFilter === 'draft' ? 'No drafts' :
+             statusFilter === 'archived' ? 'No archived remediations' :
+             'No remediations'}
           </Typography>
           <Typography variant="body2" color="textSecondary" paragraph>
             Run a compliance scan, review the findings, then save your rule selections
-            as a remediation. Saved remediations appear here so you can re-apply or
-            modify them later.
+            as a remediation profile.
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => navigate('/compliance/scan')}
-          >
-            Launch a Scan
-          </Button>
+          {statusFilter === 'active' && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate('/compliance/scan')}
+            >
+              Launch a Scan
+            </Button>
+          )}
         </div>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox" />
                 <TableCell>Name</TableCell>
-                <TableCell>Compliance Profile</TableCell>
+                <TableCell>Profile</TableCell>
                 <TableCell>Rules</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Last Updated</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Last Run</TableCell>
+                <TableCell>Runs</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {remediations.map(r => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <Typography variant="body2" className={classes.nameCell}>
-                      {r.name}
-                    </Typography>
-                    {r.description && (
-                      <Typography variant="caption" color="textSecondary">
-                        {r.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={profileNames.get(r.complianceProfileId) || r.complianceProfileId}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {r.selections.filter(s => s.enabled).length} selected
-                  </TableCell>
-                  <TableCell>
-                    {new Date(r.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(r.updatedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className={classes.actions}>
-                      <IconButton
-                        size="small"
-                        title="Edit remediation selections"
-                        onClick={() => navigate(`/compliance/remediation-edit/${r.id}`)}
-                      >
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                      {lastRunMap.has(r.complianceProfileId) && (
-                        <Tooltip title="View last run results">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              const lastRun = lastRunMap.get(r.complianceProfileId)!;
-                              navigate(`/compliance/remediation-result/${lastRun.workflowJobId}`);
-                            }}
-                          >
-                            <AssessmentIcon fontSize="small" />
+              {remediations.map(r => {
+                const isExpanded = expandedProfiles.has(r.id);
+                const hasExecutions = (r.executionCount ?? 0) > 0;
+                const profileColor = STATUS_CHIP_COLORS[r.status || 'saved'];
+                const latestExec = r.latestExecution;
+                const canDelete = r.status === 'draft' && !hasExecutions;
+                const canArchive = r.status === 'saved' || r.status === 'archived';
+
+                return (
+                  <React.Fragment key={r.id}>
+                    <TableRow hover>
+                      <TableCell padding="checkbox">
+                        {hasExecutions && (
+                          <IconButton size="small" data-testid={`expand-${r.id}`} onClick={() => toggleExpanded(r.id)}>
+                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                           </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Launch this remediation">
-                        <IconButton
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" className={classes.nameCell}>
+                          {r.name}
+                        </Typography>
+                        {r.description && (
+                          <Typography variant="caption" color="textSecondary">
+                            {r.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={profileNames.get(r.complianceProfileId) || r.complianceProfileId}
                           size="small"
-                          onClick={() => {
-                            const params = new URLSearchParams();
-                            params.set('profileId', r.id);
-                            navigate(`/compliance/execute/${r.id}?${params.toString()}`);
-                          }}
-                        >
-                          <PlayArrowIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={isAdmin ? 'Delete this remediation' : 'Admin permission required'}>
-                        <span>
-                          <IconButton
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {r.selections.filter(s => s.enabled).length}
+                      </TableCell>
+                      <TableCell>
+                        <div className={classes.statusChips}>
+                          <Chip
+                            label={r.status || 'saved'}
                             size="small"
-                            disabled={!isAdmin}
-                            onClick={() => setDeleteTarget(r)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            className={classes.statusChip}
+                            style={{ backgroundColor: profileColor.bg, color: profileColor.fg }}
+                          />
+                          {latestExec && (
+                            <Chip
+                              label={`${latestExec.status} · ${inventoryNames.get(latestExec.inventoryId) || `#${latestExec.inventoryId}`}`}
+                              size="small"
+                              className={classes.statusChip}
+                              style={{
+                                backgroundColor: EXEC_CHIP_COLORS[latestExec.status].bg,
+                                color: EXEC_CHIP_COLORS[latestExec.status].fg,
+                              }}
+                            />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {r.lastExecutedAt ? formatRelativeDate(r.lastExecutedAt) : (
+                          <span className={classes.muted}>Never</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {r.executionCount ?? 0}
+                      </TableCell>
+                      <TableCell>
+                        <div className={classes.actions}>
+                          <Tooltip title="Edit selections">
+                            <IconButton
+                              size="small"
+                              onClick={() => navigate(`/compliance/remediation-edit/${r.id}`)}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={r.status === 'archived'}
+                                onClick={() => navigate(`/compliance/execute/${r.id}?profileId=${r.id}`)}
+                              >
+                                <PlayArrowIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          {canArchive && isAdmin && (
+                            <Tooltip title={r.status === 'archived' ? 'Restore' : 'Archive'}>
+                              <IconButton size="small" data-testid={`archive-${r.id}`} onClick={() => setArchiveTarget(r)}>
+                                {r.status === 'archived' ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title={
+                            !isAdmin ? 'Admin permission required' :
+                            !canDelete && r.status !== 'draft' ? 'Only drafts can be deleted — archive instead' :
+                            !canDelete ? 'Cannot delete profile with execution history' :
+                            'Delete draft'
+                          }>
+                            <span>
+                              <IconButton
+                                size="small"
+                                data-testid={`delete-${r.id}`}
+                                disabled={!isAdmin || !canDelete}
+                                onClick={() => setDeleteTarget(r)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {hasExecutions && (
+                      <TableRow>
+                        <TableCell style={{ padding: 0 }} colSpan={8}>
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <Box px={2} py={1} className={classes.expandedRow}>
+                              <Typography variant="subtitle2" gutterBottom>
+                                Execution History
+                              </Typography>
+                              <Table size="small" className={classes.executionTable}>
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>When</TableCell>
+                                    <TableCell>Status</TableCell>
+                                    <TableCell>Inventory</TableCell>
+                                    <TableCell>Rules</TableCell>
+                                    <TableCell>Hosts</TableCell>
+                                    <TableCell>Duration</TableCell>
+                                    <TableCell />
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {(executionHistory.get(r.id) || []).map(exec => (
+                                    <ExecutionHistoryRow
+                                      key={exec.id}
+                                      execution={exec}
+                                      inventoryNames={inventoryNames}
+                                    />
+                                  ))}
+                                  {!executionHistory.has(r.id) && (
+                                    <TableRow>
+                                      <TableCell colSpan={7}>
+                                        <Typography variant="caption" className={classes.muted}>Loading...</Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
+
       {/* Delete confirmation dialog */}
-      <Dialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Delete Remediation</DialogTitle>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Delete Draft</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
-            This action cannot be undone.
-          </Typography>
+          <DialogContentText>
+            Delete <strong>{deleteTarget?.name}</strong>? This cannot be undone.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)} disabled={deleting}>
-            Cancel
+          <Button onClick={() => setDeleteTarget(null)} disabled={actionInProgress}>Cancel</Button>
+          <Button variant="contained" color="secondary" onClick={handleDelete} disabled={actionInProgress}>
+            {actionInProgress ? 'Deleting...' : 'Delete'}
           </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting...' : 'Delete'}
+        </DialogActions>
+      </Dialog>
+
+      {/* Archive/Restore confirmation dialog */}
+      <Dialog open={!!archiveTarget} onClose={() => setArchiveTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{archiveTarget?.status === 'archived' ? 'Restore Profile' : 'Archive Profile'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {archiveTarget?.status === 'archived'
+              ? <>Restore <strong>{archiveTarget?.name}</strong> to active remediations?</>
+              : <>Archive <strong>{archiveTarget?.name}</strong>? It will be hidden from the default view but can be restored later.</>
+            }
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setArchiveTarget(null)} disabled={actionInProgress}>Cancel</Button>
+          <Button variant="contained" color="primary" onClick={handleArchive} disabled={actionInProgress}>
+            {actionInProgress ? 'Processing...' : archiveTarget?.status === 'archived' ? 'Restore' : 'Archive'}
           </Button>
         </DialogActions>
       </Dialog>
