@@ -480,7 +480,21 @@ export class ComplianceDatabase {
     return this.mapRemediationProfileRow(row);
   }
 
+  /**
+   * Delete a remediation profile. Only drafts with no execution history
+   * can be deleted (ADR-014 Q6). Saved/archived profiles should be
+   * archived instead. Returns false if not found, throws if blocked by FK.
+   */
   async deleteRemediationProfile(id: string): Promise<boolean> {
+    const profile = await this.getRemediationProfile(id);
+    if (!profile) return false;
+    if (profile.status !== 'draft') {
+      throw new Error('Only draft profiles can be deleted. Use archive for saved profiles.');
+    }
+    const executions = await this.getExecutionsByProfileId(id, 1);
+    if (executions.length > 0) {
+      throw new Error('Cannot delete a profile with execution history.');
+    }
     const deleted = await this.db('compliance_remediation_profiles')
       .where('id', id)
       .delete();
@@ -550,7 +564,12 @@ export class ComplianceDatabase {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('UNIQUE constraint failed') || msg.includes('unique') || msg.includes('duplicate')) {
+      const code = (err as Record<string, unknown>).code;
+      if (
+        msg.includes('UNIQUE constraint failed') ||  // SQLite
+        msg.includes('duplicate key value violates unique constraint') ||  // PostgreSQL
+        code === '23505'  // PostgreSQL error code
+      ) {
         return null; // concurrent execution guard triggered
       }
       throw err;

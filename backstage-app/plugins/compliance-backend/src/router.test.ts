@@ -202,6 +202,24 @@ function createMockDatabase() {
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
     deleteRemediationProfile: jest.fn().mockResolvedValue(true),
+    updateRemediationProfileStatus: jest.fn().mockResolvedValue(true),
+    createExecution: jest.fn().mockResolvedValue({
+      id: 'exec-1',
+      remediationProfileId: 'rp-1',
+      inventoryId: 1,
+      status: 'pending',
+      startedAt: '2026-06-01T00:00:00.000Z',
+    }),
+    getExecutionById: jest.fn().mockResolvedValue(null),
+    getExecutionsByProfileId: jest.fn().mockResolvedValue([]),
+    getRunningExecutionForInventory: jest.fn().mockResolvedValue(null),
+    updateExecutionStatus: jest.fn().mockResolvedValue(undefined),
+    updateVerificationScanId: jest.fn().mockResolvedValue(undefined),
+    getStaleRunningExecutions: jest.fn().mockResolvedValue([]),
+    isProfilePinnedAsBaseline: jest.fn().mockResolvedValue(false),
+    pinBaselineTarget: jest.fn().mockResolvedValue({ id: 'bt-1' }),
+    unpinBaselineTarget: jest.fn().mockResolvedValue(true),
+    getBaselineTargetsForProfile: jest.fn().mockResolvedValue([]),
   } as any;
 }
 
@@ -1074,6 +1092,7 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(200);
       const body = res.body as any;
       expect(body.remediationId).toBe('rem-1');
+      expect(body.executionId).toBe('exec-1');
       expect(body.plan).toBeDefined();
       expect(service.launchRemediation).toHaveBeenCalledTimes(1);
       expect(service.buildRemediationPlan).toHaveBeenCalledTimes(1);
