@@ -1074,8 +1074,8 @@ export async function createRouter(
               continue; // still running on Controller — don't mark as failed
             }
             resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
-          } catch {
-            // Controller unreachable — leave as-is (fail-safe)
+          } catch (controllerErr) {
+            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping (fail-safe): ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
             continue;
           }
         }

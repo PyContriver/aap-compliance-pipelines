@@ -584,6 +584,12 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
   const executionPatched = useRef(false);
+
+  // Reset refs when route params change (component reuse across routes)
+  useEffect(() => {
+    launchFired.current = false;
+    executionPatched.current = false;
+  }, [jobId]);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
   // Selections and findings for rule grouping
@@ -868,19 +874,20 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         if (allTerminal && executionId && !executionPatched.current) {
           executionPatched.current = true;
           const execStatus: RemediationExecutionStatus = allSuccessful ? 'succeeded' : 'failed';
-          const succeededTasks = extractedTasks.filter(t => t.status === 'completed').length;
-          const failedTasks = extractedTasks.filter(t => t.status === 'failed').length;
+          // Count rules (not tasks) — group by ruleId, exclude pre-requisites
+          const ruleIds = new Set(extractedTasks.map(t => t.ruleId).filter(r => r && r !== 'pre-requisite'));
+          const failedRuleIds = new Set(extractedTasks.filter(t => t.status === 'failed').map(t => t.ruleId).filter(r => r && r !== 'pre-requisite'));
           const uniqueHosts = new Set(extractedTasks.flatMap(t => t.hosts.map(h => h.host)));
           const failedHosts = new Set(extractedTasks.flatMap(t => t.hosts.filter(h => h.status === 'failed').map(h => h.host)));
           api.updateRemediationExecution(executionId, {
             status: execStatus,
             completedAt: new Date().toISOString(),
             elapsedSeconds: maxElapsed,
-            rulesApplied: extractedTasks.length || undefined,
-            rulesFailed: failedTasks || undefined,
-            hostsTargeted: uniqueHosts.size || undefined,
-            hostsSucceeded: (uniqueHosts.size - failedHosts.size) || undefined,
-            hostsFailed: failedHosts.size || undefined,
+            rulesApplied: ruleIds.size > 0 ? ruleIds.size : undefined,
+            rulesFailed: failedRuleIds.size > 0 ? failedRuleIds.size : undefined,
+            hostsTargeted: uniqueHosts.size > 0 ? uniqueHosts.size : undefined,
+            hostsSucceeded: uniqueHosts.size > 0 ? uniqueHosts.size - failedHosts.size : undefined,
+            hostsFailed: failedHosts.size > 0 ? failedHosts.size : undefined,
           }).catch(() => {});
         }
 

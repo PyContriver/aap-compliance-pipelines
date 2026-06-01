@@ -1203,4 +1203,332 @@ describe('ComplianceDatabase', () => {
       expect(recent[0].errorDetails).toBe('Host unreachable');
     });
   });
+
+  // ─── Remediation executions (ADR-014) ───────────────────────────────
+
+  describe('createExecution + concurrent guard', () => {
+    let profileId: string;
+
+    beforeEach(async () => {
+      const result = await complianceDb.saveRemediationProfile({
+        name: 'Test STIG Remediation',
+        description: 'Test profile',
+        profileId: 'rhel9-stig',
+        selections: [{ ruleId: 'rule-1', enabled: true, parameters: {} }],
+      });
+      profileId = result.id;
+    });
+
+    it('creates an execution record', async () => {
+      const exec = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+        informingScanId: 'scan-123',
+      });
+      expect(exec).not.toBeNull();
+      expect(exec!.status).toBe('pending');
+      expect(exec!.inventoryId).toBe(1);
+      expect(exec!.remediationProfileId).toBe(profileId);
+      expect(exec!.informingScanId).toBe('scan-123');
+    });
+
+    it('blocks a second execution on the same inventory (concurrent guard)', async () => {
+      const first = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      expect(first).not.toBeNull();
+
+      const second = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      expect(second).toBeNull();
+    });
+
+    it('allows execution on a different inventory', async () => {
+      const first = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      const second = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 2,
+      });
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+    });
+
+    it('allows a new execution after the first completes', async () => {
+      const first = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      expect(first).not.toBeNull();
+
+      await complianceDb.updateExecutionStatus(first!.id, {
+        status: 'succeeded',
+        completedAt: new Date().toISOString(),
+      });
+
+      const second = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      expect(second).not.toBeNull();
+      expect(second!.id).not.toBe(first!.id);
+    });
+
+    it('returns the running execution for an inventory', async () => {
+      await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+
+      const running = await complianceDb.getRunningExecutionForInventory(1);
+      expect(running).not.toBeNull();
+      expect(running!.inventoryId).toBe(1);
+
+      const empty = await complianceDb.getRunningExecutionForInventory(999);
+      expect(empty).toBeNull();
+    });
+
+    it('lists executions by profile ID', async () => {
+      const exec = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      await complianceDb.updateExecutionStatus(exec!.id, {
+        status: 'succeeded',
+        completedAt: new Date().toISOString(),
+        rulesApplied: 10,
+        hostsTargeted: 5,
+      });
+
+      const list = await complianceDb.getExecutionsByProfileId(profileId);
+      expect(list).toHaveLength(1);
+      expect(list[0].rulesApplied).toBe(10);
+      expect(list[0].hostsTargeted).toBe(5);
+    });
+
+    it('updates verification scan ID', async () => {
+      const exec = await complianceDb.createExecution({
+        remediationProfileId: profileId,
+        inventoryId: 1,
+      });
+      await complianceDb.updateVerificationScanId(exec!.id, 'verify-scan-1');
+
+      const updated = await complianceDb.getExecutionById(exec!.id);
+      expect(updated!.verificationScanId).toBe('verify-scan-1');
+    });
+  });
+
+  // ─── Profile status + stale recovery ──────────────────────────────
+
+  describe('updateRemediationProfileStatus', () => {
+    it('transitions profile status', async () => {
+      const { id } = await complianceDb.saveRemediationProfile({
+        name: 'Status Test',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
+      });
+
+      await complianceDb.updateRemediationProfileStatus(id, 'saved');
+      const profile = await complianceDb.getRemediationProfile(id);
+      expect(profile!.status).toBe('saved');
+
+      await complianceDb.updateRemediationProfileStatus(id, 'archived');
+      const archived = await complianceDb.getRemediationProfile(id);
+      expect(archived!.status).toBe('archived');
+    });
+
+    it('hides archived profiles from default list', async () => {
+      await complianceDb.saveRemediationProfile({
+        name: 'Active Profile',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+      });
+      const { id: archivedId } = await complianceDb.saveRemediationProfile({
+        name: 'Old Profile',
+        description: '',
+        profileId: 'rhel9-cis',
+        selections: [],
+      });
+      await complianceDb.updateRemediationProfileStatus(archivedId, 'archived');
+
+      const defaultList = await complianceDb.listRemediationProfiles();
+      expect(defaultList).toHaveLength(1);
+      expect(defaultList[0].name).toBe('Active Profile');
+
+      const archivedList = await complianceDb.listRemediationProfiles('archived');
+      expect(archivedList).toHaveLength(1);
+      expect(archivedList[0].name).toBe('Old Profile');
+    });
+  });
+
+  describe('deleteRemediationProfile guard', () => {
+    it('allows deleting draft profiles', async () => {
+      const { id } = await complianceDb.saveRemediationProfile({
+        name: 'Draft Profile',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
+      });
+      const deleted = await complianceDb.deleteRemediationProfile(id);
+      expect(deleted).toBe(true);
+    });
+
+    it('rejects deleting saved profiles', async () => {
+      const { id } = await complianceDb.saveRemediationProfile({
+        name: 'Saved Profile',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'saved',
+      });
+      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('Only draft');
+    });
+
+    it('rejects deleting drafts with execution history', async () => {
+      const { id } = await complianceDb.saveRemediationProfile({
+        name: 'Used Draft',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
+      });
+      const exec = await complianceDb.createExecution({
+        remediationProfileId: id,
+        inventoryId: 1,
+      });
+      await complianceDb.updateExecutionStatus(exec!.id, {
+        status: 'succeeded',
+        completedAt: new Date().toISOString(),
+      });
+      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('execution history');
+    });
+  });
+
+  // ─── Baseline targets (ADR-014 §7) ────────────────────────────────
+
+  describe('baseline targets', () => {
+    let profileId: string;
+
+    beforeEach(async () => {
+      const result = await complianceDb.saveRemediationProfile({
+        name: 'Golden Standard',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+      });
+      profileId = result.id;
+    });
+
+    it('pins and unpins a baseline target', async () => {
+      const target = await complianceDb.pinBaselineTarget({
+        remediationProfileId: profileId,
+        complianceProfileId: 'rhel9-stig',
+        inventoryId: 1,
+        pinnedBy: 'test-user',
+      });
+      expect(target.inventoryId).toBe(1);
+      expect(target.pinnedBy).toBe('test-user');
+
+      const isPinned = await complianceDb.isProfilePinnedAsBaseline(profileId);
+      expect(isPinned).toBe(true);
+
+      await complianceDb.unpinBaselineTarget(target.id);
+      const isStillPinned = await complianceDb.isProfilePinnedAsBaseline(profileId);
+      expect(isStillPinned).toBe(false);
+    });
+
+    it('enforces one golden standard per compliance profile + inventory', async () => {
+      await complianceDb.pinBaselineTarget({
+        remediationProfileId: profileId,
+        complianceProfileId: 'rhel9-stig',
+        inventoryId: 1,
+      });
+      await expect(
+        complianceDb.pinBaselineTarget({
+          remediationProfileId: profileId,
+          complianceProfileId: 'rhel9-stig',
+          inventoryId: 1,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('allows different inventories for the same compliance profile', async () => {
+      const t1 = await complianceDb.pinBaselineTarget({
+        remediationProfileId: profileId,
+        complianceProfileId: 'rhel9-stig',
+        inventoryId: 1,
+      });
+      const t2 = await complianceDb.pinBaselineTarget({
+        remediationProfileId: profileId,
+        complianceProfileId: 'rhel9-stig',
+        inventoryId: 2,
+      });
+      expect(t1.id).not.toBe(t2.id);
+
+      const targets = await complianceDb.getBaselineTargetsForProfile('rhel9-stig');
+      expect(targets).toHaveLength(2);
+    });
+  });
+
+  // ─── Stale execution recovery ─────────────────────────────────────
+
+  describe('getStaleRunningExecutions', () => {
+    it('returns executions older than threshold', async () => {
+      const { id: profileId } = await complianceDb.saveRemediationProfile({
+        name: 'Stale Test',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+      });
+      // Insert an execution with a very old started_at directly
+      const execId = 'stale-exec-1';
+      const fiveHoursAgo = new Date();
+      fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
+      await db('compliance_remediation_executions').insert({
+        id: execId,
+        remediation_profile_id: profileId,
+        inventory_id: 99,
+        status: 'running',
+        started_at: fiveHoursAgo.toISOString(),
+      });
+
+      const stale = await complianceDb.getStaleRunningExecutions(4);
+      expect(stale).toHaveLength(1);
+      expect(stale[0].id).toBe(execId);
+
+      const notStale = await complianceDb.getStaleRunningExecutions(6);
+      expect(notStale).toHaveLength(0);
+    });
+
+    it('includes pending executions', async () => {
+      const { id: profileId } = await complianceDb.saveRemediationProfile({
+        name: 'Stale Pending',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+      });
+      const fiveHoursAgo = new Date();
+      fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
+      await db('compliance_remediation_executions').insert({
+        id: 'stale-pending-1',
+        remediation_profile_id: profileId,
+        inventory_id: 98,
+        status: 'pending',
+        started_at: fiveHoursAgo.toISOString(),
+      });
+
+      const stale = await complianceDb.getStaleRunningExecutions(4);
+      expect(stale).toHaveLength(1);
+      expect(stale[0].status).toBe('pending');
+    });
+  });
 });
