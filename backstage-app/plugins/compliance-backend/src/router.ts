@@ -234,7 +234,7 @@ export async function createRouter(
             }
           }
           const terminal = ['successful', 'failed', 'error', 'canceled'];
-          if (terminal.includes(status.status)) {
+          if (terminal.includes(status.status) && scan.status !== 'completed') {
             const newStatus = status.status === 'successful' ? 'completed' : 'failed';
             await database.updateScanStatus(scan.id, newStatus, status.finished ?? new Date().toISOString());
             scan.status = newStatus as typeof scan.status;
