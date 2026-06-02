@@ -92,6 +92,7 @@ export const ResultsViewer = () => {
   const [frameworkLabel, setFrameworkLabel] = useState<string>('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
   const [scanComplianceProfileId, setScanComplianceProfileId] = useState<string>('');
+  const compareToScanId = searchParams.get('compareTo');
 
   useEffect(() => {
     if (!jobId) return;
@@ -119,16 +120,22 @@ export const ResultsViewer = () => {
   }, [api, jobId]);
 
   useEffect(() => {
-    if (scanType !== 'verification' || !jobId) return;
-    api.getPreviousFindings(jobId).then(data => {
-      setPreviousFindings(data);
-      if (data.length > 0) {
-        setFindingsExpanded(false);
-      }
-    }).catch(err => {
-      console.error('Failed to load previous findings for comparison:', err);
-    });
-  }, [api, jobId, scanType]);
+    if (compareToScanId) {
+      api.getFindings(compareToScanId).then(data => {
+        setPreviousFindings(data);
+        if (data.length > 0) setFindingsExpanded(false);
+      }).catch(err => {
+        console.error('Failed to load comparison findings:', err);
+      });
+    } else if (scanType === 'verification' && jobId) {
+      api.getPreviousFindings(jobId).then(data => {
+        setPreviousFindings(data);
+        if (data.length > 0) setFindingsExpanded(false);
+      }).catch(err => {
+        console.error('Failed to load previous findings for comparison:', err);
+      });
+    }
+  }, [api, jobId, scanType, compareToScanId]);
 
   const isWorkflowPoll = jobId ? /^\d+$/.test(jobId) : false;
 
@@ -183,6 +190,7 @@ export const ResultsViewer = () => {
     : 0;
 
   const isVerification = scanType === 'verification';
+  const isComparison = !!compareToScanId || isVerification;
   const previousPassRate = useMemo(() => {
     if (previousFindings.length === 0) return 0;
     const prevTotalChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
@@ -192,7 +200,7 @@ export const ResultsViewer = () => {
   }, [previousFindings]);
 
   const comparisonStats = useMemo(() => {
-    if (!isVerification || previousFindings.length === 0) {
+    if (!isComparison || previousFindings.length === 0) {
       return { improved: 0, regressed: 0, unchanged: 0 };
     }
     const prevMap = new Map<string, MultiHostFinding>();
@@ -209,7 +217,7 @@ export const ResultsViewer = () => {
       else unchanged++;
     }
     return { improved, regressed, unchanged };
-  }, [isVerification, findings, previousFindings]);
+  }, [isComparison, findings, previousFindings]);
 
   const filtered = useMemo(() =>
     findings
@@ -326,7 +334,7 @@ export const ResultsViewer = () => {
           <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
             Compliance
           </Typography>
-          <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
+          <Typography>{compareToScanId ? 'Scan Comparison' : isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
         </Breadcrumbs>
         <Box mt={2} />
         <InfoCard title="Scan Results">
@@ -354,7 +362,7 @@ export const ResultsViewer = () => {
           <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
             Compliance
           </Typography>
-          <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
+          <Typography>{compareToScanId ? 'Scan Comparison' : isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
         </Breadcrumbs>
         <Box mt={2} />
         <InfoCard title="Error Loading Results">
@@ -379,7 +387,7 @@ export const ResultsViewer = () => {
         <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
           Compliance
         </Typography>
-        <Typography>{isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
+        <Typography>{compareToScanId ? 'Scan Comparison' : isVerification ? 'Verification Results' : 'Assessment Results'}</Typography>
       </Breadcrumbs>
 
       <Box mt={2} />
@@ -392,8 +400,9 @@ export const ResultsViewer = () => {
         </Box>
       )}
 
-      {isVerification && previousFindings.length > 0 ? (
+      {isComparison && previousFindings.length > 0 ? (
         <VerificationComparison
+          title={compareToScanId ? 'Scan Comparison' : undefined}
           previousPassRate={previousPassRate}
           overallPassRate={overallPassRate}
           totalHosts={totalHosts}
@@ -440,8 +449,8 @@ export const ResultsViewer = () => {
         </Button>
       </Box>
 
-      {/* Findings collapse trigger for verification scans */}
-      {isVerification && (
+      {/* Findings collapse trigger for comparison views */}
+      {isComparison && (
         <div
           className={classes.findingsCollapseTrigger}
           onClick={() => setFindingsExpanded(!findingsExpanded)}
