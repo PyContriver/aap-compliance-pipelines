@@ -1257,7 +1257,7 @@ export async function createRouter(
     };
 
     try {
-      const ruleCount = service.getRuleCountForProfile(saveRequest.framework, saveRequest.version);
+      const ruleCount = service.getRuleCountForProfile(saveRequest.displayName);
       const profile = await database.saveProfile(saveRequest, ruleCount);
       res.status(201).json(profile);
     } catch (error) {
@@ -1328,7 +1328,7 @@ export async function createRouter(
     const profiles = await database.listProfiles();
     for (const p of profiles) {
       if (p.ruleCount === undefined || p.ruleCount === null) {
-        const count = service.getRuleCountForProfile(p.framework, p.version);
+        const count = service.getRuleCountForProfile(p.displayName);
         if (count) {
           await database.saveProfile({
             id: p.id,
