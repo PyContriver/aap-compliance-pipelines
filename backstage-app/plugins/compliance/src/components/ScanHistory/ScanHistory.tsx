@@ -27,6 +27,10 @@ import {
   AccordionDetails,
   IconButton,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   makeStyles,
 } from '@material-ui/core';
 import PlayCircleFilledIcon from '@material-ui/icons/PlayCircleFilled';
@@ -100,6 +104,15 @@ const useStyles = makeStyles(theme => ({
   viewToggle: {
     display: 'flex',
     gap: theme.spacing(0.5),
+  },
+  filterRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+  },
+  filterSelect: {
+    minWidth: 180,
   },
   compareBtn: {
     opacity: 0,
@@ -189,8 +202,15 @@ export const ScanHistory = () => {
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
+  const [filterProfile, setFilterProfile] = useState<string>(filterByProfile || '');
+  const [filterInventory, setFilterInventory] = useState<string>('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [compareSelection, setCompareSelection] = useState<{ groupKey: string; scanId: string } | null>(null);
+
+  // Sync URL param filter with state
+  useEffect(() => {
+    if (filterByProfile) setFilterProfile(filterByProfile);
+  }, [filterByProfile]);
 
   const refreshScans = useCallback(() => api.getScans().then(data => setScans(data)).catch(err => {
     console.error('Failed to refresh scans:', err);
@@ -327,12 +347,32 @@ export const ScanHistory = () => {
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 
-    if (filterByProfile) {
-      sorted = sorted.filter(g => g.profileId === filterByProfile);
+    if (filterProfile) {
+      sorted = sorted.filter(g => g.profileId === filterProfile);
+    }
+    if (filterInventory) {
+      sorted = sorted.filter(g => g.inventoryId === Number(filterInventory));
     }
 
     return sorted;
-  }, [scans, executions, scanStats, profileMap, inventoryMap, filterByProfile]);
+  }, [scans, executions, scanStats, profileMap, inventoryMap, filterProfile, filterInventory]);
+
+  // Profiles and inventories that appear in scan data (for filter dropdowns)
+  const scannedProfiles = useMemo(() => {
+    const ids = new Set(scans.filter(s => s.scanner !== 'remediation').map(s => s.profileId));
+    return Array.from(ids).map(id => ({
+      id,
+      name: profileMap.get(id)?.name || id,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [scans, profileMap]);
+
+  const scannedInventories = useMemo(() => {
+    const ids = new Set(scans.filter(s => s.scanner !== 'remediation').map(s => s.inventoryId));
+    return Array.from(ids).map(id => ({
+      id,
+      name: inventoryMap.get(id) || `Inventory #${id}`,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [scans, inventoryMap]);
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
@@ -400,6 +440,50 @@ export const ScanHistory = () => {
           </Button>
         </Box>
       </div>
+
+      {viewMode === 'grouped' && (scannedProfiles.length > 1 || scannedInventories.length > 1) && (
+        <div className={classes.filterRow}>
+          <FormControl variant="outlined" size="small" className={classes.filterSelect}>
+            <InputLabel id="filter-profile-label">Compliance Profile</InputLabel>
+            <Select
+              labelId="filter-profile-label"
+              value={filterProfile}
+              onChange={e => setFilterProfile(e.target.value as string)}
+              label="Compliance Profile"
+            >
+              <MenuItem value="">All Profiles</MenuItem>
+              {scannedProfiles.map(p => (
+                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" size="small" className={classes.filterSelect}>
+            <InputLabel id="filter-inventory-label">Inventory</InputLabel>
+            <Select
+              labelId="filter-inventory-label"
+              value={filterInventory}
+              onChange={e => setFilterInventory(e.target.value as string)}
+              label="Inventory"
+            >
+              <MenuItem value="">All Inventories</MenuItem>
+              {scannedInventories.map(inv => (
+                <MenuItem key={inv.id} value={inv.id.toString()}>{inv.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {(filterProfile || filterInventory) && (
+            <Chip
+              label="Clear filters"
+              size="small"
+              onDelete={() => { setFilterProfile(''); setFilterInventory(''); }}
+              variant="outlined"
+            />
+          )}
+          <Typography variant="caption" color="textSecondary" style={{ marginLeft: 'auto' }}>
+            {groups.length} group{groups.length !== 1 ? 's' : ''}
+          </Typography>
+        </div>
+      )}
 
       {activeScans.map(scan => scan.workflowJobId && (
         <ScanProgress
