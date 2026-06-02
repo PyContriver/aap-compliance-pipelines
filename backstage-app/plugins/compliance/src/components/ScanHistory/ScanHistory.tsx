@@ -209,16 +209,21 @@ export const ScanHistory = () => {
     ]).finally(() => setLoading(false));
   }, [api]);
 
-  // Fetch stats for completed scans
+  // Fetch stats for completed scans (only when new scan IDs appear)
+  const prevStatsKeyRef = React.useRef('');
   useEffect(() => {
-    const completedIds = scans.filter(s => s.status === 'completed').map(s => s.id);
-    if (completedIds.length === 0) return;
+    const completedIds = scans.filter(s => s.status === 'completed').map(s => s.id).sort();
+    const key = completedIds.join(',');
+    if (completedIds.length === 0 || key === prevStatsKeyRef.current) return;
+    prevStatsKeyRef.current = key;
     api.getBatchScanStats(completedIds).then(stats => setScanStats(stats)).catch(() => {});
   }, [api, scans]);
 
   // Auto-expand first group on initial load
+  const autoExpandedRef = React.useRef(false);
   useEffect(() => {
-    if (expandedGroups.size === 0 && scans.length > 0) {
+    if (!autoExpandedRef.current && scans.length > 0) {
+      autoExpandedRef.current = true;
       const firstScan = scans[0];
       if (firstScan) {
         setExpandedGroups(new Set([`${firstScan.profileId}::${firstScan.inventoryId}`]));
@@ -279,14 +284,28 @@ export const ScanHistory = () => {
       });
     }
 
-    // Add executions to groups
+    // Add executions to groups — match by inventoryId + informingScanId
+    // If the execution's informing scan belongs to a group, the execution belongs there too
+    const scanToGroup = new Map<string, string>();
+    for (const scan of scans) {
+      scanToGroup.set(scan.id, `${scan.profileId}::${scan.inventoryId}`);
+    }
     for (const exec of executions) {
-      // Find the group by inventory — executions have inventoryId but not profileId directly
-      // Match by checking which group has this inventoryId
-      for (const [, group] of groupMap) {
-        if (group.inventoryId === exec.inventoryId) {
-          group.items.push({ type: 'execution', execution: exec });
+      let groupKey: string | undefined;
+      if (exec.informingScanId) {
+        groupKey = scanToGroup.get(exec.informingScanId);
+      }
+      if (!groupKey) {
+        // Fallback: match by inventoryId, pick the first group with matching inventory
+        for (const [key, group] of groupMap) {
+          if (group.inventoryId === exec.inventoryId) {
+            groupKey = key;
+            break;
+          }
         }
+      }
+      if (groupKey && groupMap.has(groupKey)) {
+        groupMap.get(groupKey)!.items.push({ type: 'execution', execution: exec });
       }
     }
 
@@ -435,7 +454,7 @@ export const ScanHistory = () => {
           groups.map(group => {
             const key = `${group.profileId}::${group.inventoryId}`;
             const isExpanded = expandedGroups.has(key);
-            const latestScan = group.items.find(i => i.type === 'scan' && i.scan.status === 'completed') as
+            const latestScan = group.items.find(i => i.type === 'scan' && authoritativeScanIds.has(i.scan.id)) as
               | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number } }
               | undefined;
             const scanCount = group.items.filter(i => i.type === 'scan').length;
@@ -487,7 +506,7 @@ export const ScanHistory = () => {
                         {group.items.map((item, idx) => {
                           if (item.type === 'scan') {
                             const { scan, stats } = item;
-                            const isAuthoritative = latestScan?.scan.id === scan.id;
+                            const isAuthoritative = authoritativeScanIds.has(scan.id);
                             const isCompareSelected = compareSelection?.groupKey === key && compareSelection.scanId === scan.id;
 
                             return (

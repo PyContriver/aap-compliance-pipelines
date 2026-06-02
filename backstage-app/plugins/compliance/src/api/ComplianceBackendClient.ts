@@ -288,7 +288,7 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   getBatchScanStats(scanIds: string[]) {
     return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number }>>(
-      '/scans/stats', { method: 'POST', body: { scanIds } },
+      `/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`,
     );
   }
 

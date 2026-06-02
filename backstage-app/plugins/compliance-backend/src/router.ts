@@ -348,10 +348,15 @@ export async function createRouter(
 
   // ─── Batch scan stats ──────────────────────────────────────────────
 
-  router.post('/scans/stats', async (req, res) => {
-    const scanIds = req.body?.scanIds;
-    if (!Array.isArray(scanIds) || scanIds.length === 0) {
-      res.status(400).json({ error: 'scanIds must be a non-empty array' });
+  router.get('/scans/stats', async (req, res) => {
+    const idsParam = req.query.ids as string | undefined;
+    if (!idsParam) {
+      res.status(400).json({ error: 'ids query parameter is required (comma-separated scan IDs)' });
+      return;
+    }
+    const scanIds = idsParam.split(',').map(s => s.trim()).filter(Boolean);
+    if (scanIds.length === 0) {
+      res.status(400).json({ error: 'ids must contain at least one scan ID' });
       return;
     }
     if (scanIds.length > 100) {
@@ -359,16 +364,7 @@ export async function createRouter(
       return;
     }
     try {
-      const statsMap = await database.getAggregatedStatsByScanIds(scanIds);
-      const result: Record<string, { pass: number; fail: number; rules: number; hosts: number }> = {};
-      for (const [id, stats] of statsMap) {
-        result[id] = {
-          pass: stats.pass,
-          fail: stats.fail,
-          rules: stats.rules.size,
-          hosts: stats.hosts.size,
-        };
-      }
+      const result = await database.getBatchScanStatsAggregated(scanIds);
       res.json(result);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
