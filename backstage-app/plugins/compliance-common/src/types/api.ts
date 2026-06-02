@@ -143,6 +143,14 @@ export interface ComplianceScan {
   errorDetails: string | null;
 }
 
+/** Authoritative scan resolution response (ADR-015 §2). */
+export interface AuthoritativeScanResponse {
+  scan: ComplianceScan;
+  passRate: number;
+  passCount: number;
+  failCount: number;
+}
+
 /** Stored finding row (flattened per-host). */
 export interface StoredFinding {
   id: string;

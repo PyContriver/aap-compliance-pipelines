@@ -27,6 +27,7 @@ import type {
   JobEvent,
   SaveProfileRequest,
   PlatformValidationResult,
+  AuthoritativeScanResponse,
 } from '@aap-compliance/common';
 
 /** Interface for the compliance backend API. */
@@ -58,6 +59,7 @@ export interface ComplianceApi {
   getRemediationExecutions(profileId: string, limit?: number): Promise<RemediationExecution[]>;
   getRemediationExecution(id: string): Promise<RemediationExecution | null>;
   updateRemediationExecution(id: string, update: Partial<RemediationExecution>): Promise<RemediationExecution>;
+  getAuthoritativeScan(profileId: string, inventoryId: number): Promise<AuthoritativeScanResponse | null>;
   validateScan(body: { profileId: string; inventoryId: number }): Promise<PlatformValidationResult>;
   getRegisteredProfiles(): Promise<ComplianceProfile[]>;
   getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;

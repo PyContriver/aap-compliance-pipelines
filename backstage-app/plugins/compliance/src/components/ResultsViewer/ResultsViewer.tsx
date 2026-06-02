@@ -91,6 +91,7 @@ export const ResultsViewer = () => {
   const [profileName, setProfileName] = useState<string>('');
   const [frameworkLabel, setFrameworkLabel] = useState<string>('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
+  const [scanComplianceProfileId, setScanComplianceProfileId] = useState<string>('');
 
   useEffect(() => {
     if (!jobId) return;
@@ -102,6 +103,7 @@ export const ResultsViewer = () => {
         setScanType(match.scanType);
       }
       if (match) {
+        setScanComplianceProfileId(match.profileId);
         api.getRegisteredProfiles().then(profiles => {
           const cart = profiles.find(c => c.id === match.profileId);
           if (cart) {
@@ -415,7 +417,16 @@ export const ResultsViewer = () => {
         <Button variant="outlined" onClick={() => navigate('/compliance')}>
           Back to Overview
         </Button>
-        <Button variant="contained" color="primary" onClick={() => navigate('/compliance/remediations')}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => {
+            const filter = scanComplianceProfileId
+              ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+              : '';
+            navigate(`/compliance/remediations${filter}`);
+          }}
+        >
           Use Existing Remediation
         </Button>
         <Button

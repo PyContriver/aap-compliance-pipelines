@@ -363,5 +363,6 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([
       { id: 1, name: 'compliance-ee', image: 'registry.example.com/compliance-ee:latest' },
     ]),
+    getAuthoritativeScan: jest.fn().mockResolvedValue(null),
   };
 }
