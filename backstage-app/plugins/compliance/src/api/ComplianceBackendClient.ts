@@ -33,6 +33,7 @@ import type {
   JobEvent,
   SaveProfileRequest,
   PlatformValidationResult,
+  AuthoritativeScanResponse,
 } from '@aap-compliance/common';
 
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
@@ -300,6 +301,16 @@ export class ComplianceBackendClient implements ComplianceApi {
       `/remediation-executions/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: update },
     );
+  }
+
+  async getAuthoritativeScan(profileId: string, inventoryId: number) {
+    try {
+      return await this.request<AuthoritativeScanResponse>(
+        `/scans/authoritative?profileId=${encodeURIComponent(profileId)}&inventoryId=${inventoryId}`,
+      );
+    } catch {
+      return null;
+    }
   }
 
   validateScan(body: { profileId: string; inventoryId: number }) {

@@ -166,6 +166,18 @@ export class ComplianceDatabase {
     return rows.map(this.mapScanRow);
   }
 
+  async getAuthoritativeScan(profileId: string, inventoryId: number): Promise<ComplianceScan | null> {
+    const row = await this.db('compliance_scans')
+      .where('profile_id', profileId)
+      .where('inventory_id', inventoryId)
+      .where('scanner', 'oscap')
+      .where('status', 'completed')
+      .orderBy('completed_at', 'desc')
+      .first();
+    if (!row) return null;
+    return this.mapScanRow(row);
+  }
+
   private mapScanRow(row: Record<string, unknown>): ComplianceScan {
     return {
       id: row.id as string,

@@ -40,5 +40,6 @@ export type {
   RemediationExecutionStatus,
   RemediationExecution,
   BaselineTarget,
+  AuthoritativeScanResponse,
 } from './types';
 
