@@ -1,6 +1,6 @@
 # ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping
 
-**Status:** Accepted  
+**Status:** Accepted (Implemented 2026-06-02)  
 **Date:** 2026-06-01  
 **Deciders:** Massimo Ferrari  
 
@@ -108,6 +108,19 @@ When viewing scan results for a specific compliance profile (e.g., DISA STIG), o
 - N/A handling requires no new data — the scanner already captures it
 - Cross-profile filtering prevents accidental misapplication of remediation profiles
 - The `informing_scan_id` on execution records provides full traceability: which scan informed which remediation
+
+## Implementation Notes (2026-06-02)
+
+Decisions 1, 2, and 5 are fully implemented:
+
+- **GET /scans/authoritative** endpoint resolves the latest completed oscap scan for a `(profileId, inventoryId)` pair, returning the scan record with aggregate pass/fail statistics.
+- **POST /remediate** auto-resolves the authoritative scan when `scanId` is not provided in the request body. Returns 400 if no qualifying scan exists.
+- **AuthoritativeScanResponse** type added to `compliance-common` (scan, passRate, passCount, failCount).
+- **Remediation launch dialog** with inventory dropdown checks the authoritative scan endpoint before allowing launch. If no scan exists, the dialog blocks launch and links to the scan launcher with profile + inventory pre-selected.
+- **Cross-profile filtering**: "Use Existing Remediation" from scan results filters the list to remediations matching the current `complianceProfileId`.
+- **Migration 012** adds `rule_count` column to the profile registry, populated from YAML metadata at profile registration time.
+
+Decisions 3 (host scope selector) and 4 (N/A denominator adjustment) are deferred to a future iteration.
 
 ## Related
 

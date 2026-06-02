@@ -290,6 +290,50 @@ paths:
         '400':
           description: Invalid jobId
 
+  /scans/authoritative:
+    get:
+      operationId: getAuthoritativeScan
+      summary: Resolve authoritative scan
+      description: |
+        Returns the most recent completed oscap scan for a given (profileId, inventoryId) pair.
+        Used by the remediation launch flow to validate that a scan exists before allowing
+        remediation (ADR-015 mandatory scan-before-remediation). Only scans with
+        scanner='oscap' and status='completed' qualify. Remediation scans are excluded.
+      tags:
+        - scan
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          description: Compliance profile ID
+          schema:
+            type: string
+        - name: inventoryId
+          in: query
+          required: true
+          description: AAP inventory ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authoritative scan found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthoritativeScanResponse'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No completed assessment scan found for this profile and inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /remediate:
     post:
       operationId: applyRemediation
@@ -298,6 +342,10 @@ paths:
         Applies remediation for selected rules. Builds an optimized remediation plan
         that groups rules by target host set, then launches one workflow per group.
         Returns the remediation result along with the computed plan.
+
+        If scanId is not provided in the request body, the backend auto-resolves the
+        authoritative scan (latest completed oscap scan for the profile and inventory,
+        per ADR-015). Returns 400 if no qualifying scan exists.
       tags:
         - remediation
       requestBody:
@@ -754,6 +802,12 @@ components:
         inventoryId:
           type: integer
           description: AAP inventory ID
+        scanId:
+          type: string
+          description: |
+            Scan ID providing the findings for host targeting. Optional — if omitted,
+            the backend auto-resolves the authoritative scan (latest completed oscap
+            scan for this profile and inventory per ADR-015).
         selections:
           type: array
           items:
@@ -882,6 +936,39 @@ components:
           type: integer
         compliancePct:
           type: number
+
+    AuthoritativeScanResponse:
+      type: object
+      description: |
+        The most recent completed assessment scan for a (profileId, inventoryId) pair,
+        along with aggregate pass/fail statistics (ADR-015).
+      properties:
+        scan:
+          type: object
+          properties:
+            id:
+              type: string
+            profileId:
+              type: string
+            inventoryId:
+              type: integer
+            scanner:
+              type: string
+              example: oscap
+            status:
+              type: string
+              example: completed
+            completedAt:
+              type: string
+              format: date-time
+        passRate:
+          type: number
+          description: Pass rate as a percentage (0-100, one decimal)
+          example: 87.5
+        passCount:
+          type: integer
+        failCount:
+          type: integer
 
     RemediationProfile:
       type: object
