@@ -221,11 +221,11 @@ export const ScanHistory = () => {
       refreshScans(),
       api.getRegisteredProfiles().then(cs => {
         setProfileMap(new Map(cs.map(c => [c.id, { name: c.displayName, certification: c.certification }])));
-      }).catch(() => {}),
+      }).catch(e => console.warn('ScanHistory data load:', e)),
       api.getInventories().then(invs => {
         setInventoryMap(new Map(invs.map(inv => [inv.id, inv.name])));
-      }).catch(() => {}),
-      api.getAllRecentExecutions(50).then(execs => setExecutions(execs)).catch(() => {}),
+      }).catch(e => console.warn('ScanHistory data load:', e)),
+      api.getAllRecentExecutions(50).then(execs => setExecutions(execs)).catch(e => console.warn('ScanHistory data load:', e)),
     ]).finally(() => setLoading(false));
   }, [api]);
 
@@ -236,7 +236,7 @@ export const ScanHistory = () => {
     const key = completedIds.join(',');
     if (completedIds.length === 0 || key === prevStatsKeyRef.current) return;
     prevStatsKeyRef.current = key;
-    api.getBatchScanStats(completedIds).then(stats => setScanStats(stats)).catch(() => {});
+    api.getBatchScanStats(completedIds).then(stats => setScanStats(stats)).catch(e => console.warn('ScanHistory data load:', e));
   }, [api, scans]);
 
   // Auto-expand first group on initial load

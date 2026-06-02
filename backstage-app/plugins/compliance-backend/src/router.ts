@@ -301,6 +301,34 @@ export async function createRouter(
     }
   });
 
+  // ─── Batch scan stats ──────────────────────────────────────────────
+  // Must be registered BEFORE /scans/:scanId to avoid wildcard capture.
+
+  router.get('/scans/stats', async (req, res) => {
+    const idsParam = req.query.ids as string | undefined;
+    if (!idsParam) {
+      res.status(400).json({ error: 'ids query parameter is required (comma-separated scan IDs)' });
+      return;
+    }
+    const scanIds = idsParam.split(',').map(s => s.trim()).filter(Boolean);
+    if (scanIds.length === 0) {
+      res.status(400).json({ error: 'ids must contain at least one scan ID' });
+      return;
+    }
+    if (scanIds.length > 100) {
+      res.status(400).json({ error: 'Maximum 100 scan IDs per request' });
+      return;
+    }
+    try {
+      const result = await database.getBatchScanStatsAggregated(scanIds);
+      res.json(result);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get batch scan stats: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve scan statistics' });
+    }
+  });
+
   router.get('/scans/:scanId', async (req, res) => {
     const { scanId } = req.params;
     const userToken = getUserAapToken(req);
@@ -343,33 +371,6 @@ export async function createRouter(
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get scan ${scanId}: ${msg}`);
       res.status(500).json({ error: 'Failed to retrieve scan details' });
-    }
-  });
-
-  // ─── Batch scan stats ──────────────────────────────────────────────
-
-  router.get('/scans/stats', async (req, res) => {
-    const idsParam = req.query.ids as string | undefined;
-    if (!idsParam) {
-      res.status(400).json({ error: 'ids query parameter is required (comma-separated scan IDs)' });
-      return;
-    }
-    const scanIds = idsParam.split(',').map(s => s.trim()).filter(Boolean);
-    if (scanIds.length === 0) {
-      res.status(400).json({ error: 'ids must contain at least one scan ID' });
-      return;
-    }
-    if (scanIds.length > 100) {
-      res.status(400).json({ error: 'Maximum 100 scan IDs per request' });
-      return;
-    }
-    try {
-      const result = await database.getBatchScanStatsAggregated(scanIds);
-      res.json(result);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get batch scan stats: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve scan statistics' });
     }
   });
 
