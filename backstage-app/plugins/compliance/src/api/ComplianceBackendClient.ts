@@ -286,6 +286,17 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<RemediationExecution[]>(`/remediation-executions?${params}`);
   }
 
+  getBatchScanStats(scanIds: string[]) {
+    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number }>>(
+      '/scans/stats', { method: 'POST', body: { scanIds } },
+    );
+  }
+
+  getAllRecentExecutions(limit?: number) {
+    const params = limit ? `?limit=${limit}` : '';
+    return this.request<RemediationExecution[]>(`/remediation-executions${params}`);
+  }
+
   async getRemediationExecution(id: string) {
     try {
       return await this.request<RemediationExecution>(

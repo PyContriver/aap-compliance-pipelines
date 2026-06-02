@@ -30,6 +30,8 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([]),
+    getAllRecentExecutions: jest.fn().mockResolvedValue([]),
+    getBatchScanStats: jest.fn().mockResolvedValue({}),
     ...overrides,
   };
 }
@@ -70,7 +72,7 @@ describe('ScanHistory', () => {
     });
   });
 
-  it('shows scan rows when data exists', async () => {
+  it('shows grouped scan entries when data exists', async () => {
     const mockApi = createMockApi({
       getScans: jest.fn().mockResolvedValue([
         {
@@ -84,37 +86,26 @@ describe('ScanHistory', () => {
           startedAt: '2025-10-01T10:00:00Z',
           completedAt: '2025-10-01T10:15:00Z',
           errorDetails: null,
-          hostCount: 5,
-          findingsCount: 120,
         },
-        {
-          id: 'scan-2',
-          profileId: 'rhel9-cis-l1',
-          inventoryId: 2,
-          status: 'failed',
-          scanner: 'oscap',
-          scanType: 'verification',
-          workflowJobId: 43,
-          startedAt: '2025-10-02T08:00:00Z',
-          completedAt: '2025-10-02T08:05:00Z',
-          errorDetails: null,
-          hostCount: 3,
-          findingsCount: 0,
-        },
+      ]),
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
+        { id: 'rhel9-stig', displayName: 'DISA STIG RHEL 9', certification: null },
+      ]),
+      getInventories: jest.fn().mockResolvedValue([
+        { id: 1, name: 'test-inventory', hostCount: 5 },
       ]),
     });
 
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      expect(screen.getByText('rhel9-stig')).toBeInTheDocument();
-      expect(screen.getByText('rhel9-cis-l1')).toBeInTheDocument();
+      expect(screen.getByText('DISA STIG RHEL 9')).toBeInTheDocument();
+      expect(screen.getByText(/test-inventory/)).toBeInTheDocument();
       expect(screen.getByText('#42')).toBeInTheDocument();
-      expect(screen.getByText('#43')).toBeInTheDocument();
     });
   });
 
-  it('displays status chips for scans', async () => {
+  it('shows scan type chips', async () => {
     const mockApi = createMockApi({
       getScans: jest.fn().mockResolvedValue([
         {
@@ -128,8 +119,6 @@ describe('ScanHistory', () => {
           startedAt: '2025-10-01T10:00:00Z',
           completedAt: '2025-10-01T10:15:00Z',
           errorDetails: null,
-          hostCount: 5,
-          findingsCount: 120,
         },
       ]),
     });
@@ -137,12 +126,7 @@ describe('ScanHistory', () => {
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      // "Completed" appears both as a column header and as the chip label.
-      // Use getAllByText and verify the chip instance exists.
-      const matches = screen.getAllByText('Completed');
-      // At least one should be inside a MUI Chip (the status label)
-      const chipLabel = matches.find(el => el.classList.contains('MuiChip-label'));
-      expect(chipLabel).toBeTruthy();
+      expect(screen.getByText('Assessment')).toBeInTheDocument();
     });
   });
 
@@ -160,8 +144,6 @@ describe('ScanHistory', () => {
           startedAt: '2025-10-01T10:00:00Z',
           completedAt: '2025-10-01T10:15:00Z',
           errorDetails: null,
-          hostCount: 5,
-          findingsCount: 120,
         },
       ]),
     });
@@ -169,12 +151,10 @@ describe('ScanHistory', () => {
     await renderWithApi(mockApi);
 
     await waitFor(() => {
-      expect(screen.getByText('rhel9-stig')).toBeInTheDocument();
+      expect(screen.getByText('#42')).toBeInTheDocument();
     });
 
-    // Click the row — the navigation is handled by react-router, so we just
-    // verify the row is clickable (has the cursor style via the className)
-    const row = screen.getByText('rhel9-stig').closest('tr');
+    const row = screen.getByText('#42').closest('tr');
     expect(row).toBeTruthy();
     fireEvent.click(row!);
   });

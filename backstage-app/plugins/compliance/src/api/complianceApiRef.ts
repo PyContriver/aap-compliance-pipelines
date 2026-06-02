@@ -57,6 +57,8 @@ export interface ComplianceApi {
   deleteRemediationProfile(id: string): Promise<void>;
   updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<RemediationProfile>;
   getRemediationExecutions(profileId: string, limit?: number): Promise<RemediationExecution[]>;
+  getBatchScanStats(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number }>>;
+  getAllRecentExecutions(limit?: number): Promise<RemediationExecution[]>;
   getRemediationExecution(id: string): Promise<RemediationExecution | null>;
   updateRemediationExecution(id: string, update: Partial<RemediationExecution>): Promise<RemediationExecution>;
   getAuthoritativeScan(profileId: string, inventoryId: number): Promise<AuthoritativeScanResponse | null>;

@@ -346,6 +346,37 @@ export async function createRouter(
     }
   });
 
+  // ─── Batch scan stats ──────────────────────────────────────────────
+
+  router.post('/scans/stats', async (req, res) => {
+    const scanIds = req.body?.scanIds;
+    if (!Array.isArray(scanIds) || scanIds.length === 0) {
+      res.status(400).json({ error: 'scanIds must be a non-empty array' });
+      return;
+    }
+    if (scanIds.length > 100) {
+      res.status(400).json({ error: 'Maximum 100 scan IDs per request' });
+      return;
+    }
+    try {
+      const statsMap = await database.getAggregatedStatsByScanIds(scanIds);
+      const result: Record<string, { pass: number; fail: number; rules: number; hosts: number }> = {};
+      for (const [id, stats] of statsMap) {
+        result[id] = {
+          pass: stats.pass,
+          fail: stats.fail,
+          rules: stats.rules.size,
+          hosts: stats.hosts.size,
+        };
+      }
+      res.json(result);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get batch scan stats: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve scan statistics' });
+    }
+  });
+
   // ─── Workflow job templates ─────────────────────────────────────────
 
   router.get('/workflow-templates', async (req, res) => {
@@ -1045,7 +1076,8 @@ export async function createRouter(
       const executions = await database.getExecutionsByProfileId(profileId, limit);
       res.json(executions);
     } else {
-      res.status(400).json({ error: 'profileId query parameter is required' });
+      const executions = await database.getRecentExecutions(limit);
+      res.json(executions);
     }
   });
 

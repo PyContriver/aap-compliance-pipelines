@@ -637,6 +637,13 @@ export class ComplianceDatabase {
     return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
   }
 
+  async getRecentExecutions(limit: number = 50): Promise<RemediationExecution[]> {
+    const rows = await this.db('compliance_remediation_executions')
+      .orderBy('started_at', 'desc')
+      .limit(limit);
+    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+  }
+
   /** Get the currently running/pending execution for an inventory (for UI display). */
   async getRunningExecutionForInventory(inventoryId: number): Promise<RemediationExecution | null> {
     const row = await this.db('compliance_remediation_executions')
