@@ -40,7 +40,7 @@ export interface ComplianceApi {
   getScans(): Promise<ComplianceScan[]>;
   getScan(scanId: string): Promise<ComplianceScan | null>;
   launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
-  getFindings(scanId?: string): Promise<MultiHostFinding[]>;
+  getFindings(scanId?: string, profileId?: string): Promise<MultiHostFinding[]>;
   getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;
   getWorkflowStatus(jobId: number): Promise<WorkflowJobStatus>;
   getJobStatus(jobId: number): Promise<WorkflowJobStatus>;

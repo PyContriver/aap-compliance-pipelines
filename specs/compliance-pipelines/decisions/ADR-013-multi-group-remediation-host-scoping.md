@@ -36,7 +36,7 @@ Remediate JTs must have:
 
 ## Task Grouping
 
-CaC remediation playbooks produce many setup tasks per rule (e.g., "Declare list of syscalls", "Check existence of...") whose names don't match rule titles. The frontend uses `event_data.role` from Controller job events to anchor these tasks to their rule. This takes priority over name-based matching, ensuring setup tasks appear under the correct rule group rather than in "Pre-Requisite Tasks".
+CaC remediation playbooks produce many setup tasks per rule (e.g., "Declare list of syscalls", "Check existence of...") whose names don't match rule titles. The frontend groups tasks positionally: title-prefixed "anchor" tasks set the current rule, and all subsequent tasks inherit that rule until the next anchor is found. A word-overlap fallback converts rule IDs to words (e.g., `kernel_module_atm_disabled` → "kernel module atm disabled") when findings titles are unavailable. Note: CaC monolithic playbooks never populate `event_data.role` or `event_data.task_tags`.
 
 ## Alternatives Considered
 

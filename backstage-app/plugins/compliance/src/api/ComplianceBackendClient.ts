@@ -187,8 +187,11 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<LaunchScanResponse>('/scan', { method: 'POST', body, aapToken });
   }
 
-  getFindings(scanId?: string) {
-    const q = scanId ? `?scanId=${encodeURIComponent(scanId)}` : '';
+  getFindings(scanId?: string, profileId?: string) {
+    const params = new URLSearchParams();
+    if (scanId) params.set('scanId', scanId);
+    if (profileId) params.set('profileId', profileId);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return this.request<MultiHostFinding[]>(`/findings${q}`);
   }
 

@@ -125,6 +125,86 @@ function loadRulesMetadata(logger: LoggerService): Map<string, RuleMetadata> {
 }
 
 /**
+ * Extract profile-level rule_count from rules YAML headers.
+ *
+ * Each collection has `rules/*.yml` with a `profile:` header containing
+ * `rule_count`, and a sibling `meta/compliance-profile.yml` with a unique
+ * `name` field matching the profile's `displayName`. We key by display
+ * name since framework+version can collide (e.g., CIS L1 and CIS L2
+ * both have framework=CIS, version=v1.0.0).
+ */
+function loadProfileRuleCounts(logger: LoggerService): Map<string, number> {
+  const counts = new Map<string, number>();
+  const profilesRoot = path.resolve(
+    __dirname, '..', '..', '..', '..', '..', 'profiles',
+  );
+
+  // Local dev: scan profile collections (has companion meta/compliance-profile.yml)
+  if (fs.existsSync(profilesRoot)) {
+    try {
+      for (const profile of fs.readdirSync(profilesRoot)) {
+        const collectionsDir = path.join(profilesRoot, profile, 'ansible_collections');
+        if (!fs.existsSync(collectionsDir)) continue;
+        for (const ns of fs.readdirSync(collectionsDir)) {
+          const nsDir = path.join(collectionsDir, ns);
+          if (!fs.statSync(nsDir).isDirectory()) continue;
+          for (const coll of fs.readdirSync(nsDir)) {
+            const collDir = path.join(nsDir, coll);
+            const rulesDir = path.join(collDir, 'rules');
+            const metaFile = path.join(collDir, 'meta', 'compliance-profile.yml');
+            if (!fs.existsSync(rulesDir)) continue;
+
+            let displayName = '';
+            if (fs.existsSync(metaFile)) {
+              try {
+                const meta = yaml.parse(fs.readFileSync(metaFile, 'utf-8'));
+                displayName = meta?.profile?.name || '';
+              } catch { /* skip */ }
+            }
+
+            const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+            for (const file of files) {
+              try {
+                const content = yaml.parse(fs.readFileSync(path.join(rulesDir, file), 'utf-8'));
+                const ruleCount = content?.profile?.rule_count;
+                if (typeof ruleCount === 'number' && displayName) {
+                  counts.set(displayName, ruleCount);
+                }
+              } catch { /* skip */ }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.debug(`Error scanning profiles for rule counts: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // dist-dynamic: flat rules/ dir bundled at build time (no companion meta)
+  // Key by framework:version — works when there's no collision (STIG vs CIS).
+  // For same-framework collisions (CIS L1/L2), the actual rule count from the
+  // YAML header is used as a tiebreaker during matching.
+  const packageRules = path.resolve(__dirname, '..', '..', 'rules');
+  if (fs.existsSync(packageRules) && counts.size === 0) {
+    try {
+      const files = fs.readdirSync(packageRules).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+      for (const file of files) {
+        const content = yaml.parse(fs.readFileSync(path.join(packageRules, file), 'utf-8'));
+        const h = content?.profile;
+        if (h?.framework && typeof h?.rule_count === 'number') {
+          counts.set(`${h.framework}:${h.version || ''}:${h.rule_count}`, h.rule_count);
+        }
+      }
+    } catch (err) {
+      logger.debug(`Rule counts not loaded from ${packageRules}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  logger.info(`Loaded profile rule counts: ${Array.from(counts.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+  return counts;
+}
+
+/**
  * Shape of a single finding from the normalize_xccdf module output (Track B)
  * or the legacy compliance_evaluate module (deprecated, replaced by OpenSCAP
  * scanning -- see ADR-004). Findings are delivered via Direct POST to
@@ -181,6 +261,7 @@ export class ComplianceService {
   private readonly config: Config;
   private database: ComplianceDatabase | null = null;
   private rulesMetadata: Map<string, RuleMetadata> | null = null;
+  private profileRuleCounts: Map<string, number> | null = null;
 
   constructor(config: Config, logger: LoggerService) {
     this.config = config;
@@ -239,6 +320,23 @@ export class ComplianceService {
       this.logger.info(`Loaded ${this.rulesMetadata.size} rule metadata entries`);
     }
     return this.rulesMetadata;
+  }
+
+  getRuleCountForProfile(displayName: string, framework?: string, version?: string): number | undefined {
+    if (!this.profileRuleCounts) {
+      this.profileRuleCounts = loadProfileRuleCounts(this.logger);
+    }
+    // Try exact displayName match first (local dev with compliance-profile.yml)
+    const byName = this.profileRuleCounts.get(displayName);
+    if (byName !== undefined) return byName;
+    // Fallback: match by framework:version prefix (dist-dynamic flat rules/)
+    if (framework) {
+      const prefix = `${framework}:${version || ''}:`;
+      for (const [key, count] of this.profileRuleCounts) {
+        if (key.startsWith(prefix)) return count;
+      }
+    }
+    return undefined;
   }
 
   // ─── Profiles ───────────────────────────────────────────────────────
