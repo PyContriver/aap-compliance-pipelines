@@ -335,6 +335,29 @@ export class ComplianceDatabase {
     return result;
   }
 
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number }>> {
+    if (scanIds.length === 0) return {};
+    const rows = await this.db('compliance_findings')
+      .select('scan_id')
+      .count({ total: '*' })
+      .sum({ pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END") })
+      .sum({ fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END") })
+      .countDistinct({ rule_count: 'rule_id' })
+      .countDistinct({ host_count: 'host' })
+      .whereIn('scan_id', scanIds)
+      .groupBy('scan_id');
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number }> = {};
+    for (const row of rows as Array<Record<string, unknown>>) {
+      result[row.scan_id as string] = {
+        pass: Number(row.pass_count) || 0,
+        fail: Number(row.fail_count) || 0,
+        rules: Number(row.rule_count) || 0,
+        hosts: Number(row.host_count) || 0,
+      };
+    }
+    return result;
+  }
+
   private mapFindingRow(row: Record<string, unknown>): StoredFinding {
     return {
       id: row.id as string,
@@ -632,6 +655,13 @@ export class ComplianceDatabase {
   async getExecutionsByProfileId(profileId: string, limit: number = 20): Promise<RemediationExecution[]> {
     const rows = await this.db('compliance_remediation_executions')
       .where('remediation_profile_id', profileId)
+      .orderBy('started_at', 'desc')
+      .limit(limit);
+    return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
+  }
+
+  async getRecentExecutions(limit: number = 50): Promise<RemediationExecution[]> {
+    const rows = await this.db('compliance_remediation_executions')
       .orderBy('started_at', 'desc')
       .limit(limit);
     return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));

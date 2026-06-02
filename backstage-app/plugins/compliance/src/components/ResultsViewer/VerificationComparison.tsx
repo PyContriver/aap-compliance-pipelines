@@ -58,6 +58,7 @@ interface VerificationComparisonProps {
   totalHosts: number;
   totalRules: number;
   comparisonStats: { improved: number; regressed: number; unchanged: number };
+  title?: string;
 }
 
 export const VerificationComparison = ({
@@ -66,11 +67,12 @@ export const VerificationComparison = ({
   totalHosts,
   totalRules,
   comparisonStats,
+  title,
 }: VerificationComparisonProps) => {
   const classes = useStyles();
 
   return (
-    <InfoCard title="Verification Results">
+    <InfoCard title={title || 'Verification Results'}>
       <div className={classes.comparisonHeader}>
         <div className={classes.comparisonGauge}>
           <ComplianceGauge value={previousPassRate} label="Before" />
