@@ -59,7 +59,20 @@ A compliance profile is a registered standard that maps a compliance framework (
 * The inventory scope (which hosts to assess)
 * The compliance framework version and rule set
 
+Each profile also carries a canonical rule count from the compliance standard metadata (for example, 489 rules for DISA STIG RHEL 9). This count reflects the total rules defined in the standard and is stable regardless of which inventory was last scanned or how many hosts returned results.
+
 Profiles are registered in the compliance plugin settings and can be shared across teams within an organization.
+
+== Authoritative scan
+
+When you launch a remediation, the system must determine which hosts have failing rules and what evidence supports the remediation scope. The compliance plugin automatically identifies the _authoritative scan_ for each (profile, inventory) pair: the latest completed assessment scan that used that compliance profile against that inventory.
+
+The authoritative scan serves two purposes:
+
+* It determines which hosts need remediation and which rules are failing on each host.
+* It is recorded as the _informing scan_ on the remediation execution record, establishing a clear audit trail from assessment evidence to remediation action.
+
+If no completed assessment scan exists for the selected profile and inventory combination, the plugin blocks the remediation launch and offers to run a scan first.
 
 == Plugin architecture
 
@@ -69,6 +82,8 @@ The compliance pipelines plugin consists of three packages:
 ** *CSV and JSON export* -- Export findings from any scan result for auditors or integration with external tools.
 ** *Verification comparison view* -- After remediation, compare before-and-after compliance scores with side-by-side gauges showing pass-rate improvement.
 ** *Dual view modes* -- View findings organized by status (pass/fail) or by category (Access Control, Audit, etc.) for flexible analysis.
+** *Cross-profile filtering* -- When reusing an existing remediation from scan results, the Remediations tab filters to show only profiles that match the current compliance standard.
+** *Inventory-aware remediation launch* -- When launching a saved remediation, you select a target inventory and the system validates that a completed assessment scan exists before allowing the launch.
 ** *Insights pattern* -- Remediation profiles auto-save as you configure them, with inline naming that removes manual save steps.
 ** *Data retention settings* -- Configure how long scan findings are retained, with manual cleanup support for immediate space reclamation.
 * *Backend plugin* (`@aap-compliance/backend`): REST API that communicates with {ControllerName}, manages scan state, and stores remediation profiles in a local database. The backend implements automatic data retention cleanup on startup and exposes settings and cleanup endpoints for administrative control.

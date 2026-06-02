@@ -49,7 +49,7 @@ Optionally, configure platform requirements for the profile by specifying the *O
 
 . Launch an assessment scan.
 +
-Navigate to the *New Scan* tab.
+Navigate to the *New Scan* tab. Each compliance profile tile displays the canonical rule count from the compliance standard metadata (for example, 489 for DISA STIG RHEL 9). This number reflects the total rules in the standard and does not change based on scan results.
 +
 Configure the scan parameters:
 +
@@ -108,13 +108,26 @@ After configuring your rule selections and parameters, enter a name and descript
 +
 Click *Save Remediation*. The saved remediation appears in the *Remediations* tab and can be reused for future remediation runs.
 
+. Reuse an existing remediation profile.
++
+If you have already saved a remediation profile for the same compliance standard, you can apply it to new scan results instead of building a new one.
++
+From the results viewer, click *Use Existing Remediation*. The plugin opens the *Remediations* tab with a filter applied that shows only remediation profiles matching the current compliance standard. For example, if you are viewing DISA STIG scan results, only STIG remediation profiles are displayed.
++
+A filter chip at the top of the list shows the active filter (for example, *DISA STIG*). Click the clear button on the chip to remove the filter and see all remediation profiles.
+
 . Apply the remediation.
 +
-From the *Remediations* tab, select the remediation profile you saved and click *Execute*.
+From the *Remediations* tab, select the remediation profile you saved and click *Launch Remediation*.
 +
-Alternatively, from the results viewer, click *Execute Remediation* to launch the remediation immediately without saving a profile.
+The *Launch Remediation* dialog opens and prompts you to select a target inventory. After you select an inventory, the system checks whether a completed assessment scan exists for this profile and inventory combination. This scan is the _authoritative scan_ that determines which hosts need remediation.
 +
-The plugin launches the remediation job template in {ControllerName}, passing the selected rules as job tags and custom parameters as extra variables.
+** If a completed assessment scan exists, the dialog shows the scan date and you can proceed with the launch.
+** If no completed assessment scan exists, the dialog displays a *Run a Scan First* button. Clicking this button opens the scan launcher pre-populated with the correct compliance profile and inventory so you can run an assessment before remediating.
++
+Alternatively, from the results viewer, click *Execute Remediation* to launch the remediation immediately without saving a profile. In this case, the scan you are viewing serves as the authoritative scan.
++
+The plugin launches the remediation job template in {ControllerName}, passing the selected rules as job tags and custom parameters as extra variables. The authoritative scan is recorded as the _informing scan_ on the execution record for audit traceability.
 +
 [IMPORTANT]
 ====
