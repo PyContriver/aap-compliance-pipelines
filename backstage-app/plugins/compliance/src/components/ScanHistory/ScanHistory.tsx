@@ -226,6 +226,23 @@ export const ScanHistory = () => {
     }
   }, [scans]);
 
+  // Compute authoritative scan IDs (latest completed assessment per profile×inventory)
+  const authoritativeScanIds = useMemo(() => {
+    const ids = new Set<string>();
+    const seen = new Set<string>();
+    const sorted = [...scans]
+      .filter(s => s.status === 'completed' && s.scanner === 'oscap' && s.scanType === 'assessment')
+      .sort((a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime());
+    for (const s of sorted) {
+      const key = `${s.profileId}::${s.inventoryId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        ids.add(s.id);
+      }
+    }
+    return ids;
+  }, [scans]);
+
   const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
   const activeScans = scans.filter(
     s => (s.status === 'pending' || s.status === 'running') && s.startedAt > oneHourAgo,
@@ -331,7 +348,7 @@ export const ScanHistory = () => {
         <Typography variant="body2" color="textSecondary">
           {viewMode === 'grouped'
             ? 'Scans grouped by compliance profile and inventory. Click to view findings.'
-            : 'All compliance scans in chronological order. Click a scan to view its findings.'}
+            : 'All scans and remediations in chronological order. Click to view details.'}
         </Typography>
         <Box display="flex" style={{ gap: 8 }}>
           <div className={classes.viewToggle}>
@@ -344,7 +361,7 @@ export const ScanHistory = () => {
                 <ViewModuleIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Flat view">
+            <Tooltip title="Timeline">
               <IconButton
                 size="small"
                 color={viewMode === 'flat' ? 'primary' : 'default'}
@@ -654,7 +671,14 @@ export const ScanHistory = () => {
                   </TableCell>
                   <TableCell>{scan.scanner}</TableCell>
                   <TableCell>
-                    {scan.workflowJobId ? `#${scan.workflowJobId}` : '--'}
+                    <Box display="flex" alignItems="center" style={{ gap: 4 }}>
+                      {authoritativeScanIds.has(scan.id) && (
+                        <Tooltip title="Authoritative scan (latest completed assessment)">
+                          <StarIcon style={{ fontSize: 16, color: '#F0AB00' }} />
+                        </Tooltip>
+                      )}
+                      {scan.workflowJobId ? `#${scan.workflowJobId}` : '--'}
+                    </Box>
                   </TableCell>
                   <TableCell>{formatDate(scan.startedAt)}</TableCell>
                   <TableCell>
