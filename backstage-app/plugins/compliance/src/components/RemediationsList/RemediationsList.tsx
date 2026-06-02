@@ -690,8 +690,11 @@ export const RemediationsList = () => {
                 size="small"
                 variant="outlined"
                 onClick={() => {
+                  const params = new URLSearchParams();
+                  if (launchTarget?.complianceProfileId) params.set('profile', launchTarget.complianceProfileId);
+                  if (launchInventoryId) params.set('inventory', launchInventoryId);
                   setLaunchTarget(null);
-                  navigate(`/compliance/scan`);
+                  navigate(`/compliance/scan?${params.toString()}`);
                 }}
               >
                 Run a Scan First

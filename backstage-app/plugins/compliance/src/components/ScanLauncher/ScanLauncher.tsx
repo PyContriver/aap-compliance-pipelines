@@ -100,10 +100,11 @@ export const ScanLauncher = () => {
 
   const [searchParams] = useSearchParams();
   const preselectedProfile = searchParams.get('profile') ?? '';
+  const preselectedInventory = searchParams.get('inventory') ?? '';
   const scanTypeParam = searchParams.get('scanType') as 'assessment' | 'verification' | null;
   const [activeStep, setActiveStep] = useState(preselectedProfile ? 1 : 0);
   const [selectedProfile, setSelectedProfile] = useState(preselectedProfile);
-  const [selectedInventory, setSelectedInventory] = useState('');
+  const [selectedInventory, setSelectedInventory] = useState(preselectedInventory);
   const [limit, setLimit] = useState('');
   const [evaluateOnly, setEvaluateOnly] = useState(true);
   const [launching, setLaunching] = useState(false);
