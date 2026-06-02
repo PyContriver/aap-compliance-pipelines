@@ -139,46 +139,65 @@ function loadProfileRuleCounts(logger: LoggerService): Map<string, number> {
     __dirname, '..', '..', '..', '..', '..', 'profiles',
   );
 
-  if (!fs.existsSync(profilesRoot)) return counts;
+  // Local dev: scan profile collections (has companion meta/compliance-profile.yml)
+  if (fs.existsSync(profilesRoot)) {
+    try {
+      for (const profile of fs.readdirSync(profilesRoot)) {
+        const collectionsDir = path.join(profilesRoot, profile, 'ansible_collections');
+        if (!fs.existsSync(collectionsDir)) continue;
+        for (const ns of fs.readdirSync(collectionsDir)) {
+          const nsDir = path.join(collectionsDir, ns);
+          if (!fs.statSync(nsDir).isDirectory()) continue;
+          for (const coll of fs.readdirSync(nsDir)) {
+            const collDir = path.join(nsDir, coll);
+            const rulesDir = path.join(collDir, 'rules');
+            const metaFile = path.join(collDir, 'meta', 'compliance-profile.yml');
+            if (!fs.existsSync(rulesDir)) continue;
 
-  try {
-    for (const profile of fs.readdirSync(profilesRoot)) {
-      const collectionsDir = path.join(profilesRoot, profile, 'ansible_collections');
-      if (!fs.existsSync(collectionsDir)) continue;
-      for (const ns of fs.readdirSync(collectionsDir)) {
-        const nsDir = path.join(collectionsDir, ns);
-        if (!fs.statSync(nsDir).isDirectory()) continue;
-        for (const coll of fs.readdirSync(nsDir)) {
-          const collDir = path.join(nsDir, coll);
-          const rulesDir = path.join(collDir, 'rules');
-          const metaFile = path.join(collDir, 'meta', 'compliance-profile.yml');
-          if (!fs.existsSync(rulesDir)) continue;
+            let displayName = '';
+            if (fs.existsSync(metaFile)) {
+              try {
+                const meta = yaml.parse(fs.readFileSync(metaFile, 'utf-8'));
+                displayName = meta?.profile?.name || '';
+              } catch { /* skip */ }
+            }
 
-          // Read display name from compliance-profile.yml
-          let displayName = '';
-          if (fs.existsSync(metaFile)) {
-            try {
-              const meta = yaml.parse(fs.readFileSync(metaFile, 'utf-8'));
-              displayName = meta?.profile?.name || '';
-            } catch { /* skip */ }
-          }
-
-          // Read rule_count from rules YAML header
-          const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
-          for (const file of files) {
-            try {
-              const content = yaml.parse(fs.readFileSync(path.join(rulesDir, file), 'utf-8'));
-              const ruleCount = content?.profile?.rule_count;
-              if (typeof ruleCount === 'number' && displayName) {
-                counts.set(displayName, ruleCount);
-              }
-            } catch { /* skip */ }
+            const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+            for (const file of files) {
+              try {
+                const content = yaml.parse(fs.readFileSync(path.join(rulesDir, file), 'utf-8'));
+                const ruleCount = content?.profile?.rule_count;
+                if (typeof ruleCount === 'number' && displayName) {
+                  counts.set(displayName, ruleCount);
+                }
+              } catch { /* skip */ }
+            }
           }
         }
       }
+    } catch (err) {
+      logger.debug(`Error scanning profiles for rule counts: ${err instanceof Error ? err.message : String(err)}`);
     }
-  } catch (err) {
-    logger.debug(`Error scanning profiles for rule counts: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // dist-dynamic: flat rules/ dir bundled at build time (no companion meta)
+  // Key by framework:version — works when there's no collision (STIG vs CIS).
+  // For same-framework collisions (CIS L1/L2), the actual rule count from the
+  // YAML header is used as a tiebreaker during matching.
+  const packageRules = path.resolve(__dirname, '..', '..', 'rules');
+  if (fs.existsSync(packageRules) && counts.size === 0) {
+    try {
+      const files = fs.readdirSync(packageRules).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+      for (const file of files) {
+        const content = yaml.parse(fs.readFileSync(path.join(packageRules, file), 'utf-8'));
+        const h = content?.profile;
+        if (h?.framework && typeof h?.rule_count === 'number') {
+          counts.set(`${h.framework}:${h.version || ''}:${h.rule_count}`, h.rule_count);
+        }
+      }
+    } catch (err) {
+      logger.debug(`Rule counts not loaded from ${packageRules}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   logger.info(`Loaded profile rule counts: ${Array.from(counts.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}`);
@@ -303,11 +322,21 @@ export class ComplianceService {
     return this.rulesMetadata;
   }
 
-  getRuleCountForProfile(displayName: string): number | undefined {
+  getRuleCountForProfile(displayName: string, framework?: string, version?: string): number | undefined {
     if (!this.profileRuleCounts) {
       this.profileRuleCounts = loadProfileRuleCounts(this.logger);
     }
-    return this.profileRuleCounts.get(displayName);
+    // Try exact displayName match first (local dev with compliance-profile.yml)
+    const byName = this.profileRuleCounts.get(displayName);
+    if (byName !== undefined) return byName;
+    // Fallback: match by framework:version prefix (dist-dynamic flat rules/)
+    if (framework) {
+      const prefix = `${framework}:${version || ''}:`;
+      for (const [key, count] of this.profileRuleCounts) {
+        if (key.startsWith(prefix)) return count;
+      }
+    }
+    return undefined;
   }
 
   // ─── Profiles ───────────────────────────────────────────────────────
