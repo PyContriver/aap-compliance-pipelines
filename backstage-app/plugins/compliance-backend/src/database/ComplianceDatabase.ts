@@ -841,11 +841,11 @@ export class ComplianceDatabase {
     return this.mapProfileRow(row);
   }
 
-  async saveProfile(profile: SaveProfileRequest): Promise<ComplianceProfile> {
+  async saveProfile(profile: SaveProfileRequest, ruleCount?: number): Promise<ComplianceProfile> {
     const now = new Date().toISOString();
     const id = profile.id || randomUUID();
 
-    const row = {
+    const row: Record<string, unknown> = {
       id,
       display_name: profile.displayName,
       description: profile.description || '',
@@ -861,6 +861,9 @@ export class ComplianceDatabase {
       scan_tags: profile.scanTags || '',
       updated_at: now,
     };
+    if (ruleCount !== undefined) {
+      row.rule_count = ruleCount;
+    }
 
     const existing = await this.db('compliance_profile_registry')
       .where('id', id)
@@ -905,6 +908,7 @@ export class ComplianceDatabase {
       remediationPlaybookPath: (row.remediation_playbook_path as string) || '',
       scanTags: (row.scan_tags as string) || '',
       certification: safeJsonParse(row.certification),
+      ruleCount: (row.rule_count as number) ?? undefined,
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
     };

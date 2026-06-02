@@ -191,34 +191,14 @@ function extractTasksFromEvents(
     const stigId = stigMatch ? stigMatch[0] : '';
     const hostName = event.host_name || (event.event_data?.host as string) || '';
 
-    // Try to match this task to a known rule ID:
-    // 1. Check event_data.role (CaC roles are named after rule IDs)
-    // 2. Check task tags in event_data
-    // 3. Check if the task name contains a known rule ID substring
+    // CaC monolithic playbooks don't populate event_data.role or task_tags.
+    // Match against known rule IDs by substring in the task name.
     let ruleId = '';
-    const role = (event.event_data?.role as string) || '';
-    if (role && knownRuleIds.includes(role)) {
-      ruleId = role;
-    }
-    if (!ruleId) {
-      const taskTags = event.event_data?.task_tags as string | undefined;
-      if (taskTags) {
-        const tags = taskTags.split(',').map(t => t.trim());
-        for (const tag of tags) {
-          if (knownRuleIds.includes(tag)) {
-            ruleId = tag;
-            break;
-          }
-        }
-      }
-    }
-    if (!ruleId) {
-      const nameLower = taskName.toLowerCase().replace(/[\s-]/g, '_');
-      for (const candidate of knownRuleIds) {
-        if (nameLower.includes(candidate.toLowerCase())) {
-          ruleId = candidate;
-          break;
-        }
+    const nameLower = taskName.toLowerCase().replace(/[\s-]/g, '_');
+    for (const candidate of knownRuleIds) {
+      if (nameLower.includes(candidate.toLowerCase())) {
+        ruleId = candidate;
+        break;
       }
     }
 
@@ -290,7 +270,13 @@ function groupTasksByRule(
   const ruleTitleMap = new Map<string, { ruleId: string; stigId: string; title: string }>();
   for (const sel of enabledRules) {
     const finding = findingsMap.get(sel.ruleId);
-    const title = finding?.title || sel.ruleId;
+    let title = finding?.title || sel.ruleId;
+    // When findings are unavailable, the title is a raw ruleId like
+    // "kernel_module_atm_disabled". Convert underscores to spaces so
+    // word-overlap matching in findAnchor() can work against CaC task names.
+    if (!finding && title.includes('_') && !title.includes(' ')) {
+      title = title.replace(/_/g, ' ');
+    }
     ruleTitleMap.set(sel.ruleId, {
       ruleId: sel.ruleId,
       stigId: finding?.stigId || '',
@@ -673,10 +659,13 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       // Store selections for rule grouping
       setSelections(loadedSelections);
 
-      // Load findings to get rule titles, STIG IDs, etc.
-      // Try with scanId first; if empty, load latest.
+      // Load findings to get rule titles for task grouping.
+      // Try: (1) by scanId, (2) by complianceProfileId, (3) global latest.
       try {
         let findings = await api.getFindings(scanId).catch(() => []);
+        if (findings.length === 0 && complianceProfileIdRef.current) {
+          findings = await api.getFindings(undefined, complianceProfileIdRef.current).catch(() => []);
+        }
         if (findings.length === 0) {
           findings = await api.getFindings().catch(() => []);
         }

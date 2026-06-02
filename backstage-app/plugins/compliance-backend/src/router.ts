@@ -559,6 +559,7 @@ export async function createRouter(
 
   router.get('/findings', async (req, res) => {
     const scanId = req.query.scanId as string | undefined;
+    const profileId = req.query.profileId as string | undefined;
     const userToken = getUserAapToken(req);
 
     if (scanId && !isValidScanId(scanId)) {
@@ -593,7 +594,7 @@ export async function createRouter(
     }
 
     // Fall through to the service (mock data or DB-based in live mode)
-    const findings = await service.getFindings(resolvedScanId);
+    const findings = await service.getFindings(resolvedScanId, profileId);
     res.json(findings);
   });
 
@@ -1193,17 +1194,7 @@ export async function createRouter(
 
   router.get('/compliance-profiles', async (_req, res) => {
     const profiles = await database.listProfiles();
-
-    // TODO: N+1 queries — replace with single aggregation query when profile count grows
-    const enriched = await Promise.all(
-      profiles.map(async c => {
-        const findings = await database.getLatestFindings(c.id);
-        const uniqueRules = new Set(findings.map(f => f.ruleId)).size;
-        return { ...c, ruleCount: uniqueRules };
-      }),
-    );
-
-    res.json(enriched);
+    res.json(profiles);
   });
 
   router.get('/compliance-profiles/:id', async (req, res) => {
@@ -1266,7 +1257,8 @@ export async function createRouter(
     };
 
     try {
-      const profile = await database.saveProfile(saveRequest);
+      const ruleCount = service.getRuleCountForProfile(saveRequest.framework, saveRequest.version);
+      const profile = await database.saveProfile(saveRequest, ruleCount);
       res.status(201).json(profile);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -1330,6 +1322,36 @@ export async function createRouter(
       res.status(500).json({ error: 'Failed to retrieve execution environments from Controller' });
     }
   });
+
+  // Backfill rule_count for profiles registered before migration 012
+  try {
+    const profiles = await database.listProfiles();
+    for (const p of profiles) {
+      if (p.ruleCount === undefined || p.ruleCount === null) {
+        const count = service.getRuleCountForProfile(p.framework, p.version);
+        if (count) {
+          await database.saveProfile({
+            id: p.id,
+            displayName: p.displayName,
+            description: p.description,
+            framework: p.framework,
+            version: p.version,
+            platform: p.platform,
+            platformSpec: p.platformSpec,
+            workflowTemplateId: p.workflowTemplateId,
+            remediateJtId: p.remediateJtId,
+            eeId: p.eeId,
+            remediationPlaybookPath: p.remediationPlaybookPath,
+            scanTags: p.scanTags,
+            certification: p.certification,
+          }, count);
+          logger.info(`Backfilled rule_count=${count} for profile "${p.displayName}"`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`Rule count backfill failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   return router;
 }

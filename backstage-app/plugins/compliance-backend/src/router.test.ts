@@ -121,6 +121,7 @@ function createMockService() {
     getInventoryHostFacts: jest.fn().mockResolvedValue([]),
     aggregateFindings: jest.fn().mockReturnValue([]),
     aggregateFindingsWithMetadata: jest.fn().mockResolvedValue([]),
+    getRuleCountForProfile: jest.fn().mockReturnValue(undefined),
     mapRawFindingPublic: jest.fn().mockReturnValue({
       scanId: 'scan-1',
       ruleId: 'test',
@@ -716,6 +717,7 @@ describe('compliance backend router', () => {
         expect.objectContaining({
           platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
         }),
+        undefined,
       );
     });
 
@@ -766,6 +768,7 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(201);
       expect(database.saveProfile).toHaveBeenCalledWith(
         expect.objectContaining({ platformSpec: null }),
+        undefined,
       );
     });
   });
@@ -1151,7 +1154,7 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/findings' });
 
       expect(res.status).toBe(200);
-      expect(service.getFindings).toHaveBeenCalledWith(undefined);
+      expect(service.getFindings).toHaveBeenCalledWith(undefined, undefined);
     });
 
     it('returns DB findings when scanId matches stored data', async () => {
@@ -1236,7 +1239,7 @@ describe('compliance backend router', () => {
 
       expect(res.status).toBe(200);
       expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(999);
-      expect(service.getFindings).toHaveBeenCalledWith('999');
+      expect(service.getFindings).toHaveBeenCalledWith('999', undefined);
     });
 
     it('resolves scan- prefixed numeric IDs to workflowJobId', async () => {
@@ -1309,7 +1312,8 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/compliance-profiles' });
 
       expect(res.status).toBe(200);
-      expect(database.listProfiles).toHaveBeenCalledTimes(1);
+      // listProfiles called twice: once by backfill on startup, once by the GET handler
+      expect(database.listProfiles).toHaveBeenCalledTimes(2);
     });
   });
 

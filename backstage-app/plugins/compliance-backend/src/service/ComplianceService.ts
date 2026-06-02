@@ -125,6 +125,59 @@ function loadRulesMetadata(logger: LoggerService): Map<string, RuleMetadata> {
 }
 
 /**
+ * Extract profile-level rule_count from rules YAML headers.
+ * Each file has a `profile:` block with `framework`, `version`, and `rule_count`.
+ * Returns a map keyed by `framework:version`.
+ */
+function loadProfileRuleCounts(logger: LoggerService): Map<string, number> {
+  const counts = new Map<string, number>();
+  const profilesRoot = path.resolve(
+    __dirname, '..', '..', '..', '..', '..', 'profiles',
+  );
+  const packageRules = path.resolve(__dirname, '..', '..', 'rules');
+
+  const rulesDirs: string[] = [];
+  if (fs.existsSync(packageRules)) rulesDirs.push(packageRules);
+  if (fs.existsSync(profilesRoot)) {
+    try {
+      for (const profile of fs.readdirSync(profilesRoot)) {
+        const collectionsDir = path.join(profilesRoot, profile, 'ansible_collections');
+        if (!fs.existsSync(collectionsDir)) continue;
+        for (const ns of fs.readdirSync(collectionsDir)) {
+          const nsDir = path.join(collectionsDir, ns);
+          if (!fs.statSync(nsDir).isDirectory()) continue;
+          for (const coll of fs.readdirSync(nsDir)) {
+            const rulesDir = path.join(nsDir, coll, 'rules');
+            if (fs.existsSync(rulesDir)) rulesDirs.push(rulesDir);
+          }
+        }
+      }
+    } catch (err) {
+      logger.debug(`Error scanning profiles for rule counts: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  for (const rulesDir of rulesDirs) {
+    try {
+      const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+      for (const file of files) {
+        const content = yaml.parse(fs.readFileSync(path.join(rulesDir, file), 'utf-8'));
+        const profileHeader = content?.profile;
+        if (profileHeader?.framework && typeof profileHeader?.rule_count === 'number') {
+          const key = `${profileHeader.framework}:${profileHeader.version || ''}`;
+          counts.set(key, profileHeader.rule_count);
+        }
+      }
+    } catch (err) {
+      logger.debug(`Rule counts not loaded from ${rulesDir}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  logger.info(`Loaded profile rule counts: ${Array.from(counts.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+  return counts;
+}
+
+/**
  * Shape of a single finding from the normalize_xccdf module output (Track B)
  * or the legacy compliance_evaluate module (deprecated, replaced by OpenSCAP
  * scanning -- see ADR-004). Findings are delivered via Direct POST to
@@ -181,6 +234,7 @@ export class ComplianceService {
   private readonly config: Config;
   private database: ComplianceDatabase | null = null;
   private rulesMetadata: Map<string, RuleMetadata> | null = null;
+  private profileRuleCounts: Map<string, number> | null = null;
 
   constructor(config: Config, logger: LoggerService) {
     this.config = config;
@@ -239,6 +293,13 @@ export class ComplianceService {
       this.logger.info(`Loaded ${this.rulesMetadata.size} rule metadata entries`);
     }
     return this.rulesMetadata;
+  }
+
+  getRuleCountForProfile(framework: string, version: string): number | undefined {
+    if (!this.profileRuleCounts) {
+      this.profileRuleCounts = loadProfileRuleCounts(this.logger);
+    }
+    return this.profileRuleCounts.get(`${framework}:${version}`);
   }
 
   // ─── Profiles ───────────────────────────────────────────────────────
