@@ -893,6 +893,12 @@ export class ComplianceDatabase {
     return deleted > 0;
   }
 
+  async updateProfileRuleCount(id: string, ruleCount: number): Promise<void> {
+    await this.db('compliance_profile_registry')
+      .where('id', id)
+      .update({ rule_count: ruleCount });
+  }
+
   private mapProfileRow(row: Record<string, unknown>): ComplianceProfile {
     return {
       id: row.id as string,

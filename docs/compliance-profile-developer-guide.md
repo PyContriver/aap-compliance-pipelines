@@ -985,11 +985,14 @@ For Tier 1 RHEL STIG, the remediation playbook imports the ComplianceAsCode (CaC
 The portal's remediation execution view groups Ansible tasks by compliance rule using a title-matching algorithm. For CaC playbooks (scap-security-guide), each task's name starts with the rule title (e.g., "Set SSH Client Alive Interval - Configure sshd_config"). The portal detects these "anchor" tasks by comparing the task name against known rule titles, then assigns all subsequent tasks to that rule until a new anchor is found.
 
 **Requirements for proper task-to-rule grouping:**
-1. Ansible role names should match rule IDs (e.g., role `sshd_set_idle_timeout` for rule `sshd_set_idle_timeout`). The portal checks `event_data.role` first.
-2. Tasks should be tagged with the rule ID. The portal checks `event_data.task_tags` second.
-3. As a fallback, task names should start with the rule title. This is the CaC convention and requires that rule titles in the compliance profile YAML match the CaC task name prefixes exactly.
+1. Task names should start with the rule title (e.g., "Set SSH Client Alive Interval - Configure sshd_config"). This is the CaC convention and the primary matching strategy.
+2. Tasks between two title-prefixed "anchor" tasks are assigned to the same rule positionally — shared tasks (e.g., "Deduplicate values from /etc/ssh/sshd_config") don't need the prefix.
+3. If rule titles are unavailable, the portal converts rule IDs to words (e.g., `sshd_set_idle_timeout` → "sshd set idle timeout") and uses word-overlap matching as a fallback.
+4. Task names containing a known rule ID as a substring are also matched.
 
-If none of these match, tasks appear in an "unassigned" group. For custom (non-CaC) playbooks, use tags on every task to ensure correct grouping.
+Note: CaC monolithic playbooks (scap-security-guide) do not populate `event_data.role` or `event_data.task_tags` — these fields are always empty. The portal relies entirely on task name matching.
+
+For custom (non-CaC) playbooks, ensure task names include the rule title as a prefix for correct grouping.
 
 For compliance profiles that cannot use CaC playbooks (Windows, network devices, custom frameworks), provide per-rule roles:
 

@@ -192,6 +192,7 @@ function createMockDatabase() {
     }),
     getProfile: jest.fn().mockResolvedValue(null),
     deleteProfile: jest.fn().mockResolvedValue(true),
+    updateProfileRuleCount: jest.fn().mockResolvedValue(undefined),
     getPostureSnapshots: jest.fn().mockResolvedValue([]),
     savePostureSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
     upsertRuleMetadata: jest.fn().mockResolvedValue(0),

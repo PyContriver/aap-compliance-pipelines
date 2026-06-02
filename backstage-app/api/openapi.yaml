@@ -195,6 +195,11 @@ paths:
           description: Scan ID to retrieve findings for
           schema:
             type: string
+        - name: profileId
+          in: query
+          description: Compliance profile ID — returns latest findings for this profile when scanId is not provided
+          schema:
+            type: string
       responses:
         '200':
           description: Scan findings

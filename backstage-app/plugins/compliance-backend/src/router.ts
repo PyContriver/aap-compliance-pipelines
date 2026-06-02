@@ -92,6 +92,11 @@ function isValidScanId(scanId: string): boolean {
     && /^[a-zA-Z0-9_-]+$/.test(scanId);
 }
 
+function isValidProfileId(profileId: string): boolean {
+  return typeof profileId === 'string' && profileId.length > 0 && profileId.length <= 128
+    && /^[a-zA-Z0-9_-]+$/.test(profileId);
+}
+
 // ─── Permission enforcement ──────────────────────────────────────────
 
 /**
@@ -564,6 +569,10 @@ export async function createRouter(
 
     if (scanId && !isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
+      return;
+    }
+    if (profileId && !isValidProfileId(profileId)) {
+      res.status(400).json({ error: 'Invalid profileId' });
       return;
     }
 
@@ -1323,28 +1332,14 @@ export async function createRouter(
     }
   });
 
-  // Backfill rule_count for profiles registered before migration 012
+  // One-time backfill: set rule_count for profiles registered before migration 012
   try {
     const profiles = await database.listProfiles();
     for (const p of profiles) {
       if (p.ruleCount === undefined || p.ruleCount === null) {
         const count = service.getRuleCountForProfile(p.displayName, p.framework, p.version);
         if (count) {
-          await database.saveProfile({
-            id: p.id,
-            displayName: p.displayName,
-            description: p.description,
-            framework: p.framework,
-            version: p.version,
-            platform: p.platform,
-            platformSpec: p.platformSpec,
-            workflowTemplateId: p.workflowTemplateId,
-            remediateJtId: p.remediateJtId,
-            eeId: p.eeId,
-            remediationPlaybookPath: p.remediationPlaybookPath,
-            scanTags: p.scanTags,
-            certification: p.certification,
-          }, count);
+          await database.updateProfileRuleCount(p.id, count);
           logger.info(`Backfilled rule_count=${count} for profile "${p.displayName}"`);
         }
       }
