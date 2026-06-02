@@ -390,6 +390,19 @@ export const RemediationsList = () => {
         <Typography variant="caption" className={classes.muted}>
           {remediations.length} profile{remediations.length !== 1 ? 's' : ''}
         </Typography>
+        {filterByProfile && (
+          <Chip
+            label={`Filtered to: ${profileNames.get(filterByProfile) || filterByProfile}`}
+            onDelete={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('complianceProfileId');
+              setSearchParams(next);
+            }}
+            color="primary"
+            variant="outlined"
+            size="small"
+          />
+        )}
       </div>
 
       {remediations.length === 0 ? (
@@ -599,23 +612,6 @@ export const RemediationsList = () => {
             </TableBody>
           </Table>
         </TableContainer>
-      )}
-
-      {/* Cross-profile filter indicator */}
-      {filterByProfile && (
-        <Box mb={1}>
-          <Chip
-            label={`Filtered to: ${profileNames.get(filterByProfile) || filterByProfile}`}
-            onDelete={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete('complianceProfileId');
-              setSearchParams(next);
-            }}
-            color="primary"
-            variant="outlined"
-            size="small"
-          />
-        </Box>
       )}
 
       {/* Launch remediation dialog (ADR-015) */}

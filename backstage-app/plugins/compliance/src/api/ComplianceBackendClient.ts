@@ -308,7 +308,10 @@ export class ComplianceBackendClient implements ComplianceApi {
       return await this.request<AuthoritativeScanResponse>(
         `/scans/authoritative?profileId=${encodeURIComponent(profileId)}&inventoryId=${inventoryId}`,
       );
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('404') || msg.includes('Not Found')) return null;
+      console.error('Authoritative scan check failed:', msg);
       return null;
     }
   }
