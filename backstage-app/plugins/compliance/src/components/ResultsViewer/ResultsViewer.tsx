@@ -92,6 +92,9 @@ export const ResultsViewer = () => {
   const [frameworkLabel, setFrameworkLabel] = useState<string>('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
   const [scanComplianceProfileId, setScanComplianceProfileId] = useState<string>('');
+  const [scanStartedAt, setScanStartedAt] = useState<string>('');
+  const [compareProfileMismatch, setCompareProfileMismatch] = useState(false);
+  const [compareSwapped, setCompareSwapped] = useState(false);
   const compareToScanId = searchParams.get('compareTo');
 
   useEffect(() => {
@@ -105,6 +108,7 @@ export const ResultsViewer = () => {
       }
       if (match) {
         setScanComplianceProfileId(match.profileId);
+        setScanStartedAt(match.startedAt);
         api.getRegisteredProfiles().then(profiles => {
           const cart = profiles.find(c => c.id === match.profileId);
           if (cart) {
@@ -121,7 +125,21 @@ export const ResultsViewer = () => {
 
   useEffect(() => {
     if (compareToScanId) {
-      api.getFindings(compareToScanId).then(data => {
+      setCompareProfileMismatch(false);
+      setCompareSwapped(false);
+      Promise.all([
+        api.getFindings(compareToScanId),
+        api.getScans().then(scans =>
+          scans.find(s => s.id === compareToScanId || String(s.workflowJobId) === compareToScanId),
+        ),
+      ]).then(([data, compareScan]) => {
+        if (compareScan && scanComplianceProfileId && compareScan.profileId !== scanComplianceProfileId) {
+          setCompareProfileMismatch(true);
+        }
+        // Ensure chronological order: "Before" = older, "After" = newer
+        if (compareScan && scanStartedAt && new Date(compareScan.startedAt) > new Date(scanStartedAt)) {
+          setCompareSwapped(true);
+        }
         setPreviousFindings(data);
         if (data.length > 0) setFindingsExpanded(false);
       }).catch(err => {
@@ -135,7 +153,7 @@ export const ResultsViewer = () => {
         console.error('Failed to load previous findings for comparison:', err);
       });
     }
-  }, [api, jobId, scanType, compareToScanId]);
+  }, [api, jobId, scanType, compareToScanId, scanComplianceProfileId, scanStartedAt]);
 
   const isWorkflowPoll = jobId ? /^\d+$/.test(jobId) : false;
 
@@ -400,14 +418,24 @@ export const ResultsViewer = () => {
         </Box>
       )}
 
+      {compareProfileMismatch && (
+        <Box mb={2} p={2} style={{ backgroundColor: '#FFF3E0', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Typography variant="body2" style={{ color: '#E65100' }}>
+            Warning: These scans are from different compliance profiles. The comparison may not be meaningful.
+          </Typography>
+        </Box>
+      )}
+
       {isComparison && previousFindings.length > 0 ? (
         <VerificationComparison
           title={compareToScanId ? 'Scan Comparison' : undefined}
-          previousPassRate={previousPassRate}
-          overallPassRate={overallPassRate}
+          previousPassRate={compareSwapped ? overallPassRate : previousPassRate}
+          overallPassRate={compareSwapped ? previousPassRate : overallPassRate}
           totalHosts={totalHosts}
           totalRules={totalRules}
-          comparisonStats={comparisonStats}
+          comparisonStats={compareSwapped
+            ? { improved: comparisonStats.regressed, regressed: comparisonStats.improved, unchanged: comparisonStats.unchanged }
+            : comparisonStats}
         />
       ) : (
         <SummaryCards
