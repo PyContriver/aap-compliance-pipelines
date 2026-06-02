@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   InfoCard,
   Progress,
@@ -40,6 +40,8 @@ import ArchiveIcon from '@material-ui/icons/Archive';
 import UnarchiveIcon from '@material-ui/icons/Unarchive';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AddIcon from '@material-ui/icons/Add';
+import WarningIcon from '@material-ui/icons/Warning';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import { complianceApiRef } from '../../api';
@@ -48,6 +50,7 @@ import type {
   RemediationExecution,
   RemediationProfileStatus,
   RemediationExecutionStatus,
+  AuthoritativeScanResponse,
 } from '@aap-compliance/common';
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
@@ -225,6 +228,18 @@ export const RemediationsList = () => {
   const [archiveTarget, setArchiveTarget] = useState<RemediationProfile | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
+  // Launch dialog state (ADR-015)
+  const [launchTarget, setLaunchTarget] = useState<RemediationProfile | null>(null);
+  const [launchInventoryId, setLaunchInventoryId] = useState<string>('');
+  const [launchScanCheck, setLaunchScanCheck] = useState<AuthoritativeScanResponse | null>(null);
+  const [launchScanChecking, setLaunchScanChecking] = useState(false);
+  const [launchScanMissing, setLaunchScanMissing] = useState(false);
+  const [inventories, setInventories] = useState<Array<{ id: number; name: string; hostCount: number }>>([]);
+
+  // Cross-profile filtering (ADR-015 §5)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterByProfile = searchParams.get('complianceProfileId');
+
   const { allowed: isAdmin } = usePermission({
     permission: catalogEntityCreatePermission,
   });
@@ -234,15 +249,19 @@ export const RemediationsList = () => {
       const backendFilter: RemediationProfileStatus | 'all' | undefined =
         statusFilter === 'active' ? undefined : statusFilter;
 
-      const [data, profiles, inventories] = await Promise.all([
+      const [data, profiles, inventoryData] = await Promise.all([
         api.getRemediationProfiles(backendFilter),
         api.getRegisteredProfiles().catch(() => []),
         api.getInventories().catch(() => []),
       ]);
 
-      setRemediations(data);
+      const filtered = filterByProfile
+        ? data.filter(r => r.complianceProfileId === filterByProfile)
+        : data;
+      setRemediations(filtered);
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
-      setInventoryNames(new Map(inventories.map(inv => [inv.id, inv.name])));
+      setInventoryNames(new Map(inventoryData.map(inv => [inv.id, inv.name])));
+      setInventories(inventoryData);
       setExecutionHistory(new Map());
       setExpandedProfiles(new Set());
     } catch (err) {
@@ -251,9 +270,35 @@ export const RemediationsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, alertApi, statusFilter]);
+  }, [api, alertApi, statusFilter, filterByProfile]);
 
   useEffect(() => { loadProfiles(); }, [loadProfiles]);
+
+  // Check for authoritative scan when launch dialog inventory changes
+  useEffect(() => {
+    if (!launchTarget || !launchInventoryId) {
+      setLaunchScanCheck(null);
+      setLaunchScanMissing(false);
+      return;
+    }
+    let cancelled = false;
+    setLaunchScanChecking(true);
+    setLaunchScanCheck(null);
+    setLaunchScanMissing(false);
+    api.getAuthoritativeScan(launchTarget.complianceProfileId, Number(launchInventoryId))
+      .then(result => {
+        if (cancelled) return;
+        if (result) {
+          setLaunchScanCheck(result);
+          setLaunchScanMissing(false);
+        } else {
+          setLaunchScanCheck(null);
+          setLaunchScanMissing(true);
+        }
+      })
+      .finally(() => { if (!cancelled) setLaunchScanChecking(false); });
+    return () => { cancelled = true; };
+  }, [api, launchTarget, launchInventoryId]);
 
   const toggleExpanded = async (profileId: string) => {
     const next = new Set(expandedProfiles);
@@ -468,7 +513,12 @@ export const RemediationsList = () => {
                               <IconButton
                                 size="small"
                                 disabled={r.status === 'archived'}
-                                onClick={() => navigate(`/compliance/execute/launch?profileId=${r.id}`)}
+                                onClick={() => {
+                                  setLaunchTarget(r);
+                                  setLaunchInventoryId('');
+                                  setLaunchScanCheck(null);
+                                  setLaunchScanMissing(false);
+                                }}
                               >
                                 <PlayArrowIcon fontSize="small" />
                               </IconButton>
@@ -550,6 +600,126 @@ export const RemediationsList = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Cross-profile filter indicator */}
+      {filterByProfile && (
+        <Box mb={1}>
+          <Chip
+            label={`Filtered to: ${profileNames.get(filterByProfile) || filterByProfile}`}
+            onDelete={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('complianceProfileId');
+              setSearchParams(next);
+            }}
+            color="primary"
+            variant="outlined"
+            size="small"
+          />
+        </Box>
+      )}
+
+      {/* Launch remediation dialog (ADR-015) */}
+      <Dialog
+        open={!!launchTarget}
+        onClose={() => setLaunchTarget(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Launch Remediation</DialogTitle>
+        <DialogContent>
+          <Box mb={2}>
+            <Typography variant="body2" color="textSecondary">
+              Profile: <strong>{launchTarget?.name}</strong>
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Standard: {profileNames.get(launchTarget?.complianceProfileId ?? '') || launchTarget?.complianceProfileId}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Rules: {launchTarget?.selections.filter(s => s.enabled).length} selected
+            </Typography>
+          </Box>
+
+          <FormControl variant="outlined" fullWidth style={{ marginBottom: 16 }}>
+            <InputLabel id="launch-inventory-label">Target Inventory</InputLabel>
+            <Select
+              labelId="launch-inventory-label"
+              value={launchInventoryId}
+              onChange={e => setLaunchInventoryId(e.target.value as string)}
+              label="Target Inventory"
+            >
+              {inventories.map(inv => (
+                <MenuItem key={inv.id} value={inv.id.toString()}>
+                  {inv.name} ({inv.hostCount} hosts)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {launchScanChecking && (
+            <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+              <Progress />
+              <Typography variant="body2" color="textSecondary">
+                Checking for assessment scan...
+              </Typography>
+            </Box>
+          )}
+
+          {launchScanCheck && (
+            <Box display="flex" alignItems="center" style={{ gap: 8, color: '#3E8635' }}>
+              <CheckCircleIcon fontSize="small" />
+              <Typography variant="body2">
+                Last scan: {launchScanCheck.passRate}% pass rate ({launchScanCheck.passCount} pass, {launchScanCheck.failCount} fail)
+                {launchScanCheck.scan.completedAt && (
+                  <span style={{ color: '#6A6E73' }}>
+                    {' '}— {new Date(launchScanCheck.scan.completedAt).toLocaleDateString()}
+                  </span>
+                )}
+              </Typography>
+            </Box>
+          )}
+
+          {launchScanMissing && (
+            <Box>
+              <Box display="flex" alignItems="center" style={{ gap: 8, color: '#C9190B', marginBottom: 8 }}>
+                <WarningIcon fontSize="small" />
+                <Typography variant="body2">
+                  No completed assessment scan found for this inventory.
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  setLaunchTarget(null);
+                  navigate(`/compliance/scan`);
+                }}
+              >
+                Run a Scan First
+              </Button>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLaunchTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!launchScanCheck || launchScanChecking}
+            startIcon={<PlayArrowIcon />}
+            onClick={() => {
+              if (!launchTarget || !launchScanCheck) return;
+              const params = new URLSearchParams();
+              params.set('profileId', launchTarget.id);
+              params.set('inventoryId', launchInventoryId);
+              params.set('scanId', launchScanCheck.scan.id);
+              setLaunchTarget(null);
+              navigate(`/compliance/execute/launch?${params.toString()}`);
+            }}
+          >
+            Launch Remediation
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="sm" fullWidth>

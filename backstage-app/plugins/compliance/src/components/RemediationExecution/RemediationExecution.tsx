@@ -591,7 +591,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   // Track the compliance profile and inventory used by this remediation
   // so we can auto-launch a verification scan without the wizard.
   const complianceProfileIdRef = useRef<string>('');
-  const inventoryIdRef = useRef<number>(0);
+  const inventoryParam = searchParams.get('inventoryId');
+  const inventoryIdRef = useRef<number>(inventoryParam ? Number(inventoryParam) : 0);
 
   // Launch a verification scan using the same profile/inventory as the remediation.
   const launchVerificationScan = useCallback(async () => {
@@ -635,17 +636,12 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
       }
 
-      // Resolve inventory ID from scan history or profile
       if (inventoryIdRef.current === 0) {
-        try {
-          const scans = await api.getScans();
-          const relevantScan = scans.find(s => s.scanner === 'oscap' && s.status === 'completed');
-          if (relevantScan) {
-            inventoryIdRef.current = relevantScan.inventoryId;
-          }
-        } catch {
-          // Fall through — will fail with validation error
-        }
+        setPhase('failed');
+        setErrorMessage(
+          'No inventory selected. Go back to the Remediations list and use the Launch dialog to select a target inventory.',
+        );
+        return;
       }
 
       if (loadedSelections.length === 0) {
