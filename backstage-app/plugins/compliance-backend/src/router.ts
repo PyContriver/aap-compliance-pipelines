@@ -262,6 +262,45 @@ export async function createRouter(
     res.json(inventories);
   });
 
+  // ─── Authoritative scan resolution (ADR-015) ───────────────────────
+  // Must be registered BEFORE /scans/:scanId to avoid wildcard capture.
+
+  router.get('/scans/authoritative', async (req, res) => {
+    const profileId = req.query.profileId as string | undefined;
+    const inventoryIdRaw = req.query.inventoryId as string | undefined;
+
+    if (!profileId || !isValidProfileId(profileId)) {
+      res.status(400).json({ error: 'profileId is required and must be valid' });
+      return;
+    }
+    const inventoryId = Number(inventoryIdRaw);
+    if (!inventoryIdRaw || !Number.isInteger(inventoryId) || inventoryId <= 0) {
+      res.status(400).json({ error: 'inventoryId is required and must be a positive integer' });
+      return;
+    }
+
+    try {
+      const scan = await database.getAuthoritativeScan(profileId, inventoryId);
+      if (!scan) {
+        res.status(404).json({ error: 'No completed assessment scan found for this profile and inventory' });
+        return;
+      }
+
+      const statsMap = await database.getAggregatedStatsByScanIds([scan.id]);
+      const stats = statsMap.get(scan.id);
+      const passCount = stats?.pass ?? 0;
+      const failCount = stats?.fail ?? 0;
+      const total = passCount + failCount;
+      const passRate = total > 0 ? Math.round((passCount / total) * 1000) / 10 : 0;
+
+      res.json({ scan, passRate, passCount, failCount });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to resolve authoritative scan: ${msg}`);
+      res.status(500).json({ error: 'Failed to resolve authoritative scan' });
+    }
+  });
+
   router.get('/scans/:scanId', async (req, res) => {
     const { scanId } = req.params;
     const userToken = getUserAapToken(req);
@@ -304,44 +343,6 @@ export async function createRouter(
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get scan ${scanId}: ${msg}`);
       res.status(500).json({ error: 'Failed to retrieve scan details' });
-    }
-  });
-
-  // ─── Authoritative scan resolution (ADR-015) ───────────────────────
-
-  router.get('/scans/authoritative', async (req, res) => {
-    const profileId = req.query.profileId as string | undefined;
-    const inventoryIdRaw = req.query.inventoryId as string | undefined;
-
-    if (!profileId || !isValidProfileId(profileId)) {
-      res.status(400).json({ error: 'profileId is required and must be valid' });
-      return;
-    }
-    const inventoryId = Number(inventoryIdRaw);
-    if (!inventoryIdRaw || !Number.isInteger(inventoryId) || inventoryId <= 0) {
-      res.status(400).json({ error: 'inventoryId is required and must be a positive integer' });
-      return;
-    }
-
-    try {
-      const scan = await database.getAuthoritativeScan(profileId, inventoryId);
-      if (!scan) {
-        res.status(404).json({ error: 'No completed assessment scan found for this profile and inventory' });
-        return;
-      }
-
-      const statsMap = await database.getAggregatedStatsByScanIds([scan.id]);
-      const stats = statsMap.get(scan.id);
-      const passCount = stats?.pass ?? 0;
-      const failCount = stats?.fail ?? 0;
-      const total = passCount + failCount;
-      const passRate = total > 0 ? Math.round((passCount / total) * 1000) / 10 : 0;
-
-      res.json({ scan, passRate, passCount, failCount });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to resolve authoritative scan: ${msg}`);
-      res.status(500).json({ error: 'Failed to resolve authoritative scan' });
     }
   });
 
