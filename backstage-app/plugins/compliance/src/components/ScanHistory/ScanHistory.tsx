@@ -256,7 +256,7 @@ export const ScanHistory = () => {
     const ids = new Set<string>();
     const seen = new Set<string>();
     const sorted = [...scans]
-      .filter(s => s.status === 'completed' && s.scanner === 'oscap' && s.scanType === 'assessment')
+      .filter(s => s.status === 'completed' && s.scanner === 'oscap')
       .sort((a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime());
     for (const s of sorted) {
       const key = `${s.profileId}::${s.inventoryId}`;
@@ -690,7 +690,9 @@ export const ScanHistory = () => {
                               </TableCell>
                               <TableCell>
                                 <Typography variant="body2">
-                                  {execution.rulesApplied ?? '?'} rules · {execution.hostsTargeted ?? '?'} hosts
+                                  {execution.rulesApplied != null
+                                    ? `${execution.rulesApplied} rules · ${execution.hostsTargeted ?? 0} hosts`
+                                    : 'Details unavailable'}
                                   {execution.elapsedSeconds ? ` · ${Math.round(execution.elapsedSeconds)}s` : ''}
                                 </Typography>
                               </TableCell>
