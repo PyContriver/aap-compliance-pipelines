@@ -3,15 +3,15 @@
 Pipeline file: `.gitlab-ci.yml` (already in repo)  
 GitLab project: `https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines`
 
-## Pipeline Stages
+## Pipeline Design
 
 ```
-test → build → deploy-netrunner
+deploy-netrunner (manual trigger on main)
 ```
 
-- **test**: `yarn tsc --noEmit` + `yarn test` — runs on MRs and main
-- **build**: version bump, export-dynamic, pack tarballs — runs on main only
-- **deploy-netrunner**: SSH to Portal VM, upload, update config, restart — runs on main (auto) or manual on branches
+Build happens locally via `./scripts/deploy-netrunner.sh` — the CEE shared runners OOM on Backstage monorepo `yarn install` (~4GB peak, runners have ~2GB). The CI just handles the deploy step: update Portal config with integrity hashes and restart.
+
+- **deploy-netrunner**: SSH to Portal VM, detect latest tarballs, update config, restart — manual trigger on main
 
 ## Required CI/CD Variables
 
@@ -57,11 +57,18 @@ cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 | Portal URL | `https://dev-portal-netrunner.demoredhat.com/` |
 | Plugin route | `/compliance` |
 
-## What the Deploy Does
+## Workflow
 
-1. Uploads backend + frontend `.tgz` tarballs to `/tmp/` on Portal VM
-2. Copies them to `/var/lib/portal/compliance-plugins/`
-3. Runs a Python script over SSH that:
+1. Build locally: `./scripts/deploy-netrunner.sh` (bumps version, builds, uploads tarballs, restarts Portal)
+2. Push to main on GitLab
+3. Optionally trigger `deploy-netrunner` in GitLab CI to re-deploy (uses tarballs already on host)
+
+The CI deploy is useful when you want to restart Portal without running the full local build again (e.g., after a config change).
+
+## What the CI Deploy Does
+
+1. SSHs to Portal VM, finds the latest tarballs already in `/var/lib/portal/compliance-plugins/`
+2. Runs a Python script over SSH that:
    - Reads `dynamic-plugins.override.yaml`
    - Updates `package` paths to the new tarballs
    - Computes `sha512` integrity hashes via `openssl dgst`
