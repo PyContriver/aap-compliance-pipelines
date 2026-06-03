@@ -65,6 +65,9 @@ export interface LaunchRemediationResponse {
   executionId: string;
 }
 
+/** Finding lifecycle state — tracks history across consecutive scans (ADR-016 Layer 2, Tenable pattern). */
+export type FindingState = 'new' | 'active' | 'fixed' | 'resurfaced';
+
 /** Remediation profile lifecycle status (ADR-014 §2). */
 export type RemediationProfileStatus = 'draft' | 'saved' | 'archived';
 
@@ -163,6 +166,7 @@ export interface StoredFinding {
   actualValue: string;
   expectedValue: string;
   evidence: string | null;
+  findingState: FindingState | null;
 }
 
 /** Normalized rule metadata stored once per rule_id. */
@@ -177,6 +181,14 @@ export interface RuleMetadataRecord {
   disruption: 'low' | 'medium' | 'high';
   scanner: string;
   updatedAt: string;
+}
+
+/** Aggregate state counts for a multi-host finding (ADR-016 Layer 2). */
+export interface FindingStateSummary {
+  new: number;
+  active: number;
+  fixed: number;
+  resurfaced: number;
 }
 
 /** Multi-host aggregated finding used by the frontend. */
@@ -196,10 +208,12 @@ export interface MultiHostFinding {
     status: 'pass' | 'fail' | 'error';
     actualValue: string;
     expectedValue: string;
+    findingState?: FindingState | null;
   }>;
   passCount: number;
   failCount: number;
   totalCount: number;
+  stateSummary?: FindingStateSummary;
 }
 
 /** Controller workflow job status response (subset of AWX API). */

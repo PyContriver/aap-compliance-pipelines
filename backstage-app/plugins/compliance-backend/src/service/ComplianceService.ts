@@ -949,6 +949,7 @@ export class ComplianceService {
       actualValue,
       expectedValue,
       evidence,
+      findingState: null,
     };
   }
 
@@ -977,6 +978,7 @@ export class ComplianceService {
         status: 'pass' | 'fail' | 'error';
         actualValue: string;
         expectedValue: string;
+        findingState?: import('@aap-compliance/common').FindingState | null;
       }>;
     }>();
     for (const f of stored) {
@@ -990,6 +992,7 @@ export class ComplianceService {
         status: (f.status as 'pass' | 'fail' | 'error') || 'error',
         actualValue: f.actualValue,
         expectedValue: f.expectedValue,
+        findingState: f.findingState,
       });
     }
     return byRule;
@@ -1006,6 +1009,15 @@ export class ComplianceService {
       const failCount = entry.hosts.filter(h => h.status === 'fail').length;
       const dm = dbMeta.get(ruleId);
       const ym = yamlMeta.get(ruleId);
+
+      const stateSummary = { new: 0, active: 0, fixed: 0, resurfaced: 0 };
+      for (const h of entry.hosts) {
+        if (h.findingState === 'new') stateSummary.new++;
+        else if (h.findingState === 'active') stateSummary.active++;
+        else if (h.findingState === 'fixed') stateSummary.fixed++;
+        else if (h.findingState === 'resurfaced') stateSummary.resurfaced++;
+      }
+
       results.push({
         ruleId,
         stigId: dm?.stigId || entry.finding.stigId,
@@ -1029,6 +1041,7 @@ export class ComplianceService {
         passCount,
         failCount,
         totalCount: entry.hosts.length,
+        stateSummary,
       });
     }
     return results;

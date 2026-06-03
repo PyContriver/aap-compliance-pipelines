@@ -42,6 +42,8 @@ export type {
   ScanCertification,
   PlatformValidationResult,
   IngestFinding,
+  FindingState,
+  FindingStateSummary,
   RemediationProfileStatus,
   RemediationExecutionStatus,
   RemediationExecution,

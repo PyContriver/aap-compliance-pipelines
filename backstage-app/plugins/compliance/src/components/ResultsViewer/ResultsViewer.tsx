@@ -32,7 +32,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BuildIcon from '@material-ui/icons/Build';
 import AssessmentIcon from '@material-ui/icons/Assessment';
-import type { FindingSeverity, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
@@ -79,6 +79,7 @@ export const ResultsViewer = () => {
 
   const severityFilter = searchParams.get('severity') || 'all';
   const statusFilter = searchParams.get('status') || 'all';
+  const stateFilter = (searchParams.get('state') || 'all') as FindingState | 'all';
   const searchQuery = searchParams.get('q') || '';
 
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
@@ -246,13 +247,18 @@ export const ResultsViewer = () => {
         if (statusFilter === 'pass') return f.failCount === 0;
         return true;
       })
+      .filter(f => {
+        if (stateFilter === 'all') return true;
+        if (!f.stateSummary) return false;
+        return (f.stateSummary[stateFilter] ?? 0) > 0;
+      })
       .filter(f =>
         searchQuery === '' ||
         f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         f.stigId.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
-    [findings, severityFilter, statusFilter, searchQuery],
+    [findings, severityFilter, statusFilter, stateFilter, searchQuery],
   );
 
   const updateFilter = (key: string, value: string) => {
@@ -523,6 +529,16 @@ export const ResultsViewer = () => {
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="pass">All Pass</MenuItem>
               <MenuItem value="fail">Has Failures</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" size="small" style={{ minWidth: 140 }}>
+            <InputLabel>State</InputLabel>
+            <Select value={stateFilter} onChange={e => updateFilter('state', e.target.value as string)} label="State">
+              <MenuItem value="all">All States</MenuItem>
+              <MenuItem value="new">New</MenuItem>
+              <MenuItem value="fixed">Fixed</MenuItem>
+              <MenuItem value="resurfaced">Resurfaced</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
             </Select>
           </FormControl>
           <Chip label={`${filtered.length} rules`} variant="outlined" />

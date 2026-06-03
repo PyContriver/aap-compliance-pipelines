@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import type {
   ComplianceScan,
   StoredFinding,
+  FindingState,
   PostureSnapshot,
   RemediationProfile,
   RemediationSelection,
@@ -109,6 +110,7 @@ export class ComplianceDatabase {
       actual_value: f.actualValue,
       expected_value: f.expectedValue,
       evidence: f.evidence,
+      finding_state: f.findingState ?? null,
     }));
 
     const batchSize = 100;
@@ -135,6 +137,102 @@ export class ComplianceDatabase {
       .first();
     if (!row) return null;
     return this.mapScanRow(row);
+  }
+
+  async getPreviousScanForInventory(
+    profileId: string,
+    inventoryId: number,
+    beforeTimestamp: string,
+  ): Promise<ComplianceScan | null> {
+    const row = await this.db('compliance_scans')
+      .where('profile_id', profileId)
+      .where('inventory_id', inventoryId)
+      .where('status', 'completed')
+      .where('scanner', 'oscap')
+      .where('started_at', '<', beforeTimestamp)
+      .orderBy('started_at', 'desc')
+      .first();
+    if (!row) return null;
+    return this.mapScanRow(row);
+  }
+
+  /**
+   * Compute finding-level states for a scan by comparing against the
+   * previous scan for the same (profile, inventory). Updates finding_state
+   * in-place via batch UPDATE.
+   */
+  async computeFindingStates(
+    scanId: string,
+    profileId: string,
+    inventoryId: number,
+  ): Promise<void> {
+    const scan = await this.getScanById(scanId);
+    if (!scan) return;
+
+    const prevScan = await this.getPreviousScanForInventory(
+      profileId,
+      inventoryId,
+      scan.startedAt,
+    );
+
+    const currentFindings = await this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .select('id', 'rule_id', 'host', 'status');
+
+    if (currentFindings.length === 0) return;
+
+    // Build lookup from previous scan
+    const prevMap = new Map<string, { status: string; findingState: string | null }>();
+    if (prevScan) {
+      const prevFindings = await this.db('compliance_findings')
+        .where('scan_id', prevScan.id)
+        .select('rule_id', 'host', 'status', 'finding_state');
+      for (const pf of prevFindings) {
+        prevMap.set(
+          `${pf.rule_id}|${pf.host}`,
+          { status: pf.status as string, findingState: pf.finding_state as string | null },
+        );
+      }
+    }
+
+    // Compute states and batch update
+    const updates: Array<{ id: string; state: FindingState | null }> = [];
+    for (const cf of currentFindings) {
+      const key = `${cf.rule_id}|${cf.host}`;
+      const prev = prevMap.get(key);
+      let state: FindingState | null = null;
+
+      if (cf.status === 'fail') {
+        if (!prev) {
+          state = 'new';
+        } else if (prev.status === 'fail') {
+          state = 'active';
+        } else if (prev.status === 'pass' && prev.findingState === 'fixed') {
+          state = 'resurfaced';
+        } else {
+          state = 'new';
+        }
+      } else if (cf.status === 'pass') {
+        if (prev && prev.status === 'fail') {
+          state = 'fixed';
+        }
+      }
+
+      updates.push({ id: cf.id as string, state });
+    }
+
+    // Batch update in groups of 100
+    const batchSize = 100;
+    for (let i = 0; i < updates.length; i += batchSize) {
+      const batch = updates.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(u =>
+          this.db('compliance_findings')
+            .where('id', u.id)
+            .update({ finding_state: u.state }),
+        ),
+      );
+    }
   }
 
   async getRecentScans(limit: number = 10): Promise<ComplianceScan[]> {
@@ -263,6 +361,7 @@ export class ComplianceDatabase {
         actual_value: f.actualValue,
         expected_value: f.expectedValue,
         evidence: f.evidence,
+        finding_state: f.findingState ?? null,
       }));
 
       // Insert in batches of 100 to avoid query size limits
@@ -335,24 +434,30 @@ export class ComplianceDatabase {
     return result;
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
       .count({ total: '*' })
       .sum({ pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END") })
       .sum({ fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END") })
+      .sum({ state_new: this.db.raw("CASE WHEN finding_state = 'new' THEN 1 ELSE 0 END") })
+      .sum({ state_fixed: this.db.raw("CASE WHEN finding_state = 'fixed' THEN 1 ELSE 0 END") })
+      .sum({ state_resurfaced: this.db.raw("CASE WHEN finding_state = 'resurfaced' THEN 1 ELSE 0 END") })
       .countDistinct({ rule_count: 'rule_id' })
       .countDistinct({ host_count: 'host' })
       .whereIn('scan_id', scanIds)
       .groupBy('scan_id');
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number }> = {};
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
     for (const row of rows as Array<Record<string, unknown>>) {
       result[row.scan_id as string] = {
         pass: Number(row.pass_count) || 0,
         fail: Number(row.fail_count) || 0,
         rules: Number(row.rule_count) || 0,
         hosts: Number(row.host_count) || 0,
+        stateNew: Number(row.state_new) || 0,
+        stateFixed: Number(row.state_fixed) || 0,
+        stateResurfaced: Number(row.state_resurfaced) || 0,
       };
     }
     return result;
@@ -370,6 +475,7 @@ export class ComplianceDatabase {
       actualValue: row.actual_value as string,
       expectedValue: row.expected_value as string,
       evidence: (row.evidence as string | null) ?? null,
+      findingState: (row.finding_state as FindingState | null) ?? null,
     };
   }
 
