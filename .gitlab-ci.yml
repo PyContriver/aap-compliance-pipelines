@@ -20,6 +20,8 @@ variables:
 
 .node-setup:
   image: node:22-slim
+  tags:
+    - itup-alm-x86
   before_script:
     - corepack enable
     - cd backstage-app
@@ -85,6 +87,8 @@ build:
 deploy-netrunner:
   stage: deploy
   image: python:3.12-slim
+  tags:
+    - itup-alm-x86
   dependencies:
     - build
   before_script:
