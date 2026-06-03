@@ -1146,7 +1146,7 @@ export async function createRouter(
       res.status(400).json({ error: 'jobIds query parameter required' });
       return;
     }
-    const jobIds = jobIdsParam.split(',').map(Number).filter(n => !Number.isNaN(n));
+    const jobIds = jobIdsParam.split(',').map(Number).filter(n => !Number.isNaN(n)).slice(0, 20);
     if (jobIds.length === 0) {
       res.json({ errorDetails: null });
       return;

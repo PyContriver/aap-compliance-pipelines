@@ -1181,45 +1181,47 @@ export class ComplianceService {
     }
 
     try {
-      const lines: string[] = [];
+      const capped = allJobIds.slice(0, 20);
 
-      for (const jobId of allJobIds) {
+      const perJobLines = await Promise.all(capped.map(async (jobId): Promise<string[]> => {
         try {
-          const jobStatus = await this.controllerClient.getJobStatus(jobId, token);
+          const jobStatus = await this.controllerClient!.getJobStatus(jobId, token);
           if (jobStatus.result_traceback) {
-            lines.push(jobStatus.result_traceback);
-            continue;
+            return [jobStatus.result_traceback];
           }
 
-          if (!jobStatus.failed) continue;
+          if (!jobStatus.failed) return [];
 
-          const failureEvents = await this.controllerClient.getJobFailureEvents(jobId, token);
+          const failureEvents = await this.controllerClient!.getJobFailureEvents(jobId, token);
           if (failureEvents.results.length > 0) {
+            const eventLines: string[] = [];
             for (const ev of failureEvents.results.slice(0, 10)) {
               const data = ev.event_data as Record<string, unknown> | undefined;
               const res = data?.res as Record<string, unknown> | undefined;
               const host = (data?.host as string) ?? 'unknown';
               const task = (data?.task as string) ?? 'unknown';
               const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
-              lines.push(`${host}: [${task}] ${msg}`);
+              eventLines.push(`${host}: [${task}] ${msg}`);
             }
             if (failureEvents.count > 10) {
-              lines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
+              eventLines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
             }
+            return eventLines;
           } else if (jobStatus.job_explanation) {
-            // Job failed before starting (e.g. project sync failure, missing credential)
-            lines.push(`Job ${jobId}: ${jobStatus.job_explanation}`);
+            return [`Job ${jobId}: ${jobStatus.job_explanation}`];
           }
+          return [];
         } catch {
-          lines.push(`Unable to fetch details for job ${jobId}`);
+          return [`Unable to fetch details for job ${jobId}`];
         }
-      }
+      }));
 
+      const lines = perJobLines.flat();
       if (lines.length === 0) return null;
 
       const details = lines.join('\n');
       this.logger.info(
-        `Fetched remediation error details for ${allJobIds.length} jobs`,
+        `Fetched remediation error details for ${capped.length} jobs`,
       );
       // 2x scan error limit — remediations aggregate failures across multiple jobs
       return details.slice(0, 4000);
