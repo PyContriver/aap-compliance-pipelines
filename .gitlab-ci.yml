@@ -1,0 +1,161 @@
+# Compliance Plugins CI/CD — GitLab CEE
+#
+# Runs tests on every push, deploys to Netrunner Portal on main.
+# Secrets required (GitLab CI/CD Variables, masked + protected):
+#   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host
+#   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
+#
+# The Netrunner Portal deploy is staging/demo only — not production.
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
+  OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
+
+# ── Shared setup ─────────────────────────────────────────────────────
+
+.node-setup:
+  image: node:22-slim
+  before_script:
+    - corepack enable
+    - cd backstage-app
+    - yarn install
+
+# ── Test ─────────────────────────────────────────────────────────────
+
+test:
+  extends: .node-setup
+  stage: test
+  script:
+    - yarn tsc --noEmit
+    - yarn test --no-coverage --ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ── Build ────────────────────────────────────────────────────────────
+
+build:
+  extends: .node-setup
+  stage: build
+  script:
+    # Bump patch version to avoid Portal same-version cleanup
+    - |
+      for pkg in plugins/compliance-backend plugins/compliance; do
+        CURRENT=$(grep '"version"' "$pkg/package.json" | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+        PATCH=$((PATCH + 1))
+        NEW="$MAJOR.$MINOR.$PATCH"
+        sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" "$pkg/package.json"
+        echo "$pkg: $CURRENT -> $NEW"
+      done
+    - yarn install
+
+    # Export dynamic plugins
+    - yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
+    - yarn workspace @aap-compliance/plugin-compliance export-dynamic
+
+    # Copy migrations (rhdh-cli doesn't include them)
+    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/migrations/
+
+    # Pack tarballs
+    - cd plugins/compliance-backend/dist-dynamic && npm pack --quiet && cd ../../..
+    - cd plugins/compliance/dist-dynamic && npm pack --quiet && cd ../../..
+
+    # Collect artifacts
+    - mkdir -p ../deploy-artifacts
+    - cp plugins/compliance-backend/dist-dynamic/*.tgz ../deploy-artifacts/
+    - cp plugins/compliance/dist-dynamic/*.tgz ../deploy-artifacts/
+    - ls -la ../deploy-artifacts/
+  artifacts:
+    paths:
+      - deploy-artifacts/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ── Deploy to Netrunner ──────────────────────────────────────────────
+
+deploy-netrunner:
+  stage: deploy
+  image: python:3.12-slim
+  dependencies:
+    - build
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq openssh-client openssl > /dev/null
+    # Set up SSH key from CI variable
+    - mkdir -p ~/.ssh
+    - echo "$PORTAL_SSH_KEY" > ~/.ssh/portal.pem
+    - chmod 600 ~/.ssh/portal.pem
+    - echo "Host *" >> ~/.ssh/config
+    - echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+    - echo "  LogLevel ERROR" >> ~/.ssh/config
+  script:
+    - SSH="ssh -i ~/.ssh/portal.pem $PORTAL_HOST"
+    - SCP="scp -i ~/.ssh/portal.pem"
+
+    # Upload tarballs
+    - $SCP deploy-artifacts/*.tgz "$PORTAL_HOST:/tmp/"
+    - $SSH "sudo cp /tmp/aap-compliance-plugin-compliance-*-dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
+
+    # Identify tarball names and compute hashes
+    - BE_TGZ=$(ls deploy-artifacts/ | grep backend)
+    - FE_TGZ=$(ls deploy-artifacts/ | grep -v backend)
+    - echo "Backend tarball:$BE_TGZ  Frontend tarball:$FE_TGZ"
+
+    # Update Portal config with new versions and integrity hashes
+    - |
+      $SSH "sudo python3 << 'PYEOF'
+      import yaml, subprocess, base64
+
+      with open('$OVERRIDE_YAML') as f:
+          data = yaml.safe_load(f)
+
+      for plugin in data['plugins']:
+          pkg = plugin.get('package', '')
+          if 'compliance-backend-dynamic' in pkg:
+              new_pkg = '$REMOTE_PLUGIN_DIR/$BE_TGZ'
+              h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
+              plugin['package'] = new_pkg
+              plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
+              print(f'Updated backend: {new_pkg}')
+          elif 'compliance-dynamic' in pkg and 'backend' not in pkg:
+              new_pkg = '$REMOTE_PLUGIN_DIR/$FE_TGZ'
+              h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
+              plugin['package'] = new_pkg
+              plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
+              print(f'Updated frontend: {new_pkg}')
+
+      with open('$OVERRIDE_YAML', 'w') as f:
+          yaml.dump(data, f, default_flow_style=False, sort_keys=False, width=200)
+      PYEOF"
+
+    # Restart Portal
+    - $SSH "sudo systemctl restart portal.service"
+    - echo "Portal restarting, waiting 120s..."
+    - sleep 120
+
+    # Verify
+    - |
+      STATUS=$($SSH "sudo systemctl is-active portal.service")
+      if [ "$STATUS" = "active" ]; then
+        echo "Portal is active"
+        $SSH "sudo podman logs portal 2>&1 | grep -E 'compliance.*info|loaded.*compliance' | tail -5"
+        echo "Deploy successful"
+      else
+        echo "WARNING: Portal status is $STATUS"
+        $SSH "sudo podman logs portal 2>&1 | tail -20"
+        exit 1
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+    - when: manual
+      allow_failure: true
+  environment:
+    name: netrunner-staging
+    url: https://dev-portal-netrunner.demoredhat.com/compliance
