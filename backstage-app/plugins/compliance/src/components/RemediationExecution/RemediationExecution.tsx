@@ -569,6 +569,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const errorDetailsFetched = useRef(false);
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
   const executionPatched = useRef(false);
@@ -577,6 +578,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   useEffect(() => {
     launchFired.current = false;
     executionPatched.current = false;
+    errorDetailsFetched.current = false;
   }, [jobId]);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
@@ -879,11 +881,13 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
 
         // Fetch error details live from Controller for any failed execution
-        if (allTerminal && anyFailed && !executionPatched.current) {
-          if (!executionId) executionPatched.current = true;
+        if (allTerminal && anyFailed && !errorDetailsFetched.current) {
+          errorDetailsFetched.current = true;
           api.getRemediationErrorDetails(jobIds).then(details => {
             if (details) setErrorDetails(details);
-          }).catch(() => {});
+          }).catch(() => {
+            setErrorDetails('Unable to retrieve error details — the automation controller may be unavailable.');
+          });
         }
 
       } catch {

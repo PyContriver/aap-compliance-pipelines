@@ -1152,8 +1152,13 @@ export async function createRouter(
       return;
     }
     const userToken = getUserAapToken(req);
-    const details = await service.fetchRemediationErrorDetails(jobIds, userToken);
-    res.json({ errorDetails: details });
+    try {
+      const details = await service.fetchRemediationErrorDetails(jobIds, userToken);
+      res.json({ errorDetails: details });
+    } catch (err) {
+      logger.warn(`Failed to fetch remediation error details: ${err instanceof Error ? err.message : err}`);
+      res.json({ errorDetails: null });
+    }
   });
 
   // ─── Remediation profile status (ADR-014 §2) ──────────────────────
