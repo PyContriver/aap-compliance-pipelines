@@ -228,6 +228,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                   <TableRow>
                     <TableCell>Host</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>State</TableCell>
                     <TableCell>Actual Value</TableCell>
                     <TableCell>Expected Value</TableCell>
                   </TableRow>
@@ -249,6 +250,24 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                               : <><ErrorIcon fontSize="small" /> Fail</>
                             }
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {hostFinding.findingState && hostFinding.findingState !== 'active' ? (
+                            <Tooltip title={stateConfig[hostFinding.findingState].tooltip} arrow>
+                              <Chip
+                                label={stateConfig[hostFinding.findingState].label}
+                                size="small"
+                                variant={stateConfig[hostFinding.findingState].variant}
+                                style={{
+                                  color: stateConfig[hostFinding.findingState].color,
+                                  backgroundColor: stateConfig[hostFinding.findingState].bgColor,
+                                  borderColor: stateConfig[hostFinding.findingState].variant === 'outlined' ? stateConfig[hostFinding.findingState].color : undefined,
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                }}
+                              />
+                            </Tooltip>
+                          ) : null}
                         </TableCell>
                         <TableCell>
                           <Typography
