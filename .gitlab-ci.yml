@@ -91,7 +91,7 @@ deploy-netrunner:
     - apt-get update -qq && apt-get install -y -qq openssh-client openssl > /dev/null
     # Set up SSH key from CI variable
     - mkdir -p ~/.ssh
-    - echo "$PORTAL_SSH_KEY" > ~/.ssh/portal.pem
+    - cp "$PORTAL_SSH_KEY" ~/.ssh/portal.pem
     - chmod 600 ~/.ssh/portal.pem
     - echo "Host *" >> ~/.ssh/config
     - echo "  StrictHostKeyChecking no" >> ~/.ssh/config
