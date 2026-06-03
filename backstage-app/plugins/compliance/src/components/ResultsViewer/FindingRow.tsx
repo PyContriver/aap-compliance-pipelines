@@ -11,13 +11,14 @@ import {
   LinearProgress,
   IconButton,
   Collapse,
+  Tooltip,
   makeStyles,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
-import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   severityChip: {
@@ -71,6 +72,13 @@ const severityLabel: Record<FindingSeverity, string> = {
   CAT_III: 'CAT III',
 };
 
+const stateConfig: Record<FindingState, { label: string; tooltip: string; color: string; bgColor: string; variant: 'default' | 'outlined' }> = {
+  new: { label: 'New', tooltip: 'First time this rule is failing on this host', color: '#0066CC', bgColor: 'transparent', variant: 'outlined' },
+  active: { label: 'Active', tooltip: 'Still failing from a previous scan', color: '#6A6E73', bgColor: 'transparent', variant: 'outlined' },
+  fixed: { label: 'Fixed', tooltip: 'Was failing, now passing after remediation', color: '#fff', bgColor: '#3E8635', variant: 'default' },
+  resurfaced: { label: 'Resurfaced', tooltip: 'Regression after remediation — was fixed, now failing again', color: '#C9190B', bgColor: 'transparent', variant: 'outlined' },
+};
+
 interface FindingRowProps {
   finding: MultiHostFinding;
   expanded: boolean;
@@ -93,6 +101,15 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
     ? Math.round((finding.passCount / finding.totalCount) * 100)
     : 0;
 
+  // Determine dominant state for the rule (priority: resurfaced > new > fixed > active)
+  const dominantState: FindingState | null = finding.stateSummary
+    ? finding.stateSummary.resurfaced > 0 ? 'resurfaced'
+      : finding.stateSummary.new > 0 ? 'new'
+      : finding.stateSummary.fixed > 0 ? 'fixed'
+      : finding.stateSummary.active > 0 ? 'active'
+      : null
+    : null;
+
   return (
     <React.Fragment>
       <TableRow className={classes.findingRow} onClick={onToggle}>
@@ -105,11 +122,29 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
           </IconButton>
         </TableCell>
         <TableCell>
-          <Chip
-            label={severityLabel[finding.severity]}
-            size="small"
-            className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`}
-          />
+          <Box display="flex" alignItems="center" style={{ gap: 4 }}>
+            <Chip
+              label={severityLabel[finding.severity]}
+              size="small"
+              className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`}
+            />
+            {dominantState && (
+              <Tooltip title={stateConfig[dominantState].tooltip} arrow>
+                <Chip
+                  label={stateConfig[dominantState].label}
+                  size="small"
+                  variant={stateConfig[dominantState].variant}
+                  style={{
+                    color: stateConfig[dominantState].color,
+                    backgroundColor: stateConfig[dominantState].bgColor,
+                    borderColor: stateConfig[dominantState].variant === 'outlined' ? stateConfig[dominantState].color : undefined,
+                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Box>
         </TableCell>
         <TableCell>
           <Typography variant="body2">{finding.title}</Typography>
@@ -193,6 +228,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                   <TableRow>
                     <TableCell>Host</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>State</TableCell>
                     <TableCell>Actual Value</TableCell>
                     <TableCell>Expected Value</TableCell>
                   </TableRow>
@@ -214,6 +250,24 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                               : <><ErrorIcon fontSize="small" /> Fail</>
                             }
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {hostFinding.findingState ? (
+                            <Tooltip title={stateConfig[hostFinding.findingState].tooltip} arrow>
+                              <Chip
+                                label={stateConfig[hostFinding.findingState].label}
+                                size="small"
+                                variant={stateConfig[hostFinding.findingState].variant}
+                                style={{
+                                  color: stateConfig[hostFinding.findingState].color,
+                                  backgroundColor: stateConfig[hostFinding.findingState].bgColor,
+                                  borderColor: stateConfig[hostFinding.findingState].variant === 'outlined' ? stateConfig[hostFinding.findingState].color : undefined,
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                }}
+                              />
+                            </Tooltip>
+                          ) : null}
                         </TableCell>
                         <TableCell>
                           <Typography

@@ -37,6 +37,7 @@ async function createTables(database: Knex): Promise<void> {
     table.text('actual_value').defaultTo('');
     table.text('expected_value').defaultTo('');
     table.text('evidence').nullable();
+    table.string('finding_state').nullable();
   });
 
   await database.schema.createTable(
@@ -1529,6 +1530,197 @@ describe('ComplianceDatabase', () => {
       const stale = await complianceDb.getStaleRunningExecutions(4);
       expect(stale).toHaveLength(1);
       expect(stale[0].status).toBe('pending');
+    });
+  });
+
+  // ─── computeFindingStates (ADR-016 Layer 2) ─────────────────────────
+
+  describe('computeFindingStates', () => {
+    const PROFILE = 'rhel9-stig';
+    const INVENTORY = 1;
+
+    async function createCompletedScan(startedAt: string) {
+      const scan = await complianceDb.createScan({
+        profileId: PROFILE,
+        inventoryId: INVENTORY,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt,
+        completedAt: startedAt,
+        errorDetails: null,
+      });
+      return scan;
+    }
+
+    function makeFinding(scanId: string, ruleId: string, host: string, status: string) {
+      return { scanId, ruleId, stigId: '', host, status, severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null };
+    }
+
+    it('marks all failures as "new" when no previous scan exists', async () => {
+      const scan = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan.id, [
+        makeFinding(scan.id, 'rule_a', 'host1', 'fail'),
+        makeFinding(scan.id, 'rule_b', 'host1', 'pass'),
+      ]);
+
+      await complianceDb.computeFindingStates(scan.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan.id);
+      const ruleA = findings.find(f => f.ruleId === 'rule_a');
+      const ruleB = findings.find(f => f.ruleId === 'rule_b');
+      expect(ruleA?.findingState).toBe('new');
+      expect(ruleB?.findingState).toBeNull();
+    });
+
+    it('marks persistent failures as "active"', async () => {
+      const scan1 = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, INVENTORY);
+
+      const scan2 = await createCompletedScan('2026-06-02T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan2.id);
+      expect(findings[0].findingState).toBe('active');
+    });
+
+    it('marks remediated findings as "fixed"', async () => {
+      const scan1 = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, INVENTORY);
+
+      const scan2 = await createCompletedScan('2026-06-02T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'pass'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan2.id);
+      expect(findings[0].findingState).toBe('fixed');
+    });
+
+    it('marks regressions after remediation as "resurfaced"', async () => {
+      // Scan 1: failing
+      const scan1 = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, INVENTORY);
+
+      // Scan 2: fixed
+      const scan2 = await createCompletedScan('2026-06-02T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'pass'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, INVENTORY);
+
+      // Scan 3: resurfaced (was fixed, now failing again)
+      const scan3 = await createCompletedScan('2026-06-03T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan3.id, [
+        makeFinding(scan3.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan3.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan3.id);
+      expect(findings[0].findingState).toBe('resurfaced');
+    });
+
+    it('marks first-time failure from always-passing as "new" (not resurfaced)', async () => {
+      const scan1 = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'pass'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, INVENTORY);
+
+      const scan2 = await createCompletedScan('2026-06-02T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan2.id);
+      expect(findings[0].findingState).toBe('new');
+    });
+
+    it('handles mixed states across hosts for the same rule', async () => {
+      const scan1 = await createCompletedScan('2026-06-01T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
+        makeFinding(scan1.id, 'rule_a', 'host2', 'pass'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, INVENTORY);
+
+      const scan2 = await createCompletedScan('2026-06-02T10:00:00Z');
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'pass'),
+        makeFinding(scan2.id, 'rule_a', 'host2', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, INVENTORY);
+
+      const findings = await complianceDb.getFindingsByScanId(scan2.id);
+      const host1 = findings.find(f => f.host === 'host1');
+      const host2 = findings.find(f => f.host === 'host2');
+      expect(host1?.findingState).toBe('fixed');
+      expect(host2?.findingState).toBe('new');
+    });
+
+    it('does not cross-contaminate between inventories', async () => {
+      const scan1 = await complianceDb.createScan({
+        profileId: PROFILE, inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-01T10:00:00Z', completedAt: '2026-06-01T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.saveFindingsForScan(scan1.id, [
+        makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan1.id, PROFILE, 1);
+
+      // Different inventory — should have no previous scan context
+      const scan2 = await complianceDb.createScan({
+        profileId: PROFILE, inventoryId: 2, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-02T10:00:00Z', completedAt: '2026-06-02T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.saveFindingsForScan(scan2.id, [
+        makeFinding(scan2.id, 'rule_a', 'host1', 'fail'),
+      ]);
+      await complianceDb.computeFindingStates(scan2.id, PROFILE, 2);
+
+      const findings = await complianceDb.getFindingsByScanId(scan2.id);
+      expect(findings[0].findingState).toBe('new');
+    });
+  });
+
+  // ─── getBatchScanStatsAggregated with state counts ─────────────────
+
+  describe('getBatchScanStatsAggregated state counts', () => {
+    it('returns state counts alongside pass/fail', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-01T10:00:00Z', completedAt: '2026-06-01T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.saveFindingsForScan(scan.id, [
+        { scanId: scan.id, ruleId: 'r1', stigId: '', host: 'h1', status: 'fail', severity: 'CAT_I', actualValue: '', expectedValue: '', evidence: null, findingState: 'new' },
+        { scanId: scan.id, ruleId: 'r2', stigId: '', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: 'resurfaced' },
+        { scanId: scan.id, ruleId: 'r3', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: 'fixed' },
+        { scanId: scan.id, ruleId: 'r4', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_III', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+
+      const stats = await complianceDb.getBatchScanStatsAggregated([scan.id]);
+      expect(stats[scan.id]).toMatchObject({
+        pass: 2,
+        fail: 2,
+        stateNew: 1,
+        stateFixed: 1,
+        stateResurfaced: 1,
+      });
     });
   });
 });

@@ -941,6 +941,7 @@ describe('ComplianceService', () => {
         actualValue: 'bad',
         expectedValue: 'good',
         evidence: 'some evidence',
+        findingState: null,
       });
     });
 

@@ -183,7 +183,7 @@ interface ScanGroup {
   inventoryName: string;
   certification: ScanCertification | null;
   items: Array<
-    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number } }
+    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number } }
     | { type: 'execution'; execution: RemediationExecution }
   >;
 }
@@ -197,7 +197,7 @@ export const ScanHistory = () => {
 
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
-  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number }>>({});
+  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>({});
   const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null }>>(new Map());
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -539,7 +539,7 @@ export const ScanHistory = () => {
             const key = `${group.profileId}::${group.inventoryId}`;
             const isExpanded = expandedGroups.has(key);
             const latestScan = group.items.find(i => i.type === 'scan' && authoritativeScanIds.has(i.scan.id)) as
-              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number } }
+              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number } }
               | undefined;
             const scanCount = group.items.filter(i => i.type === 'scan').length;
             const execCount = group.items.filter(i => i.type === 'execution').length;
@@ -629,9 +629,30 @@ export const ScanHistory = () => {
                                 </TableCell>
                                 <TableCell>
                                   {stats ? (
-                                    <Typography variant="body2">
-                                      {stats.rules} rules · {stats.pass} pass · {stats.fail} fail · {stats.hosts} hosts
-                                    </Typography>
+                                    <Box>
+                                      <Typography variant="body2">
+                                        {stats.rules} rules · {stats.pass} pass · {stats.fail} fail · {stats.hosts} hosts
+                                      </Typography>
+                                      {(stats.stateNew || stats.stateFixed || stats.stateResurfaced) ? (
+                                        <Box display="flex" style={{ gap: 4, marginTop: 2 }}>
+                                          {!!stats.stateNew && (
+                                            <Tooltip title={`${stats.stateNew} host-level findings failing for the first time`} arrow>
+                                              <Chip label={`${stats.stateNew} new`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#0066CC', borderColor: '#0066CC' }} />
+                                            </Tooltip>
+                                          )}
+                                          {!!stats.stateFixed && (
+                                            <Tooltip title={`${stats.stateFixed} host-level findings changed from failing to passing`} arrow>
+                                              <Chip label={`${stats.stateFixed} fixed`} size="small" style={{ fontSize: '0.65rem', height: 18, color: '#fff', backgroundColor: '#3E8635' }} />
+                                            </Tooltip>
+                                          )}
+                                          {!!stats.stateResurfaced && (
+                                            <Tooltip title={`${stats.stateResurfaced} host-level findings that were fixed but are now failing again`} arrow>
+                                              <Chip label={`${stats.stateResurfaced} resurfaced`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#C9190B', borderColor: '#C9190B' }} />
+                                            </Tooltip>
+                                          )}
+                                        </Box>
+                                      ) : null}
+                                    </Box>
                                   ) : scan.status === 'completed' ? (
                                     <Typography variant="caption" color="textSecondary">Loading stats...</Typography>
                                   ) : null}

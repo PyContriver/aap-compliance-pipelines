@@ -103,13 +103,14 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
       },
     ],
     hosts: [
-      { host: 'web-01.example.com', status: 'fail', actualValue: '900', expectedValue: '600' },
-      { host: 'web-02.example.com', status: 'pass', actualValue: '600', expectedValue: '600' },
-      { host: 'db-01.example.com', status: 'fail', actualValue: '0', expectedValue: '600' },
+      { host: 'web-01.example.com', status: 'fail', actualValue: '900', expectedValue: '600', findingState: 'active' as const },
+      { host: 'web-02.example.com', status: 'pass', actualValue: '600', expectedValue: '600', findingState: 'fixed' as const },
+      { host: 'db-01.example.com', status: 'fail', actualValue: '0', expectedValue: '600', findingState: 'new' as const },
     ],
     passCount: 1,
     failCount: 2,
     totalCount: 3,
+    stateSummary: { new: 1, active: 1, fixed: 1, resurfaced: 0 },
   },
   {
     ruleId: 'accounts_password_minlen',
@@ -132,13 +133,14 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
       },
     ],
     hosts: [
-      { host: 'web-01.example.com', status: 'fail', actualValue: '8', expectedValue: '15' },
-      { host: 'web-02.example.com', status: 'fail', actualValue: '8', expectedValue: '15' },
-      { host: 'db-01.example.com', status: 'pass', actualValue: '15', expectedValue: '15' },
+      { host: 'web-01.example.com', status: 'fail', actualValue: '8', expectedValue: '15', findingState: 'resurfaced' as const },
+      { host: 'web-02.example.com', status: 'fail', actualValue: '8', expectedValue: '15', findingState: 'active' as const },
+      { host: 'db-01.example.com', status: 'pass', actualValue: '15', expectedValue: '15', findingState: null },
     ],
     passCount: 1,
     failCount: 2,
     totalCount: 3,
+    stateSummary: { new: 0, active: 1, fixed: 0, resurfaced: 1 },
   },
   {
     ruleId: 'sshd_disable_root_login',
@@ -152,13 +154,14 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     disruption: 'low',
     parameters: [],
     hosts: [
-      { host: 'web-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
-      { host: 'web-02.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
-      { host: 'db-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no' },
+      { host: 'web-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
+      { host: 'web-02.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
+      { host: 'db-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },
     ],
     passCount: 3,
     failCount: 0,
     totalCount: 3,
+    stateSummary: { new: 0, active: 0, fixed: 0, resurfaced: 0 },
   },
 ];
 

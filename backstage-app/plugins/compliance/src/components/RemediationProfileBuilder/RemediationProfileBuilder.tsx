@@ -19,7 +19,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import WarningIcon from '@material-ui/icons/Warning';
 import InfoIcon from '@material-ui/icons/Info';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
-import type { FindingSeverity, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 
 const useStyles = makeStyles(theme => ({
@@ -80,6 +80,7 @@ export const RemediationProfileBuilder = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('status');
   const [severityFilter, setSeverityFilter] = useState<'all' | FindingSeverity>('all');
+  const [stateFilter, setStateFilter] = useState<'all' | FindingState>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
 
   useEffect(() => {
@@ -168,8 +169,11 @@ export const RemediationProfileBuilder = () => {
     if (severityFilter !== 'all') {
       result = result.filter(f => f.severity === severityFilter);
     }
+    if (stateFilter !== 'all') {
+      result = result.filter(f => f.stateSummary && (f.stateSummary[stateFilter] ?? 0) > 0);
+    }
     return result;
-  }, [filteredFindings, allFindings, searchQuery, severityFilter]);
+  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter]);
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
@@ -404,6 +408,15 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button>
             <Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button>
           </ButtonGroup>
+          {!isEditMode && (
+            <ButtonGroup size="small" variant="outlined" aria-label="State filter">
+              <Button onClick={() => setStateFilter('all')} variant={stateFilter === 'all' ? 'contained' : 'outlined'} color={stateFilter === 'all' ? 'primary' : 'default'}>All States</Button>
+              <Button onClick={() => setStateFilter('new')} variant={stateFilter === 'new' ? 'contained' : 'outlined'} color={stateFilter === 'new' ? 'primary' : 'default'}>New</Button>
+              <Button onClick={() => setStateFilter('active')} variant={stateFilter === 'active' ? 'contained' : 'outlined'} color={stateFilter === 'active' ? 'primary' : 'default'}>Active</Button>
+              <Button onClick={() => setStateFilter('fixed')} variant={stateFilter === 'fixed' ? 'contained' : 'outlined'} color={stateFilter === 'fixed' ? 'primary' : 'default'}>Fixed</Button>
+              <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
+            </ButtonGroup>
+          )}
           <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
           <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
@@ -431,7 +444,7 @@ export const RemediationProfileBuilder = () => {
             </Button>
           </>
         )}
-        {(severityFilter !== 'all' || searchQuery) && (
+        {(severityFilter !== 'all' || stateFilter !== 'all' || searchQuery) && (
           <Chip label={`Showing ${displayFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
         )}
       </Box>

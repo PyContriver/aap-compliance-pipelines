@@ -632,6 +632,7 @@ export async function createRouter(
   router.get('/findings', async (req, res) => {
     const scanId = req.query.scanId as string | undefined;
     const profileId = req.query.profileId as string | undefined;
+    const stateFilter = req.query.state as string | undefined;
     const userToken = getUserAapToken(req);
 
     if (scanId && !isValidScanId(scanId)) {
@@ -643,25 +644,30 @@ export async function createRouter(
       return;
     }
 
+    const validStates = new Set(['new', 'active', 'fixed', 'resurfaced']);
+    const stateFilterSet = stateFilter
+      ? new Set(stateFilter.split(',').filter(s => validStates.has(s)))
+      : null;
+
     const { resolvedScanId, workflowJobId, dbScan } = await resolveScanId(scanId);
+
+    let results: import('@aap-compliance/common').MultiHostFinding[] | null = null;
 
     // Check DB for stored findings (skip if numeric ID had no matching scan record)
     const skipDbLookup = workflowJobId !== undefined && !dbScan;
     if (resolvedScanId && !skipDbLookup) {
       const dbFindings = await database.getFindingsByScanId(resolvedScanId);
       if (dbFindings.length > 0) {
-        res.json(await service.aggregateFindingsWithMetadata(dbFindings));
-        return;
+        results = await service.aggregateFindingsWithMetadata(dbFindings);
       }
     }
 
     // In live mode, fetch and parse results from Controller
-    if (resolvedScanId && service.getDataSource() === 'live' && workflowJobId) {
+    if (!results && resolvedScanId && service.getDataSource() === 'live' && workflowJobId) {
       try {
         const liveResult = await fetchLiveFindings(resolvedScanId, workflowJobId, dbScan, userToken);
         if (liveResult) {
-          res.json(liveResult);
-          return;
+          results = liveResult;
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -670,8 +676,23 @@ export async function createRouter(
     }
 
     // Fall through to the service (mock data or DB-based in live mode)
-    const findings = await service.getFindings(resolvedScanId, profileId);
-    res.json(findings);
+    if (!results) {
+      results = await service.getFindings(resolvedScanId, profileId);
+    }
+
+    // Apply finding state filter if requested
+    if (stateFilterSet && stateFilterSet.size > 0) {
+      results = results.filter(f =>
+        f.stateSummary && (
+          (stateFilterSet.has('new') && f.stateSummary.new > 0) ||
+          (stateFilterSet.has('active') && f.stateSummary.active > 0) ||
+          (stateFilterSet.has('fixed') && f.stateSummary.fixed > 0) ||
+          (stateFilterSet.has('resurfaced') && f.stateSummary.resurfaced > 0)
+        ),
+      );
+    }
+
+    res.json(results);
   });
 
   // ─── Previous scan findings (for verification comparison) ──────────
@@ -800,6 +821,12 @@ export async function createRouter(
         await savePostureFromFindings(mapped, scan.profileId, scan.inventoryId, scan.id);
       } catch (err) {
         logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      try {
+        await database.computeFindingStates(scanId, scan.profileId, scan.inventoryId);
+      } catch (err) {
+        logger.warn(`Finding state computation failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);

@@ -6,6 +6,8 @@
  */
 import type {
   ComplianceProfile,
+  FindingState,
+  FindingStateSummary,
   MultiHostFinding,
   DashboardStats,
   LaunchScanResponse,
@@ -85,25 +87,38 @@ const HOSTS = [
   'app-prod-01', 'app-prod-02', 'app-prod-03', 'app-prod-04', 'app-prod-05', 'app-prod-06',
 ];
 
-type HostFinding = { host: string; status: 'pass' | 'fail' | 'error'; actualValue: string; expectedValue: string };
+type HostFinding = { host: string; status: 'pass' | 'fail' | 'error'; actualValue: string; expectedValue: string; findingState?: FindingState | null };
 
 const allPass = (expected: string): HostFinding[] =>
-  HOSTS.map(h => ({ host: h, status: 'pass' as const, actualValue: expected, expectedValue: expected }));
+  HOSTS.map(h => ({ host: h, status: 'pass' as const, actualValue: expected, expectedValue: expected, findingState: null }));
 
 const mostPassSomeFail = (
   expected: string,
   failHosts: string[],
   failValues: Record<string, string>,
+  stateOverride?: FindingState,
 ): HostFinding[] =>
   HOSTS.map(h => ({
     host: h,
     status: failHosts.includes(h) ? 'fail' as const : 'pass' as const,
     actualValue: failHosts.includes(h) ? (failValues[h] || 'not set') : expected,
     expectedValue: expected,
+    findingState: failHosts.includes(h) ? (stateOverride ?? 'active') : null,
   }));
 
-const allFail = (expected: string, actualFn: (h: string) => string): HostFinding[] =>
-  HOSTS.map(h => ({ host: h, status: 'fail' as const, actualValue: actualFn(h), expectedValue: expected }));
+const allFail = (expected: string, actualFn: (h: string) => string, stateOverride?: FindingState): HostFinding[] =>
+  HOSTS.map(h => ({ host: h, status: 'fail' as const, actualValue: actualFn(h), expectedValue: expected, findingState: stateOverride ?? 'active' }));
+
+function computeStateSummary(hosts: HostFinding[]): FindingStateSummary {
+  const summary: FindingStateSummary = { new: 0, active: 0, fixed: 0, resurfaced: 0 };
+  for (const h of hosts) {
+    if (h.findingState === 'new') summary.new++;
+    else if (h.findingState === 'active') summary.active++;
+    else if (h.findingState === 'fixed') summary.fixed++;
+    else if (h.findingState === 'resurfaced') summary.resurfaced++;
+  }
+  return summary;
+}
 
 // ─── Mock findings ────────────────────────────────────────────────────
 
@@ -116,7 +131,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the SSH daemon is configured to terminate idle sessions.',
     severity: 'CAT_I', category: 'Access Control', disruption: 'low',
     parameters: [{ name: 'var_sshd_set_keepalive', label: 'Client Alive Interval (seconds)', description: 'SSH client alive interval', type: 'number', default: 600, value: 600 }],
-    hosts: mostPassSomeFail('600', ['db-prod-03', 'app-prod-05'], { 'db-prod-03': '300', 'app-prod-05': 'not set' }),
+    hosts: mostPassSomeFail('600', ['db-prod-03', 'app-prod-05'], { 'db-prod-03': '300', 'app-prod-05': 'not set' }, 'resurfaced'),
     passCount: 18, failCount: 2, totalCount: 20,
   },
   {
@@ -129,7 +144,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     parameters: [],
     hosts: mostPassSomeFail('no', ['web-prod-03', 'db-prod-01', 'db-prod-02', 'db-prod-03', 'db-prod-04'], {
       'web-prod-03': 'yes', 'db-prod-01': 'yes', 'db-prod-02': 'yes', 'db-prod-03': 'yes', 'db-prod-04': 'yes',
-    }),
+    }, 'active'),
     passCount: 15, failCount: 5, totalCount: 20,
   },
   {
@@ -140,7 +155,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the system is in FIPS mode.',
     severity: 'CAT_I', category: 'System and Communications Protection', disruption: 'high',
     parameters: [],
-    hosts: allFail('FIPS', () => 'DEFAULT'),
+    hosts: allFail('FIPS', () => 'DEFAULT', 'new'),
     passCount: 0, failCount: 20, totalCount: 20,
   },
   {
@@ -164,7 +179,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     parameters: [],
     hosts: mostPassSomeFail('installed', [
       'web-prod-04', 'web-prod-05', 'web-prod-06', 'db-prod-03', 'db-prod-04', 'app-prod-01', 'app-prod-02',
-    ], Object.fromEntries(['web-prod-04', 'web-prod-05', 'web-prod-06', 'db-prod-03', 'db-prod-04', 'app-prod-01', 'app-prod-02'].map(h => [h, 'not installed']))),
+    ], Object.fromEntries(['web-prod-04', 'web-prod-05', 'web-prod-06', 'db-prod-03', 'db-prod-04', 'app-prod-01', 'app-prod-02'].map(h => [h, 'not installed'])), 'new'),
     passCount: 13, failCount: 7, totalCount: 20,
   },
   {
@@ -175,7 +190,10 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify auditd is enabled and running.',
     severity: 'CAT_II', category: 'Audit and Accountability', disruption: 'low',
     parameters: [],
-    hosts: allPass('enabled'),
+    hosts: HOSTS.map(h => ({
+      host: h, status: 'pass' as const, actualValue: 'enabled', expectedValue: 'enabled',
+      findingState: ['web-prod-03', 'db-prod-01', 'db-prod-02'].includes(h) ? 'fixed' as const : null,
+    })),
     passCount: 20, failCount: 0, totalCount: 20,
   },
   {
@@ -244,7 +262,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     hosts: allFail('DoD banner configured', () => 'no banner'),
     passCount: 0, failCount: 20, totalCount: 20,
   },
-];
+].map(f => ({ ...f, stateSummary: computeStateSummary(f.hosts) }));
 
 // ─── Mock inventories ─────────────────────────────────────────────────
 
