@@ -144,10 +144,12 @@ export class ComplianceDatabase {
     inventoryId: number,
     beforeTimestamp: string,
   ): Promise<ComplianceScan | null> {
+    // Include both assessment and verification scans — our architecture runs
+    // the full XCCDF evaluation for both types, so verification scans produce
+    // the same complete finding data and are valid for state comparison.
     const row = await this.db('compliance_scans')
       .where('profile_id', profileId)
       .where('inventory_id', inventoryId)
-      .where('scan_type', 'assessment')
       .where('status', 'completed')
       .where('scanner', 'oscap')
       .where('started_at', '<', beforeTimestamp)
