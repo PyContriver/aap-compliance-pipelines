@@ -1111,6 +1111,17 @@ export async function createRouter(
       res.status(404).json({ error: 'Execution not found' });
       return;
     }
+
+    // Lazy-fetch error details for failed executions (same pattern as scan errors)
+    if (execution.status === 'failed' && !execution.errorDetails && execution.allJobIds.length > 0) {
+      const userToken = getUserAapToken(req);
+      const details = await service.fetchRemediationErrorDetails(execution.allJobIds, userToken);
+      if (details) {
+        await database.updateExecutionErrorDetails(execution.id, details);
+        execution.errorDetails = details;
+      }
+    }
+
     res.json(execution);
   });
 
@@ -1197,22 +1208,22 @@ export async function createRouter(
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   router.get('/remediation-profiles', async (req, res) => {
-    // Stale execution recovery (ADR-014 architect review): on list load,
-    // check for executions stuck in 'pending'/'running' >4 hours.
-    // Query Controller for actual job status before marking as failed.
+    // Stale execution recovery: on list load, check executions stuck
+    // in 'pending'/'running' >30min. Query Controller for actual status.
     try {
-      const stale = await database.getStaleRunningExecutions(4);
+      const stale = await database.getStaleRunningExecutions(0.5);
+      const userToken = getUserAapToken(req);
       for (const exec of stale) {
         let resolvedStatus: 'succeeded' | 'failed' = 'failed';
         if (exec.primaryJobId) {
           try {
             const job = await service.getJobStatus(exec.primaryJobId);
             if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
-              continue; // still running on Controller — don't mark as failed
+              continue;
             }
             resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
           } catch (controllerErr) {
-            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping (fail-safe): ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
+            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
             continue;
           }
         }
@@ -1221,6 +1232,14 @@ export async function createRouter(
           status: resolvedStatus,
           completedAt: new Date().toISOString(),
         });
+
+        // Backfill error details for failed executions
+        if (resolvedStatus === 'failed' && exec.allJobIds.length > 0) {
+          const details = await service.fetchRemediationErrorDetails(exec.allJobIds, userToken);
+          if (details) {
+            await database.updateExecutionErrorDetails(exec.id, details);
+          }
+        }
       }
     } catch (err) {
       logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);

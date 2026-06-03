@@ -27,6 +27,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Paper,
   makeStyles,
 } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -567,6 +568,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
   const executionPatched = useRef(false);
@@ -873,6 +875,27 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             hostsTargeted: uniqueHosts.size > 0 ? uniqueHosts.size : undefined,
             hostsSucceeded: uniqueHosts.size > 0 ? uniqueHosts.size - failedHosts.size : undefined,
             hostsFailed: failedHosts.size > 0 ? failedHosts.size : undefined,
+          }).then(() => {
+            if (execStatus === 'failed') {
+              api.getRemediationExecution(executionId).then(exec => {
+                if (exec?.errorDetails) setErrorDetails(exec.errorDetails);
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
+
+        // View mode: no executionId, but we can look up the execution by job ID
+        if (allTerminal && !executionId && !executionPatched.current && anyFailed) {
+          executionPatched.current = true;
+          api.getAllRecentExecutions(20).then(execs => {
+            const match = execs.find(e =>
+              e.primaryJobId === jobIds[0] || e.allJobIds.some(id => jobIds.includes(id)),
+            );
+            if (match?.id) {
+              api.getRemediationExecution(match.id).then(exec => {
+                if (exec?.errorDetails) setErrorDetails(exec.errorDetails);
+              }).catch(() => {});
+            }
           }).catch(() => {});
         }
 
@@ -1061,6 +1084,18 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                         <Typography variant="body2" className={classes.elapsed}>
                           Elapsed: {formatElapsed(elapsed)}
                         </Typography>
+                      )}
+                      {errorDetails && errorDetails.trim().length > 0 && (
+                        <Box mt={2} mx="auto" maxWidth={800} textAlign="left">
+                          <Typography variant="subtitle2" gutterBottom>
+                            Controller Error Details
+                          </Typography>
+                          <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16 }}>
+                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, margin: 0 }}>
+                              {errorDetails}
+                            </pre>
+                          </Paper>
+                        </Box>
                       )}
                       <Box mt={2} display="flex" style={{ gap: 16 }} justifyContent="center">
                         <Button

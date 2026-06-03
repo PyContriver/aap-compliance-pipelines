@@ -858,7 +858,14 @@ export class ComplianceDatabase {
       planSummary: safeJsonParse(row.plan_summary),
       verificationScanId: (row.verification_scan_id as string) ?? null,
       createdBy: (row.created_by as string) ?? null,
+      errorDetails: (row.error_details as string) ?? null,
     };
+  }
+
+  async updateExecutionErrorDetails(executionId: string, errorDetails: string): Promise<void> {
+    await this.db('compliance_remediation_executions')
+      .where('id', executionId)
+      .update({ error_details: errorDetails });
   }
 
   // ─── Baseline targets (ADR-014 §7) ────────────────────────────────
