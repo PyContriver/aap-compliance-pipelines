@@ -59,8 +59,10 @@ build:
     - yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
     - yarn workspace @aap-compliance/plugin-compliance export-dynamic
 
-    # Copy migrations (rhdh-cli doesn't include them)
+    # Copy migrations to both paths (rhdh-cli doesn't include them, plugin checks dist/database/migrations/ first)
     - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/migrations/
+    - mkdir -p plugins/compliance-backend/dist-dynamic/dist/database/migrations
+    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/dist/database/migrations/
 
     # Pack tarballs
     - cd plugins/compliance-backend/dist-dynamic && npm pack --quiet && cd ../../..

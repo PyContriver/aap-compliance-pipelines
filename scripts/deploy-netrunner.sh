@@ -80,7 +80,9 @@ if $DEPLOY_BE; then
   echo "[2/7] Exporting backend dynamic plugin..."
   yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic > /dev/null 2>&1
   cp "$BE_PKG/migrations/"*.js "$BE_PKG/dist-dynamic/migrations/"
-  echo "       Migrations copied ($(ls "$BE_PKG/dist-dynamic/migrations/" | wc -l | tr -d ' ') files)"
+  mkdir -p "$BE_PKG/dist-dynamic/dist/database/migrations"
+  cp "$BE_PKG/migrations/"*.js "$BE_PKG/dist-dynamic/dist/database/migrations/"
+  echo "       Migrations copied to both paths ($(ls "$BE_PKG/dist-dynamic/migrations/" | wc -l | tr -d ' ') files)"
 fi
 
 if $DEPLOY_FE; then
