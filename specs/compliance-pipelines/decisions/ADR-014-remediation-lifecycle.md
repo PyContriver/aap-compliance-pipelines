@@ -81,7 +81,7 @@ Auto-save creates/updates a profile with `status='draft'`. Explicit "Save" trans
 
 **Implementation:** Use a partial unique index on `(inventory_id) WHERE status IN ('pending', 'running')` to enforce the mutex at the database level. The launch flow wraps the guard check and execution record creation in a single transaction: INSERT the execution with `status='pending'`, relying on the partial unique index to reject concurrent launches (UNIQUE constraint violation → HTTP 409). This eliminates the TOCTOU race inherent in a SELECT-then-INSERT pattern. The HTTP 409 response names the running remediation profile and its launch time. The UI disables the launch button and shows which remediation is in progress.
 
-**Stale record recovery:** If the backend crashes or the user closes the browser mid-remediation, execution records can be left in `running` state indefinitely, permanently blocking that inventory. On `GET /remediation-profiles` (list page load), the backend checks for executions in `running` state with `started_at` older than 4 hours. For each stale record, it queries Controller for the actual job status and updates accordingly. If the Controller job is terminal, the execution is marked `failed` with `error: 'recovered from stale state'`. This piggybacks on existing traffic rather than requiring a background job.
+**Stale record recovery:** If the backend crashes or the user closes the browser mid-remediation, execution records can be left in `running` state indefinitely, permanently blocking that inventory. On `GET /remediation-profiles` (list page load), the backend checks for executions in `running` state with `started_at` older than 30 minutes. For each stale record, it queries Controller for the actual job status and updates accordingly. If the Controller job is terminal, the execution is marked `failed` with `error: 'recovered from stale state'`. This piggybacks on existing traffic rather than requiring a background job.
 
 **Scope:**
 - Same profile + same inventory + running → **blocked**
@@ -198,6 +198,8 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 - `scan_id` → `creation_scan_id` rename eliminates naming ambiguity across profile and execution tables
 - Two-group data management provides configurable retention without cascade conflicts
 - Audit Export (P3) enables compliance evidence collection for auditors even after local data is purged
+- Remediation failure details are fetched live from Controller with three-tier fallback (result_traceback → runner_on_failed → job_explanation), providing actionable error messages without duplicating Controller's job event storage
+- Stale execution recovery runs every 30 minutes (lowered from 4 hours) to minimize inventory lock duration when processes crash mid-remediation
 
 ## Related
 

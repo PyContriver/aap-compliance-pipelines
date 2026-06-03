@@ -197,6 +197,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - **FR-018**: System MUST execute remediation by launching the remediation job template directly (not through a workflow) with `--limit`, `--tags`, and `--extra-vars` derived from the remediation (see ADR-009)
 - **FR-019**: System MUST trigger a verification re-scan after remediation completes and display before/after comparison
 - **FR-020**: System MUST display real-time remediation progress with per-host status updates
+- **FR-020a**: System MUST fetch error details live from Automation Controller for failed remediation executions. Error details MUST include Ansible task tracebacks, per-host per-task failures, and pre-start failures (project sync, inventory, credentials). The system MUST support fetching error details for up to 20 job IDs in a single request with parallel Controller API calls.
 
 #### Profile Management
 

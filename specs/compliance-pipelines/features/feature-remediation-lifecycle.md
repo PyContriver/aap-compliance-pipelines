@@ -86,7 +86,19 @@ AAP Controller is the source of truth for all execution data. The plugin stores 
 3. Clicking an execution navigates to the remediation progress view (fetches task events live from Controller)
 4. "View in Controller" opens the Controller job page
 
-### Flow E: Archive and cleanup
+### Flow E: View remediation failure details
+
+1. Remediation completes with `status='failed'`
+2. User views the execution in RemediationsList or execution history
+3. System displays "Show Error Details" button for failed executions
+4. User clicks button → backend fetches error details from Controller via `/remediation-error-details?jobIds=X,Y,Z` (capped at 20 job IDs, parallel fetch)
+5. Error details panel displays scrollable error messages from three fallback sources:
+   - `result_traceback` for Ansible task exceptions
+   - `runner_on_failed` events for per-host per-task failures
+   - `job_explanation` for pre-start failures (project sync, inventory unavailable, credential errors)
+6. If no error details found, displays "No error details available from Automation Controller"
+
+### Flow F: Archive and cleanup
 
 1. User archives a profile → `status='archived'`, hidden from default list
 2. Filter dropdown: "Active" (default), "All", "Drafts", "Archived"
@@ -179,6 +191,10 @@ Returns single `RemediationExecution`.
 ### New: `PATCH /remediation-executions/:id`
 
 Update execution status on completion (called by polling flow).
+
+### New: `GET /remediation-error-details?jobIds=1,2,3`
+
+Fetches error details for failed remediation executions. Accepts comma-separated job IDs (max 20), parallelizes Controller API calls, and returns error details from three fallback sources: `result_traceback` (Ansible task errors), `runner_on_failed` events (per-host per-task failures), and `job_explanation` (pre-start failures like project sync errors). No DB persistence — always fetches live from Controller.
 
 ### Modified: `POST /remediation-profiles`
 

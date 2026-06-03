@@ -886,6 +886,22 @@ controller_templates:
     ask_inventory_on_launch: true
 ```
 
+### Remediation Error Details
+
+When a remediation execution fails, the compliance plugin fetches detailed error information from the Automation Controller API to help users diagnose the failure. The error details endpoint (`GET /remediation-error-details?jobIds=1,2,3`) accepts up to 20 comma-separated job IDs and fetches error details in parallel from three fallback sources:
+
+1. **`result_traceback`** — Ansible task exceptions with Python stack traces (e.g., module execution errors, connection failures)
+2. **`runner_on_failed` events** — Per-host per-task failure messages from the playbook run (e.g., "Package not found", "Permission denied")
+3. **`job_explanation`** — Pre-start failures that prevent the job from launching (e.g., "Project sync failed", "Inventory not found", "Credential invalid")
+
+The endpoint queries the Controller's job events API (`/api/controller/v2/jobs/{id}/job_events/`) and returns a structured response with error messages for each job. If no error details are found, the endpoint returns an empty array for that job ID.
+
+**Key characteristics:**
+- No database persistence — always fetches live from Controller
+- Parallel API calls for performance (Promise.all)
+- Graceful fallback through the three error sources
+- Rate-limited to 20 job IDs per request to prevent Controller API overload
+
 ### AAP Controller Resource Configuration (Critical)
 
 The compliance plugin depends on specific AAP Controller resource settings to function correctly. Misconfiguring these settings is the most common cause of "scan runs against wrong hosts" or "remediation applies to all rules instead of selected ones."
