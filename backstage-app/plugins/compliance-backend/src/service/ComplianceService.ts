@@ -1194,16 +1194,21 @@ export class ComplianceService {
           if (!jobStatus.failed) continue;
 
           const failureEvents = await this.controllerClient.getJobFailureEvents(jobId, token);
-          for (const ev of failureEvents.results.slice(0, 10)) {
-            const data = ev.event_data as Record<string, unknown> | undefined;
-            const res = data?.res as Record<string, unknown> | undefined;
-            const host = (data?.host as string) ?? 'unknown';
-            const task = (data?.task as string) ?? 'unknown';
-            const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
-            lines.push(`${host}: [${task}] ${msg}`);
-          }
-          if (failureEvents.count > 10) {
-            lines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
+          if (failureEvents.results.length > 0) {
+            for (const ev of failureEvents.results.slice(0, 10)) {
+              const data = ev.event_data as Record<string, unknown> | undefined;
+              const res = data?.res as Record<string, unknown> | undefined;
+              const host = (data?.host as string) ?? 'unknown';
+              const task = (data?.task as string) ?? 'unknown';
+              const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
+              lines.push(`${host}: [${task}] ${msg}`);
+            }
+            if (failureEvents.count > 10) {
+              lines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
+            }
+          } else if (jobStatus.job_explanation) {
+            // Job failed before starting (e.g. project sync failure, missing credential)
+            lines.push(`Job ${jobId}: ${jobStatus.job_explanation}`);
           }
         } catch {
           lines.push(`Unable to fetch details for job ${jobId}`);

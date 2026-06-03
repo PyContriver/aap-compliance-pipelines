@@ -1149,6 +1149,23 @@ export async function createRouter(
     res.json(updated);
   });
 
+  // Fetch remediation error details for given job IDs (no execution record needed)
+  router.get('/remediation-error-details', async (req, res) => {
+    const jobIdsParam = req.query.jobIds as string;
+    if (!jobIdsParam) {
+      res.status(400).json({ error: 'jobIds query parameter required' });
+      return;
+    }
+    const jobIds = jobIdsParam.split(',').map(Number).filter(n => !Number.isNaN(n));
+    if (jobIds.length === 0) {
+      res.json({ errorDetails: null });
+      return;
+    }
+    const userToken = getUserAapToken(req);
+    const details = await service.fetchRemediationErrorDetails(jobIds, userToken);
+    res.json({ errorDetails: details });
+  });
+
   // ─── Remediation profile status (ADR-014 §2) ──────────────────────
 
   router.patch('/remediation-profiles/:id', async (req, res) => {

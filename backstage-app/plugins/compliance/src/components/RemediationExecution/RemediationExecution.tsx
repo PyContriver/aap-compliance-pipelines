@@ -884,7 +884,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           }).catch(() => {});
         }
 
-        // View mode: no executionId, but we can look up the execution by job ID
+        // View mode: no executionId — look up execution or fetch error details directly
         if (allTerminal && !executionId && !executionPatched.current && anyFailed) {
           executionPatched.current = true;
           api.getAllRecentExecutions(20).then(execs => {
@@ -894,6 +894,11 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             if (match?.id) {
               api.getRemediationExecution(match.id).then(exec => {
                 if (exec?.errorDetails) setErrorDetails(exec.errorDetails);
+              }).catch(() => {});
+            } else {
+              // No execution record — fetch error details directly from Controller
+              api.getRemediationErrorDetails(jobIds).then(details => {
+                if (details) setErrorDetails(details);
               }).catch(() => {});
             }
           }).catch(() => {});
