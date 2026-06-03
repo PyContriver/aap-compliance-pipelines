@@ -1,6 +1,6 @@
 import React from 'react';
 import { InfoCard } from '@backstage/core-components';
-import { Typography, makeStyles } from '@material-ui/core';
+import { Typography, Tooltip, makeStyles } from '@material-ui/core';
 import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import TrendingDownIcon from '@material-ui/icons/TrendingDown';
@@ -93,26 +93,32 @@ export const VerificationComparison = ({
           <Typography variant="body2" color="textSecondary">Rules:</Typography>
           <Typography variant="body2" style={{ fontWeight: 600 }}>{totalRules}</Typography>
         </div>
-        <div className={classes.deltaStat}>
-          <TrendingUpIcon fontSize="small" style={{ color: '#3E8635' }} />
-          <Typography variant="body2" className={classes.deltaPositive}>
-            {comparisonStats.improved} Improved
-          </Typography>
-        </div>
-        {comparisonStats.regressed > 0 && (
+        <Tooltip title="Rules where all hosts changed from failing to passing between scans" arrow>
           <div className={classes.deltaStat}>
-            <TrendingDownIcon fontSize="small" style={{ color: '#C9190B' }} />
-            <Typography variant="body2" className={classes.deltaNegative}>
-              {comparisonStats.regressed} Regressed
+            <TrendingUpIcon fontSize="small" style={{ color: '#3E8635' }} />
+            <Typography variant="body2" className={classes.deltaPositive}>
+              {comparisonStats.improved} Rules Improved
             </Typography>
           </div>
+        </Tooltip>
+        {comparisonStats.regressed > 0 && (
+          <Tooltip title="Rules that were passing in the previous scan but now have failures" arrow>
+            <div className={classes.deltaStat}>
+              <TrendingDownIcon fontSize="small" style={{ color: '#C9190B' }} />
+              <Typography variant="body2" className={classes.deltaNegative}>
+                {comparisonStats.regressed} Rules Regressed
+              </Typography>
+            </div>
+          </Tooltip>
         )}
-        <div className={classes.deltaStat}>
-          <RemoveIcon fontSize="small" style={{ color: '#6A6E73' }} />
-          <Typography variant="body2" className={classes.deltaUnchanged}>
-            {comparisonStats.unchanged} Unchanged
-          </Typography>
-        </div>
+        <Tooltip title="Rules with no change in pass/fail status between scans" arrow>
+          <div className={classes.deltaStat}>
+            <RemoveIcon fontSize="small" style={{ color: '#6A6E73' }} />
+            <Typography variant="body2" className={classes.deltaUnchanged}>
+              {comparisonStats.unchanged} Rules Unchanged
+            </Typography>
+          </div>
+        </Tooltip>
       </div>
     </InfoCard>
   );

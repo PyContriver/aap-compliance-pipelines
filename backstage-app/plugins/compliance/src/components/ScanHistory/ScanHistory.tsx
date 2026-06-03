@@ -636,17 +636,17 @@ export const ScanHistory = () => {
                                       {(stats.stateNew || stats.stateFixed || stats.stateResurfaced) ? (
                                         <Box display="flex" style={{ gap: 4, marginTop: 2 }}>
                                           {!!stats.stateNew && (
-                                            <Tooltip title="First time failing on these hosts" arrow>
+                                            <Tooltip title={`${stats.stateNew} host-level findings failing for the first time`} arrow>
                                               <Chip label={`${stats.stateNew} new`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#0066CC', borderColor: '#0066CC' }} />
                                             </Tooltip>
                                           )}
                                           {!!stats.stateFixed && (
-                                            <Tooltip title="Was failing, now passing after remediation" arrow>
+                                            <Tooltip title={`${stats.stateFixed} host-level findings changed from failing to passing`} arrow>
                                               <Chip label={`${stats.stateFixed} fixed`} size="small" style={{ fontSize: '0.65rem', height: 18, color: '#fff', backgroundColor: '#3E8635' }} />
                                             </Tooltip>
                                           )}
                                           {!!stats.stateResurfaced && (
-                                            <Tooltip title="Regression after remediation — was fixed, now failing again" arrow>
+                                            <Tooltip title={`${stats.stateResurfaced} host-level findings that were fixed but are now failing again`} arrow>
                                               <Chip label={`${stats.stateResurfaced} resurfaced`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#C9190B', borderColor: '#C9190B' }} />
                                             </Tooltip>
                                           )}
