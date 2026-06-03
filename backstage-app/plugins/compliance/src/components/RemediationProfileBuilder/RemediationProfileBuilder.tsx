@@ -408,13 +408,15 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button>
             <Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button>
           </ButtonGroup>
-          <ButtonGroup size="small" variant="outlined" aria-label="State filter">
-            <Button onClick={() => setStateFilter('all')} variant={stateFilter === 'all' ? 'contained' : 'outlined'} color={stateFilter === 'all' ? 'primary' : 'default'}>All States</Button>
-            <Button onClick={() => setStateFilter('new')} variant={stateFilter === 'new' ? 'contained' : 'outlined'} color={stateFilter === 'new' ? 'primary' : 'default'}>New</Button>
-            <Button onClick={() => setStateFilter('active')} variant={stateFilter === 'active' ? 'contained' : 'outlined'} color={stateFilter === 'active' ? 'primary' : 'default'}>Active</Button>
-            <Button onClick={() => setStateFilter('fixed')} variant={stateFilter === 'fixed' ? 'contained' : 'outlined'} color={stateFilter === 'fixed' ? 'primary' : 'default'}>Fixed</Button>
-            <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
-          </ButtonGroup>
+          {!isEditMode && (
+            <ButtonGroup size="small" variant="outlined" aria-label="State filter">
+              <Button onClick={() => setStateFilter('all')} variant={stateFilter === 'all' ? 'contained' : 'outlined'} color={stateFilter === 'all' ? 'primary' : 'default'}>All States</Button>
+              <Button onClick={() => setStateFilter('new')} variant={stateFilter === 'new' ? 'contained' : 'outlined'} color={stateFilter === 'new' ? 'primary' : 'default'}>New</Button>
+              <Button onClick={() => setStateFilter('active')} variant={stateFilter === 'active' ? 'contained' : 'outlined'} color={stateFilter === 'active' ? 'primary' : 'default'}>Active</Button>
+              <Button onClick={() => setStateFilter('fixed')} variant={stateFilter === 'fixed' ? 'contained' : 'outlined'} color={stateFilter === 'fixed' ? 'primary' : 'default'}>Fixed</Button>
+              <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
+            </ButtonGroup>
+          )}
           <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
           <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
