@@ -1,51 +1,34 @@
 # Compliance Plugins CI/CD — GitLab CEE
 #
-# Runs tests on every push, deploys to Netrunner Portal on main.
+# Builds and deploys to Netrunner Portal on push to main.
+# Mirrors what scripts/deploy-netrunner.sh does locally.
+#
 # Secrets required (GitLab CI/CD Variables, masked + protected):
-#   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host
+#   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 #
 # The Netrunner Portal deploy is staging/demo only — not production.
+# Tests run locally before push; CI handles build + deploy only.
 
 stages:
-  - test
   - build
   - deploy
 
 variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
-  NODE_OPTIONS: "--max-old-space-size=1536"
-
-# ── Shared setup ─────────────────────────────────────────────────────
-
-.node-setup:
-  image: node:22
-  tags:
-    - itup-alm-x86
-  before_script:
-    - corepack enable
-    - cd backstage-app
-    - YARN_ENABLE_GLOBAL_CACHE=false yarn install --inline-builds
-
-# ── Test ─────────────────────────────────────────────────────────────
-
-test:
-  extends: .node-setup
-  stage: test
-  script:
-    - yarn tsc --noEmit
-    - yarn test --no-coverage --ci
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # ── Build ────────────────────────────────────────────────────────────
 
 build:
-  extends: .node-setup
+  image: node:22
+  tags:
+    - itup-alm-x86
   stage: build
   script:
+    - corepack enable
+    - cd backstage-app
+
     # Bump patch version to avoid Portal same-version cleanup
     - |
       for pkg in plugins/compliance-backend plugins/compliance; do
@@ -56,13 +39,15 @@ build:
         sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" "$pkg/package.json"
         echo "$pkg: $CURRENT -> $NEW"
       done
-    - yarn install
+
+    # Install only the packages needed for export-dynamic (skip app/backend)
+    - yarn workspaces focus @aap-compliance/plugin-compliance-backend @aap-compliance/plugin-compliance --production
 
     # Export dynamic plugins
     - yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
     - yarn workspace @aap-compliance/plugin-compliance export-dynamic
 
-    # Copy migrations to both paths (rhdh-cli doesn't include them, plugin checks dist/database/migrations/ first)
+    # Copy migrations to both paths
     - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/migrations/
     - mkdir -p plugins/compliance-backend/dist-dynamic/dist/database/migrations
     - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/dist/database/migrations/
@@ -94,7 +79,6 @@ deploy-netrunner:
     - build
   before_script:
     - apt-get update -qq && apt-get install -y -qq openssh-client openssl > /dev/null
-    # Set up SSH key from CI variable
     - mkdir -p ~/.ssh
     - cp "$PORTAL_SSH_KEY" ~/.ssh/portal.pem
     - chmod 600 ~/.ssh/portal.pem
@@ -109,12 +93,12 @@ deploy-netrunner:
     - $SCP deploy-artifacts/*.tgz "$PORTAL_HOST:/tmp/"
     - $SSH "sudo cp /tmp/aap-compliance-plugin-compliance-*-dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
 
-    # Identify tarball names and compute hashes
+    # Identify tarball names
     - BE_TGZ=$(ls deploy-artifacts/ | grep backend)
     - FE_TGZ=$(ls deploy-artifacts/ | grep -v backend)
     - echo "Backend tarball:$BE_TGZ  Frontend tarball:$FE_TGZ"
 
-    # Update Portal config with new versions and integrity hashes
+    # Update Portal config with new integrity hashes
     - |
       $SSH "sudo python3 << 'PYEOF'
       import yaml, subprocess, base64
