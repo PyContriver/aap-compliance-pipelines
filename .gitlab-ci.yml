@@ -15,24 +15,18 @@ stages:
 variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
-  NODE_OPTIONS: "--max-old-space-size=2048"
-  YARN_CACHE_FOLDER: $CI_PROJECT_DIR/.yarn-cache
+  NODE_OPTIONS: "--max-old-space-size=1536"
 
 # ── Shared setup ─────────────────────────────────────────────────────
 
 .node-setup:
-  image: node:22-slim
+  image: node:22
   tags:
     - itup-alm-x86
-  cache:
-    key: yarn-${CI_COMMIT_REF_SLUG}
-    paths:
-      - .yarn-cache/
-    policy: pull-push
   before_script:
     - corepack enable
     - cd backstage-app
-    - yarn install
+    - YARN_ENABLE_GLOBAL_CACHE=false yarn install --inline-builds
 
 # ── Test ─────────────────────────────────────────────────────────────
 
