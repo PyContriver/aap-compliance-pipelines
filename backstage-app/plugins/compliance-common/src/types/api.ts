@@ -94,7 +94,6 @@ export interface RemediationExecution {
   planSummary: RemediationPlan | null;
   verificationScanId: string | null;
   createdBy: string | null;
-  errorDetails?: string | null;
 }
 
 /** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */

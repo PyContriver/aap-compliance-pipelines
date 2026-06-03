@@ -875,32 +875,14 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             hostsTargeted: uniqueHosts.size > 0 ? uniqueHosts.size : undefined,
             hostsSucceeded: uniqueHosts.size > 0 ? uniqueHosts.size - failedHosts.size : undefined,
             hostsFailed: failedHosts.size > 0 ? failedHosts.size : undefined,
-          }).then(() => {
-            if (execStatus === 'failed') {
-              api.getRemediationExecution(executionId).then(exec => {
-                if (exec?.errorDetails) setErrorDetails(exec.errorDetails);
-              }).catch(() => {});
-            }
           }).catch(() => {});
         }
 
-        // View mode: no executionId — look up execution or fetch error details directly
-        if (allTerminal && !executionId && !executionPatched.current && anyFailed) {
-          executionPatched.current = true;
-          api.getAllRecentExecutions(20).then(execs => {
-            const match = execs.find(e =>
-              e.primaryJobId === jobIds[0] || e.allJobIds.some(id => jobIds.includes(id)),
-            );
-            if (match?.id) {
-              api.getRemediationExecution(match.id).then(exec => {
-                if (exec?.errorDetails) setErrorDetails(exec.errorDetails);
-              }).catch(() => {});
-            } else {
-              // No execution record — fetch error details directly from Controller
-              api.getRemediationErrorDetails(jobIds).then(details => {
-                if (details) setErrorDetails(details);
-              }).catch(() => {});
-            }
+        // Fetch error details live from Controller for any failed execution
+        if (allTerminal && anyFailed && !executionPatched.current) {
+          if (!executionId) executionPatched.current = true;
+          api.getRemediationErrorDetails(jobIds).then(details => {
+            if (details) setErrorDetails(details);
           }).catch(() => {});
         }
 

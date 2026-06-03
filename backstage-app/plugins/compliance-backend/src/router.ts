@@ -1112,16 +1112,6 @@ export async function createRouter(
       return;
     }
 
-    // Lazy-fetch error details for failed executions (same pattern as scan errors)
-    if (execution.status === 'failed' && !execution.errorDetails && execution.allJobIds.length > 0) {
-      const userToken = getUserAapToken(req);
-      const details = await service.fetchRemediationErrorDetails(execution.allJobIds, userToken);
-      if (details) {
-        await database.updateExecutionErrorDetails(execution.id, details);
-        execution.errorDetails = details;
-      }
-    }
-
     res.json(execution);
   });
 
@@ -1229,7 +1219,6 @@ export async function createRouter(
     // in 'pending'/'running' >30min. Query Controller for actual status.
     try {
       const stale = await database.getStaleRunningExecutions(0.5);
-      const userToken = getUserAapToken(req);
       for (const exec of stale) {
         let resolvedStatus: 'succeeded' | 'failed' = 'failed';
         if (exec.primaryJobId) {
@@ -1249,14 +1238,6 @@ export async function createRouter(
           status: resolvedStatus,
           completedAt: new Date().toISOString(),
         });
-
-        // Backfill error details for failed executions
-        if (resolvedStatus === 'failed' && exec.allJobIds.length > 0) {
-          const details = await service.fetchRemediationErrorDetails(exec.allJobIds, userToken);
-          if (details) {
-            await database.updateExecutionErrorDetails(exec.id, details);
-          }
-        }
       }
     } catch (err) {
       logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);
