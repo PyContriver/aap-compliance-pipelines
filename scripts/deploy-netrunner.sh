@@ -113,7 +113,7 @@ fi
 # Step 4: Upload
 echo "[4/7] Uploading to Portal host..."
 scp $SSH_OPTS "${TARBALLS[@]}" "$PORTAL_HOST:/tmp/"
-ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/aap-compliance-plugin-compliance-*-dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
+ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/aap-compliance-plugin-compliance-*dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
 echo "       Uploaded ${#TARBALLS[@]} tarball(s)"
 
 # Step 5: Update config with integrity hashes

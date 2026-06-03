@@ -27,6 +27,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Paper,
   makeStyles,
 } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -567,6 +568,8 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const errorDetailsFetched = useRef(false);
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
   const executionPatched = useRef(false);
@@ -575,6 +578,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   useEffect(() => {
     launchFired.current = false;
     executionPatched.current = false;
+    errorDetailsFetched.current = false;
   }, [jobId]);
   const [verificationLaunching, setVerificationLaunching] = useState(false);
 
@@ -876,6 +880,16 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           }).catch(() => {});
         }
 
+        // Fetch error details live from Controller for any failed execution
+        if (allTerminal && anyFailed && !errorDetailsFetched.current) {
+          errorDetailsFetched.current = true;
+          api.getRemediationErrorDetails(jobIds).then(details => {
+            if (details) setErrorDetails(details);
+          }).catch(() => {
+            setErrorDetails('Unable to retrieve error details — the automation controller may be unavailable.');
+          });
+        }
+
       } catch {
         // API not available yet
       }
@@ -1061,6 +1075,18 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                         <Typography variant="body2" className={classes.elapsed}>
                           Elapsed: {formatElapsed(elapsed)}
                         </Typography>
+                      )}
+                      {errorDetails && errorDetails.trim().length > 0 && (
+                        <Box mt={2} mx="auto" maxWidth={800} textAlign="left">
+                          <Typography variant="subtitle2" gutterBottom>
+                            Controller Error Details
+                          </Typography>
+                          <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16 }}>
+                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, margin: 0 }}>
+                              {errorDetails}
+                            </pre>
+                          </Paper>
+                        </Box>
                       )}
                       <Box mt={2} display="flex" style={{ gap: 16 }} justifyContent="center">
                         <Button

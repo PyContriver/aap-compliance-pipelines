@@ -1111,6 +1111,7 @@ export async function createRouter(
       res.status(404).json({ error: 'Execution not found' });
       return;
     }
+
     res.json(execution);
   });
 
@@ -1136,6 +1137,28 @@ export async function createRouter(
     });
     const updated = await database.getExecutionById(req.params.id);
     res.json(updated);
+  });
+
+  // Fetch remediation error details for given job IDs (no execution record needed)
+  router.get('/remediation-error-details', async (req, res) => {
+    const jobIdsParam = req.query.jobIds as string;
+    if (!jobIdsParam) {
+      res.status(400).json({ error: 'jobIds query parameter required' });
+      return;
+    }
+    const jobIds = jobIdsParam.split(',').map(Number).filter(n => !Number.isNaN(n)).slice(0, 20);
+    if (jobIds.length === 0) {
+      res.json({ errorDetails: null });
+      return;
+    }
+    const userToken = getUserAapToken(req);
+    try {
+      const details = await service.fetchRemediationErrorDetails(jobIds, userToken);
+      res.json({ errorDetails: details });
+    } catch (err) {
+      logger.warn(`Failed to fetch remediation error details: ${err instanceof Error ? err.message : err}`);
+      res.json({ errorDetails: null });
+    }
   });
 
   // ─── Remediation profile status (ADR-014 §2) ──────────────────────
@@ -1197,22 +1220,21 @@ export async function createRouter(
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   router.get('/remediation-profiles', async (req, res) => {
-    // Stale execution recovery (ADR-014 architect review): on list load,
-    // check for executions stuck in 'pending'/'running' >4 hours.
-    // Query Controller for actual job status before marking as failed.
+    // Stale execution recovery: on list load, check executions stuck
+    // in 'pending'/'running' >30min. Query Controller for actual status.
     try {
-      const stale = await database.getStaleRunningExecutions(4);
+      const stale = await database.getStaleRunningExecutions(0.5);
       for (const exec of stale) {
         let resolvedStatus: 'succeeded' | 'failed' = 'failed';
         if (exec.primaryJobId) {
           try {
             const job = await service.getJobStatus(exec.primaryJobId);
             if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
-              continue; // still running on Controller — don't mark as failed
+              continue;
             }
             resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
           } catch (controllerErr) {
-            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping (fail-safe): ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
+            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
             continue;
           }
         }

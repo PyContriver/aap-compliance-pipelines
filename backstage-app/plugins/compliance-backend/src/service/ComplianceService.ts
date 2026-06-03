@@ -1167,6 +1167,72 @@ export class ComplianceService {
     }
   }
 
+  /**
+   * Fetch error details for a failed remediation execution.
+   * Iterates allJobIds, collects failure events from each, aggregates.
+   * Same best-effort pattern as fetchScanErrorDetails.
+   */
+  async fetchRemediationErrorDetails(
+    allJobIds: number[],
+    token?: string,
+  ): Promise<string | null> {
+    if (!this.controllerClient || allJobIds.length === 0) {
+      return null;
+    }
+
+    try {
+      const capped = allJobIds.slice(0, 20);
+
+      const perJobLines = await Promise.all(capped.map(async (jobId): Promise<string[]> => {
+        try {
+          const jobStatus = await this.controllerClient!.getJobStatus(jobId, token);
+          if (jobStatus.result_traceback) {
+            return [jobStatus.result_traceback];
+          }
+
+          if (!jobStatus.failed) return [];
+
+          const failureEvents = await this.controllerClient!.getJobFailureEvents(jobId, token);
+          if (failureEvents.results.length > 0) {
+            const eventLines: string[] = [];
+            for (const ev of failureEvents.results.slice(0, 10)) {
+              const data = ev.event_data as Record<string, unknown> | undefined;
+              const res = data?.res as Record<string, unknown> | undefined;
+              const host = (data?.host as string) ?? 'unknown';
+              const task = (data?.task as string) ?? 'unknown';
+              const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
+              eventLines.push(`${host}: [${task}] ${msg}`);
+            }
+            if (failureEvents.count > 10) {
+              eventLines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
+            }
+            return eventLines;
+          } else if (jobStatus.job_explanation) {
+            return [`Job ${jobId}: ${jobStatus.job_explanation}`];
+          }
+          return [];
+        } catch {
+          return [`Unable to fetch details for job ${jobId}`];
+        }
+      }));
+
+      const lines = perJobLines.flat();
+      if (lines.length === 0) return null;
+
+      const details = lines.join('\n');
+      this.logger.info(
+        `Fetched remediation error details for ${capped.length} jobs`,
+      );
+      // 2x scan error limit — remediations aggregate failures across multiple jobs
+      return details.slice(0, 4000);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch remediation error details: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
   // ─── Workflow status (for polling) ──────────────────────────────────
 
   async getWorkflowJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {

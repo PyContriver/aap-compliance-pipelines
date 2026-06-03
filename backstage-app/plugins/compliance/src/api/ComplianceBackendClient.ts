@@ -314,6 +314,17 @@ export class ComplianceBackendClient implements ComplianceApi {
     );
   }
 
+  async getRemediationErrorDetails(jobIds: number[]): Promise<string | null> {
+    try {
+      const result = await this.request<{ errorDetails: string | null }>(
+        `/remediation-error-details?jobIds=${jobIds.join(',')}`,
+      );
+      return result.errorDetails;
+    } catch {
+      return null;
+    }
+  }
+
   async getAuthoritativeScan(profileId: string, inventoryId: number) {
     try {
       return await this.request<AuthoritativeScanResponse>(

@@ -307,6 +307,7 @@ export class ControllerClient {
     elapsed: number;
     job_tags: string;
     result_traceback?: string;
+    job_explanation?: string;
   }> {
     return this.executeGetRequest(`api/controller/v2/jobs/${jobId}/`, token);
   }
