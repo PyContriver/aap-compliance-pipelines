@@ -128,7 +128,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               size="small"
               className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`}
             />
-            {dominantState && dominantState !== 'active' && (
+            {dominantState && (
               <Tooltip title={stateConfig[dominantState].tooltip} arrow>
                 <Chip
                   label={stateConfig[dominantState].label}
@@ -252,7 +252,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                           </div>
                         </TableCell>
                         <TableCell>
-                          {hostFinding.findingState && hostFinding.findingState !== 'active' ? (
+                          {hostFinding.findingState ? (
                             <Tooltip title={stateConfig[hostFinding.findingState].tooltip} arrow>
                               <Chip
                                 label={stateConfig[hostFinding.findingState].label}
