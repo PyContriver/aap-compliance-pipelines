@@ -147,6 +147,7 @@ export class ComplianceDatabase {
     const row = await this.db('compliance_scans')
       .where('profile_id', profileId)
       .where('inventory_id', inventoryId)
+      .where('scan_type', 'assessment')
       .where('status', 'completed')
       .where('scanner', 'oscap')
       .where('started_at', '<', beforeTimestamp)
@@ -221,17 +222,22 @@ export class ComplianceDatabase {
       updates.push({ id: cf.id as string, state });
     }
 
-    // Batch update in groups of 100
-    const batchSize = 100;
-    for (let i = 0; i < updates.length; i += batchSize) {
-      const batch = updates.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(u =>
-          this.db('compliance_findings')
-            .where('id', u.id)
-            .update({ finding_state: u.state }),
-        ),
-      );
+    // Group by state and do bulk UPDATEs (4 statements max, regardless of finding count)
+    const byState = new Map<string | null, string[]>();
+    for (const u of updates) {
+      const key = u.state ?? '__null__';
+      let ids = byState.get(key);
+      if (!ids) { ids = []; byState.set(key, ids); }
+      ids.push(u.id);
+    }
+    for (const [key, ids] of byState) {
+      if (key === '__null__') continue;
+      const batchSize = 500;
+      for (let i = 0; i < ids.length; i += batchSize) {
+        await this.db('compliance_findings')
+          .whereIn('id', ids.slice(i, i + batchSize))
+          .update({ finding_state: key });
+      }
     }
   }
 
