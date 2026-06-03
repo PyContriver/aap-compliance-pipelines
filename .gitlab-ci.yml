@@ -1,82 +1,29 @@
 # Compliance Plugins CI/CD — GitLab CEE
 #
-# Builds and deploys to Netrunner Portal on push to main.
-# Mirrors what scripts/deploy-netrunner.sh does locally.
+# Deploy pre-built tarballs to Netrunner Portal.
 #
-# Secrets required (GitLab CI/CD Variables, masked + protected):
+# Workflow: build locally with deploy-netrunner.sh --build-only, commit
+# tarballs to deploy-artifacts/, push to main → CI deploys automatically.
+#
+# Or: push to main → manually trigger deploy-netrunner with pre-built
+# artifacts already on the Portal host (uploaded by deploy-netrunner.sh).
+#
+# Secrets required (GitLab CI/CD Variables):
 #   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
-#
-# The Netrunner Portal deploy is staging/demo only — not production.
-# Tests run locally before push; CI handles build + deploy only.
 
 stages:
-  - build
   - deploy
 
 variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
 
-# ── Build ────────────────────────────────────────────────────────────
-
-build:
-  image: node:22
-  tags:
-    - itup-alm-x86
-  stage: build
-  script:
-    - corepack enable
-    - cd backstage-app
-
-    # Bump patch version to avoid Portal same-version cleanup
-    - |
-      for pkg in plugins/compliance-backend plugins/compliance; do
-        CURRENT=$(grep '"version"' "$pkg/package.json" | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')
-        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-        PATCH=$((PATCH + 1))
-        NEW="$MAJOR.$MINOR.$PATCH"
-        sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" "$pkg/package.json"
-        echo "$pkg: $CURRENT -> $NEW"
-      done
-
-    # Install only the packages needed for export-dynamic (skip app/backend)
-    - yarn workspaces focus @aap-compliance/plugin-compliance-backend @aap-compliance/plugin-compliance --production
-
-    # Export dynamic plugins
-    - yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
-    - yarn workspace @aap-compliance/plugin-compliance export-dynamic
-
-    # Copy migrations to both paths
-    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/migrations/
-    - mkdir -p plugins/compliance-backend/dist-dynamic/dist/database/migrations
-    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/dist/database/migrations/
-
-    # Pack tarballs
-    - cd plugins/compliance-backend/dist-dynamic && npm pack --quiet && cd ../../..
-    - cd plugins/compliance/dist-dynamic && npm pack --quiet && cd ../../..
-
-    # Collect artifacts
-    - mkdir -p ../deploy-artifacts
-    - cp plugins/compliance-backend/dist-dynamic/*.tgz ../deploy-artifacts/
-    - cp plugins/compliance/dist-dynamic/*.tgz ../deploy-artifacts/
-    - ls -la ../deploy-artifacts/
-  artifacts:
-    paths:
-      - deploy-artifacts/
-    expire_in: 7 days
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-# ── Deploy to Netrunner ──────────────────────────────────────────────
-
 deploy-netrunner:
   stage: deploy
   image: python:3.12-slim
   tags:
     - itup-alm-x86
-  dependencies:
-    - build
   before_script:
     - apt-get update -qq && apt-get install -y -qq openssh-client openssl > /dev/null
     - mkdir -p ~/.ssh
@@ -87,18 +34,24 @@ deploy-netrunner:
     - echo "  LogLevel ERROR" >> ~/.ssh/config
   script:
     - SSH="ssh -i ~/.ssh/portal.pem $PORTAL_HOST"
-    - SCP="scp -i ~/.ssh/portal.pem"
 
-    # Upload tarballs
-    - $SCP deploy-artifacts/*.tgz "$PORTAL_HOST:/tmp/"
-    - $SSH "sudo cp /tmp/aap-compliance-plugin-compliance-*-dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
+    # Find latest tarballs already on the Portal host
+    - |
+      echo "Checking for tarballs on Portal host..."
+      TARBALLS=$($SSH "ls -t $REMOTE_PLUGIN_DIR/aap-compliance-plugin-compliance-*-dynamic-*.tgz 2>/dev/null | head -2")
+      if [ -z "$TARBALLS" ]; then
+        echo "ERROR: No tarballs found in $REMOTE_PLUGIN_DIR on Portal host."
+        echo "Run ./scripts/deploy-netrunner.sh locally first to upload them."
+        exit 1
+      fi
+      echo "Found tarballs:"
+      echo "$TARBALLS"
 
-    # Identify tarball names
-    - BE_TGZ=$(ls deploy-artifacts/ | grep backend)
-    - FE_TGZ=$(ls deploy-artifacts/ | grep -v backend)
-    - echo "Backend tarball:$BE_TGZ  Frontend tarball:$FE_TGZ"
+    - BE_TGZ=$($SSH "ls -t $REMOTE_PLUGIN_DIR/ | grep backend-dynamic | head -1")
+    - FE_TGZ=$($SSH "ls -t $REMOTE_PLUGIN_DIR/ | grep -v backend | grep compliance-dynamic | head -1")
+    - echo "Backend:$BE_TGZ  Frontend:$FE_TGZ"
 
-    # Update Portal config with new integrity hashes
+    # Update Portal config with integrity hashes
     - |
       $SSH "sudo python3 << 'PYEOF'
       import yaml, subprocess, base64
@@ -144,9 +97,7 @@ deploy-netrunner:
       fi
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: on_success
-    - when: manual
-      allow_failure: true
+      when: manual
   environment:
     name: netrunner-staging
     url: https://dev-portal-netrunner.demoredhat.com/compliance
