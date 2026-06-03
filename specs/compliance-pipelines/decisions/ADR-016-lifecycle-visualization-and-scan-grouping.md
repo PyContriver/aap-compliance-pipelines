@@ -1,8 +1,16 @@
 # ADR-016: Lifecycle Visualization and Scan History Grouping
 
-**Status:** Accepted  
+**Status:** Accepted — Layers 1 & 2 Implemented  
 **Date:** 2026-06-01  
 **Deciders:** Massimo Ferrari  
+
+### Implementation Status
+
+| Layer | Status | Shipped | Key Commits |
+|-------|--------|---------|-------------|
+| Layer 1 — Grouped scan history + diff reports | Implemented | 2026-06-02 | `b3c1fda` (merged to main) |
+| Layer 2 — Finding-level state tracking | Implemented | 2026-06-03 | `claude/finding-level-states` branch |
+| Layer 3 — Explicit chain view | Future | — | — |
 
 ## Context
 
