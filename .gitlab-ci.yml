@@ -1,95 +1,30 @@
 # Compliance Plugins CI/CD — GitLab CEE
 #
-# Full build + deploy pipeline. Triggers automatically on main branch pushes.
+# Auto-deploy on main push. Tarballs are pre-built locally and committed
+# to deploy-artifacts/ — CEE runners OOM on yarn install (~2GB limit),
+# so the build happens locally via deploy-netrunner.sh or yarn export-dynamic.
 #
-# Uses `yarn workspaces focus` to install only compliance plugin deps,
-# keeping memory under the ~2GB CEE runner limit.
+# Workflow:
+#   1. Make code changes, build locally (deploy-netrunner.sh or yarn export-dynamic)
+#   2. Tarballs auto-copied to deploy-artifacts/ by deploy script
+#   3. Commit + push to main → CI deploys automatically
 #
 # Secrets required (GitLab CI/CD Variables):
 #   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 
 stages:
-  - build
   - deploy
 
 variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
-  NODE_OPTIONS: "--max-old-space-size=1536"
-
-# ─── Build ────────────────────────────────────────────────────────────
-
-build-plugins:
-  stage: build
-  image: node:22-slim
-  tags:
-    - itup-alm-x86
-  before_script:
-    - corepack enable
-    - corepack prepare yarn@4.12.0 --activate
-    - apt-get update -qq && apt-get install -y -qq python3 > /dev/null
-  script:
-    - cd backstage-app
-
-    # Bump patch versions to avoid Portal same-version cleanup bug
-    - |
-      bump_patch() {
-        local pkg="$1/package.json"
-        local ver=$(python3 -c "import json; print(json.load(open('$pkg'))['version'])")
-        local major=$(echo $ver | cut -d. -f1)
-        local minor=$(echo $ver | cut -d. -f2)
-        local patch=$(echo $ver | cut -d. -f3)
-        patch=$((patch + 1))
-        local new_ver="$major.$minor.$patch"
-        python3 -c "
-      import json
-      with open('$pkg') as f: d = json.load(f)
-      d['version'] = '$new_ver'
-      with open('$pkg', 'w') as f: json.dump(d, f, indent=2)
-      "
-        echo "$new_ver"
-      }
-    - BE_VER=$(bump_patch plugins/compliance-backend)
-    - FE_VER=$(bump_patch plugins/compliance)
-    - echo "Backend v$BE_VER, Frontend v$FE_VER"
-
-    # Focused install — only compliance plugin deps, not the full monorepo
-    - yarn workspaces focus @aap-compliance/plugin-compliance-backend @aap-compliance/plugin-compliance @aap-compliance/common
-
-    # Export dynamic plugins (backend embeds common)
-    - yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
-    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/migrations/ 2>/dev/null || true
-    - mkdir -p plugins/compliance-backend/dist-dynamic/dist/database/migrations
-    - cp plugins/compliance-backend/migrations/*.js plugins/compliance-backend/dist-dynamic/dist/database/migrations/ 2>/dev/null || true
-    - yarn workspace @aap-compliance/plugin-compliance export-dynamic
-
-    # Pack tarballs
-    - cd plugins/compliance-backend/dist-dynamic
-    - npm pack --quiet > /dev/null 2>&1
-    - mv *.tgz "$CI_PROJECT_DIR/backend.tgz"
-    - cd "$CI_PROJECT_DIR/backstage-app/plugins/compliance/dist-dynamic"
-    - npm pack --quiet > /dev/null 2>&1
-    - mv *.tgz "$CI_PROJECT_DIR/frontend.tgz"
-
-    - echo "Built backend v$BE_VER, frontend v$FE_VER"
-  artifacts:
-    paths:
-      - backend.tgz
-      - frontend.tgz
-    expire_in: 1 hour
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-# ─── Deploy ───────────────────────────────────────────────────────────
 
 deploy-netrunner:
   stage: deploy
   image: python:3.12-slim
   tags:
     - itup-alm-x86
-  needs:
-    - build-plugins
   before_script:
     - apt-get update -qq && apt-get install -y -qq openssh-client openssl > /dev/null
     - mkdir -p ~/.ssh
@@ -101,16 +36,21 @@ deploy-netrunner:
   script:
     - SSH="ssh -i ~/.ssh/portal.pem $PORTAL_HOST"
 
-    # Upload tarballs from build stage
-    - scp -i ~/.ssh/portal.pem backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
-    - scp -i ~/.ssh/portal.pem frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
+    # Verify tarballs exist in repo
     - |
-      $SSH "
-        BE=\$(tar tzf /tmp/backend.tgz 2>/dev/null | head -1 | sed 's|/.*||')
-        FE=\$(tar tzf /tmp/frontend.tgz 2>/dev/null | head -1 | sed 's|/.*||')
-        sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz
-        sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz
-      "
+      if [ ! -f deploy-artifacts/backend.tgz ] || [ ! -f deploy-artifacts/frontend.tgz ]; then
+        echo "ERROR: deploy-artifacts/backend.tgz or frontend.tgz not found."
+        echo "Run ./scripts/deploy-netrunner.sh locally first, then commit deploy-artifacts/."
+        exit 1
+      fi
+      echo "Tarballs found:"
+      ls -lh deploy-artifacts/
+
+    # Upload tarballs from repo to Portal host
+    - scp -i ~/.ssh/portal.pem deploy-artifacts/backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
+    - scp -i ~/.ssh/portal.pem deploy-artifacts/frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
+    - $SSH "sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz && sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz"
+    - echo "Tarballs uploaded"
 
     # Update Portal config with integrity hashes
     - |

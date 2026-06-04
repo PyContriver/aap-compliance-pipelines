@@ -110,6 +110,17 @@ if $DEPLOY_FE; then
   cd "$BACKSTAGE"
 fi
 
+# Step 3.5: Copy to deploy-artifacts for CI
+ARTIFACTS_DIR="$REPO_ROOT/deploy-artifacts"
+mkdir -p "$ARTIFACTS_DIR"
+if $DEPLOY_BE; then
+  cp "$BE_PKG/dist-dynamic/$BE_TGZ" "$ARTIFACTS_DIR/backend.tgz"
+fi
+if $DEPLOY_FE; then
+  cp "$FE_PKG/dist-dynamic/$FE_TGZ" "$ARTIFACTS_DIR/frontend.tgz"
+fi
+echo "[3.5/7] Tarballs copied to deploy-artifacts/ (commit to trigger CI deploy)"
+
 # Step 4: Upload
 echo "[4/7] Uploading to Portal host..."
 scp $SSH_OPTS "${TARBALLS[@]}" "$PORTAL_HOST:/tmp/"
