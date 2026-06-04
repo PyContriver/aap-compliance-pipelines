@@ -381,5 +381,6 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     } as BaselineTarget),
     unpinBaselineTarget: jest.fn().mockResolvedValue(undefined),
     getRemediationErrorDetails: jest.fn().mockResolvedValue(null),
+    getBaselineScores: jest.fn().mockResolvedValue([]),
   };
 }

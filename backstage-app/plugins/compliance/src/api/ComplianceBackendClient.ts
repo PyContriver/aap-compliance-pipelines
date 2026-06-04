@@ -326,6 +326,16 @@ export class ComplianceBackendClient implements ComplianceApi {
     }
   }
 
+  async getBaselineScores(remediationProfileId: string): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>> {
+    try {
+      return await this.request<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>>(
+        `/baseline-scores?remediationProfileId=${encodeURIComponent(remediationProfileId)}`,
+      );
+    } catch {
+      return [];
+    }
+  }
+
   async getAuthoritativeScan(profileId: string, inventoryId: number) {
     try {
       return await this.request<AuthoritativeScanResponse>(

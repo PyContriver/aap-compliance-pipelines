@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   InfoCard,
@@ -47,7 +47,7 @@ import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import { complianceApiRef } from '../../api';
-import { ManageBaselinePinsDialog } from './ManageBaselinePinsDialog';
+import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
   RemediationProfile,
   RemediationExecution,
@@ -234,13 +234,7 @@ export const RemediationsList = () => {
 
   // Baseline pinning state
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
-  const [pinDialogTarget, setPinDialogTarget] = useState<{
-    remediationProfileId: string;
-    remediationProfileName: string;
-    complianceProfileId: string;
-    complianceProfileName: string;
-    ruleCount: number;
-  } | null>(null);
+  const inventorySectionRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   // Launch dialog state (ADR-015)
   const [launchTarget, setLaunchTarget] = useState<RemediationProfile | null>(null);
@@ -336,6 +330,16 @@ export const RemediationsList = () => {
       }
     }
     setExpandedProfiles(next);
+  };
+
+  const handleBookmarkClick = async (profileId: string) => {
+    if (!expandedProfiles.has(profileId)) {
+      await toggleExpanded(profileId);
+    }
+    setTimeout(() => {
+      const el = inventorySectionRefs.current.get(profileId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 350);
   };
 
   const handleDelete = async () => {
@@ -482,7 +486,7 @@ export const RemediationsList = () => {
                   <React.Fragment key={r.id}>
                     <TableRow hover>
                       <TableCell padding="checkbox">
-                        {hasExecutions && (
+                        {(hasExecutions || r.status === 'saved') && (
                           <IconButton size="small" data-testid={`expand-${r.id}`} onClick={() => toggleExpanded(r.id)}>
                             {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                           </IconButton>
@@ -502,19 +506,14 @@ export const RemediationsList = () => {
                           if (pins.length === 0) return null;
                           return (
                             <Box display="flex" alignItems="center" mt={0.5} style={{ gap: 4 }}>
-                              <BookmarkIcon style={{ fontSize: 14, color: '#0066CC' }} />
-                              <Typography variant="caption" style={{ color: '#0066CC', cursor: 'pointer' }}
-                                onClick={() => setPinDialogTarget({
-                                  remediationProfileId: r.id,
-                                  remediationProfileName: r.name,
-                                  complianceProfileId: r.complianceProfileId,
-                                  complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
-                                  ruleCount: r.selections.filter(s => s.enabled).length,
-                                })}
-                              >
-                                Baseline for {pins.length} {pins.length === 1 ? 'inventory' : 'inventories'}
-                                {pins.length <= 3 && `: ${pins.map(p => inventoryNames.get(p.inventoryId) || `ID ${p.inventoryId}`).join(', ')}`}
-                              </Typography>
+                              <Chip
+                                icon={<BookmarkIcon style={{ fontSize: 14 }} />}
+                                label={`${pins.length} pinned`}
+                                size="small"
+                                className={classes.statusChip}
+                                style={{ backgroundColor: '#E3F2FD', color: '#1565C0', cursor: 'pointer' }}
+                                onClick={(e) => { e.stopPropagation(); handleBookmarkClick(r.id); }}
+                              />
                             </Box>
                           );
                         })()}
@@ -568,13 +567,7 @@ export const RemediationsList = () => {
                             }>
                               <IconButton
                                 size="small"
-                                onClick={() => setPinDialogTarget({
-                                  remediationProfileId: r.id,
-                                  remediationProfileName: r.name,
-                                  complianceProfileId: r.complianceProfileId,
-                                  complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
-                                  ruleCount: r.selections.filter(s => s.enabled).length,
-                                })}
+                                onClick={() => handleBookmarkClick(r.id)}
                               >
                                 {baselineTargets.some(bt => bt.remediationProfileId === r.id)
                                   ? <BookmarkIcon fontSize="small" style={{ color: '#0066CC' }} />
@@ -633,43 +626,61 @@ export const RemediationsList = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                    {hasExecutions && (
+                    {(hasExecutions || r.status === 'saved') && (
                       <TableRow>
                         <TableCell style={{ padding: 0 }} colSpan={8}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <Box px={2} py={1} className={classes.expandedRow}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Execution History
-                              </Typography>
-                              <Table size="small" className={classes.executionTable}>
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>When</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Inventory</TableCell>
-                                    <TableCell>Rules</TableCell>
-                                    <TableCell>Hosts</TableCell>
-                                    <TableCell>Duration</TableCell>
-                                    <TableCell />
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {(executionHistory.get(r.id) || []).map(exec => (
-                                    <ExecutionHistoryRow
-                                      key={exec.id}
-                                      execution={exec}
-                                      inventoryNames={inventoryNames}
-                                    />
-                                  ))}
-                                  {!executionHistory.has(r.id) && (
-                                    <TableRow>
-                                      <TableCell colSpan={7}>
-                                        <Typography variant="caption" className={classes.muted}>Loading...</Typography>
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
-                                </TableBody>
-                              </Table>
+                              {hasExecutions && (
+                                <>
+                                  <Typography variant="subtitle2" gutterBottom>
+                                    Execution History
+                                  </Typography>
+                                  <Table size="small" className={classes.executionTable}>
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell>When</TableCell>
+                                        <TableCell>Status</TableCell>
+                                        <TableCell>Inventory</TableCell>
+                                        <TableCell>Rules</TableCell>
+                                        <TableCell>Hosts</TableCell>
+                                        <TableCell>Duration</TableCell>
+                                        <TableCell />
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {(executionHistory.get(r.id) || []).map(exec => (
+                                        <ExecutionHistoryRow
+                                          key={exec.id}
+                                          execution={exec}
+                                          inventoryNames={inventoryNames}
+                                        />
+                                      ))}
+                                      {!executionHistory.has(r.id) && (
+                                        <TableRow>
+                                          <TableCell colSpan={7}>
+                                            <Typography variant="caption" className={classes.muted}>Loading...</Typography>
+                                          </TableCell>
+                                        </TableRow>
+                                      )}
+                                    </TableBody>
+                                  </Table>
+                                </>
+                              )}
+                              {r.status === 'saved' && (
+                                <div
+                                  ref={el => inventorySectionRefs.current.set(r.id, el)}
+                                  style={hasExecutions ? { marginTop: 16, borderTop: '1px solid rgba(0,0,0,0.12)', paddingTop: 12 } : undefined}
+                                >
+                                  <InlineBaselinePins
+                                    remediationProfileId={r.id}
+                                    complianceProfileId={r.complianceProfileId}
+                                    inventories={inventories}
+                                    currentPins={baselineTargets}
+                                    onChanged={loadProfiles}
+                                  />
+                                </div>
+                              )}
                             </Box>
                           </Collapse>
                         </TableCell>
@@ -824,22 +835,6 @@ export const RemediationsList = () => {
         </DialogActions>
       </Dialog>
 
-      {pinDialogTarget && (
-        <ManageBaselinePinsDialog
-          open
-          onClose={() => setPinDialogTarget(null)}
-          remediationProfileId={pinDialogTarget.remediationProfileId}
-          remediationProfileName={pinDialogTarget.remediationProfileName}
-          complianceProfileId={pinDialogTarget.complianceProfileId}
-          complianceProfileName={pinDialogTarget.complianceProfileName}
-          ruleCount={pinDialogTarget.ruleCount}
-          currentPins={baselineTargets}
-          onChanged={() => {
-            setPinDialogTarget(null);
-            loadProfiles();
-          }}
-        />
-      )}
     </InfoCard>
   );
 };

@@ -1195,6 +1195,21 @@ export async function createRouter(
     }
   });
 
+  router.get('/baseline-scores', async (req, res) => {
+    const remediationProfileId = req.query.remediationProfileId as string;
+    if (!remediationProfileId) {
+      res.status(400).json({ error: 'remediationProfileId query parameter required' });
+      return;
+    }
+    try {
+      const scores = await service.getBaselineScoresForProfile(remediationProfileId);
+      res.json(scores);
+    } catch (err) {
+      logger.warn(`Failed to fetch baseline scores: ${err instanceof Error ? err.message : err}`);
+      res.json([]);
+    }
+  });
+
   router.post('/baseline-targets', async (req, res) => {
     const { remediationProfileId, complianceProfileId, inventoryId } = req.body;
     if (!remediationProfileId || !complianceProfileId) {

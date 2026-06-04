@@ -1168,6 +1168,40 @@ export class ComplianceService {
     }
   }
 
+  async getBaselineScoresForProfile(
+    remediationProfileId: string,
+  ): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>> {
+    if (!this.database) return [];
+
+    const profile = await this.database.getRemediationProfile(remediationProfileId);
+    if (!profile) return [];
+
+    const ruleIds = profile.selections.filter(s => s.enabled).map(s => s.ruleId);
+    if (ruleIds.length === 0) return [];
+
+    const pins = await this.database.getAllBaselineTargets();
+    const profilePins = pins.filter(p => p.remediationProfileId === remediationProfileId);
+    if (profilePins.length === 0) return [];
+
+    const latestScans = await this.database.getLatestScanPerProfileInventory();
+    const scanMap = new Map(latestScans.map(s => [`${s.profileId}::${s.inventoryId}`, s]));
+
+    const results: Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }> = [];
+    for (const pin of profilePins) {
+      const scan = scanMap.get(`${pin.complianceProfileId}::${pin.inventoryId}`);
+      if (!scan) continue;
+      const score = await this.database.getBaselineScore(scan.id, ruleIds);
+      const total = score.passCount + score.failCount;
+      results.push({
+        inventoryId: pin.inventoryId,
+        passRate: total > 0 ? Math.round((score.passCount / total) * 1000) / 10 : 0,
+        passCount: score.passCount,
+        failCount: score.failCount,
+      });
+    }
+    return results;
+  }
+
   /**
    * Fetch error details for a failed remediation execution.
    * Iterates allJobIds, collects failure events from each, aggregates.

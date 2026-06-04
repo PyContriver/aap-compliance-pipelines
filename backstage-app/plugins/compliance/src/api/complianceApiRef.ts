@@ -76,6 +76,7 @@ export interface ComplianceApi {
   pinBaselineTarget(body: { remediationProfileId: string; complianceProfileId: string; inventoryId: number }): Promise<BaselineTarget>;
   unpinBaselineTarget(id: string): Promise<void>;
   getRemediationErrorDetails(jobIds: number[]): Promise<string | null>;
+  getBaselineScores(remediationProfileId: string): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>>;
 }
 
 /** API ref for the compliance plugin, consumed via useApi(complianceApiRef). */
