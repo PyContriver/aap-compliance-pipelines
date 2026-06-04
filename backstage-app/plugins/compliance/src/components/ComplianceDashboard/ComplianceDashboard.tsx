@@ -362,6 +362,23 @@ export const ComplianceDashboard = () => {
   // Determine if this is an "empty" state (no scan history)
   const isEmpty = !stats || (stats.recentScans.length === 0 && stats.hostsScanned === 0);
 
+  const popoverBaselineMap = React.useMemo(() => {
+    if (!stats || !popoverProfile.profileId) return new Map();
+    const map = new Map<number, { remediationProfileName: string; rate: number; passCount: number; ruleCount: number }>();
+    for (const inv of stats.byInventory) {
+      const ps = inv.profileScores.find(p => p.profileId === popoverProfile.profileId);
+      if (ps?.baseline) {
+        map.set(inv.inventoryId, {
+          remediationProfileName: ps.baseline.remediationProfileName,
+          rate: ps.baseline.rate,
+          passCount: ps.baseline.passCount,
+          ruleCount: ps.baseline.ruleCount,
+        });
+      }
+    }
+    return map;
+  }, [stats, popoverProfile.profileId]);
+
   if (loading) {
     return (
       <Box p={4}>
@@ -449,23 +466,6 @@ export const ComplianceDashboard = () => {
     setPopoverProfile({ name: fw.name, profileId: fw.profileId, scans: fw.contributingScans });
     setPopoverAnchor(event.currentTarget);
   };
-
-  const popoverBaselineMap = React.useMemo(() => {
-    if (!stats || !popoverProfile.profileId) return new Map();
-    const map = new Map<number, { remediationProfileName: string; rate: number; passCount: number; ruleCount: number }>();
-    for (const inv of stats.byInventory) {
-      const ps = inv.profileScores.find(p => p.profileId === popoverProfile.profileId);
-      if (ps?.baseline) {
-        map.set(inv.inventoryId, {
-          remediationProfileName: ps.baseline.remediationProfileName,
-          rate: ps.baseline.rate,
-          passCount: ps.baseline.passCount,
-          ruleCount: ps.baseline.ruleCount,
-        });
-      }
-    }
-    return map;
-  }, [stats, popoverProfile.profileId]);
 
   return (
     <div>

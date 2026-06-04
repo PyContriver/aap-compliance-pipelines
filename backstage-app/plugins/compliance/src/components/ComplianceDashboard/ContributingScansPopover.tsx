@@ -142,7 +142,7 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
               >
                 <ListItemText
                   primary={scan.inventoryName}
-                  secondary={`${scan.passCount}/${scan.passCount + scan.failCount} rules · ${new Date(scan.timestamp).toLocaleDateString()}`}
+                  secondary={`${scan.passCount}/${scan.ruleCount} rules · ${new Date(scan.timestamp).toLocaleDateString()}`}
                 />
                 <Typography
                   className={classes.passRate}

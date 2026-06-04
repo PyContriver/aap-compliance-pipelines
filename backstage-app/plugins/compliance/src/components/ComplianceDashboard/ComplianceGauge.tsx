@@ -44,7 +44,7 @@ interface ComplianceGaugeProps {
   dimmed?: boolean;
 }
 
-const getColor = (value: number): string => {
+export const getColor = (value: number): string => {
   if (value >= 90) return '#3E8635';
   if (value >= 75) return '#F0AB00';
   if (value >= 50) return '#EC7A08';

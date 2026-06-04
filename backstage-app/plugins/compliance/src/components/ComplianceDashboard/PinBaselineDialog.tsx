@@ -14,7 +14,7 @@ import {
   CircularProgress,
   makeStyles,
 } from '@material-ui/core';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import type { RemediationProfile, BaselineTarget } from '@aap-compliance/common';
 
@@ -62,6 +62,7 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
 }) => {
   const classes = useStyles();
   const api = useApi(complianceApiRef);
+  const alertApi = useApi(alertApiRef);
   const [profiles, setProfiles] = useState<RemediationProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -122,7 +123,8 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       onClose();
       onPinned();
     } catch (err) {
-      console.error('Failed to pin baseline:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to pin baseline: ${msg}`, severity: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +138,8 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       onClose();
       onPinned();
     } catch (err) {
-      console.error('Failed to unpin baseline:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to unpin baseline: ${msg}`, severity: 'error' });
     } finally {
       setSubmitting(false);
     }
