@@ -193,14 +193,19 @@ jobs:
 
       - name: Install collection dependencies
         working-directory: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
-        run: |
-          if [ -f requirements.yml ]; then
-            ansible-galaxy collection install -r requirements.yml --pre || true
-          fi
+        run: ansible-galaxy collection install --pre -r <(python3 -c "
+          import yaml
+          with open('galaxy.yml') as f:
+            deps = yaml.safe_load(f).get('dependencies', {})
+          for name, ver in deps.items():
+            print(f'{name}:{ver}')
+          ") || true
 
       - name: Run ansible-lint
         working-directory: profiles/${{ matrix.entry.profile }}/ansible_collections/security/${{ matrix.entry.collection }}
-        run: ansible-lint
+        env:
+          ANSIBLE_LINT_SKIP_INSTALL_DEPS: 'true'
+        run: ansible-lint --offline
 
   # ---------------------------------------------------------------------------
   # Build collection tarballs
