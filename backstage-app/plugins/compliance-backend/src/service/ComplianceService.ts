@@ -666,14 +666,14 @@ export class ComplianceService {
 
   // ─── Findings ───────────────────────────────────────────────────────
 
-  async getFindings(scanId?: string, profileId?: string): Promise<MultiHostFinding[]> {
+  async getFindings(scanId?: string, profileId?: string, inventoryId?: number): Promise<MultiHostFinding[]> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getFindings();
     }
 
     if (!scanId) {
       if (this.database) {
-        const latest = await this.database.getLatestFindings(profileId);
+        const latest = await this.database.getLatestFindings(profileId, inventoryId);
         if (latest.length > 0) return this.storedFindingsToMultiHost(latest);
       }
       return [];

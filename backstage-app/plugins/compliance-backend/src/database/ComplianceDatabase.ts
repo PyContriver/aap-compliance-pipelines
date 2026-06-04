@@ -382,12 +382,7 @@ export class ComplianceDatabase {
     return { scanId: savedScan.id, findingCount: findings.length };
   }
 
-  async getLatestFindings(profileId?: string): Promise<StoredFinding[]> {
-    // Find the most recent scan that has findings (any status).
-    // Previously this only searched completed scans, but scans may have
-    // findings stored before their status is flipped to "completed"
-    // (the status update happens in the /findings route). This caused
-    // rule counts to show 0 until a user manually viewed the results.
+  async getLatestFindings(profileId?: string, inventoryId?: number): Promise<StoredFinding[]> {
     let scanQuery = this.db('compliance_scans')
       .whereExists(
         this.db('compliance_findings')
@@ -399,6 +394,9 @@ export class ComplianceDatabase {
 
     if (profileId) {
       scanQuery = scanQuery.where('profile_id', profileId);
+    }
+    if (inventoryId) {
+      scanQuery = scanQuery.where('inventory_id', inventoryId);
     }
 
     const scan = await scanQuery;

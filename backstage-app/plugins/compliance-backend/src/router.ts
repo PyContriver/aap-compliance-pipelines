@@ -1015,9 +1015,9 @@ export async function createRouter(
         return;
       }
 
-      // Use the latest findings FOR THIS PROFILE for host scoping.
-      const findings = await service.getFindings(undefined, remediateRequest.profileId);
-      logger.info(`Findings for remediation (profile=${remediateRequest.profileId}): ${findings.length} rules`);
+      // Use the latest findings for this profile AND inventory for host scoping.
+      const findings = await service.getFindings(undefined, remediateRequest.profileId, remediateRequest.inventoryId);
+      logger.info(`Findings for remediation (profile=${remediateRequest.profileId}, inventory=${remediateRequest.inventoryId}): ${findings.length} rules`);
 
       const plan = service.buildRemediationPlan(remediateRequest.selections, findings);
       logger.info(
