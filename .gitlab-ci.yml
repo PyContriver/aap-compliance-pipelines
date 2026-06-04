@@ -1,24 +1,153 @@
 # Compliance Plugins CI/CD — GitLab CEE
 #
-# Auto-deploy on main push. Tarballs are pre-built locally and committed
-# to deploy-artifacts/ — CEE runners OOM on yarn install (~2GB limit),
-# so the build happens locally via deploy-netrunner.sh or yarn export-dynamic.
+# Mirrors the GitHub Actions pipelines:
+#   - Collection tests: sanity, units, lint, build (profiles/**)
+#   - Deploy: auto-deploy to Netrunner on main push
 #
-# Workflow:
-#   1. Make code changes, build locally (deploy-netrunner.sh or yarn export-dynamic)
-#   2. Tarballs auto-copied to deploy-artifacts/ by deploy script
-#   3. Commit + push to main → CI deploys automatically
+# Backstage CI (yarn build + test) cannot run here — CEE runners
+# OOM at ~2GB on yarn install. That runs on GitHub Actions only.
 #
 # Secrets required (GitLab CI/CD Variables):
 #   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 
 stages:
+  - test
+  - build
   - deploy
 
 variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+# ─── Collection Tests ─────────────────────────────────────────────────
+
+.collection-base:
+  tags:
+    - itup-alm-x86
+  image: python:3.12-slim
+  before_script:
+    - pip install --quiet ansible-core
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - profiles/**/*
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+
+collection-sanity:
+  extends: .collection-base
+  stage: test
+  parallel:
+    matrix:
+      - PROFILE: rhel9-stig
+        COLLECTION: compliance_rhel9_stig
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: rhel9-cis-l1
+        COLLECTION: compliance_rhel9_cis_l1
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: rhel9-cis-l2
+        COLLECTION: compliance_rhel9_cis_l2
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+  before_script:
+    - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0"
+  script:
+    - COLL_ROOT="profiles/$PROFILE/ansible_collections/security/$COLLECTION"
+    - mkdir -p /root/ansible_collections/security
+    - ln -s "$CI_PROJECT_DIR/$COLL_ROOT" "/root/ansible_collections/security/$COLLECTION"
+    - cd "/root/ansible_collections/security/$COLLECTION"
+    - ansible-test sanity --local --color --truncate 0
+
+collection-units:
+  extends: .collection-base
+  stage: test
+  parallel:
+    matrix:
+      - PROFILE: rhel9-stig
+        COLLECTION: compliance_rhel9_stig
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: rhel9-cis-l1
+        COLLECTION: compliance_rhel9_cis_l1
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: rhel9-cis-l2
+        COLLECTION: compliance_rhel9_cis_l2
+        ANSIBLE_VERSION: ["2.17", "2.18"]
+  before_script:
+    - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0"
+  script:
+    - COLL_ROOT="profiles/$PROFILE/ansible_collections/security/$COLLECTION"
+    - mkdir -p /root/ansible_collections/security
+    - ln -s "$CI_PROJECT_DIR/$COLL_ROOT" "/root/ansible_collections/security/$COLLECTION"
+    - cd "/root/ansible_collections/security/$COLLECTION"
+    - ansible-test units --local --color --truncate 0
+
+collection-lint:
+  extends: .collection-base
+  stage: test
+  allow_failure: true
+  parallel:
+    matrix:
+      - PROFILE: rhel9-stig
+        COLLECTION: compliance_rhel9_stig
+      - PROFILE: rhel9-cis-l1
+        COLLECTION: compliance_rhel9_cis_l1
+      - PROFILE: rhel9-cis-l2
+        COLLECTION: compliance_rhel9_cis_l2
+  before_script:
+    - pip install --quiet 'ansible-lint>=24.0,<25' 'ansible-core>=2.16,<2.19'
+    - |
+      COLL_ROOT="profiles/$PROFILE/ansible_collections/security/$COLLECTION"
+      cd "$COLL_ROOT"
+      python3 -c "
+      import yaml
+      with open('galaxy.yml') as f:
+        deps = yaml.safe_load(f).get('dependencies', {})
+      for name, ver in deps.items():
+        print(f'{name}:{ver}')
+      " > /tmp/deps.txt
+      if [ -s /tmp/deps.txt ]; then
+        while read dep; do
+          ansible-galaxy collection install --pre "$dep" || true
+        done < /tmp/deps.txt
+      fi
+  script:
+    - cd "profiles/$PROFILE/ansible_collections/security/$COLLECTION"
+    - ansible-lint --offline
+
+collection-build:
+  extends: .collection-base
+  stage: build
+  needs:
+    - collection-sanity
+    - collection-units
+    - job: collection-lint
+      optional: true
+  parallel:
+    matrix:
+      - PROFILE: rhel9-stig
+        COLLECTION: compliance_rhel9_stig
+      - PROFILE: rhel9-cis-l1
+        COLLECTION: compliance_rhel9_cis_l1
+      - PROFILE: rhel9-cis-l2
+        COLLECTION: compliance_rhel9_cis_l2
+  script:
+    - cd "profiles/$PROFILE/ansible_collections/security/$COLLECTION"
+    - ansible-galaxy collection build --force
+    - TARBALL=$(ls security-${COLLECTION}-*.tar.gz 2>/dev/null)
+    - |
+      if [ -z "$TARBALL" ]; then
+        echo "ERROR: No collection tarball found after build"
+        exit 1
+      fi
+      echo "Built: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+  artifacts:
+    paths:
+      - profiles/*/ansible_collections/security/*/security-*.tar.gz
+    expire_in: 1 week
+
+# ─── Deploy ───────────────────────────────────────────────────────────
 
 deploy-netrunner:
   stage: deploy
@@ -104,6 +233,9 @@ deploy-netrunner:
       fi
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - deploy-artifacts/**/*
+        - .gitlab-ci.yml
       when: on_success
   environment:
     name: netrunner-staging
