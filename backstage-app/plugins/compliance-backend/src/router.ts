@@ -33,6 +33,7 @@ import type {
   SaveRemediationProfileRequest,
   SaveProfileRequest,
   IngestFinding,
+  MultiHostFinding,
 } from '@aap-compliance/common';
 
 export interface RouterOptions {
@@ -559,7 +560,7 @@ export async function createRouter(
     workflowJobId: number,
     dbScan: ScanResolution['dbScan'],
     userToken: string | undefined,
-  ): Promise<unknown[] | null> {
+  ): Promise<MultiHostFinding[] | null> {
     let status;
     try {
       status = await service.getWorkflowJobStatus(workflowJobId, userToken);

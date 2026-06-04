@@ -41,5 +41,7 @@ export type {
   RemediationExecution,
   BaselineTarget,
   AuthoritativeScanResponse,
+  FindingState,
+  FindingStateSummary,
 } from './types';
 

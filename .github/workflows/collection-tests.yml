@@ -46,6 +46,11 @@ jobs:
       - name: Build matrix
         id: set-matrix
         shell: bash
+        env:
+          FILTER_STIG: ${{ steps.filter.outputs.rhel9-stig }}
+          FILTER_CIS_L1: ${{ steps.filter.outputs.rhel9-cis-l1 }}
+          FILTER_CIS_L2: ${{ steps.filter.outputs.rhel9-cis-l2 }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           # Static mapping: profile name -> collection name
           declare -A COLLECTION_MAP
@@ -53,16 +58,22 @@ jobs:
           COLLECTION_MAP[rhel9-cis-l1]=compliance_rhel9_cis_l1
           COLLECTION_MAP[rhel9-cis-l2]=compliance_rhel9_cis_l2
 
+          # Map profile names to filter env vars
+          declare -A FILTER_MAP
+          FILTER_MAP[rhel9-stig]="$FILTER_STIG"
+          FILTER_MAP[rhel9-cis-l1]="$FILTER_CIS_L1"
+          FILTER_MAP[rhel9-cis-l2]="$FILTER_CIS_L2"
+
           ALL_PROFILES=("rhel9-stig" "rhel9-cis-l1" "rhel9-cis-l2")
           CHANGED=()
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             # Manual run: test every profile
             CHANGED=("${ALL_PROFILES[@]}")
           else
-            # Use paths-filter outputs
+            # Use paths-filter outputs via env vars
             for p in "${ALL_PROFILES[@]}"; do
-              if [[ "${{ steps.filter.outputs[format('{0}', p)] }}" == "true" ]]; then
+              if [[ "${FILTER_MAP[$p]}" == "true" ]]; then
                 CHANGED+=("$p")
               fi
             done
