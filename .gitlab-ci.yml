@@ -78,13 +78,13 @@ collection-units:
         ANSIBLE_VERSION: ["2.17", "2.18"]
   before_script:
     - apt-get update -qq && apt-get install -y -qq git > /dev/null
-    - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0" pytest pytest-xdist
+    - pip install --no-cache-dir --quiet "ansible-core~=$ANSIBLE_VERSION.0" pytest
   script:
     - COLL_ROOT="profiles/$PROFILE/ansible_collections/security/$COLLECTION"
     - mkdir -p /root/ansible_collections/security
     - ln -s "$CI_PROJECT_DIR/$COLL_ROOT" "/root/ansible_collections/security/$COLLECTION"
     - cd "/root/ansible_collections/security/$COLLECTION"
-    - ansible-test units --local --color --truncate 0
+    - python -m pytest tests/unit/ -v --color=yes
 
 collection-lint:
   extends: .collection-base
