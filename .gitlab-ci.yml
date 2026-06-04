@@ -78,7 +78,7 @@ collection-units:
         ANSIBLE_VERSION: ["2.17", "2.18"]
   before_script:
     - apt-get update -qq && apt-get install -y -qq git > /dev/null
-    - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0"
+    - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0" pytest pytest-xdist
   script:
     - COLL_ROOT="profiles/$PROFILE/ansible_collections/security/$COLLECTION"
     - mkdir -p /root/ansible_collections/security
