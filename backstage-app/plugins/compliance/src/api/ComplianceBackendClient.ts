@@ -34,6 +34,7 @@ import type {
   SaveProfileRequest,
   PlatformValidationResult,
   AuthoritativeScanResponse,
+  BaselineTarget,
 } from '@aap-compliance/common';
 
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
@@ -391,4 +392,23 @@ export class ComplianceBackendClient implements ComplianceApi {
       '/controller/execution-environments',
     );
   }
+
+  getBaselineTargets(complianceProfileId?: string) {
+    const q = complianceProfileId ? `?complianceProfileId=${encodeURIComponent(complianceProfileId)}` : '';
+    return this.request<BaselineTarget[]>(`/baseline-targets${q}`);
+  }
+
+  pinBaselineTarget(body: { remediationProfileId: string; complianceProfileId: string; inventoryId: number }) {
+    return this.request<BaselineTarget>('/baseline-targets', {
+      method: 'POST',
+      body,
+    });
+  }
+
+  unpinBaselineTarget(id: string) {
+    return this.request<void>(`/baseline-targets/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
 }

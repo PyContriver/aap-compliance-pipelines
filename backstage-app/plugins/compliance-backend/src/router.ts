@@ -1182,6 +1182,69 @@ export async function createRouter(
     res.json(profile);
   });
 
+  // ─── Baseline targets (ADR-014 §7) ─────────────────────────────────
+
+  router.get('/baseline-targets', async (req, res) => {
+    const complianceProfileId = req.query.complianceProfileId as string | undefined;
+    if (complianceProfileId) {
+      const targets = await database.getBaselineTargetsForProfile(complianceProfileId);
+      res.json(targets);
+    } else {
+      const targets = await database.getAllBaselineTargets();
+      res.json(targets);
+    }
+  });
+
+  router.post('/baseline-targets', async (req, res) => {
+    const { remediationProfileId, complianceProfileId, inventoryId } = req.body;
+    if (!remediationProfileId || !complianceProfileId) {
+      res.status(400).json({ error: 'remediationProfileId and complianceProfileId are required' });
+      return;
+    }
+    const invId = Number(inventoryId);
+    if (Number.isNaN(invId) || invId <= 0) {
+      res.status(400).json({ error: 'inventoryId must be a positive integer' });
+      return;
+    }
+
+    const remProfile = await database.getRemediationProfile(remediationProfileId);
+    if (!remProfile) {
+      res.status(404).json({ error: 'Remediation profile not found' });
+      return;
+    }
+    if (remProfile.status !== 'saved') {
+      res.status(400).json({ error: 'Only saved remediation profiles can be pinned as baselines' });
+      return;
+    }
+
+    try {
+      const target = await database.pinBaselineTarget({
+        remediationProfileId,
+        complianceProfileId,
+        inventoryId: invId,
+      });
+      res.status(201).json(target);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('UNIQUE constraint') || msg.includes('duplicate key')) {
+        res.status(409).json({
+          error: 'A baseline is already pinned for this compliance profile and inventory. Unpin it first.',
+        });
+        return;
+      }
+      throw err;
+    }
+  });
+
+  router.delete('/baseline-targets/:id', async (req, res) => {
+    const deleted = await database.unpinBaselineTarget(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Baseline target not found' });
+      return;
+    }
+    res.status(204).send();
+  });
+
   // ─── Dashboard stats ───────────────────────────────────────────────
 
   router.get('/dashboard', async (_req, res) => {

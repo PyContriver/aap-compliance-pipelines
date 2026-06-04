@@ -18,6 +18,7 @@ import type {
   WorkflowJobStatus,
   WorkflowNode,
   JobEvent,
+  BaselineTarget,
 } from '@aap-compliance/common';
 
 // ---------------------------------------------------------------------------
@@ -369,5 +370,16 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getAuthoritativeScan: jest.fn().mockResolvedValue(null),
     getBatchScanStats: jest.fn().mockResolvedValue({}),
     getAllRecentExecutions: jest.fn().mockResolvedValue([]),
+    getBaselineTargets: jest.fn().mockResolvedValue([]),
+    pinBaselineTarget: jest.fn().mockResolvedValue({
+      id: 'bt-1',
+      remediationProfileId: 'rp-1',
+      complianceProfileId: 'rhel9-stig',
+      inventoryId: 1,
+      pinnedAt: '2026-06-04T00:00:00Z',
+      pinnedBy: null,
+    } as BaselineTarget),
+    unpinBaselineTarget: jest.fn().mockResolvedValue(undefined),
+    getRemediationErrorDetails: jest.fn().mockResolvedValue(null),
   };
 }

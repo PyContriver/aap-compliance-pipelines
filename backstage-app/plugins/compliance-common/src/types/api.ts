@@ -301,6 +301,14 @@ export interface InventoryPosture {
     rate: number;
     passCount: number;
     failCount: number;
+    baseline?: {
+      remediationProfileId: string;
+      remediationProfileName: string;
+      rate: number;
+      passCount: number;
+      ruleCount: number;
+      pinnedAt: string;
+    };
   }>;
 }
 
@@ -323,6 +331,12 @@ export interface DashboardStats {
     failCount: number;
     lastScan: string;
     contributingScans: ContributingScan[];
+    baseline?: {
+      rate: number;
+      passCount: number;
+      ruleCount: number;
+      inventoryCount: number;
+    };
   }>;
   postureStatus: ProfilePostureStatus[];
   byInventory: InventoryPosture[];

@@ -34,7 +34,7 @@ import { ContributingScansPopover } from './ContributingScansPopover';
 import { InventoryPostureView } from './InventoryPostureView';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
-import type { DashboardStats, PostureSnapshot, ComplianceProfile } from '@aap-compliance/common';
+import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   section: {
@@ -49,6 +49,7 @@ const useStyles = makeStyles(theme => ({
     flex: '1 1 120px',
     minWidth: 120,
     maxWidth: 200,
+    textAlign: 'center' as const,
   },
   statItem: {
     flex: '1 1 140px',
@@ -324,10 +325,14 @@ export const ComplianceDashboard = () => {
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [postureView, setPostureView] = useState<'profile' | 'inventory'>('profile');
+  const [postureMode, setPostureMode] = useState<'standard' | 'baseline'>('standard');
+  const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const [popoverProfile, setPopoverProfile] = useState<{ name: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', scans: [] });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    if (refreshKey > 0) setLoading(true);
     Promise.all([
       api.getDashboardStats().catch(err => {
         console.error('Failed to load dashboard stats:', err);
@@ -338,12 +343,14 @@ export const ComplianceDashboard = () => {
         return [] as PostureSnapshot[];
       }),
       api.getRegisteredProfiles().catch(() => [] as ComplianceProfile[]),
-    ]).then(([dashboardStats, history, carts]) => {
+      api.getBaselineTargets().catch(() => [] as BaselineTarget[]),
+    ]).then(([dashboardStats, history, carts, baselines]) => {
       setStats(dashboardStats);
       setPostureHistory(history);
       setProfiles(carts);
+      setBaselineTargets(baselines);
     }).finally(() => setLoading(false));
-  }, [api]);
+  }, [api, refreshKey]);
 
   // Determine if this is an "empty" state (no scan history)
   const isEmpty = !stats || (stats.recentScans.length === 0 && stats.hostsScanned === 0);
@@ -441,40 +448,92 @@ export const ComplianceDashboard = () => {
       {/* Compliance Posture */}
       <div className={classes.section}>
         <InfoCard title="Compliance Posture" action={
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              color={postureView === 'profile' ? 'primary' : 'default'}
-              variant={postureView === 'profile' ? 'contained' : 'outlined'}
-              onClick={() => setPostureView('profile')}
-            >
-              By Profile
-            </Button>
-            <Button
-              color={postureView === 'inventory' ? 'primary' : 'default'}
-              variant={postureView === 'inventory' ? 'contained' : 'outlined'}
-              onClick={() => setPostureView('inventory')}
-            >
-              By Inventory
-            </Button>
-          </ButtonGroup>
+          <Box display="flex" alignItems="center" style={{ gap: 12 }}>
+            <ButtonGroup size="small" variant="outlined">
+              <Tooltip title="Show compliance against the full standard">
+                <Button
+                  color={postureMode === 'standard' ? 'primary' : 'default'}
+                  variant={postureMode === 'standard' ? 'contained' : 'outlined'}
+                  onClick={() => setPostureMode('standard')}
+                >
+                  Standard
+                </Button>
+              </Tooltip>
+              <Tooltip title="Show compliance against your pinned baseline (curated rule set)">
+                <Button
+                  color={postureMode === 'baseline' ? 'primary' : 'default'}
+                  variant={postureMode === 'baseline' ? 'contained' : 'outlined'}
+                  onClick={() => setPostureMode('baseline')}
+                >
+                  Baseline
+                </Button>
+              </Tooltip>
+            </ButtonGroup>
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                color={postureView === 'profile' ? 'primary' : 'default'}
+                variant={postureView === 'profile' ? 'contained' : 'outlined'}
+                onClick={() => setPostureView('profile')}
+              >
+                By Profile
+              </Button>
+              <Button
+                color={postureView === 'inventory' ? 'primary' : 'default'}
+                variant={postureView === 'inventory' ? 'contained' : 'outlined'}
+                onClick={() => setPostureView('inventory')}
+              >
+                By Inventory
+              </Button>
+            </ButtonGroup>
+          </Box>
         }>
           {postureView === 'profile' ? (
             <div className={classes.row} style={{ justifyContent: 'center' }}>
-              {stats.frameworkScores.map(fw => (
-                <div className={classes.gaugeItem} key={fw.profileId}>
-                  <ComplianceGauge
-                    value={fw.rate}
-                    label={fw.name}
-                    subtitle={`${fw.passCount}/${fw.passCount + fw.failCount} rules passing`}
-                    onClick={e => handleGaugeClick(e, fw)}
-                    clickable
-                  />
-                </div>
-              ))}
+              {stats.frameworkScores.map(fw => {
+                const showBaseline = postureMode === 'baseline' && fw.baseline;
+                const gaugeValue = showBaseline ? fw.baseline!.rate : fw.rate;
+                const gaugeSubtitle = showBaseline
+                  ? `${fw.baseline!.passCount}/${fw.baseline!.ruleCount} baseline rules`
+                  : `${fw.passCount}/${fw.passCount + fw.failCount} rules passing`;
+                return (
+                  <div className={classes.gaugeItem} key={fw.profileId}>
+                    <ComplianceGauge
+                      value={gaugeValue}
+                      label={fw.name}
+                      subtitle={gaugeSubtitle}
+                      onClick={e => handleGaugeClick(e, fw)}
+                      clickable
+                    />
+                    {postureMode === 'standard' && fw.baseline && (
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: fw.baseline.rate >= 90 ? '#3E8635' : fw.baseline.rate >= 70 ? '#F0AB00' : '#C9190B' }}>
+                        Baseline: {fw.baseline.rate}%
+                        <span style={{ fontWeight: 400, color: '#6a6e73' }}> ({fw.baseline.inventoryCount} inv.)</span>
+                      </Typography>
+                    )}
+                    {postureMode === 'baseline' && fw.baseline && (
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: fw.rate >= 90 ? '#3E8635' : fw.rate >= 70 ? '#F0AB00' : fw.rate >= 50 ? '#EC7A08' : '#C9190B' }}>
+                        Standard: {fw.rate}%
+                        <span style={{ fontWeight: 400, color: '#6a6e73' }}> ({fw.passCount}/{fw.passCount + fw.failCount})</span>
+                      </Typography>
+                    )}
+                    {postureMode === 'baseline' && !fw.baseline && (
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, color: '#6a6e73' }}>
+                        No baseline pinned
+                      </Typography>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <InventoryPostureView
               byInventory={stats.byInventory}
+              postureMode={postureMode}
+              baselineTargets={baselineTargets}
+              onBaselineChanged={(switchToBaseline) => {
+                setRefreshKey(k => k + 1);
+                if (switchToBaseline) setPostureMode('baseline');
+              }}
               onGaugeClick={(profileId, inventoryId) => {
                 const fw = stats.frameworkScores.find(f => f.profileId === profileId);
                 const scan = fw?.contributingScans.find(s => s.inventoryId === inventoryId);

@@ -1,7 +1,10 @@
-import React from 'react';
-import { Card, Typography, makeStyles } from '@material-ui/core';
-import type { InventoryPosture } from '@aap-compliance/common';
+import React, { useState } from 'react';
+import { Card, Typography, Tooltip, IconButton, makeStyles } from '@material-ui/core';
+import BookmarkIcon from '@material-ui/icons/Bookmark';
+import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
+import type { InventoryPosture, BaselineTarget } from '@aap-compliance/common';
 import { ComplianceGauge } from './ComplianceGauge';
+import { PinBaselineDialog } from './PinBaselineDialog';
 
 const useStyles = makeStyles(theme => ({
   grid: {
@@ -26,16 +29,63 @@ const useStyles = makeStyles(theme => ({
   gaugeSlot: {
     flex: '0 0 120px',
     maxWidth: 140,
+    textAlign: 'center' as const,
+  },
+  pinRow: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    height: 24,
+    marginBottom: -4,
+  },
+  pinButton: {
+    padding: 2,
+  },
+  baselineAnnotation: {
+    textAlign: 'center' as const,
+    marginTop: theme.spacing(0.5),
+    fontSize: '0.75rem',
+    lineHeight: 1.4,
+  },
+  baselineRate: {
+    fontWeight: 600,
+  },
+  baselineRemaining: {
+    color: theme.palette.text.secondary,
+    fontSize: '0.7rem',
   },
 }));
 
+const getBaselineColor = (rate: number): string => {
+  if (rate >= 90) return '#3E8635';
+  if (rate >= 70) return '#F0AB00';
+  return '#C9190B';
+};
+
+type PostureMode = 'standard' | 'baseline';
+
 interface InventoryPostureViewProps {
   byInventory: InventoryPosture[];
+  postureMode: PostureMode;
+  baselineTargets: BaselineTarget[];
   onGaugeClick?: (profileId: string, inventoryId: number) => void;
+  onBaselineChanged?: (switchToBaseline?: boolean) => void;
 }
 
-export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({ byInventory, onGaugeClick }) => {
+export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
+  byInventory,
+  postureMode,
+  baselineTargets,
+  onGaugeClick,
+  onBaselineChanged,
+}) => {
   const classes = useStyles();
+  const [pinDialog, setPinDialog] = useState<{
+    complianceProfileId: string;
+    complianceProfileName: string;
+    inventoryId: number;
+    inventoryName: string;
+    existing?: BaselineTarget;
+  } | null>(null);
 
   if (byInventory.length === 0) {
     return (
@@ -45,26 +95,107 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({ byIn
     );
   }
 
+  const getBaselineForPair = (profileId: string, inventoryId: number) =>
+    baselineTargets.find(bt => bt.complianceProfileId === profileId && bt.inventoryId === inventoryId);
+
   return (
-    <div className={classes.grid}>
-      {byInventory.map(inv => (
-        <Card key={inv.inventoryId} variant="outlined" className={classes.card}>
-          <Typography className={classes.inventoryName}>{inv.inventoryName}</Typography>
-          <div className={classes.gaugeRow}>
-            {inv.profileScores.map(ps => (
-              <div key={ps.profileId} className={classes.gaugeSlot}>
-                <ComplianceGauge
-                  value={ps.rate}
-                  label={ps.name}
-                  subtitle={`${ps.passCount}/${ps.passCount + ps.failCount}`}
-                  clickable={!!onGaugeClick}
-                  onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
-                />
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className={classes.grid}>
+        {byInventory.map(inv => (
+          <Card key={inv.inventoryId} variant="outlined" className={classes.card}>
+            <Typography className={classes.inventoryName}>{inv.inventoryName}</Typography>
+            <div className={classes.gaugeRow}>
+              {inv.profileScores.map(ps => {
+                const bl = ps.baseline;
+                const existing = getBaselineForPair(ps.profileId, inv.inventoryId);
+                const showBaseline = postureMode === 'baseline' && bl;
+                const gaugeValue = showBaseline ? bl!.rate : ps.rate;
+                const gaugeSubtitle = showBaseline
+                  ? `${bl!.passCount}/${bl!.ruleCount} baseline rules`
+                  : `${ps.passCount}/${ps.passCount + ps.failCount}`;
+
+                return (
+                  <div key={ps.profileId} className={classes.gaugeSlot}>
+                    <div className={classes.pinRow}>
+                      <Tooltip
+                        title={existing
+                          ? `Baseline: ${bl?.remediationProfileName ?? 'pinned'} — click to manage`
+                          : 'Pin a baseline to track targeted compliance'}
+                      >
+                        <IconButton
+                          className={classes.pinButton}
+                          size="small"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setPinDialog({
+                              complianceProfileId: ps.profileId,
+                              complianceProfileName: ps.name,
+                              inventoryId: inv.inventoryId,
+                              inventoryName: inv.inventoryName,
+                              existing,
+                            });
+                          }}
+                        >
+                          {existing
+                            ? <BookmarkIcon fontSize="small" style={{ color: '#0066CC' }} />
+                            : <BookmarkBorderIcon fontSize="small" color="disabled" />}
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                    <ComplianceGauge
+                      value={gaugeValue}
+                      label={ps.name}
+                      subtitle={gaugeSubtitle}
+                      clickable={!!onGaugeClick}
+                      onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
+                    />
+                    {postureMode === 'standard' && bl && (
+                      <div className={classes.baselineAnnotation}>
+                        <span className={classes.baselineRate} style={{ color: getBaselineColor(bl.rate) }}>
+                          Baseline: {bl.rate}%
+                        </span>
+                        <br />
+                        <span className={classes.baselineRemaining}>
+                          {bl.ruleCount - bl.passCount > 0 ? `${bl.ruleCount - bl.passCount} rules to go` : 'target met'}
+                        </span>
+                      </div>
+                    )}
+                    {postureMode === 'baseline' && bl && (
+                      <div className={classes.baselineAnnotation}>
+                        <span className={classes.baselineRate} style={{ color: ps.rate >= 90 ? '#3E8635' : ps.rate >= 70 ? '#F0AB00' : ps.rate >= 50 ? '#EC7A08' : '#C9190B' }}>
+                          Standard: {ps.rate}%
+                        </span>
+                        <br />
+                        <span className={classes.baselineRemaining}>
+                          {ps.passCount}/{ps.passCount + ps.failCount} rules
+                        </span>
+                      </div>
+                    )}
+                    {postureMode === 'baseline' && !bl && (
+                      <Typography variant="caption" color="textSecondary" style={{ textAlign: 'center', display: 'block', marginTop: 4 }}>
+                        No baseline pinned
+                      </Typography>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {pinDialog && (
+        <PinBaselineDialog
+          open
+          onClose={() => setPinDialog(null)}
+          complianceProfileId={pinDialog.complianceProfileId}
+          complianceProfileName={pinDialog.complianceProfileName}
+          inventoryId={pinDialog.inventoryId}
+          inventoryName={pinDialog.inventoryName}
+          existingBaseline={pinDialog.existing}
+          onPinned={() => onBaselineChanged?.(true)}
+        />
+      )}
+    </>
   );
 };

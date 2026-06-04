@@ -28,6 +28,7 @@ import type {
   SaveProfileRequest,
   PlatformValidationResult,
   AuthoritativeScanResponse,
+  BaselineTarget,
 } from '@aap-compliance/common';
 
 /** Interface for the compliance backend API. */
@@ -71,6 +72,10 @@ export interface ComplianceApi {
   getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerExecutionEnvironments(): Promise<Array<{ id: number; name: string; image: string }>>;
+  getBaselineTargets(complianceProfileId?: string): Promise<BaselineTarget[]>;
+  pinBaselineTarget(body: { remediationProfileId: string; complianceProfileId: string; inventoryId: number }): Promise<BaselineTarget>;
+  unpinBaselineTarget(id: string): Promise<void>;
+  getRemediationErrorDetails(jobIds: number[]): Promise<string | null>;
 }
 
 /** API ref for the compliance plugin, consumed via useApi(complianceApiRef). */

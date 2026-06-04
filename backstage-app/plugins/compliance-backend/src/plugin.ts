@@ -137,6 +137,9 @@ export const complianceBackendPlugin = createBackendPlugin({
           httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/remediation-executions', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/remediation-executions/:id', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/baseline-targets', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/baseline-targets/:id', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({ path: '/remediation-error-details', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });

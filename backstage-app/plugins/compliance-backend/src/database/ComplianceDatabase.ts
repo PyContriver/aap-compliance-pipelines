@@ -914,6 +914,40 @@ export class ComplianceDatabase {
     return !!row;
   }
 
+  async getAllBaselineTargets(): Promise<BaselineTarget[]> {
+    const rows = await this.db('compliance_baseline_targets');
+    return rows.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      remediationProfileId: row.remediation_profile_id as string,
+      complianceProfileId: row.compliance_profile_id as string,
+      inventoryId: row.inventory_id as number,
+      pinnedAt: toISOString(row.pinned_at),
+      pinnedBy: (row.pinned_by as string) ?? null,
+    }));
+  }
+
+  async getBaselineScore(
+    scanId: string,
+    baselineRuleIds: string[],
+  ): Promise<{ passCount: number; failCount: number }> {
+    if (baselineRuleIds.length === 0) return { passCount: 0, failCount: 0 };
+
+    const rows = await this.db('compliance_findings')
+      .select('status')
+      .count('* as cnt')
+      .where('scan_id', scanId)
+      .whereIn('rule_id', baselineRuleIds)
+      .groupBy('status');
+
+    let passCount = 0;
+    let failCount = 0;
+    for (const row of rows as Array<Record<string, unknown>>) {
+      if (row.status === 'pass') passCount = Number(row.cnt);
+      if (row.status === 'fail') failCount = Number(row.cnt);
+    }
+    return { passCount, failCount };
+  }
+
   // ─── Rule metadata ─────────────────────────────────────────────────
 
   async upsertRuleMetadata(rules: RuleMetadataRecord[]): Promise<number> {

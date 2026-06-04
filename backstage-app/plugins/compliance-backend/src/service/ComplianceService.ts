@@ -30,6 +30,7 @@ import type {
   RemediationPlan,
   RemediationPlanGroup,
   IngestFinding,
+  InventoryPosture,
 } from '@aap-compliance/common';
 
 import { ControllerClient } from './ControllerClient';
@@ -1524,7 +1525,7 @@ export class ComplianceService {
       const profilePlatformMap = new Map(profiles.map(p => [p.id, p.platform || 'RHEL 9']));
       const TARGET_THRESHOLD = 80;
 
-      const frameworkScores = profiles.map(p => {
+      const frameworkScores: DashboardStats['frameworkScores'] = profiles.map(p => {
         const agg = profileAgg.get(p.id);
         const total = agg ? agg.pass + agg.fail : 0;
         const rate = total > 0 ? Math.round((agg!.pass / total) * 1000) / 10 : 0;
@@ -1566,7 +1567,7 @@ export class ComplianceService {
       for (const scan of latestByProfileInventory.values()) {
         inventoryIds.add(scan.inventoryId);
       }
-      const byInventory = Array.from(inventoryIds).map(invId => ({
+      const byInventory: InventoryPosture[] = Array.from(inventoryIds).map(invId => ({
         inventoryId: invId,
         inventoryName: inventoryNameMap.get(invId) || `Inventory ${invId}`,
         profileScores: profiles
@@ -1584,6 +1585,64 @@ export class ComplianceService {
           })
           .filter((s): s is NonNullable<typeof s> => s !== null),
       })).filter(inv => inv.profileScores.length > 0);
+
+      // ── Baseline enrichment (ADR-014 §7) ────────────────────────────
+      const allBaselines = await this.database.getAllBaselineTargets();
+      if (allBaselines.length > 0) {
+        const remProfileCache = new Map<string, RemediationProfile | null>();
+        for (const baseline of allBaselines) {
+          if (!remProfileCache.has(baseline.remediationProfileId)) {
+            remProfileCache.set(
+              baseline.remediationProfileId,
+              await this.database.getRemediationProfile(baseline.remediationProfileId),
+            );
+          }
+          const remProfile = remProfileCache.get(baseline.remediationProfileId);
+          if (!remProfile) continue;
+
+          const baselineRuleIds = remProfile.selections
+            .filter(s => s.enabled)
+            .map(s => s.ruleId);
+          if (baselineRuleIds.length === 0) continue;
+
+          const scanKey = `${baseline.complianceProfileId}::${baseline.inventoryId}`;
+          const latestScan = latestByProfileInventory.get(scanKey);
+          if (!latestScan) continue;
+
+          const score = await this.database.getBaselineScore(latestScan.id, baselineRuleIds);
+          const total = score.passCount + score.failCount;
+          const baselineRate = total > 0 ? Math.round((score.passCount / total) * 1000) / 10 : 0;
+
+          const invEntry = byInventory.find(inv => inv.inventoryId === baseline.inventoryId);
+          const profileScore = invEntry?.profileScores.find(ps => ps.profileId === baseline.complianceProfileId);
+          if (profileScore) {
+            profileScore.baseline = {
+              remediationProfileId: baseline.remediationProfileId,
+              remediationProfileName: remProfile.name,
+              rate: baselineRate,
+              passCount: score.passCount,
+              ruleCount: baselineRuleIds.length,
+              pinnedAt: baseline.pinnedAt,
+            };
+          }
+        }
+
+        for (const fw of frameworkScores) {
+          const profileBaselines = byInventory
+            .flatMap(inv => inv.profileScores)
+            .filter(ps => ps.profileId === fw.profileId && ps.baseline);
+          if (profileBaselines.length > 0) {
+            const totalPass = profileBaselines.reduce((sum, ps) => sum + (ps.baseline?.passCount ?? 0), 0);
+            const totalRules = profileBaselines.reduce((sum, ps) => sum + (ps.baseline?.ruleCount ?? 0), 0);
+            fw.baseline = {
+              rate: totalRules > 0 ? Math.round((totalPass / totalRules) * 1000) / 10 : 0,
+              passCount: totalPass,
+              ruleCount: totalRules,
+              inventoryCount: profileBaselines.length,
+            };
+          }
+        }
+      }
 
       // Recent scans with pass rates (using batch stats, no extra queries)
       const recentScansList = recentScans.map(scan => {

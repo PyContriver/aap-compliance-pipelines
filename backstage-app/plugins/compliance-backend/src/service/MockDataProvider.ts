@@ -361,7 +361,7 @@ export class MockDataProvider {
         { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2 hours ago', contributingScans: [
           { scanId: 's1', inventoryId: 1, inventoryName: 'production-web-servers', passRate: 78, passCount: 285, failCount: 81, ruleCount: 366, timestamp: '2 hours ago' },
           { scanId: 's4', inventoryId: 3, inventoryName: 'dev-servers', passRate: 62, passCount: 227, failCount: 139, ruleCount: 366, timestamp: '3 days ago' },
-        ] },
+        ], baseline: { rate: 92.5, passCount: 185, ruleCount: 200, inventoryCount: 1 } },
         { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', target: 'RHEL 9', rules: 189, rate: 85, passCount: 160, failCount: 29, lastScan: '1 day ago', contributingScans: [
           { scanId: 's2', inventoryId: 2, inventoryName: 'staging-db-servers', passRate: 85, passCount: 160, failCount: 29, ruleCount: 189, timestamp: '1 day ago' },
         ] },
@@ -376,7 +376,10 @@ export class MockDataProvider {
       ],
       byInventory: [
         { inventoryId: 1, inventoryName: 'production-web-servers', profileScores: [
-          { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, passCount: 285, failCount: 81 },
+          { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, passCount: 285, failCount: 81, baseline: {
+            remediationProfileId: 'mock-rp-1', remediationProfileName: 'STIG Baseline — Phase 1',
+            rate: 92.5, passCount: 185, ruleCount: 200, pinnedAt: '2026-05-15T00:00:00Z',
+          } },
           { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 62, passCount: 88, failCount: 54 },
         ] },
         { inventoryId: 2, inventoryName: 'staging-db-servers', profileScores: [
