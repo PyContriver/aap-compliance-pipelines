@@ -520,7 +520,7 @@ export const ComplianceDashboard = () => {
                 const showBaseline = postureMode === 'baseline' && fw.baseline;
                 const gaugeValue = showBaseline ? fw.baseline!.rate : fw.rate;
                 const gaugeSubtitle = showBaseline
-                  ? `${fw.baseline!.passCount}/${fw.baseline!.ruleCount} rules · ${fw.baseline!.inventoryCount} of ${fw.contributingScans.length} inv.`
+                  ? `${Math.round(fw.baseline!.ruleCount / fw.baseline!.inventoryCount)} rules · ${fw.baseline!.inventoryCount} of ${fw.contributingScans.length} inv.`
                   : `${fw.passCount}/${fw.passCount + fw.failCount} rules passing`;
                 return (
                   <div className={classes.gaugeItem} key={fw.profileId}>

@@ -1646,10 +1646,13 @@ export class ComplianceService {
             .flatMap(inv => inv.profileScores)
             .filter(ps => ps.profileId === fw.profileId && ps.baseline);
           if (profileBaselines.length > 0) {
+            // Average per-inventory rates (each rate is already host-normalized)
+            const rateSum = profileBaselines.reduce((sum, ps) => sum + (ps.baseline?.rate ?? 0), 0);
+            const avgRate = Math.round((rateSum / profileBaselines.length) * 10) / 10;
             const totalPass = profileBaselines.reduce((sum, ps) => sum + (ps.baseline?.passCount ?? 0), 0);
             const totalRules = profileBaselines.reduce((sum, ps) => sum + (ps.baseline?.ruleCount ?? 0), 0);
             fw.baseline = {
-              rate: totalRules > 0 ? Math.round((totalPass / totalRules) * 1000) / 10 : 0,
+              rate: avgRate,
               passCount: totalPass,
               ruleCount: totalRules,
               inventoryCount: profileBaselines.length,
