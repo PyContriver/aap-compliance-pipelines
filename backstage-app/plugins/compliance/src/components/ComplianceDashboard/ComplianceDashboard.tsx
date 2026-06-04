@@ -493,7 +493,7 @@ export const ComplianceDashboard = () => {
                 const showBaseline = postureMode === 'baseline' && fw.baseline;
                 const gaugeValue = showBaseline ? fw.baseline!.rate : fw.rate;
                 const gaugeSubtitle = showBaseline
-                  ? `${fw.baseline!.passCount}/${fw.baseline!.ruleCount} baseline rules`
+                  ? `${fw.baseline!.passCount}/${fw.baseline!.ruleCount} rules · ${fw.baseline!.inventoryCount} of ${fw.contributingScans.length} inv.`
                   : `${fw.passCount}/${fw.passCount + fw.failCount} rules passing`;
                 return (
                   <div className={classes.gaugeItem} key={fw.profileId}>
@@ -503,6 +503,7 @@ export const ComplianceDashboard = () => {
                       subtitle={gaugeSubtitle}
                       onClick={e => handleGaugeClick(e, fw)}
                       clickable
+                      dimmed={postureMode === 'baseline' && !fw.baseline}
                     />
                     {postureMode === 'standard' && fw.baseline && (
                       <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: fw.baseline.rate >= 90 ? '#3E8635' : fw.baseline.rate >= 70 ? '#F0AB00' : '#C9190B' }}>

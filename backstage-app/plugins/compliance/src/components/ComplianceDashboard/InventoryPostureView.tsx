@@ -148,6 +148,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                       subtitle={gaugeSubtitle}
                       clickable={!!onGaugeClick}
                       onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
+                      dimmed={postureMode === 'baseline' && !bl}
                     />
                     {postureMode === 'standard' && bl && (
                       <div className={classes.baselineAnnotation}>

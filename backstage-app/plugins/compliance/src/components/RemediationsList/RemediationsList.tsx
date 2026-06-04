@@ -347,7 +347,14 @@ export const RemediationsList = () => {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
+      if (msg.includes('409')) {
+        alertApi.post({
+          message: 'This profile is pinned as a baseline. Unpin it from the Compliance Posture > By Inventory view before archiving.',
+          severity: 'warning',
+        });
+      } else {
+        alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
+      }
     } finally {
       setActionInProgress(false);
       setArchiveTarget(null);
