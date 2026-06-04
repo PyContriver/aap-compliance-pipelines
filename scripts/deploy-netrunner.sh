@@ -121,6 +121,22 @@ if $DEPLOY_FE; then
 fi
 echo "[3.5/7] Tarballs copied to deploy-artifacts/ (commit to trigger CI deploy)"
 
+# Step 3.6: Validate tarball format
+for tgz in "${TARBALLS[@]}"; do
+  FIRST_ENTRY=$(tar tzf "$tgz" | head -1)
+  if [[ "$FIRST_ENTRY" != package/* ]]; then
+    echo "ERROR: $tgz is not a valid npm-pack tarball."
+    echo "  First entry: '$FIRST_ENTRY' (must start with 'package/')"
+    exit 1
+  fi
+  SIZE_MB=$(du -m "$tgz" | cut -f1)
+  if [ "$SIZE_MB" -gt 50 ]; then
+    echo "ERROR: $tgz is ${SIZE_MB}MB — too large (>50MB)."
+    exit 1
+  fi
+done
+echo "[3.6/7] Tarball format validated (npm-pack, <50MB each)"
+
 # Step 4: Upload
 echo "[4/7] Uploading to Portal host..."
 scp $SSH_OPTS "${TARBALLS[@]}" "$PORTAL_HOST:/tmp/"

@@ -339,6 +339,7 @@ export const ComplianceDashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     if (refreshKey > 0) setLoading(true);
     Promise.all([
       api.getDashboardStats().catch(err => {
@@ -352,11 +353,13 @@ export const ComplianceDashboard = () => {
       api.getRegisteredProfiles().catch(() => [] as ComplianceProfile[]),
       api.getBaselineTargets().catch(() => [] as BaselineTarget[]),
     ]).then(([dashboardStats, history, carts, baselines]) => {
+      if (cancelled) return;
       setStats(dashboardStats);
       setPostureHistory(history);
       setProfiles(carts);
       setBaselineTargets(baselines);
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [api, refreshKey]);
 
   // Determine if this is an "empty" state (no scan history)

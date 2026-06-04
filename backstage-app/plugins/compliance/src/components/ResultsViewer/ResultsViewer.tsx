@@ -118,7 +118,9 @@ export const ResultsViewer = () => {
 
   useEffect(() => {
     if (!jobId) return;
+    let cancelled = false;
     api.getScans().then(scans => {
+      if (cancelled) return;
       const match = scans.find(
         s => s.id === jobId || String(s.workflowJobId) === jobId,
       );
@@ -130,6 +132,7 @@ export const ResultsViewer = () => {
         setScanInventoryId(match.inventoryId);
         setScanStartedAt(match.startedAt);
         api.getRegisteredProfiles().then(profiles => {
+          if (cancelled) return;
           const cart = profiles.find(c => c.id === match.profileId);
           if (cart) {
             setProfileName(cart.displayName);
@@ -141,6 +144,7 @@ export const ResultsViewer = () => {
     }).catch(err => {
       console.error('Failed to load scan metadata for scan type:', err);
     });
+    return () => { cancelled = true; };
   }, [api, jobId]);
 
   useEffect(() => {
@@ -182,6 +186,7 @@ export const ResultsViewer = () => {
   }, [api, baselineLaunchOpen, baselineForScan, scanComplianceProfileId, scanInventoryId]);
 
   useEffect(() => {
+    let cancelled = false;
     if (compareToScanId) {
       setCompareProfileMismatch(false);
       setCompareSwapped(false);
@@ -191,10 +196,10 @@ export const ResultsViewer = () => {
           scans.find(s => s.id === compareToScanId || String(s.workflowJobId) === compareToScanId),
         ),
       ]).then(([data, compareScan]) => {
+        if (cancelled) return;
         if (compareScan && scanComplianceProfileId && compareScan.profileId !== scanComplianceProfileId) {
           setCompareProfileMismatch(true);
         }
-        // Ensure chronological order: "Before" = older, "After" = newer
         if (compareScan && scanStartedAt && new Date(compareScan.startedAt) > new Date(scanStartedAt)) {
           setCompareSwapped(true);
         }
@@ -205,12 +210,14 @@ export const ResultsViewer = () => {
       });
     } else if (scanType === 'verification' && jobId) {
       api.getPreviousFindings(jobId).then(data => {
+        if (cancelled) return;
         setPreviousFindings(data);
         if (data.length > 0) setFindingsExpanded(false);
       }).catch(err => {
         console.error('Failed to load previous findings for comparison:', err);
       });
     }
+    return () => { cancelled = true; };
   }, [api, jobId, scanType, compareToScanId, scanComplianceProfileId, scanStartedAt]);
 
   const isWorkflowPoll = jobId ? /^\d+$/.test(jobId) : false;
@@ -257,7 +264,11 @@ export const ResultsViewer = () => {
 
   // ─── Computed metrics ──────────────────────────────────────────────
 
-  const totalHosts = findings[0]?.totalCount || 0;
+  const totalHosts = useMemo(() => {
+    const hostSet = new Set<string>();
+    findings.forEach(f => f.hosts.forEach(h => hostSet.add(h.host)));
+    return hostSet.size;
+  }, [findings]);
   const rulesWithFailures = findings.filter(f => f.failCount > 0).length;
   const totalRules = findings.length;
   const totalChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);

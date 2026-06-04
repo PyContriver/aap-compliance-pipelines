@@ -312,6 +312,9 @@ export const RemediationsList = () => {
           setLaunchScanMissing(true);
         }
       })
+      .catch(() => {
+        if (!cancelled) setLaunchScanMissing(true);
+      })
       .finally(() => { if (!cancelled) setLaunchScanChecking(false); });
     return () => { cancelled = true; };
   }, [api, launchTarget, launchInventoryId]);

@@ -17,3 +17,4 @@ lab-*-environment.md
 .pytest_cache/
 **/.pytest_cache/
 .claude/
+deploy-artifacts/
