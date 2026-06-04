@@ -16,3 +16,4 @@ lab-*-environment.md
 **/tests/output/
 .pytest_cache/
 **/.pytest_cache/
+.claude/
