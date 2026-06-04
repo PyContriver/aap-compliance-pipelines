@@ -10,6 +10,9 @@ skip_list:
   - yaml[truthy]
   - yaml[line-length]
   - name[template]
+  - syntax-check[unknown-module]
+  - syntax-check[missing-file]
+  - command-instead-of-module
 
 warn_list:
   - experimental

@@ -205,9 +205,10 @@
     # Use gateway_organizations for AAP 2.5+ (platform-level resource).
     # Falls back to controller_organizations if gateway role is
     # unavailable (e.g., older collection version or AWX-only).
-    - name: Create organization (AAP 2.5+ via Gateway)
-      ansible.builtin.include_role:
-        name: infra.aap_configuration.gateway_organizations
+    - block:
+        - name: Create organization (AAP 2.5+ via Gateway)
+          ansible.builtin.include_role:
+            name: infra.aap_configuration.gateway_organizations
       rescue:
         - name: Create organization (fallback to Controller role)
           ansible.builtin.include_role:
