@@ -97,7 +97,7 @@ deploy-netrunner:
       fi
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
+      when: on_success
   environment:
     name: netrunner-staging
     url: https://dev-portal-netrunner.demoredhat.com/compliance
