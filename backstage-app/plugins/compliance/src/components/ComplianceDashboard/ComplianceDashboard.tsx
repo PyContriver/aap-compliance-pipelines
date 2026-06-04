@@ -32,6 +32,7 @@ import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
 import { ComplianceGauge } from './ComplianceGauge';
 import { ContributingScansPopover } from './ContributingScansPopover';
 import { InventoryPostureView } from './InventoryPostureView';
+import { PinBaselineDialog } from './PinBaselineDialog';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common';
@@ -328,7 +329,13 @@ export const ComplianceDashboard = () => {
   const [postureMode, setPostureMode] = useState<'standard' | 'baseline'>('standard');
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
-  const [popoverProfile, setPopoverProfile] = useState<{ name: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', scans: [] });
+  const [popoverProfile, setPopoverProfile] = useState<{ name: string; profileId: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', profileId: '', scans: [] });
+  const [pinDialogFromPopover, setPinDialogFromPopover] = useState<{
+    profileId: string;
+    profileName: string;
+    inventoryId: number;
+    inventoryName: string;
+  } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -439,9 +446,26 @@ export const ComplianceDashboard = () => {
   }
 
   const handleGaugeClick = (event: React.MouseEvent<HTMLElement>, fw: typeof stats.frameworkScores[0]) => {
-    setPopoverProfile({ name: fw.name, scans: fw.contributingScans });
+    setPopoverProfile({ name: fw.name, profileId: fw.profileId, scans: fw.contributingScans });
     setPopoverAnchor(event.currentTarget);
   };
+
+  const popoverBaselineMap = React.useMemo(() => {
+    if (!stats || !popoverProfile.profileId) return new Map();
+    const map = new Map<number, { remediationProfileName: string; rate: number; passCount: number; ruleCount: number }>();
+    for (const inv of stats.byInventory) {
+      const ps = inv.profileScores.find(p => p.profileId === popoverProfile.profileId);
+      if (ps?.baseline) {
+        map.set(inv.inventoryId, {
+          remediationProfileName: ps.baseline.remediationProfileName,
+          rate: ps.baseline.rate,
+          passCount: ps.baseline.passCount,
+          ruleCount: ps.baseline.ruleCount,
+        });
+      }
+    }
+    return map;
+  }, [stats, popoverProfile.profileId]);
 
   return (
     <div>
@@ -552,7 +576,34 @@ export const ComplianceDashboard = () => {
         onClose={() => setPopoverAnchor(null)}
         profileName={popoverProfile.name}
         scans={popoverProfile.scans}
+        mode={postureMode}
+        baselineByInventory={popoverBaselineMap}
+        onPinBaseline={(inventoryId, inventoryName) => {
+          setPopoverAnchor(null);
+          setPinDialogFromPopover({
+            profileId: popoverProfile.profileId,
+            profileName: popoverProfile.name,
+            inventoryId,
+            inventoryName,
+          });
+        }}
       />
+
+      {pinDialogFromPopover && (
+        <PinBaselineDialog
+          open
+          onClose={() => setPinDialogFromPopover(null)}
+          complianceProfileId={pinDialogFromPopover.profileId}
+          complianceProfileName={pinDialogFromPopover.profileName}
+          inventoryId={pinDialogFromPopover.inventoryId}
+          inventoryName={pinDialogFromPopover.inventoryName}
+          onPinned={() => {
+            setPinDialogFromPopover(null);
+            setRefreshKey(k => k + 1);
+            setPostureMode('baseline');
+          }}
+        />
+      )}
 
       {/* Key Metrics */}
       <div className={classes.section}>
