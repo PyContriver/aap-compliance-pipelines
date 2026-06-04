@@ -47,7 +47,7 @@ import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import { complianceApiRef } from '../../api';
-import { PinBaselineDialog } from '../ComplianceDashboard';
+import { ManageBaselinePinsDialog } from './ManageBaselinePinsDialog';
 import type {
   RemediationProfile,
   RemediationExecution,
@@ -235,9 +235,11 @@ export const RemediationsList = () => {
   // Baseline pinning state
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
   const [pinDialogTarget, setPinDialogTarget] = useState<{
+    remediationProfileId: string;
+    remediationProfileName: string;
     complianceProfileId: string;
     complianceProfileName: string;
-    remediationProfileId: string;
+    ruleCount: number;
   } | null>(null);
 
   // Launch dialog state (ADR-015)
@@ -492,6 +494,27 @@ export const RemediationsList = () => {
                             {r.description}
                           </Typography>
                         )}
+                        {(() => {
+                          const pins = baselineTargets.filter(bt => bt.remediationProfileId === r.id);
+                          if (pins.length === 0) return null;
+                          return (
+                            <Box display="flex" alignItems="center" mt={0.5} style={{ gap: 4 }}>
+                              <BookmarkIcon style={{ fontSize: 14, color: '#0066CC' }} />
+                              <Typography variant="caption" style={{ color: '#0066CC', cursor: 'pointer' }}
+                                onClick={() => setPinDialogTarget({
+                                  remediationProfileId: r.id,
+                                  remediationProfileName: r.name,
+                                  complianceProfileId: r.complianceProfileId,
+                                  complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
+                                  ruleCount: r.selections.filter(s => s.enabled).length,
+                                })}
+                              >
+                                Baseline for {pins.length} {pins.length === 1 ? 'inventory' : 'inventories'}
+                                {pins.length <= 3 && `: ${pins.map(p => inventoryNames.get(p.inventoryId) || `ID ${p.inventoryId}`).join(', ')}`}
+                              </Typography>
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -543,9 +566,11 @@ export const RemediationsList = () => {
                               <IconButton
                                 size="small"
                                 onClick={() => setPinDialogTarget({
+                                  remediationProfileId: r.id,
+                                  remediationProfileName: r.name,
                                   complianceProfileId: r.complianceProfileId,
                                   complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
-                                  remediationProfileId: r.id,
+                                  ruleCount: r.selections.filter(s => s.enabled).length,
                                 })}
                               >
                                 {baselineTargets.some(bt => bt.remediationProfileId === r.id)
@@ -797,13 +822,16 @@ export const RemediationsList = () => {
       </Dialog>
 
       {pinDialogTarget && (
-        <PinBaselineDialog
+        <ManageBaselinePinsDialog
           open
           onClose={() => setPinDialogTarget(null)}
+          remediationProfileId={pinDialogTarget.remediationProfileId}
+          remediationProfileName={pinDialogTarget.remediationProfileName}
           complianceProfileId={pinDialogTarget.complianceProfileId}
           complianceProfileName={pinDialogTarget.complianceProfileName}
-          preselectedRemediationProfileId={pinDialogTarget.remediationProfileId}
-          onPinned={() => {
+          ruleCount={pinDialogTarget.ruleCount}
+          currentPins={baselineTargets}
+          onChanged={() => {
             setPinDialogTarget(null);
             loadProfiles();
           }}

@@ -10,7 +10,6 @@ import { ScanProgress } from '../ScanProgress';
 import {
   Typography,
   Button,
-  ButtonGroup,
   Chip,
   Box,
   Table,
@@ -27,6 +26,11 @@ import {
   TextField,
   InputAdornment,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
@@ -35,7 +39,10 @@ import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BuildIcon from '@material-ui/icons/Build';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
-import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification, BaselineTarget } from '@aap-compliance/common';
+import PlayArrowIcon from '@material-ui/icons/PlayArrow';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import WarningIcon from '@material-ui/icons/Warning';
+import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification, BaselineTarget, AuthoritativeScanResponse, RemediationProfile } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
@@ -102,6 +109,11 @@ export const ResultsViewer = () => {
   const [compareSwapped, setCompareSwapped] = useState(false);
   const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
   const [remMenuAnchor, setRemMenuAnchor] = useState<null | HTMLElement>(null);
+  const [baselineLaunchOpen, setBaselineLaunchOpen] = useState(false);
+  const [baselineProfile, setBaselineProfile] = useState<RemediationProfile | null>(null);
+  const [baselineScanCheck, setBaselineScanCheck] = useState<AuthoritativeScanResponse | null>(null);
+  const [baselineScanChecking, setBaselineScanChecking] = useState(false);
+  const [baselineScanMissing, setBaselineScanMissing] = useState(false);
   const compareToScanId = searchParams.get('compareTo');
 
   useEffect(() => {
@@ -140,6 +152,34 @@ export const ResultsViewer = () => {
       })
       .catch(() => setBaselineForScan(null));
   }, [api, scanComplianceProfileId, scanInventoryId]);
+
+  useEffect(() => {
+    if (!baselineLaunchOpen || !baselineForScan || !scanInventoryId || !scanComplianceProfileId) return;
+    let cancelled = false;
+    setBaselineScanChecking(true);
+    setBaselineScanCheck(null);
+    setBaselineScanMissing(false);
+    setBaselineProfile(null);
+
+    Promise.all([
+      api.getRemediationProfile(baselineForScan.remediationProfileId),
+      api.getAuthoritativeScan(scanComplianceProfileId, scanInventoryId),
+    ]).then(([profile, scanResult]) => {
+      if (cancelled) return;
+      setBaselineProfile(profile);
+      if (scanResult) {
+        setBaselineScanCheck(scanResult);
+      } else {
+        setBaselineScanMissing(true);
+      }
+    }).catch(() => {
+      if (!cancelled) setBaselineScanMissing(true);
+    }).finally(() => {
+      if (!cancelled) setBaselineScanChecking(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [api, baselineLaunchOpen, baselineForScan, scanComplianceProfileId, scanInventoryId]);
 
   useEffect(() => {
     if (compareToScanId) {
@@ -479,21 +519,14 @@ export const ResultsViewer = () => {
         </Button>
         {baselineForScan ? (
           <>
-            <ButtonGroup variant="contained" color="primary">
-              <Button
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  params.set('complianceProfileId', scanComplianceProfileId);
-                  params.set('highlight', baselineForScan.remediationProfileId);
-                  navigate(`/compliance/remediations?${params.toString()}`);
-                }}
-              >
-                Use Baseline Remediation
-              </Button>
-              <Button size="small" onClick={e => setRemMenuAnchor(e.currentTarget)}>
-                <ArrowDropDownIcon />
-              </Button>
-            </ButtonGroup>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setBaselineLaunchOpen(true)}
+              endIcon={<ArrowDropDownIcon onClick={e => { e.stopPropagation(); setRemMenuAnchor(e.currentTarget); }} />}
+            >
+              Use Baseline Remediation
+            </Button>
             <Menu
               anchorEl={remMenuAnchor}
               open={Boolean(remMenuAnchor)}
@@ -622,6 +655,99 @@ export const ResultsViewer = () => {
         </TableContainer>
       </InfoCard>
       </Collapse>
+
+      {/* Baseline launch dialog */}
+      <Dialog
+        open={baselineLaunchOpen}
+        onClose={() => setBaselineLaunchOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Launch Baseline Remediation</DialogTitle>
+        <DialogContent>
+          {baselineProfile ? (
+            <Box mb={2}>
+              <Typography variant="body2" color="textSecondary">
+                Profile: <strong>{baselineProfile.name}</strong>
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                Rules: {baselineProfile.selections.filter(s => s.enabled).length} selected
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                Inventory: <strong>{profileName ? `${frameworkLabel} scan target` : `ID ${scanInventoryId}`}</strong>
+              </Typography>
+            </Box>
+          ) : baselineScanChecking ? (
+            <Box display="flex" alignItems="center" py={2} style={{ gap: 8 }}>
+              <CircularProgress size={20} />
+              <Typography variant="body2" color="textSecondary">Loading profile...</Typography>
+            </Box>
+          ) : null}
+
+          {baselineScanChecking && baselineProfile && (
+            <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+              <CircularProgress size={16} />
+              <Typography variant="body2" color="textSecondary">Checking for assessment scan...</Typography>
+            </Box>
+          )}
+
+          {baselineScanCheck && (
+            <Box display="flex" alignItems="center" style={{ gap: 8, color: '#3E8635' }}>
+              <CheckCircleIcon fontSize="small" />
+              <Typography variant="body2">
+                Last scan: {baselineScanCheck.passRate}% pass rate ({baselineScanCheck.passCount} pass, {baselineScanCheck.failCount} fail)
+                {baselineScanCheck.scan.completedAt && (
+                  <span style={{ color: '#6A6E73' }}>
+                    {' '}— {new Date(baselineScanCheck.scan.completedAt).toLocaleDateString()}
+                  </span>
+                )}
+              </Typography>
+            </Box>
+          )}
+
+          {baselineScanMissing && (
+            <Box>
+              <Box display="flex" alignItems="center" style={{ gap: 8, color: '#C9190B', marginBottom: 8 }}>
+                <WarningIcon fontSize="small" />
+                <Typography variant="body2">No completed assessment scan found for this inventory.</Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  setBaselineLaunchOpen(false);
+                  const params = new URLSearchParams();
+                  if (scanComplianceProfileId) params.set('profile', scanComplianceProfileId);
+                  if (scanInventoryId) params.set('inventory', String(scanInventoryId));
+                  navigate(`/compliance/scan?${params.toString()}`);
+                }}
+              >
+                Run a Scan First
+              </Button>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBaselineLaunchOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!baselineScanCheck || baselineScanChecking}
+            startIcon={<PlayArrowIcon />}
+            onClick={() => {
+              if (!baselineForScan || !baselineScanCheck || !scanInventoryId) return;
+              const params = new URLSearchParams();
+              params.set('profileId', baselineForScan.remediationProfileId);
+              params.set('inventoryId', String(scanInventoryId));
+              params.set('scanId', baselineScanCheck.scan.id);
+              setBaselineLaunchOpen(false);
+              navigate(`/compliance/execute/launch?${params.toString()}`);
+            }}
+          >
+            Launch Remediation
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };
