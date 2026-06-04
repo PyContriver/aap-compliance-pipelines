@@ -10,6 +10,7 @@ import { ScanProgress } from '../ScanProgress';
 import {
   Typography,
   Button,
+  ButtonGroup,
   Chip,
   Box,
   Table,
@@ -22,6 +23,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
   TextField,
   InputAdornment,
   Collapse,
@@ -32,7 +34,8 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BuildIcon from '@material-ui/icons/Build';
 import AssessmentIcon from '@material-ui/icons/Assessment';
-import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification } from '@aap-compliance/common';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
+import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification, BaselineTarget } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
@@ -93,9 +96,12 @@ export const ResultsViewer = () => {
   const [frameworkLabel, setFrameworkLabel] = useState<string>('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
   const [scanComplianceProfileId, setScanComplianceProfileId] = useState<string>('');
+  const [scanInventoryId, setScanInventoryId] = useState<number | null>(null);
   const [scanStartedAt, setScanStartedAt] = useState<string>('');
   const [compareProfileMismatch, setCompareProfileMismatch] = useState(false);
   const [compareSwapped, setCompareSwapped] = useState(false);
+  const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
+  const [remMenuAnchor, setRemMenuAnchor] = useState<null | HTMLElement>(null);
   const compareToScanId = searchParams.get('compareTo');
 
   useEffect(() => {
@@ -109,6 +115,7 @@ export const ResultsViewer = () => {
       }
       if (match) {
         setScanComplianceProfileId(match.profileId);
+        setScanInventoryId(match.inventoryId);
         setScanStartedAt(match.startedAt);
         api.getRegisteredProfiles().then(profiles => {
           const cart = profiles.find(c => c.id === match.profileId);
@@ -123,6 +130,16 @@ export const ResultsViewer = () => {
       console.error('Failed to load scan metadata for scan type:', err);
     });
   }, [api, jobId]);
+
+  useEffect(() => {
+    if (!scanComplianceProfileId || !scanInventoryId) return;
+    api.getBaselineTargets(scanComplianceProfileId)
+      .then(targets => {
+        const match = targets.find(t => t.inventoryId === scanInventoryId);
+        setBaselineForScan(match ?? null);
+      })
+      .catch(() => setBaselineForScan(null));
+  }, [api, scanComplianceProfileId, scanInventoryId]);
 
   useEffect(() => {
     if (compareToScanId) {
@@ -460,18 +477,53 @@ export const ResultsViewer = () => {
         <Button variant="outlined" onClick={() => navigate('/compliance')}>
           Back to Overview
         </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => {
-            const filter = scanComplianceProfileId
-              ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
-              : '';
-            navigate(`/compliance/remediations${filter}`);
-          }}
-        >
-          Use Existing Remediation
-        </Button>
+        {baselineForScan ? (
+          <>
+            <ButtonGroup variant="contained" color="primary">
+              <Button
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  params.set('complianceProfileId', scanComplianceProfileId);
+                  params.set('highlight', baselineForScan.remediationProfileId);
+                  navigate(`/compliance/remediations?${params.toString()}`);
+                }}
+              >
+                Use Baseline Remediation
+              </Button>
+              <Button size="small" onClick={e => setRemMenuAnchor(e.currentTarget)}>
+                <ArrowDropDownIcon />
+              </Button>
+            </ButtonGroup>
+            <Menu
+              anchorEl={remMenuAnchor}
+              open={Boolean(remMenuAnchor)}
+              onClose={() => setRemMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => {
+                setRemMenuAnchor(null);
+                const filter = scanComplianceProfileId
+                  ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+                  : '';
+                navigate(`/compliance/remediations${filter}`);
+              }}>
+                Use Other Remediation...
+              </MenuItem>
+            </Menu>
+          </>
+        ) : (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              const filter = scanComplianceProfileId
+                ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+                : '';
+              navigate(`/compliance/remediations${filter}`);
+            }}
+          >
+            Use Existing Remediation
+          </Button>
+        )}
         <Button
           variant="contained"
           color="primary"
