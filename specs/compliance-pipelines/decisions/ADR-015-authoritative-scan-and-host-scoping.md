@@ -122,6 +122,8 @@ Decisions 1, 2, and 5 are fully implemented:
 
 Decisions 3 (host scope selector) and 4 (N/A denominator adjustment) are deferred to a future iteration.
 
+**Remediation host scoping fix (2026-06-05):** A critical bug was found where `getFindings()` for remediation launch used only `profileId` to find the latest scan, ignoring `inventoryId`. When two inventories share a compliance profile, the remediation would use hosts from whichever inventory was scanned most recently. Fixed: `getLatestFindings()` now accepts optional `inventoryId`, and the remediation launch route passes `remediateRequest.inventoryId` to scope findings correctly.
+
 ## Related
 
 - ADR-014: Remediation lifecycle architecture (execution records, baseline targets)

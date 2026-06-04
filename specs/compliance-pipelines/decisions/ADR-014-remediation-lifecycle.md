@@ -198,8 +198,18 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 - `scan_id` → `creation_scan_id` rename eliminates naming ambiguity across profile and execution tables
 - Two-group data management provides configurable retention without cascade conflicts
 - Audit Export (P3) enables compliance evidence collection for auditors even after local data is purged
-- Remediation failure details are fetched live from Controller with three-tier fallback (result_traceback → runner_on_failed → job_explanation), providing actionable error messages without duplicating Controller's job event storage
+- Remediation failure details are fetched live from Controller with four-tier fallback (result_traceback → runner_on_failed → job_explanation → stdout ERROR/FATAL extraction), providing actionable error messages without duplicating Controller's job event storage
 - Stale execution recovery runs every 30 minutes (lowered from 4 hours) to minimize inventory lock duration when processes crash mid-remediation
+
+## Implementation Notes (2026-06-05)
+
+**§7 Baseline UX evolution:** The golden standard pin management was initially a modal dialog (`ManageBaselinePinsDialog`). This has been replaced with an inline section inside the expanded remediation profile row — the profile row now supports double expansion showing both execution history and baseline inventories. Each pinned inventory shows its current pass rate via a new `GET /baseline-scores` endpoint. The compact "N pinned" chip replaced the verbose "Baseline for N inventories: inv1, inv2" text.
+
+**Baseline aggregate fix:** The dashboard baseline rate now averages per-inventory rates (weighted equally). The previous formula summed host-level pass counts and divided by rule count, mixing units and producing rates >100% with multiple inventories.
+
+**Remediation host scoping fix:** `getFindings()` is now scoped to the target inventory when launching remediation. Previously, the query found the latest scan for a compliance profile across all inventories, causing host pattern mismatches when multiple inventories share a profile.
+
+**Failed remediation status:** Rules that never execute (e.g. host pattern mismatch before any tasks run) now show "Not run" with a 0% progress bar instead of "Compliant" with 100%.
 
 ## Related
 
