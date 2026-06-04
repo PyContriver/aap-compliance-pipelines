@@ -141,7 +141,13 @@ echo "[3.6/7] Tarball format validated (npm-pack, <50MB each)"
 echo "[4/7] Uploading to Portal host..."
 scp $SSH_OPTS "${TARBALLS[@]}" "$PORTAL_HOST:/tmp/"
 ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/aap-compliance-plugin-compliance-*dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
-echo "       Uploaded ${#TARBALLS[@]} tarball(s)"
+if $DEPLOY_BE; then
+  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/$BE_TGZ $REMOTE_PLUGIN_DIR/backend.tgz"
+fi
+if $DEPLOY_FE; then
+  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/$FE_TGZ $REMOTE_PLUGIN_DIR/frontend.tgz"
+fi
+echo "       Uploaded ${#TARBALLS[@]} tarball(s) (versioned + stable names)"
 
 # Step 5: Update config with integrity hashes
 echo "[5/7] Updating Portal config..."
@@ -158,8 +164,8 @@ for plugin in data['plugins']:
 
 if $DEPLOY_BE; then
   PYTHON_SCRIPT+="
-    if 'compliance-backend-dynamic' in pkg:
-        new_pkg = '$REMOTE_PLUGIN_DIR/$BE_TGZ'
+    if pkg.endswith('/backend.tgz') or 'compliance-backend-dynamic' in pkg:
+        new_pkg = '$REMOTE_PLUGIN_DIR/backend.tgz'
         h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
         plugin['package'] = new_pkg
         plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
@@ -169,8 +175,8 @@ fi
 
 if $DEPLOY_FE; then
   PYTHON_SCRIPT+="
-    if 'compliance-dynamic' in pkg and 'backend' not in pkg:
-        new_pkg = '$REMOTE_PLUGIN_DIR/$FE_TGZ'
+    if pkg.endswith('/frontend.tgz') or ('compliance-dynamic' in pkg and 'backend' not in pkg):
+        new_pkg = '$REMOTE_PLUGIN_DIR/frontend.tgz'
         h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
         plugin['package'] = new_pkg
         plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
@@ -186,6 +192,11 @@ print(', '.join(updated))
 
 RESULT=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo python3 -c $(printf '%q' "$PYTHON_SCRIPT")")
 echo "       Updated: $RESULT"
+
+# Step 5.5: Clear old extracted plugins to force re-extraction
+echo "[5.5/7] Clearing old plugin extractions..."
+ssh $SSH_OPTS "$PORTAL_HOST" "sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-plugin-compliance-*"
+echo "       Cleared stale extraction dirs"
 
 # Step 6: Restart Portal
 echo "[6/7] Restarting Portal service..."
