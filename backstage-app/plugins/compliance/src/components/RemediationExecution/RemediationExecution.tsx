@@ -445,7 +445,7 @@ function groupTasksByRule(
 
 /** Compute per-rule progress as percentage of completed/failed tasks. */
 function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false, jobFailed: boolean = false): number {
-  if (group.tasks.length === 0) return jobComplete ? 100 : 0;
+  if (group.tasks.length === 0) return (jobComplete && !jobFailed) ? 100 : 0;
   const done = group.tasks.filter(
     t => t.status === 'completed' || t.status === 'failed',
   ).length;

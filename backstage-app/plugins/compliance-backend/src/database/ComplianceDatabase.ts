@@ -395,7 +395,7 @@ export class ComplianceDatabase {
     if (profileId) {
       scanQuery = scanQuery.where('profile_id', profileId);
     }
-    if (inventoryId) {
+    if (inventoryId !== undefined) {
       scanQuery = scanQuery.where('inventory_id', inventoryId);
     }
 

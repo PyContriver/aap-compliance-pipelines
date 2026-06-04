@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Typography,
   Checkbox,
@@ -57,18 +57,28 @@ export const InlineBaselinePins = ({
   const api = useApi(complianceApiRef);
   const alertApi = useApi(alertApiRef);
 
-  const pinsForThis = currentPins.filter(
-    bt => bt.remediationProfileId === remediationProfileId && bt.complianceProfileId === complianceProfileId,
+  const pinsForThis = useMemo(
+    () => currentPins.filter(
+      bt => bt.remediationProfileId === remediationProfileId && bt.complianceProfileId === complianceProfileId,
+    ),
+    [currentPins, remediationProfileId, complianceProfileId],
   );
-  const initialPinnedIds = new Set(pinsForThis.map(bt => bt.inventoryId));
+  const initialPinnedIds = useMemo(
+    () => new Set(pinsForThis.map(bt => bt.inventoryId)),
+    [pinsForThis],
+  );
+  const pinsKey = useMemo(
+    () => pinsForThis.map(p => p.inventoryId).sort().join(','),
+    [pinsForThis],
+  );
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(initialPinnedIds));
   const [submitting, setSubmitting] = useState(false);
   const [scores, setScores] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
-    setSelectedIds(new Set(pinsForThis.map(bt => bt.inventoryId)));
-  }, [currentPins, remediationProfileId]);
+    setSelectedIds(new Set(initialPinnedIds));
+  }, [initialPinnedIds]);
 
   useEffect(() => {
     if (pinsForThis.length === 0) return;
@@ -77,7 +87,7 @@ export const InlineBaselinePins = ({
       for (const s of data) map.set(s.inventoryId, s.passRate);
       setScores(map);
     }).catch(() => {});
-  }, [api, remediationProfileId, pinsForThis.length]);
+  }, [api, remediationProfileId, pinsKey]);
 
   const hasChanges = (() => {
     if (selectedIds.size !== initialPinnedIds.size) return true;
