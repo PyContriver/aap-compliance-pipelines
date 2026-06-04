@@ -444,7 +444,7 @@ function groupTasksByRule(
 }
 
 /** Compute per-rule progress as percentage of completed/failed tasks. */
-function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false): number {
+function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false, jobFailed: boolean = false): number {
   if (group.tasks.length === 0) return jobComplete ? 100 : 0;
   const done = group.tasks.filter(
     t => t.status === 'completed' || t.status === 'failed',
@@ -453,8 +453,11 @@ function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false): nu
 }
 
 /** Compute overall status for a rule group. */
-function computeRuleStatus(group: RuleGroup, jobComplete: boolean): TaskStatus {
-  if (group.tasks.length === 0) return jobComplete ? 'completed' : 'pending';
+function computeRuleStatus(group: RuleGroup, jobComplete: boolean, jobFailed: boolean = false): TaskStatus {
+  if (group.tasks.length === 0) {
+    if (!jobComplete) return 'pending';
+    return jobFailed ? 'failed' : 'completed';
+  }
   if (group.tasks.some(t => t.status === 'failed')) return 'failed';
   if (group.tasks.every(t => t.status === 'completed')) return 'completed';
   if (group.tasks.some(t => t.status === 'running')) return 'running';
@@ -913,7 +916,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   // Auto-expand rules that are currently running
   useEffect(() => {
     const running = ruleGroups
-      .filter(g => computeRuleStatus(g, TERMINAL_STATUSES.includes(overallStatus)) === 'running')
+      .filter(g => computeRuleStatus(g, TERMINAL_STATUSES.includes(overallStatus), overallStatus === 'failed' || overallStatus === 'error') === 'running')
       .map(g => g.ruleId);
     if (running.length > 0) {
       setExpandedRules(prev => {
@@ -1184,8 +1187,10 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                   </Typography>
                 )}
                 {ruleGroups.map(group => {
-                  const pct = computeRuleProgress(group, TERMINAL_STATUSES.includes(overallStatus));
-                  const ruleStatus = computeRuleStatus(group, TERMINAL_STATUSES.includes(overallStatus));
+                  const isTerminal = TERMINAL_STATUSES.includes(overallStatus);
+                  const isJobFailed = overallStatus === 'failed' || overallStatus === 'error';
+                  const pct = computeRuleProgress(group, isTerminal, isJobFailed);
+                  const ruleStatus = computeRuleStatus(group, isTerminal, isJobFailed);
                   const isExpanded = expandedRules.has(group.ruleId);
                   const hasTasks = group.tasks.length > 0;
 
@@ -1239,7 +1244,9 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                               variant="caption"
                               className={classes.ruleProgressLabel}
                             >
-                              {!hasTasks && ruleStatus === 'completed' ? 'Compliant' : `${pct}%`}
+                              {!hasTasks && ruleStatus === 'failed' ? 'Not run'
+                                : !hasTasks && ruleStatus === 'completed' ? 'Compliant'
+                                : `${pct}%`}
                             </Typography>
                           </div>
                         </div>

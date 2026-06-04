@@ -1211,6 +1211,20 @@ export class ComplianceService {
           } else if (jobStatus.job_explanation) {
             return [`Job ${jobId}: ${jobStatus.job_explanation}`];
           }
+          // Fallback: extract error lines from stdout (e.g. pre-runner failures)
+          try {
+            const stdout = await this.controllerClient!.getJobStdout(jobId, token);
+            if (stdout.content) {
+              const errorLines = stdout.content.split('\n')
+                .filter((l: string) => /ERROR|FATAL|fatal:|FAILED|Could not match|no hosts to target/i.test(l))
+                .map((l: string) => l.replace(/\x1b\[[0-9;]*m/g, '').trim())
+                .filter(Boolean)
+                .slice(0, 5);
+              if (errorLines.length > 0) {
+                return [`Job ${jobId}:`, ...errorLines];
+              }
+            }
+          } catch { /* stdout not available */ }
           return [];
         } catch {
           return [`Unable to fetch details for job ${jobId}`];
