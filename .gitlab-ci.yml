@@ -84,7 +84,7 @@ collection-units:
     - mkdir -p /root/ansible_collections/security
     - ln -s "$CI_PROJECT_DIR/$COLL_ROOT" "/root/ansible_collections/security/$COLLECTION"
     - cd "/root/ansible_collections/security/$COLLECTION"
-    - python -m pytest tests/unit/ -v --color=yes
+    - PYTHONPATH="/root:$PYTHONPATH" python -m pytest tests/unit/ -v --color=yes
 
 collection-lint:
   extends: .collection-base
