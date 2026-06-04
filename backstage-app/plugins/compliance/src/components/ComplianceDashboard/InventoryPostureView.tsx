@@ -3,7 +3,7 @@ import { Card, Typography, Tooltip, IconButton, makeStyles } from '@material-ui/
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import type { InventoryPosture, BaselineTarget } from '@aap-compliance/common';
-import { ComplianceGauge } from './ComplianceGauge';
+import { ComplianceGauge, getColor } from './ComplianceGauge';
 import { PinBaselineDialog } from './PinBaselineDialog';
 
 const useStyles = makeStyles(theme => ({
@@ -55,11 +55,6 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const getBaselineColor = (rate: number): string => {
-  if (rate >= 90) return '#3E8635';
-  if (rate >= 70) return '#F0AB00';
-  return '#C9190B';
-};
 
 type PostureMode = 'standard' | 'baseline';
 
@@ -125,6 +120,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                         <IconButton
                           className={classes.pinButton}
                           size="small"
+                          aria-label={existing ? 'Manage pinned baseline' : 'Pin a baseline'}
                           onClick={e => {
                             e.stopPropagation();
                             setPinDialog({
@@ -148,10 +144,11 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                       subtitle={gaugeSubtitle}
                       clickable={!!onGaugeClick}
                       onClick={() => onGaugeClick?.(ps.profileId, inv.inventoryId)}
+                      dimmed={postureMode === 'baseline' && !bl}
                     />
                     {postureMode === 'standard' && bl && (
                       <div className={classes.baselineAnnotation}>
-                        <span className={classes.baselineRate} style={{ color: getBaselineColor(bl.rate) }}>
+                        <span className={classes.baselineRate} style={{ color: getColor(bl.rate) }}>
                           Baseline: {bl.rate}%
                         </span>
                         <br />
@@ -162,7 +159,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                     )}
                     {postureMode === 'baseline' && bl && (
                       <div className={classes.baselineAnnotation}>
-                        <span className={classes.baselineRate} style={{ color: ps.rate >= 90 ? '#3E8635' : ps.rate >= 70 ? '#F0AB00' : ps.rate >= 50 ? '#EC7A08' : '#C9190B' }}>
+                        <span className={classes.baselineRate} style={{ color: getColor(ps.rate) }}>
                           Standard: {ps.rate}%
                         </span>
                         <br />

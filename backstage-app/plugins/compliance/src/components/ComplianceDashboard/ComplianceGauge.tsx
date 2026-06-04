@@ -41,9 +41,10 @@ interface ComplianceGaugeProps {
   subtitle?: string;
   onClick?: (event: React.MouseEvent<HTMLElement>) => void;
   clickable?: boolean;
+  dimmed?: boolean;
 }
 
-const getColor = (value: number): string => {
+export const getColor = (value: number): string => {
   if (value >= 90) return '#3E8635';
   if (value >= 75) return '#F0AB00';
   if (value >= 50) return '#EC7A08';
@@ -56,6 +57,7 @@ export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
   subtitle,
   onClick,
   clickable: isClickable,
+  dimmed,
 }) => {
   const classes = useStyles();
 
@@ -95,14 +97,14 @@ export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
     <div className={`${classes.container} ${isClickable ? classes.clickable : ''}`}>
       <svg
         viewBox={`0 0 ${size} ${svgHeight}`}
-        style={{ width: '100%', maxWidth: size, height: 'auto' }}
+        style={{ width: '100%', maxWidth: size, height: 'auto', opacity: dimmed ? 0.4 : 1 }}
       >
         <path d={makeSvgArc(arcStartDeg, arcEndDeg)} fill="none" stroke="#e0e0e0" strokeWidth={strokeWidth} strokeLinecap="round" />
         {clampedValue > 0.5 && (
           <path d={makeSvgArc(arcStartDeg, valueEndDeg)} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
         )}
-        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="central" fill={color} fontSize="28" fontWeight={700} fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'>
-          {Math.round(value)}%
+        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="central" fill={dimmed ? '#6a6e73' : color} fontSize="28" fontWeight={700} fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'>
+          {dimmed ? '--' : `${Math.round(value)}%`}
         </text>
       </svg>
       {label && (

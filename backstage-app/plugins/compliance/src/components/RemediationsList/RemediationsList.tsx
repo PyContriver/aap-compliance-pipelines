@@ -44,13 +44,17 @@ import WarningIcon from '@material-ui/icons/Warning';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
+import BookmarkIcon from '@material-ui/icons/Bookmark';
+import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import { complianceApiRef } from '../../api';
+import { ManageBaselinePinsDialog } from './ManageBaselinePinsDialog';
 import type {
   RemediationProfile,
   RemediationExecution,
   RemediationProfileStatus,
   RemediationExecutionStatus,
   AuthoritativeScanResponse,
+  BaselineTarget,
 } from '@aap-compliance/common';
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
@@ -228,6 +232,16 @@ export const RemediationsList = () => {
   const [archiveTarget, setArchiveTarget] = useState<RemediationProfile | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
+  // Baseline pinning state
+  const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
+  const [pinDialogTarget, setPinDialogTarget] = useState<{
+    remediationProfileId: string;
+    remediationProfileName: string;
+    complianceProfileId: string;
+    complianceProfileName: string;
+    ruleCount: number;
+  } | null>(null);
+
   // Launch dialog state (ADR-015)
   const [launchTarget, setLaunchTarget] = useState<RemediationProfile | null>(null);
   const [launchInventoryId, setLaunchInventoryId] = useState<string>('');
@@ -249,10 +263,11 @@ export const RemediationsList = () => {
       const backendFilter: RemediationProfileStatus | 'all' | undefined =
         statusFilter === 'active' ? undefined : statusFilter;
 
-      const [data, profiles, inventoryData] = await Promise.all([
+      const [data, profiles, inventoryData, baselines] = await Promise.all([
         api.getRemediationProfiles(backendFilter),
         api.getRegisteredProfiles().catch(() => []),
         api.getInventories().catch(() => []),
+        api.getBaselineTargets().catch(() => [] as BaselineTarget[]),
       ]);
 
       const filtered = filterByProfile
@@ -262,6 +277,7 @@ export const RemediationsList = () => {
       setProfileNames(new Map(profiles.map(c => [c.id, c.displayName])));
       setInventoryNames(new Map(inventoryData.map(inv => [inv.id, inv.name])));
       setInventories(inventoryData);
+      setBaselineTargets(baselines);
       setExecutionHistory(new Map());
       setExpandedProfiles(new Set());
     } catch (err) {
@@ -347,7 +363,14 @@ export const RemediationsList = () => {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
+      if (msg.includes('409')) {
+        alertApi.post({
+          message: 'This profile is pinned as a baseline. Unpin it from the Compliance Posture > By Inventory view before archiving.',
+          severity: 'warning',
+        });
+      } else {
+        alertApi.post({ message: `Failed to update status: ${msg}`, severity: 'error' });
+      }
     } finally {
       setActionInProgress(false);
       setArchiveTarget(null);
@@ -471,6 +494,27 @@ export const RemediationsList = () => {
                             {r.description}
                           </Typography>
                         )}
+                        {(() => {
+                          const pins = baselineTargets.filter(bt => bt.remediationProfileId === r.id);
+                          if (pins.length === 0) return null;
+                          return (
+                            <Box display="flex" alignItems="center" mt={0.5} style={{ gap: 4 }}>
+                              <BookmarkIcon style={{ fontSize: 14, color: '#0066CC' }} />
+                              <Typography variant="caption" style={{ color: '#0066CC', cursor: 'pointer' }}
+                                onClick={() => setPinDialogTarget({
+                                  remediationProfileId: r.id,
+                                  remediationProfileName: r.name,
+                                  complianceProfileId: r.complianceProfileId,
+                                  complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
+                                  ruleCount: r.selections.filter(s => s.enabled).length,
+                                })}
+                              >
+                                Baseline for {pins.length} {pins.length === 1 ? 'inventory' : 'inventories'}
+                                {pins.length <= 3 && `: ${pins.map(p => inventoryNames.get(p.inventoryId) || `ID ${p.inventoryId}`).join(', ')}`}
+                              </Typography>
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -513,6 +557,28 @@ export const RemediationsList = () => {
                       </TableCell>
                       <TableCell>
                         <div className={classes.actions}>
+                          {r.status === 'saved' && (
+                            <Tooltip title={
+                              baselineTargets.some(bt => bt.remediationProfileId === r.id)
+                                ? 'Pinned as baseline — click to manage'
+                                : 'Pin as baseline'
+                            }>
+                              <IconButton
+                                size="small"
+                                onClick={() => setPinDialogTarget({
+                                  remediationProfileId: r.id,
+                                  remediationProfileName: r.name,
+                                  complianceProfileId: r.complianceProfileId,
+                                  complianceProfileName: profileNames.get(r.complianceProfileId) || r.complianceProfileId,
+                                  ruleCount: r.selections.filter(s => s.enabled).length,
+                                })}
+                              >
+                                {baselineTargets.some(bt => bt.remediationProfileId === r.id)
+                                  ? <BookmarkIcon fontSize="small" style={{ color: '#0066CC' }} />
+                                  : <BookmarkBorderIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Edit selections">
                             <IconButton
                               size="small"
@@ -754,6 +820,23 @@ export const RemediationsList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {pinDialogTarget && (
+        <ManageBaselinePinsDialog
+          open
+          onClose={() => setPinDialogTarget(null)}
+          remediationProfileId={pinDialogTarget.remediationProfileId}
+          remediationProfileName={pinDialogTarget.remediationProfileName}
+          complianceProfileId={pinDialogTarget.complianceProfileId}
+          complianceProfileName={pinDialogTarget.complianceProfileName}
+          ruleCount={pinDialogTarget.ruleCount}
+          currentPins={baselineTargets}
+          onChanged={() => {
+            setPinDialogTarget(null);
+            loadProfiles();
+          }}
+        />
+      )}
     </InfoCard>
   );
 };
