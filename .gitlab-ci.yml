@@ -49,8 +49,14 @@ deploy-netrunner:
     # Upload tarballs from repo to Portal host
     - scp -i ~/.ssh/portal.pem deploy-artifacts/backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
     - scp -i ~/.ssh/portal.pem deploy-artifacts/frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
-    - $SSH "sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz && sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz"
-    - echo "Tarballs uploaded"
+    - |
+      $SSH "
+        sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz
+        sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz
+        # Remove extracted plugin dirs so Portal re-extracts from new tarballs
+        sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-*
+      "
+    - echo "Tarballs uploaded, old extractions cleared"
 
     # Update Portal config with integrity hashes
     - |
