@@ -42,10 +42,11 @@ interface PinBaselineDialogProps {
   onClose: () => void;
   complianceProfileId: string;
   complianceProfileName: string;
-  inventoryId: number;
-  inventoryName: string;
+  inventoryId?: number;
+  inventoryName?: string;
   existingBaseline?: BaselineTarget;
   onPinned: () => void;
+  preselectedRemediationProfileId?: string;
 }
 
 export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
@@ -57,6 +58,7 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
   inventoryName,
   existingBaseline,
   onPinned,
+  preselectedRemediationProfileId,
 }) => {
   const classes = useStyles();
   const api = useApi(complianceApiRef);
@@ -65,14 +67,21 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [inventories, setInventories] = useState<Array<{ id: number; name: string; hostCount: number }>>([]);
+  const [selectedInventoryId, setSelectedInventoryId] = useState<number | ''>('');
+  const needsInventorySelection = inventoryId === undefined;
+
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    api.getRemediationProfiles?.('saved')
+
+    const fetchProfiles = api.getRemediationProfiles?.('saved')
       .then(rps => {
         const matching = rps.filter(rp => rp.complianceProfileId === complianceProfileId);
         setProfiles(matching);
-        if (existingBaseline) {
+        if (preselectedRemediationProfileId) {
+          setSelectedProfileId(preselectedRemediationProfileId);
+        } else if (existingBaseline) {
           setSelectedProfileId(existingBaseline.remediationProfileId);
         } else if (matching.length === 1) {
           setSelectedProfileId(matching[0].id);
@@ -80,12 +89,26 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
           setSelectedProfileId('');
         }
       })
-      .catch(() => setProfiles([]))
-      .finally(() => setLoading(false));
-  }, [open, api, complianceProfileId, existingBaseline]);
+      .catch(() => setProfiles([]));
+
+    const fetchInventories = needsInventorySelection
+      ? api.getInventories().then(setInventories).catch(() => setInventories([]))
+      : Promise.resolve();
+
+    Promise.all([fetchProfiles, fetchInventories]).finally(() => setLoading(false));
+
+    if (!needsInventorySelection) {
+      setSelectedInventoryId(inventoryId!);
+    } else {
+      setSelectedInventoryId('');
+    }
+  }, [open, api, complianceProfileId, existingBaseline, inventoryId, needsInventorySelection, preselectedRemediationProfileId]);
+
+  const finalInventoryId = inventoryId ?? (selectedInventoryId || undefined);
+  const finalInventoryName = inventoryName ?? inventories.find(i => i.id === selectedInventoryId)?.name;
 
   const handlePin = async () => {
-    if (!selectedProfileId) return;
+    if (!selectedProfileId || !finalInventoryId) return;
     setSubmitting(true);
     try {
       if (existingBaseline) {
@@ -94,7 +117,7 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
       await api.pinBaselineTarget({
         remediationProfileId: selectedProfileId,
         complianceProfileId,
-        inventoryId,
+        inventoryId: finalInventoryId,
       });
       onClose();
       onPinned();
@@ -134,9 +157,26 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
           compliance target, separate from the full {complianceProfileName} standard.
         </Typography>
 
-        <Typography variant="body2" style={{ marginBottom: 16 }}>
-          <strong>Inventory:</strong> {inventoryName}
-        </Typography>
+        {inventoryName ? (
+          <Typography variant="body2" style={{ marginBottom: 16 }}>
+            <strong>Inventory:</strong> {inventoryName}
+          </Typography>
+        ) : needsInventorySelection && !loading && (
+          <FormControl fullWidth variant="outlined" size="small" style={{ marginBottom: 16 }}>
+            <InputLabel>Target inventory</InputLabel>
+            <Select
+              value={selectedInventoryId}
+              onChange={e => setSelectedInventoryId(e.target.value as number)}
+              label="Target inventory"
+            >
+              {inventories.map(inv => (
+                <MenuItem key={inv.id} value={inv.id}>
+                  {inv.name} ({inv.hostCount} hosts)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         {existingBaseline && (
           <Box className={classes.currentBaseline}>
@@ -181,9 +221,10 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
             </FormControl>
             {selectedProfile && (
               <Typography className={classes.ruleCount} style={{ marginTop: 8 }}>
-                This baseline covers {enabledRules} rules. The dashboard will show
-                your compliance against these {enabledRules} rules alongside the
-                full {complianceProfileName} score.
+                This baseline covers {enabledRules} rules.
+                {finalInventoryName
+                  ? ` The dashboard will show your compliance against these ${enabledRules} rules for ${finalInventoryName}.`
+                  : ` The dashboard will show your compliance against these ${enabledRules} rules alongside the full ${complianceProfileName} score.`}
               </Typography>
             )}
           </>
@@ -201,7 +242,7 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
         </Button>
         <Button
           onClick={handlePin}
-          disabled={!selectedProfileId || submitting || profiles.length === 0}
+          disabled={!selectedProfileId || !finalInventoryId || submitting || profiles.length === 0}
           color="primary"
           variant="contained"
         >
