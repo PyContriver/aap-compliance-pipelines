@@ -21,6 +21,26 @@ import InfoIcon from '@material-ui/icons/Info';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
+import { FilterGroup } from '../ResultsViewer/FilterGroup';
+import type { FilterOption } from '../ResultsViewer/FilterGroup';
+
+// ─── Filter definitions (consistent with ResultsViewer) ─────────────
+const SEVERITY_OPTIONS: FilterOption[] = [
+  { key: 'CAT_I', label: 'CAT I', color: '#C9190B' },
+  { key: 'CAT_II', label: 'CAT II', color: '#F0AB00' },
+  { key: 'CAT_III', label: 'CAT III', color: '#0066CC' },
+];
+const STATE_OPTIONS: FilterOption[] = [
+  { key: 'new', label: 'New', color: '#0066CC' },
+  { key: 'fixed', label: 'Fixed', color: '#3E8635' },
+  { key: 'resurfaced', label: 'Resurfaced', color: '#C9190B' },
+  { key: 'active', label: 'Active', color: '#6A6E73' },
+];
+const RISK_OPTIONS: FilterOption[] = [
+  { key: 'disruption:high', label: 'High Disruption', color: '#C9190B' },
+  { key: 'aap:caution', label: 'AAP Caution', color: '#F0AB00' },
+  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: '#C9190B' },
+];
 
 const useStyles = makeStyles(theme => ({
   findingCard: { border: `1px solid ${theme.palette.divider}`, borderRadius: theme.shape.borderRadius, marginBottom: theme.spacing(1), overflow: 'hidden' },
@@ -49,6 +69,14 @@ const useStyles = makeStyles(theme => ({
   viewToggleActive: { fontWeight: 600 },
   passingNote: { display: 'flex', alignItems: 'center', gap: theme.spacing(1), padding: theme.spacing(1, 2), marginBottom: theme.spacing(1), color: theme.palette.text.secondary, fontSize: '0.85rem' },
   passingNoteIcon: { color: '#3E8635', fontSize: 18 },
+  filterBar: {
+    display: 'flex', gap: theme.spacing(1), alignItems: 'center',
+    flexWrap: 'wrap' as const, marginBottom: theme.spacing(1),
+    [theme.breakpoints.down('md')]: { '& > :first-child': { flex: '1 1 100%' } },
+  },
+  selectionActions: {
+    display: 'flex', gap: theme.spacing(1), flexWrap: 'wrap' as const, alignItems: 'center',
+  },
 }));
 
 type ViewMode = 'status' | 'category';
@@ -83,6 +111,9 @@ export const RemediationProfileBuilder = () => {
   const [stateFilter, setStateFilter] = useState<'all' | FindingState>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
   const [reviewMode, setReviewMode] = useState(isEditMode);
+  const [disruptionFilter, setDisruptionFilter] = useState<string>('all');
+  const [aapFilter, setAapFilter] = useState<string>('all');
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEditMode || !remediationId) return;
@@ -152,6 +183,33 @@ export const RemediationProfileBuilder = () => {
   const toggleExpanded = (ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], expanded: !prev[ruleId].expanded } })); };
   const setScope = (ruleId: string, scope: RemediationScope) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], scope } })); };
   const updateParameter = (ruleId: string, paramName: string, value: string | number | boolean) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], parameters: { ...prev[ruleId].parameters, [paramName]: value } } })); };
+  // ─── Risk filter: merges disruption + aap into a single group ──
+  const riskActiveValue = useMemo(() => {
+    if (disruptionFilter !== 'all') return `disruption:${disruptionFilter}`;
+    if (aapFilter !== 'all') return `aap:${aapFilter}`;
+    return 'all';
+  }, [disruptionFilter, aapFilter]);
+
+  const handleRiskSelect = useCallback((key: string) => {
+    if (key === 'all') { setDisruptionFilter('all'); setAapFilter('all'); return; }
+    const [kind, value] = key.split(':');
+    if (kind === 'disruption') { setAapFilter('all'); setDisruptionFilter(value); }
+    else { setDisruptionFilter('all'); setAapFilter(value); }
+  }, []);
+
+  const handleGroupToggle = (group: string) => {
+    setExpandedGroup(prev => (prev === group ? null : group));
+  };
+
+  const clearFilters = () => {
+    setSeverityFilter('all');
+    setStateFilter('all');
+    setDisruptionFilter('all');
+    setAapFilter('all');
+  };
+
+  const activeFilterCount = [severityFilter, stateFilter, disruptionFilter, aapFilter].filter(f => f !== 'all').length;
+
   // Filtered findings based on search query
   const filteredFindings = useMemo(() => {
     if (!searchQuery) return allFindings;
@@ -173,11 +231,17 @@ export const RemediationProfileBuilder = () => {
     if (stateFilter !== 'all') {
       result = result.filter(f => f.stateSummary && (f.stateSummary[stateFilter] ?? 0) > 0);
     }
+    if (disruptionFilter !== 'all') {
+      result = result.filter(f => f.disruption === disruptionFilter);
+    }
+    if (aapFilter !== 'all') {
+      result = result.filter(f => f.aapImpact === aapFilter);
+    }
     if (reviewMode) {
       result = result.filter(f => selections[f.ruleId]?.enabled);
     }
     return result;
-  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter, reviewMode, selections]);
+  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter, disruptionFilter, aapFilter, reviewMode, selections]);
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
@@ -277,6 +341,12 @@ export const RemediationProfileBuilder = () => {
             </div>
           </div>
           {finding.disruption === 'high' && (<div className={classes.disruptionWarning}><WarningIcon fontSize="small" /><span>High disruption</span></div>)}
+          {finding.aapImpact === 'breaks-connectivity' && (
+            <Chip label="Breaks AAP" size="small" style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
+          )}
+          {finding.aapImpact === 'caution' && (
+            <Chip label="AAP caution" size="small" style={{ backgroundColor: '#F0AB00', color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
+          )}
           <IconButton size="small" onClick={e => { e.stopPropagation(); toggleExpanded(finding.ruleId); }} aria-label={sel.expanded ? `Collapse rule details for ${finding.stigId}` : `Expand rule details for ${finding.stigId}`}>{sel.expanded ? <ExpandLessIcon /> : <SettingsIcon fontSize="small" />}</IconButton>
         </div>
         <Collapse in={sel.expanded}>
@@ -417,6 +487,51 @@ export const RemediationProfileBuilder = () => {
         <Box display="flex" flexDirection="column" alignItems="flex-end" justifyContent="flex-start" pt={1}>{renderAutoSaveStatus()}</Box>
       </div>
       {saveError && (<Box mb={2}><Typography color="error" variant="body2">{saveError}</Typography></Box>)}
+      {/* Row 1 — Filter bar */}
+      <div className={classes.filterBar}>
+        <TextField
+          placeholder="Search rules by name, ID, STIG ID, or description..."
+          variant="outlined"
+          size="small"
+          style={{ minWidth: 240, flex: '1 1 240px', maxWidth: 360 }}
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <Box mr={1} display="flex" alignItems="center"><span role="img" aria-label="search">🔍</span></Box>,
+          }}
+        />
+        <FilterGroup
+          label="Severity"
+          options={SEVERITY_OPTIONS}
+          activeValue={severityFilter}
+          expanded={expandedGroup === 'severity'}
+          onToggleExpand={() => handleGroupToggle('severity')}
+          onSelect={key => setSeverityFilter(key as 'all' | FindingSeverity)}
+        />
+        {!isEditMode && (
+          <FilterGroup
+            label="State"
+            options={STATE_OPTIONS}
+            activeValue={stateFilter}
+            expanded={expandedGroup === 'state'}
+            onToggleExpand={() => handleGroupToggle('state')}
+            onSelect={key => setStateFilter(key as 'all' | FindingState)}
+          />
+        )}
+        <FilterGroup
+          label="Risk"
+          options={RISK_OPTIONS}
+          activeValue={riskActiveValue}
+          expanded={expandedGroup === 'risk'}
+          onToggleExpand={() => handleGroupToggle('risk')}
+          onSelect={handleRiskSelect}
+        />
+        <Chip label={`${displayFindings.length} rules`} variant="outlined" size="small" />
+        {activeFilterCount > 0 && (
+          <Chip label="Clear all" size="small" variant="outlined" onDelete={clearFilters} onClick={clearFilters} />
+        )}
+      </div>
+      {/* Row 2 — View + selection controls */}
       <div className={classes.summaryBar}>
         <div className={classes.summaryCount}>
           <Typography variant="body1"><strong>{failedFindings.length}</strong> rules with failures</Typography>
@@ -441,21 +556,6 @@ export const RemediationProfileBuilder = () => {
               {reviewMode ? `Review (${enabledCount})` : 'Review'}
             </Button>
           </Tooltip>
-          <ButtonGroup size="small" variant="outlined" aria-label="Severity filter">
-            <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'contained' : 'outlined'} color={severityFilter === 'all' ? 'primary' : 'default'}>View All</Button>
-            <Tooltip title="Critical — immediate risk to system security"><Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button></Tooltip>
-            <Tooltip title="Medium — could lead to security degradation"><Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button></Tooltip>
-            <Tooltip title="Low — reduces defense-in-depth"><Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button></Tooltip>
-          </ButtonGroup>
-          {!isEditMode && (
-            <ButtonGroup size="small" variant="outlined" aria-label="State filter">
-              <Button onClick={() => setStateFilter('all')} variant={stateFilter === 'all' ? 'contained' : 'outlined'} color={stateFilter === 'all' ? 'primary' : 'default'}>All States</Button>
-              <Button onClick={() => setStateFilter('new')} variant={stateFilter === 'new' ? 'contained' : 'outlined'} color={stateFilter === 'new' ? 'primary' : 'default'}>New</Button>
-              <Button onClick={() => setStateFilter('active')} variant={stateFilter === 'active' ? 'contained' : 'outlined'} color={stateFilter === 'active' ? 'primary' : 'default'}>Active</Button>
-              <Button onClick={() => setStateFilter('fixed')} variant={stateFilter === 'fixed' ? 'contained' : 'outlined'} color={stateFilter === 'fixed' ? 'primary' : 'default'}>Fixed</Button>
-              <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
-            </ButtonGroup>
-          )}
           <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
             <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
               <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
@@ -464,6 +564,11 @@ export const RemediationProfileBuilder = () => {
               <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
             </Tooltip>
           </ButtonGroup>
+        </div>
+      </div>
+      {/* Selection actions row */}
+      <Box mb={2}>
+        <div className={classes.selectionActions}>
           <Tooltip title="Enable all rules currently visible (respects search and filters)">
             <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
           </Tooltip>
@@ -473,38 +578,13 @@ export const RemediationProfileBuilder = () => {
           <Tooltip title="Enable all rules that have at least one failing host">
             <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
           </Tooltip>
-          <Tooltip title="Enable all failed rules that won't break AAP connectivity">
+          <Tooltip title="Enable all failed rules that are safe for AAP — excludes rules tagged 'Breaks AAP connectivity'">
             <Button size="small" variant="outlined" onClick={selectSafeOnly} style={{ borderColor: '#3E8635', color: '#3E8635' }}>Select Safe Only</Button>
           </Tooltip>
           <Tooltip title="Disable every rule in this remediation">
             <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
           </Tooltip>
         </div>
-      </div>
-      {/* Search bar with select/deselect visible */}
-      <Box display="flex" alignItems="center" mb={2} style={{ gap: 8 }}>
-        <TextField
-          placeholder="Search rules by name, ID, STIG ID, or description..."
-          variant="outlined"
-          size="small"
-          style={{ flex: 1 }}
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: <Box mr={1} display="flex" alignItems="center"><span role="img" aria-label="search">🔍</span></Box>,
-          }}
-        />
-        {searchQuery && (
-          <>
-            <Chip label={`${filteredFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
-            <Button size="small" onClick={() => setSearchQuery('')}>
-              Clear Search
-            </Button>
-          </>
-        )}
-        {(severityFilter !== 'all' || stateFilter !== 'all' || searchQuery) && (
-          <Chip label={`Showing ${displayFindings.length} of ${allFindings.length} rules`} size="small" variant="outlined" />
-        )}
       </Box>
       {viewMode === 'status' ? renderStatusView() : renderCategoryView()}
       <Divider style={{ margin: '24px 0' }} />

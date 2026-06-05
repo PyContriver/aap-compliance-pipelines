@@ -59,8 +59,9 @@ describe('RemediationProfileBuilder', () => {
       expect(screen.getByText('Select Displayed')).toBeInTheDocument();
     });
     expect(screen.getByText('Select All Failed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'CAT I' })).toBeInTheDocument();
-    expect(screen.getByText('View All')).toBeInTheDocument();
+    // Severity filter is now a FilterGroup accordion chip, not a ButtonGroup
+    expect(screen.getByText('Severity')).toBeInTheDocument();
+    expect(screen.getByText('Risk')).toBeInTheDocument();
     expect(screen.getByText('Deselect All')).toBeInTheDocument();
   });
 
