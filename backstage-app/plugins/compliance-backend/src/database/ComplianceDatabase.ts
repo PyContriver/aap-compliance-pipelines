@@ -375,10 +375,12 @@ export class ComplianceDatabase {
         finding_state: f.findingState ?? null,
       }));
 
-      // Insert in batches of 100 to avoid query size limits
       const batchSize = 100;
       for (let i = 0; i < rows.length; i += batchSize) {
-        await this.db('compliance_findings').insert(rows.slice(i, i + batchSize));
+        await this.db('compliance_findings')
+          .insert(rows.slice(i, i + batchSize))
+          .onConflict(['scan_id', 'rule_id', 'host'])
+          .merge(['status', 'severity', 'actual_value', 'expected_value', 'evidence', 'finding_state']);
       }
     }
 

@@ -136,7 +136,6 @@ export const ResultsViewer = () => {
   const [compareProfileMismatch, setCompareProfileMismatch] = useState(false);
   const [compareSwapped, setCompareSwapped] = useState(false);
   const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
-  const [remMenuAnchor, setRemMenuAnchor] = useState<null | HTMLElement>(null);
   const [overflowAnchor, setOverflowAnchor] = useState<null | HTMLElement>(null);
   const [baselineLaunchOpen, setBaselineLaunchOpen] = useState(false);
   const [baselineProfile, setBaselineProfile] = useState<RemediationProfile | null>(null);
