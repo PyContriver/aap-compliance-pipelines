@@ -10,7 +10,7 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 import {
   Typography, Button, Chip, Box, Switch, Collapse, IconButton,
   TextField, FormControl, InputLabel, Select, MenuItem, Divider,
-  Radio, RadioGroup, FormControlLabel, makeStyles, ButtonGroup,
+  Radio, RadioGroup, FormControlLabel, makeStyles, ButtonGroup, Tooltip,
 } from '@material-ui/core';
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
@@ -82,7 +82,7 @@ export const RemediationProfileBuilder = () => {
   const [severityFilter, setSeverityFilter] = useState<'all' | FindingSeverity>('all');
   const [stateFilter, setStateFilter] = useState<'all' | FindingState>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
-  const [reviewMode, setReviewMode] = useState(false);
+  const [reviewMode, setReviewMode] = useState(isEditMode);
 
   useEffect(() => {
     if (!isEditMode || !remediationId) return;
@@ -417,20 +417,22 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setViewMode('status')} variant={viewMode === 'status' ? 'contained' : 'outlined'} color={viewMode === 'status' ? 'primary' : 'default'} data-testid="view-by-status">By Status</Button>
             <Button onClick={() => setViewMode('category')} variant={viewMode === 'category' ? 'contained' : 'outlined'} color={viewMode === 'category' ? 'primary' : 'default'} data-testid="view-by-category">By Category</Button>
           </ButtonGroup>
-          <Button
-            size="small"
-            variant={reviewMode ? 'contained' : 'outlined'}
-            color={reviewMode ? 'primary' : 'default'}
-            onClick={() => setReviewMode(!reviewMode)}
-            data-testid="review-mode-toggle"
-          >
-            {reviewMode ? `Review (${enabledCount})` : 'Review'}
-          </Button>
+          <Tooltip title="Show only selected rules for a final review before launching">
+            <Button
+              size="small"
+              variant={reviewMode ? 'contained' : 'outlined'}
+              color={reviewMode ? 'primary' : 'default'}
+              onClick={() => setReviewMode(!reviewMode)}
+              data-testid="review-mode-toggle"
+            >
+              {reviewMode ? `Review (${enabledCount})` : 'Review'}
+            </Button>
+          </Tooltip>
           <ButtonGroup size="small" variant="outlined" aria-label="Severity filter">
             <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'contained' : 'outlined'} color={severityFilter === 'all' ? 'primary' : 'default'}>View All</Button>
-            <Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button>
-            <Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button>
-            <Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button>
+            <Tooltip title="Critical — immediate risk to system security"><Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button></Tooltip>
+            <Tooltip title="Medium — could lead to security degradation"><Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button></Tooltip>
+            <Tooltip title="Low — reduces defense-in-depth"><Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button></Tooltip>
           </ButtonGroup>
           {!isEditMode && (
             <ButtonGroup size="small" variant="outlined" aria-label="State filter">
@@ -442,23 +444,25 @@ export const RemediationProfileBuilder = () => {
             </ButtonGroup>
           )}
           <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
-            <Button
-              onClick={() => setScopeAll('failed_only')}
-              title="Set all rules to remediate failed hosts only"
-            >
-              Failed Only
-            </Button>
-            <Button
-              onClick={() => setScopeAll('standardize_all')}
-              title="Set all rules to apply to all hosts (standardize)"
-            >
-              All Hosts
-            </Button>
+            <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
+              <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
+            </Tooltip>
+            <Tooltip title="Set all mixed-result rules to apply to every host, standardizing configuration">
+              <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
+            </Tooltip>
           </ButtonGroup>
-          <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
-          <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
-          <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
-          <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
+          <Tooltip title="Enable all rules currently visible (respects search and filters)">
+            <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
+          </Tooltip>
+          <Tooltip title="Disable all rules currently visible">
+            <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
+          </Tooltip>
+          <Tooltip title="Enable all rules that have at least one failing host">
+            <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
+          </Tooltip>
+          <Tooltip title="Disable every rule in this remediation">
+            <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
+          </Tooltip>
         </div>
       </div>
       {/* Search bar with select/deselect visible */}
