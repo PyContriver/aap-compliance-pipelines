@@ -82,6 +82,7 @@ export const RemediationProfileBuilder = () => {
   const [severityFilter, setSeverityFilter] = useState<'all' | FindingSeverity>('all');
   const [stateFilter, setStateFilter] = useState<'all' | FindingState>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
 
   useEffect(() => {
     if (!isEditMode || !remediationId) return;
@@ -172,8 +173,11 @@ export const RemediationProfileBuilder = () => {
     if (stateFilter !== 'all') {
       result = result.filter(f => f.stateSummary && (f.stateSummary[stateFilter] ?? 0) > 0);
     }
+    if (reviewMode) {
+      result = result.filter(f => selections[f.ruleId]?.enabled);
+    }
     return result;
-  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter]);
+  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter, reviewMode, selections]);
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
@@ -402,6 +406,15 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setViewMode('status')} variant={viewMode === 'status' ? 'contained' : 'outlined'} color={viewMode === 'status' ? 'primary' : 'default'} data-testid="view-by-status">By Status</Button>
             <Button onClick={() => setViewMode('category')} variant={viewMode === 'category' ? 'contained' : 'outlined'} color={viewMode === 'category' ? 'primary' : 'default'} data-testid="view-by-category">By Category</Button>
           </ButtonGroup>
+          <Button
+            size="small"
+            variant={reviewMode ? 'contained' : 'outlined'}
+            color={reviewMode ? 'primary' : 'default'}
+            onClick={() => setReviewMode(!reviewMode)}
+            data-testid="review-mode-toggle"
+          >
+            {reviewMode ? `Review (${enabledCount})` : 'Review'}
+          </Button>
           <ButtonGroup size="small" variant="outlined" aria-label="Severity filter">
             <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'contained' : 'outlined'} color={severityFilter === 'all' ? 'primary' : 'default'}>View All</Button>
             <Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button>
