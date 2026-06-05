@@ -1300,6 +1300,13 @@ export class ComplianceService {
     return this.controllerClient!.getWorkflowJobStatus(jobId, token);
   }
 
+  async getInventoryHostnames(inventoryId: number, token?: string): Promise<string[]> {
+    if (this.dataSource === 'mock') {
+      return ['nm-rhel01', 'nm-rhel02', 'nm-rhel03'];
+    }
+    return this.controllerClient!.getInventoryHostnames(inventoryId, token);
+  }
+
   async getJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {
     if (this.dataSource === 'mock') {
       return {
