@@ -122,8 +122,13 @@ This connects the "what happened" (remediation) with the "what changed" (scan co
 - Phase 2 scope shifts from "verification scan plumbing" to "grouped history + diff report" — more value, less plumbing
 - The chain view remains possible as a future enhancement using existing execution record fields
 
+## Amendment: Findings Deduplication (2026-06-06)
+
+Layer 2 (finding-level state tracking) depends on unique `(scan_id, rule_id, host)` tuples for correct state computation. Migration 016 adds a UNIQUE constraint on `compliance_findings(scan_id, rule_id, host)` to enforce this at the database level. Prior to this constraint, duplicate rows could arise from retry scenarios (e.g., Direct POST retry after transient network failure) or race conditions between the Direct POST and event fallback paths. The deduplication migration cleans existing data by keeping the first-inserted row (`MIN(id)`) per group before adding the constraint. The `groupFindingsByRule` function in `FindingsParser` also deduplicates hosts via a `seenHosts` Set as a defense-in-depth measure. See ADR-018 for the full deduplication decision.
+
 ## Related
 
 - ADR-014: Remediation lifecycle architecture (execution records, informing_scan_id, verification_scan_id)
 - ADR-015: Authoritative scan, mandatory scan-before-remediation, host scoping
 - ADR-012: Dashboard UX competitive alignment
+- ADR-018: Findings deduplication

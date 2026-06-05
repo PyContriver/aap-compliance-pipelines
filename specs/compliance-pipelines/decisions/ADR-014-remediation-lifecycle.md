@@ -211,9 +211,14 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 
 **Failed remediation status:** Rules that never execute (e.g. host pattern mismatch before any tasks run) now show "Not run" with a 0% progress bar instead of "Compliant" with 100%.
 
+## Amendment: Service Decomposition (2026-06-06)
+
+The remediation plan builder logic has been extracted from `ComplianceService.ts` into a dedicated `RemediationPlanBuilder` class (ADR-019). The `buildRemediationPlan` method -- which groups rules by target host set for batched Ansible runs -- is now in `service/RemediationPlanBuilder.ts`. This narrows the surface area for changes to remediation plan logic and eliminates coupling with dashboard aggregation and findings parsing, both of which were also extracted.
+
 ## Related
 
 - ADR-009: CaC remediation via direct JT
 - ADR-013: Multi-group remediation with per-host scoping (Known Limitation #1 resolved)
+- ADR-019: ComplianceService decomposition
 - Feature spec: `specs/compliance-pipelines/features/feature-remediation-lifecycle.md`
 - Gap analysis: `specs/compliance-pipelines/features/remediation-lifecycle-gap-analysis.md`

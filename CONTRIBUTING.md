@@ -62,7 +62,7 @@ yarn test                    # All tests
 yarn test --coverage         # With coverage report
 ```
 
-Target: all tests passing. Current: 271 backend tests across 12 suites + 57 collection unit tests (19 per profile).
+Target: all tests passing. Collection unit tests: 19 per profile (57 total across 3 profiles).
 
 ## CI/CD Pipelines
 
@@ -140,7 +140,7 @@ Before creating a PR, verify:
 3. Mock mode works (`./bin/start.sh mock`)
 4. If touching backend: `export-dynamic` produces valid tarball
 5. If touching Controller resources: tested against live AAP (home lab or netrunner)
-6. If touching DB schema: migration up + down tested on both SQLite and PostgreSQL
+6. If touching DB schema: migration up + down tested on both SQLite and PostgreSQL. Migrations are TypeScript files in `plugins/compliance-backend/src/database/migrations/`; they are compiled to JS during `export-dynamic`. The deploy script runs a parity check to verify all TS migrations have corresponding compiled JS.
 
 ### What Gets Tested Where
 
@@ -155,6 +155,19 @@ Before creating a PR, verify:
 | Multi-user testing | No | Yes (massimo, craig, ganesh) |
 
 ### Post-merge Deploy to Netrunner
+
+Use the deploy script which automates the full pipeline:
+
+```bash
+./scripts/deploy-netrunner.sh             # deploy both plugins (default)
+./scripts/deploy-netrunner.sh backend     # backend only
+./scripts/deploy-netrunner.sh --no-bump   # skip version bump
+./scripts/deploy-netrunner.sh --host=user@host  # custom portal host
+```
+
+The script handles: version bump, `export-dynamic`, migration parity check (verifies compiled JS migrations match the TS source count), `npm pack` with stable tarball names, `scp` upload (keeping previous tarballs for rollback), config update, service restart, and a health-check poll (replaces the old blind sleep). To rollback, the script prints a one-liner that restores the previous tarballs.
+
+**Manual steps** (if not using the script):
 
 1. Build dist-dynamic: `export-dynamic` for both plugins
 2. Pack tarballs: `npm pack` in each `dist-dynamic/` directory
@@ -250,7 +263,10 @@ This provides implicit organization/team scoping without Backstage-level org pol
 ### Backend (`plugins/compliance-backend/`)
 
 - **Router**: `src/router.ts` — Express REST endpoints
-- **Service**: `src/service/ComplianceService.ts` — business logic, mock/live toggle
+- **Service**: `src/service/ComplianceService.ts` — orchestration and mock/live toggle (~1040 lines)
+- **FindingsParser**: `src/service/FindingsParser.ts` — finding extraction, severity/status mapping, multi-host grouping, and aggregation (extracted from ComplianceService)
+- **RemediationPlanBuilder**: `src/service/RemediationPlanBuilder.ts` — builds optimized remediation plans by grouping rules that target the same host set into batched runs (extracted from ComplianceService)
+- **DashboardAggregator**: `src/service/DashboardAggregator.ts` — computes dashboard statistics and posture history snapshots (extracted from ComplianceService)
 - **Database**: `src/database/ComplianceDatabase.ts` — Knex data access layer
 - **Controller client**: `src/service/ControllerClient.ts` — AAP Controller HTTP client
 - **Plugin**: `src/plugin.ts` — registration, migrations, auth policies
@@ -268,23 +284,33 @@ profiles/rhel9-stig/
   ansible_collections/security/compliance_rhel9_stig/
     galaxy.yml                 # Collection metadata
     meta/execution-environment.yml  # EE deps for Hub auto-discovery
-    plugins/modules/           # normalize_xccdf module
+    plugins/modules/           # normalize_xccdf module (thin wrapper)
+    plugins/module_utils/      # normalize_common.py (synced from _shared)
     playbooks/                 # run_oscap, remediate, normalize
     tests/                     # ansible-test units + integration
     docs/                      # Automation Hub + community docs
   ee/execution-environment.yml # Standalone EE build definition
   install.yml                  # Controller registration playbook
   README.md                    # Profile documentation
+profiles/_shared/              # Shared code synced into all collections
+  normalize_common.py          # Single source of truth for XCCDF parsing
+  aap_impact/                  # Platform-specific AAP-impact dictionaries
 ```
 
 Profiles follow the standard `ansible_collections/{namespace}/{name}/` convention. They can be extracted to standalone repos via `git subtree split`.
+
+**Shared module pattern:** Normalization logic lives in `profiles/_shared/normalize_common.py`. Each collection's `plugins/modules/normalize_xccdf.py` is a thin wrapper that imports from `plugins/module_utils/normalize_common.py`. After editing the shared source, run `python scripts/sync_shared_modules.py` to copy it into all collections. Never edit the `module_utils/` copies directly.
 
 ## Adding New Features
 
 ### New API endpoint
 
 1. Add the route in `router.ts`
-2. Add the service method in `ComplianceService.ts` (with mock path)
+2. Add the service method in the appropriate class:
+   - `ComplianceService.ts` for orchestration and general endpoints (with mock path)
+   - `FindingsParser.ts` for finding extraction, mapping, or aggregation logic
+   - `RemediationPlanBuilder.ts` for remediation plan construction
+   - `DashboardAggregator.ts` for dashboard statistics or posture history
 3. Add the mock data in `MockDataProvider.ts`
 4. Add the type in `compliance-common/src/types/`
 5. Add the frontend API method in `ComplianceBackendClient.ts` and `complianceApiRef.ts`
@@ -312,7 +338,7 @@ Each compliance profile is self-contained under `profiles/`. To add a new one:
 8. Run `ansible-test sanity` and `ansible-test units` to verify
 9. See `docs/compliance-profile-developer-guide.md` for the full guide
 
-The normalizer (`normalize_xccdf.py`) is framework-aware and handles STIG, CIS, and custom profiles via the `framework` parameter.
+The normalizer (`normalize_xccdf.py`) is a thin wrapper around shared logic in `module_utils/normalize_common.py`. It is framework-aware and handles STIG, CIS, and custom profiles via the `framework` parameter. After creating a new profile, run `python scripts/sync_shared_modules.py` to populate the new collection's `plugins/module_utils/` directory and add the collection path to the `COLLECTIONS` list in the sync script.
 
 ### New or modified AAP Controller resources
 
@@ -340,7 +366,7 @@ This enables the remediation execution view to group tasks under their parent ru
 - **All useEffect hooks** must clean up intervals/timeouts
 - **All new endpoints** must have auth policies in both dev and production modes
 - **Mock mode** must work for every feature (MockDataProvider returns all fields)
-- **Tests** must pass — target all tests passing (currently 328 across backend + collections)
+- **Tests** must pass — target all tests passing (backend + collections)
 
 ## Key Decisions
 

@@ -54,7 +54,9 @@ security.compliance_<platform>_<framework>/
   meta/compliance-profile.yml           # Profile identity, certification, and capabilities
 
   plugins/modules/                      # Custom Ansible modules
-    normalize_<scanner>.py              # Scanner output --> Common Findings Format
+    normalize_<scanner>.py              # Scanner output --> CFF (thin wrapper)
+  plugins/module_utils/                 # Shared logic (synced from profiles/_shared/)
+    normalize_common.py                 # XCCDF parsing, severity/status mapping
 
   playbooks/                            # Pipeline-stage playbooks
     run_oscap.yml                       # Scan targets + normalize in one JT (2 plays)
@@ -562,7 +564,7 @@ Every compliance profile MUST include a normalizer module. The normalizer is the
 
 ### Rule Metadata Lifecycle
 
-Each collection ships a `rules/*.yml` file containing pre-extracted rule metadata (title, description, check_text, fix_text, severity, control identifiers) for every rule in its XCCDF profile. This file is the **authoritative fallback** when the normalizer's scan-time extraction returns empty fields.
+Each collection ships a `rules/*.yml` file containing pre-extracted rule metadata (title, description, check_text, fix_text, severity, control identifiers, AAP-impact classification) for every rule in its XCCDF profile. This file is used at scan time by the normalizer to populate AAP-impact metadata and enrich findings before they are POSTed to the plugin. The plugin's database (`rule_metadata` table) is the sole runtime cache for rule metadata; there is no YAML fallback at the plugin level.
 
 **How it's generated:**
 
@@ -579,11 +581,11 @@ The rules YAML is tied to the `scap-security-guide` RPM version installed in the
 
 For local development, re-run the extraction script against the SSG datastream from the latest release at https://github.com/ComplianceAsCode/content/releases.
 
-**Data flow priority:**
+**Data flow:**
 
-1. Scan-time extraction (normalizer → Direct POST → DB) — highest priority, always used when present
-2. Build-time rules YAML (collection `rules/*.yml`) — fallback for fields the normalizer didn't populate
-3. Empty — displayed as "No description available" in the UI
+1. Scan-time extraction (normalizer reads XCCDF datastream + rules YAML for AAP-impact → produces CFF JSON → Direct POST → plugin DB) — this is the only path
+2. The plugin's `rule_metadata` DB table caches metadata from ingested findings. There is no runtime YAML fallback at the plugin level.
+3. If a field was not populated by the normalizer, the UI shows "No description available"
 
 ### Implementation Pattern
 
@@ -648,7 +650,9 @@ if __name__ == '__main__':
 See the OpenSCAP normalizer at:
 `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py`
 
-This module parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host.
+This module is a thin wrapper that imports shared parsing logic from `plugins/module_utils/normalize_common.py`. The shared source of truth is `profiles/_shared/normalize_common.py`; run `python scripts/sync_shared_modules.py` after editing it to propagate to all collections.
+
+The normalizer parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host. When `rules_metadata_file` is provided, the normalizer also loads AAP-impact classification data from the collection's `rules/*.yml` file.
 
 For detailed module documentation, see `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md`.
 
@@ -1420,7 +1424,8 @@ Use this checklist when building a new compliance profile. Every item must be sa
 
 ### Normalizer and CFF Compliance
 
-- [ ] Normalizer module at `plugins/modules/normalize_<scanner>.py`
+- [ ] For XCCDF-based profiles: normalizer wrapper at `plugins/modules/normalize_xccdf.py` importing from `plugins/module_utils/normalize_common.py` (synced from `profiles/_shared/`). New collection path added to `scripts/sync_shared_modules.py`.
+- [ ] For non-XCCDF profiles: normalizer module at `plugins/modules/normalize_<scanner>.py`
 - [ ] Normalizer produces CFF v1.0.0 JSON (schema version field is `"1.0.0"`)
 - [ ] All findings include the four minimum required fields: `rule_id`, `title`, `status`, `severity`
 - [ ] Severity mapped to `high` / `medium` / `low` (never raw scanner values)
@@ -1495,7 +1500,9 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 |------|---------|
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/galaxy.yml` | Collection metadata |
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/meta/runtime.yml` | Ansible version requirements |
-| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer to CFF (366 rules) |
+| `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/plugins/modules/normalize_xccdf.py` | XCCDF normalizer wrapper (imports from module_utils) |
+| `profiles/_shared/normalize_common.py` | Shared XCCDF parsing logic (single source of truth for all profiles) |
+| `scripts/sync_shared_modules.py` | Syncs shared modules from `_shared/` into each collection's `module_utils/` |
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/run_oscap.yml` | Assessment JT: scan targets (Play 1) + normalize on localhost (Play 2) |
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/normalize.yml` | Standalone normalize utility (debugging, Tier 2 reuse) |
 | `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml` | Remediation: imports CaC playbook (standalone JT) |

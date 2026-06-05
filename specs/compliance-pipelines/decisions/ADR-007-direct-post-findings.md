@@ -56,3 +56,9 @@ The slim-findings-via-events approach (ADR-005) is retained as a fallback but is
 - Normalize play uses `uri` module to POST findings; falls back to event-based approach if `backstage_api_url` is not set
 - Scan lifecycle: backend marks scan as `failed` if Controller launch returns an error (no orphaned running scans)
 - Jinja hardening: `default([])` on list variables in normalize play prevents undefined variable errors
+
+## Amendment: Findings Deduplication (2026-06-06)
+
+The ingest endpoint now uses `onConflict('scan_id', 'rule_id', 'host').merge()` when saving findings, backed by a unique constraint added in migration 016. This prevents duplicate rows when a playbook retries the POST after a transient failure or when findings for the same `(scan_id, rule_id, host)` tuple arrive via both Direct POST and event fallback. The merge strategy updates all mutable columns (status, severity, evidence, actual/expected values) with the latest data. See ADR-018 for full rationale.
+
+Additionally, `upsertRuleMetadata` now writes `aap_impact` and `aap_impact_reason` fields to the rule metadata table. The `normalize_xccdf` module emits `aap_impact` from the `rules_metadata_file` parameter, and `buildMultiHostFindings` reads impact data exclusively from the DB metadata table. The YAML fallback path has been removed entirely -- the DB is the sole runtime cache for rule enrichment metadata.

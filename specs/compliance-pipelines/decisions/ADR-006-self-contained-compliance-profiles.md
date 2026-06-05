@@ -29,3 +29,7 @@ This keeps compliance profiles self-contained: adding a new profile to Controlle
 - **Positive:** Eliminates coupling between plugin release cycle and content release cycle.
 - **Negative:** Every normalizer bears the burden of populating all CFF metadata fields. Tier 2 normalizers may need supplementary mapping files.
 - **Negative:** Slim findings (ADR-005) strip metadata for event transport, so the dashboard may show less detail until the direct POST channel (ADR-007) is implemented.
+
+## Amendment (2026-06-06)
+
+The self-containment principle has been further strengthened: the plugin's YAML fallback path for rule metadata (which loaded metadata from bundled `profiles/*/rules/*.yml` files) has been removed entirely (ADR-019). The DB `compliance_rule_metadata` table, populated during findings ingest, is now the sole runtime cache. This eliminates the last coupling between the plugin's runtime behavior and the content files shipped in the collection -- the plugin truly displays only what it receives via the CFF pipeline.

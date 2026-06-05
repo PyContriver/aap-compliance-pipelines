@@ -69,7 +69,7 @@ The `resurfaced` state is the key differentiator vs Drata/Vanta (which just reop
 
 - 8 database tests covering all 7 state transitions + cross-inventory isolation
 - `getBatchScanStatsAggregated` test verifying state counts
-- `ComplianceService.mapRawFinding` test updated for `findingState: null`
+- `FindingsParser.mapRawFinding` test updated for `findingState: null` (method moved from ComplianceService to FindingsParser in ADR-019)
 - 304/304 tests pass across 12 suites
 - Manual testing on Netrunner Portal: full fail→fix→resurfaced cycle verified
 
@@ -87,7 +87,7 @@ The `resurfaced` state is the key differentiator vs Drata/Vanta (which just reop
 | `compliance-common/src/types/api.ts` | FindingState, FindingStateSummary, updated interfaces |
 | `compliance-backend/src/database/ComplianceDatabase.ts` | State computation, query updates |
 | `compliance-backend/src/router.ts` | Ingest hook, state filter |
-| `compliance-backend/src/service/ComplianceService.ts` | State passthrough in aggregation |
+| `compliance-backend/src/service/FindingsParser.ts` | State passthrough in aggregation (extracted from ComplianceService, ADR-019) |
 | `compliance-backend/src/service/MockDataProvider.ts` | Mock state data |
 | `compliance/src/components/ResultsViewer/FindingRow.tsx` | State chips + per-host chips |
 | `compliance/src/components/ResultsViewer/ResultsViewer.tsx` | State filter |

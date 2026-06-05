@@ -180,6 +180,7 @@ aap-compliance-pipelines/
     examples/                    Sample catalog entities and templates
     .husky/                      Git hooks (pre-commit)
   profiles/                      Self-contained compliance profiles (one per framework)
+    _shared/                     Shared normalizer logic and AAP-impact dictionaries
     rhel9-stig/                  DISA STIG V2R8 for RHEL 9
       ansible_collections/security/compliance_rhel9_stig/
       ee/                        Standalone EE definition

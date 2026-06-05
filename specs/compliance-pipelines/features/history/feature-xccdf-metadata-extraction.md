@@ -16,15 +16,15 @@ Extract metadata from the XCCDF datastream (not just the results XML) during nor
 - `check_text`: from `<rationale>` element (all 1479 rules) -- best proxy since SSG lacks inline check content
 - `evidence`: actual/expected value mapping from structured evidence objects
 
-Store extracted metadata in `compliance_rule_metadata` table (migration 003) for DB-first lookup with YAML fallback.
+Store extracted metadata in `compliance_rule_metadata` table (migration 003) for DB-first lookup. ~~YAML fallback was the original secondary path but has been removed (2026-06-06, ADR-019) -- the DB is now the sole runtime cache.~~
 
 ## Implementation Summary
 
 - `normalize_xccdf.py`: enhanced to parse datastream XML for metadata fields, not just results XML
 - Migration 003: `compliance_rule_metadata` table (rule_id, title, description, fix_text, check_text)
-- Backend: `upsertRuleMetadata()` with batch INSERT ON CONFLICT MERGE (replaced N+1 upsert of 732 queries with 4 queries)
+- Backend: `upsertRuleMetadata()` with batch INSERT ON CONFLICT MERGE (replaced N+1 upsert of 732 queries with 4 queries). Now also writes `aap_impact` and `aap_impact_reason` fields (2026-06-06).
 - Backend: `getRuleMetadataBulk()` for DB-first metadata lookup
-- Frontend: displays metadata from DB, falls back to YAML if not found
+- ~~Frontend: displays metadata from DB, falls back to YAML if not found~~ Frontend displays metadata from DB only (YAML fallback removed 2026-06-06, ADR-019)
 - Evidence mapping: structured actual/expected values from XCCDF check results
 
 ## Testing

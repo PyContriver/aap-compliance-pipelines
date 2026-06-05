@@ -179,3 +179,10 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 All findings are accepted and prioritized. Bundle 1 is the next PR. Bundle 2 is pre-production. Bundle 3 is tech debt.
 
 No architectural changes required — the plugin structure, patterns, and security baseline are sound for an MVP.
+
+## Amendment: Findings Resolved (2026-06-06)
+
+The following items have been partially or fully addressed by today's changes:
+
+- **M11 (Rule Metadata Upsert)**: `upsertRuleMetadata` now correctly writes `aap_impact` and `aap_impact_reason` fields. The YAML fallback path that was masking upsert failures has been removed entirely -- the DB is the sole runtime cache (ADR-019). Silent failure of the upsert itself remains; the warning-level logging is retained as sufficient for an MVP since ingest tokens already restrict who can submit data.
+- **Code quality**: The monolithic `ComplianceService.ts` (flagged informally as a maintainability concern) has been decomposed into three focused modules: `FindingsParser`, `RemediationPlanBuilder`, and `DashboardAggregator` (ADR-019). This reduces the blast radius of changes and improves testability.

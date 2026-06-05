@@ -57,7 +57,9 @@ Full guide: `docs/deployment-guide.md`
 
 ## Scanner Architecture
 
-Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide. Three profiles ship under `profiles/`:
+Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide. Three profiles ship under `profiles/`.
+
+**Shared normalizer logic:** All profiles share a single `normalize_common.py` at `profiles/_shared/normalize_common.py`. Each collection's `plugins/modules/normalize_xccdf.py` is a thin wrapper that imports from `plugins/module_utils/normalize_common.py` (a synced copy). After editing the shared source, run `python scripts/sync_shared_modules.py` to propagate changes to all collections.
 
 | Profile | Framework | XCCDF Profile | Certification |
 |---------|-----------|---------------|---------------|
@@ -70,7 +72,7 @@ Each profile has the same pipeline structure:
 2. `normalize.yml` (standalone utility): same normalization logic, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
 
-Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010), `remediate_jt_name` (auto-populate for Settings form), `remediation_playbook` (auto-populate).
+Extra vars for assessment JT: `scan_id`, `backstage_api_url`, `ingest_token` (per-scan security token, ADR-010), `remediate_jt_name` (auto-populate for Settings form), `remediation_playbook` (auto-populate). The normalizer also accepts `rules_metadata_file` (path to the collection's `rules/*.yml`) for AAP-impact classification metadata; it is resolved automatically from the collection's `rules/` directory at scan time.
 
 Key files in the EE (same for all profiles — `scap-security-guide` ships all datastreams):
 - `/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml` — SCAP datastream (all profiles)
@@ -85,5 +87,5 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 304 tests across 12 suites (frontend + backend + database) + 57 collection unit tests
-- 16 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 57 collection unit tests (19 per profile) + backend/frontend test suites
+- 20 formal ADRs in `specs/compliance-pipelines/decisions/`
