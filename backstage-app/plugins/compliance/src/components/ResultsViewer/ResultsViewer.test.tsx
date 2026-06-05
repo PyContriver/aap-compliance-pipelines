@@ -61,7 +61,8 @@ describe('ResultsViewer', () => {
     expect(screen.getByText('Title')).toBeInTheDocument();
     expect(screen.getByText('Hosts')).toBeInTheDocument();
     expect(screen.getByText('Pass Rate')).toBeInTheDocument();
-    expect(screen.getByText('Severity')).toBeInTheDocument();
+    // "Severity" appears both as a table header and a FilterGroup label
+    expect(screen.getAllByText('Severity').length).toBeGreaterThanOrEqual(1);
   });
 
   it('displays scan results title', async () => {

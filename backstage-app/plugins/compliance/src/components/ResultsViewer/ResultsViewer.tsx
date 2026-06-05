@@ -41,7 +41,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import ListIcon from '@material-ui/icons/List';
-import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification, BaselineTarget, AuthoritativeScanResponse, RemediationProfile } from '@aap-compliance/common';
+import type { MultiHostFinding } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { ExportButton } from './ExportButton';
@@ -49,35 +49,59 @@ import { ScanFailedView } from './ScanFailedView';
 import { SummaryCards } from './SummaryCards';
 import { VerificationComparison } from './VerificationComparison';
 import { FindingRow } from './FindingRow';
+import { FilterGroup } from './FilterGroup';
+import type { FilterOption } from './FilterGroup';
+import { useScanMetadata, useBaselineState, useFindingsFilter } from './hooks';
+
+// ─── Filter definitions ──────────────────────────────────────────────
+
+const SEVERITY_OPTIONS: FilterOption[] = [
+  { key: 'CAT_I', label: 'CAT I', color: '#C9190B' },
+  { key: 'CAT_II', label: 'CAT II', color: '#F0AB00' },
+  { key: 'CAT_III', label: 'CAT III', color: '#0066CC' },
+];
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { key: 'fail', label: 'Failing', color: '#C9190B' },
+  { key: 'pass', label: 'Passing', color: '#3E8635' },
+];
+
+const STATE_OPTIONS: FilterOption[] = [
+  { key: 'new', label: 'New', color: '#0066CC' },
+  { key: 'fixed', label: 'Fixed', color: '#3E8635' },
+  { key: 'resurfaced', label: 'Resurfaced', color: '#C9190B' },
+  { key: 'active', label: 'Active', color: '#6A6E73' },
+];
+
+const RISK_OPTIONS: FilterOption[] = [
+  { key: 'disruption:high', label: 'High Disruption', color: '#C9190B' },
+  { key: 'aap:caution', label: 'AAP Caution', color: '#F0AB00' },
+  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: '#C9190B' },
+];
+
+// ─── Styles ──────────────────────────────────────────────────────────
 
 const useStyles = makeStyles(theme => ({
-  filterRow: {
+  filterBar: {
     display: 'flex',
     gap: theme.spacing(1),
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+    [theme.breakpoints.down('md')]: {
+      '& > :first-child': {
+        flex: '1 1 100%',
+      },
+    },
   },
-  filterGroup: {
+  activeFiltersRow: {
     display: 'flex',
     gap: theme.spacing(0.5),
     alignItems: 'center',
-    borderRight: `1px solid ${theme.palette.divider}`,
-    paddingRight: theme.spacing(1),
-    marginRight: theme.spacing(0.5),
-    '&:last-child': {
-      borderRight: 'none',
-      paddingRight: 0,
-      marginRight: 0,
-    },
-  },
-  filterChip: {
-    cursor: 'pointer',
-    fontWeight: 500,
-    fontSize: '0.75rem',
-  },
-  filterChipActive: {
-    fontWeight: 600,
+    flexWrap: 'wrap',
+    marginBottom: theme.spacing(2),
+    paddingTop: theme.spacing(0.5),
+    borderTop: `1px solid ${theme.palette.divider}`,
   },
   actionBar: {
     display: 'flex',
@@ -100,118 +124,85 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const severityOrder: Record<FindingSeverity, number> = {
-  CAT_I: 0,
-  CAT_II: 1,
-  CAT_III: 2,
-};
+// ─── Component ───────────────────────────────────────────────────────
 
 export const ResultsViewer = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
   const { jobId } = useParams<{ jobId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const severityFilter = searchParams.get('severity') || 'all';
-  const statusFilter = searchParams.get('status') || 'all';
-  const stateFilter = (searchParams.get('state') || 'all') as FindingState | 'all';
-  const disruptionFilter = searchParams.get('disruption') || 'all';
-  const aapFilter = searchParams.get('aap') || 'all';
-  const searchQuery = searchParams.get('q') || '';
-
-  const [expandedRule, setExpandedRule] = useState<string | null>(null);
+  // ─── Extracted hooks ─────────────────────────────────────────────
+  const meta = useScanMetadata(api, jobId);
+  const baseline = useBaselineState(api, meta.scanComplianceProfileId, meta.scanInventoryId);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
+  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings);
+
+  // ─── Local state ─────────────────────────────────────────────────
+  const [expandedRule, setExpandedRule] = useState<string | null>(null);
   const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [scanType, setScanType] = useState<'assessment' | 'verification'>('assessment');
   const [findingsExpanded, setFindingsExpanded] = useState(true);
-  const [profileName, setProfileName] = useState<string>('');
-  const [frameworkLabel, setFrameworkLabel] = useState<string>('');
-  const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
-  const [scanComplianceProfileId, setScanComplianceProfileId] = useState<string>('');
-  const [scanInventoryId, setScanInventoryId] = useState<number | null>(null);
-  const [scanStartedAt, setScanStartedAt] = useState<string>('');
   const [compareProfileMismatch, setCompareProfileMismatch] = useState(false);
   const [compareSwapped, setCompareSwapped] = useState(false);
-  const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
   const [overflowAnchor, setOverflowAnchor] = useState<null | HTMLElement>(null);
-  const [baselineLaunchOpen, setBaselineLaunchOpen] = useState(false);
-  const [baselineProfile, setBaselineProfile] = useState<RemediationProfile | null>(null);
-  const [baselineScanCheck, setBaselineScanCheck] = useState<AuthoritativeScanResponse | null>(null);
-  const [baselineScanChecking, setBaselineScanChecking] = useState(false);
-  const [baselineScanMissing, setBaselineScanMissing] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const compareToScanId = searchParams.get('compareTo');
 
-  useEffect(() => {
-    if (!jobId) return;
-    let cancelled = false;
-    api.getScans().then(scans => {
-      if (cancelled) return;
-      const match = scans.find(
-        s => s.id === jobId || String(s.workflowJobId) === jobId,
-      );
-      if (match?.scanType) {
-        setScanType(match.scanType);
-      }
-      if (match) {
-        setScanComplianceProfileId(match.profileId);
-        setScanInventoryId(match.inventoryId);
-        setScanStartedAt(match.startedAt);
-        api.getRegisteredProfiles().then(profiles => {
-          if (cancelled) return;
-          const cart = profiles.find(c => c.id === match.profileId);
-          if (cart) {
-            setProfileName(cart.displayName);
-            setFrameworkLabel(cart.framework);
-            setProfileCert(cart.certification);
-          }
-        }).catch(() => {});
-      }
-    }).catch(err => {
-      console.error('Failed to load scan metadata for scan type:', err);
-    });
-    return () => { cancelled = true; };
-  }, [api, jobId]);
+  // ─── Risk filter: merges disruption + aap into a single group ──
+  const riskActiveValue = useMemo(() => {
+    if (filters.disruption !== 'all') return `disruption:${filters.disruption}`;
+    if (filters.aap !== 'all') return `aap:${filters.aap}`;
+    return 'all';
+  }, [filters.disruption, filters.aap]);
 
-  useEffect(() => {
-    if (!scanComplianceProfileId || !scanInventoryId) return;
-    api.getBaselineTargets(scanComplianceProfileId)
-      .then(targets => {
-        const match = targets.find(t => t.inventoryId === scanInventoryId);
-        setBaselineForScan(match ?? null);
-      })
-      .catch(() => setBaselineForScan(null));
-  }, [api, scanComplianceProfileId, scanInventoryId]);
+  const handleRiskSelect = useCallback((key: string) => {
+    if (key === 'all') {
+      updateFilter('disruption', 'all');
+      updateFilter('aap', 'all');
+      return;
+    }
+    const [kind, value] = key.split(':');
+    if (kind === 'disruption') {
+      updateFilter('aap', 'all');
+      updateFilter('disruption', value);
+    } else {
+      updateFilter('disruption', 'all');
+      updateFilter('aap', value);
+    }
+  }, [updateFilter]);
 
-  useEffect(() => {
-    if (!baselineLaunchOpen || !baselineForScan || !scanInventoryId || !scanComplianceProfileId) return;
-    let cancelled = false;
-    setBaselineScanChecking(true);
-    setBaselineScanCheck(null);
-    setBaselineScanMissing(false);
-    setBaselineProfile(null);
+  // ─── Active filter pills for the summary row ────────────────────
+  const activeFilterPills = useMemo(() => {
+    const pills: Array<{ label: string; key: string; clearKey: string; color: string }> = [];
+    if (filters.severity !== 'all') {
+      const opt = SEVERITY_OPTIONS.find(o => o.key === filters.severity);
+      if (opt) pills.push({ label: opt.label, key: 'severity', clearKey: 'severity', color: opt.color });
+    }
+    if (filters.status !== 'all') {
+      const opt = STATUS_OPTIONS.find(o => o.key === filters.status);
+      if (opt) pills.push({ label: opt.label, key: 'status', clearKey: 'status', color: opt.color });
+    }
+    if (filters.state !== 'all') {
+      const opt = STATE_OPTIONS.find(o => o.key === filters.state);
+      if (opt) pills.push({ label: opt.label, key: 'state', clearKey: 'state', color: opt.color });
+    }
+    if (filters.disruption !== 'all') {
+      const rKey = `disruption:${filters.disruption}`;
+      const opt = RISK_OPTIONS.find(o => o.key === rKey);
+      if (opt) pills.push({ label: opt.label, key: 'disruption', clearKey: 'disruption', color: opt.color });
+    }
+    if (filters.aap !== 'all') {
+      const rKey = `aap:${filters.aap}`;
+      const opt = RISK_OPTIONS.find(o => o.key === rKey);
+      if (opt) pills.push({ label: opt.label, key: 'aap', clearKey: 'aap', color: opt.color });
+    }
+    return pills;
+  }, [filters]);
 
-    Promise.all([
-      api.getRemediationProfile(baselineForScan.remediationProfileId),
-      api.getAuthoritativeScan(scanComplianceProfileId, scanInventoryId),
-    ]).then(([profile, scanResult]) => {
-      if (cancelled) return;
-      setBaselineProfile(profile);
-      if (scanResult) {
-        setBaselineScanCheck(scanResult);
-      } else {
-        setBaselineScanMissing(true);
-      }
-    }).catch(() => {
-      if (!cancelled) setBaselineScanMissing(true);
-    }).finally(() => {
-      if (!cancelled) setBaselineScanChecking(false);
-    });
-
-    return () => { cancelled = true; };
-  }, [api, baselineLaunchOpen, baselineForScan, scanComplianceProfileId, scanInventoryId]);
+  // ─── Comparison / verification data ──────────────────────────────
 
   useEffect(() => {
     let cancelled = false;
@@ -225,10 +216,10 @@ export const ResultsViewer = () => {
         ),
       ]).then(([data, compareScan]) => {
         if (cancelled) return;
-        if (compareScan && scanComplianceProfileId && compareScan.profileId !== scanComplianceProfileId) {
+        if (compareScan && meta.scanComplianceProfileId && compareScan.profileId !== meta.scanComplianceProfileId) {
           setCompareProfileMismatch(true);
         }
-        if (compareScan && scanStartedAt && new Date(compareScan.startedAt) > new Date(scanStartedAt)) {
+        if (compareScan && meta.scanStartedAt && new Date(compareScan.startedAt) > new Date(meta.scanStartedAt)) {
           setCompareSwapped(true);
         }
         setPreviousFindings(data);
@@ -236,7 +227,7 @@ export const ResultsViewer = () => {
       }).catch(err => {
         console.error('Failed to load comparison findings:', err);
       });
-    } else if (scanType === 'verification' && jobId) {
+    } else if (meta.scanType === 'verification' && jobId) {
       api.getPreviousFindings(jobId).then(data => {
         if (cancelled) return;
         setPreviousFindings(data);
@@ -246,7 +237,9 @@ export const ResultsViewer = () => {
       });
     }
     return () => { cancelled = true; };
-  }, [api, jobId, scanType, compareToScanId, scanComplianceProfileId, scanStartedAt]);
+  }, [api, jobId, meta.scanType, compareToScanId, meta.scanComplianceProfileId, meta.scanStartedAt]);
+
+  // ─── Findings fetch / poll ───────────────────────────────────────
 
   const isWorkflowPoll = jobId ? /^\d+$/.test(jobId) : false;
 
@@ -290,7 +283,7 @@ export const ResultsViewer = () => {
     return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [api, jobId, isWorkflowPoll]);
 
-  // ─── Computed metrics ──────────────────────────────────────────────
+  // ─── Computed metrics ────────────────────────────────────────────
 
   const totalHosts = useMemo(() => {
     const hostSet = new Set<string>();
@@ -304,7 +297,7 @@ export const ResultsViewer = () => {
     ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
     : 0;
 
-  const isVerification = scanType === 'verification';
+  const isVerification = meta.scanType === 'verification';
   const isComparison = !!compareToScanId || isVerification;
   const previousPassRate = useMemo(() => {
     if (previousFindings.length === 0) return 0;
@@ -334,45 +327,7 @@ export const ResultsViewer = () => {
     return { improved, regressed, unchanged };
   }, [isComparison, findings, previousFindings]);
 
-  const filtered = useMemo(() =>
-    findings
-      .filter(f => severityFilter === 'all' || f.severity === severityFilter)
-      .filter(f => {
-        if (statusFilter === 'all') return true;
-        if (statusFilter === 'fail') return f.failCount > 0;
-        if (statusFilter === 'pass') return f.failCount === 0;
-        return true;
-      })
-      .filter(f => {
-        if (stateFilter === 'all') return true;
-        if (!f.stateSummary) return false;
-        return (f.stateSummary[stateFilter] ?? 0) > 0;
-      })
-      .filter(f => disruptionFilter === 'all' || f.disruption === disruptionFilter)
-      .filter(f => aapFilter === 'all' || f.aapImpact === aapFilter)
-      .filter(f =>
-        searchQuery === '' ||
-        f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.stigId.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-      .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
-    [findings, severityFilter, statusFilter, stateFilter, disruptionFilter, aapFilter, searchQuery],
-  );
-
-  const activeFilterCount = [severityFilter, statusFilter, stateFilter, disruptionFilter, aapFilter]
-    .filter(f => f !== 'all').length;
-
-  const updateFilter = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams);
-    if (value === 'all' || value === '') {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
-    setSearchParams(params, { replace: true });
-  };
-
-  // ─── Scan progress callbacks ──────────────────────────────────────
+  // ─── Scan progress callbacks ─────────────────────────────────────
 
   const [showProgress, setShowProgress] = useState(false);
   useEffect(() => {
@@ -419,13 +374,13 @@ export const ResultsViewer = () => {
     });
   }, [api, jobId]);
 
-  // ─── Render states ────────────────────────────────────────────────
+  // ─── Render states ───────────────────────────────────────────────
 
   if (loading) {
     if (showProgress && isWorkflowPoll && jobId) {
       return (
         <Box p={4}>
-          <ScanProgress workflowJobId={Number(jobId)} onComplete={triggerFetch} onFailed={handleScanFailed} scanType={scanType} />
+          <ScanProgress workflowJobId={Number(jobId)} onComplete={triggerFetch} onFailed={handleScanFailed} scanType={meta.scanType} />
         </Box>
       );
     }
@@ -445,7 +400,7 @@ export const ResultsViewer = () => {
         scanFailed={scanFailed}
         isWorkflowPoll={isWorkflowPoll}
         jobId={jobId}
-        scanType={scanType}
+        scanType={meta.scanType}
         onComplete={triggerFetch}
         onFailed={handleScanFailed}
       />
@@ -504,7 +459,11 @@ export const ResultsViewer = () => {
     );
   }
 
-  // ─── Main results view ────────────────────────────────────────────
+  // ─── Main results view ───────────────────────────────────────────
+
+  const handleGroupToggle = (group: string) => {
+    setExpandedGroup(prev => (prev === group ? null : group));
+  };
 
   return (
     <>
@@ -517,11 +476,11 @@ export const ResultsViewer = () => {
 
       <Box mt={2} />
 
-      {profileCert && (
+      {meta.profileCert && (
         <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
-          <Typography variant="subtitle2">{profileName}</Typography>
-          <Chip label={frameworkLabel} size="small" variant="outlined" />
-          <CertificationBadge certification={profileCert} />
+          <Typography variant="subtitle2">{meta.profileName}</Typography>
+          <Chip label={meta.frameworkLabel} size="small" variant="outlined" />
+          <CertificationBadge certification={meta.profileCert} />
         </Box>
       )}
 
@@ -564,12 +523,12 @@ export const ResultsViewer = () => {
         <Box display="flex" style={{ gap: 8 }} alignItems="center">
           <ExportButton findings={filtered} profileName={jobId} />
 
-          {baselineForScan ? (
+          {baseline.baselineForScan ? (
             <Button
               variant="contained"
               color="primary"
               size="large"
-              onClick={() => setBaselineLaunchOpen(true)}
+              onClick={() => baseline.setBaselineLaunchOpen(true)}
             >
               Use Baseline Remediation
             </Button>
@@ -596,8 +555,10 @@ export const ResultsViewer = () => {
             anchorEl={overflowAnchor}
             open={Boolean(overflowAnchor)}
             onClose={() => setOverflowAnchor(null)}
+            elevation={3}
+            PaperProps={{ style: { borderRadius: 8 } }}
           >
-            {baselineForScan ? (
+            {baseline.baselineForScan ? (
               [
                 <MenuItem key="build" onClick={() => {
                   setOverflowAnchor(null);
@@ -608,8 +569,8 @@ export const ResultsViewer = () => {
                 </MenuItem>,
                 <MenuItem key="other" onClick={() => {
                   setOverflowAnchor(null);
-                  const filter = scanComplianceProfileId
-                    ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+                  const filter = meta.scanComplianceProfileId
+                    ? `?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`
                     : '';
                   navigate(`/compliance/remediations${filter}`);
                 }}>
@@ -620,8 +581,8 @@ export const ResultsViewer = () => {
             ) : (
               <MenuItem onClick={() => {
                 setOverflowAnchor(null);
-                const filter = scanComplianceProfileId
-                  ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+                const filter = meta.scanComplianceProfileId
+                  ? `?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`
                   : '';
                 navigate(`/compliance/remediations${filter}`);
               }}>
@@ -650,13 +611,14 @@ export const ResultsViewer = () => {
       )}
       <Collapse in={findingsExpanded}>
       <InfoCard title="Findings by Rule">
-        <div className={classes.filterRow}>
+        {/* Filter bar */}
+        <div className={classes.filterBar}>
           <TextField
             placeholder="Search by title or rule ID..."
             variant="outlined"
             size="small"
             style={{ minWidth: 240, flex: '1 1 240px', maxWidth: 360 }}
-            value={searchQuery}
+            value={filters.search}
             onChange={e => updateFilter('q', e.target.value)}
             InputProps={{
               startAdornment: (
@@ -665,103 +627,65 @@ export const ResultsViewer = () => {
             }}
           />
 
-          <div className={classes.filterGroup}>
-            {([
-              { key: 'CAT_I' as const, bg: '#C9190B' },
-              { key: 'CAT_II' as const, bg: '#F0AB00' },
-              { key: 'CAT_III' as const, bg: '#0066CC' },
-            ]).map(({ key, bg }) => (
-              <Chip
-                key={key}
-                label={key.replace('_', ' ')}
-                size="small"
-                className={`${classes.filterChip} ${severityFilter === key ? classes.filterChipActive : ''}`}
-                variant={severityFilter === key ? 'default' : 'outlined'}
-                style={severityFilter === key ? { backgroundColor: bg, color: '#fff' } : undefined}
-                onClick={() => updateFilter('severity', severityFilter === key ? 'all' : key)}
-              />
-            ))}
-          </div>
+          <FilterGroup
+            label="Severity"
+            options={SEVERITY_OPTIONS}
+            activeValue={filters.severity}
+            expanded={expandedGroup === 'severity'}
+            onToggleExpand={() => handleGroupToggle('severity')}
+            onSelect={key => updateFilter('severity', key)}
+          />
 
-          <div className={classes.filterGroup}>
-            <Chip
-              label="Failing"
-              size="small"
-              className={`${classes.filterChip} ${statusFilter === 'fail' ? classes.filterChipActive : ''}`}
-              variant={statusFilter === 'fail' ? 'default' : 'outlined'}
-              style={statusFilter === 'fail' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
-              onClick={() => updateFilter('status', statusFilter === 'fail' ? 'all' : 'fail')}
-            />
-            <Chip
-              label="Passing"
-              size="small"
-              className={`${classes.filterChip} ${statusFilter === 'pass' ? classes.filterChipActive : ''}`}
-              variant={statusFilter === 'pass' ? 'default' : 'outlined'}
-              style={statusFilter === 'pass' ? { backgroundColor: '#3E8635', color: '#fff' } : undefined}
-              onClick={() => updateFilter('status', statusFilter === 'pass' ? 'all' : 'pass')}
-            />
-          </div>
+          <FilterGroup
+            label="Status"
+            options={STATUS_OPTIONS}
+            activeValue={filters.status}
+            expanded={expandedGroup === 'status'}
+            onToggleExpand={() => handleGroupToggle('status')}
+            onSelect={key => updateFilter('status', key)}
+          />
 
-          <div className={classes.filterGroup}>
-            {([
-              { key: 'new' as FindingState, bg: '#0066CC' },
-              { key: 'fixed' as FindingState, bg: '#3E8635' },
-              { key: 'resurfaced' as FindingState, bg: '#C9190B' },
-              { key: 'active' as FindingState, bg: '#6A6E73' },
-            ]).map(({ key, bg }) => (
-              <Chip
-                key={key}
-                label={key.charAt(0).toUpperCase() + key.slice(1)}
-                size="small"
-                className={`${classes.filterChip} ${stateFilter === key ? classes.filterChipActive : ''}`}
-                variant={stateFilter === key ? 'default' : 'outlined'}
-                style={stateFilter === key ? { backgroundColor: bg, color: '#fff' } : undefined}
-                onClick={() => updateFilter('state', stateFilter === key ? 'all' : key)}
-              />
-            ))}
-          </div>
+          <FilterGroup
+            label="State"
+            options={STATE_OPTIONS}
+            activeValue={filters.state}
+            expanded={expandedGroup === 'state'}
+            onToggleExpand={() => handleGroupToggle('state')}
+            onSelect={key => updateFilter('state', key)}
+          />
 
-          <div className={classes.filterGroup}>
-            <Chip
-              label="High Disruption"
-              size="small"
-              className={`${classes.filterChip} ${disruptionFilter === 'high' ? classes.filterChipActive : ''}`}
-              variant={disruptionFilter === 'high' ? 'default' : 'outlined'}
-              style={disruptionFilter === 'high' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
-              onClick={() => updateFilter('disruption', disruptionFilter === 'high' ? 'all' : 'high')}
-            />
-            <Chip
-              label="AAP Caution"
-              size="small"
-              className={`${classes.filterChip} ${aapFilter === 'caution' ? classes.filterChipActive : ''}`}
-              variant={aapFilter === 'caution' ? 'default' : 'outlined'}
-              style={aapFilter === 'caution' ? { backgroundColor: '#F0AB00', color: '#fff' } : undefined}
-              onClick={() => updateFilter('aap', aapFilter === 'caution' ? 'all' : 'caution')}
-            />
-            <Chip
-              label="Breaks AAP"
-              size="small"
-              className={`${classes.filterChip} ${aapFilter === 'breaks-connectivity' ? classes.filterChipActive : ''}`}
-              variant={aapFilter === 'breaks-connectivity' ? 'default' : 'outlined'}
-              style={aapFilter === 'breaks-connectivity' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
-              onClick={() => updateFilter('aap', aapFilter === 'breaks-connectivity' ? 'all' : 'breaks-connectivity')}
-            />
-          </div>
+          <FilterGroup
+            label="Risk"
+            options={RISK_OPTIONS}
+            activeValue={riskActiveValue}
+            expanded={expandedGroup === 'risk'}
+            onToggleExpand={() => handleGroupToggle('risk')}
+            onSelect={handleRiskSelect}
+          />
 
           <Chip label={`${filtered.length} rules`} variant="outlined" size="small" />
-          {activeFilterCount > 0 && (
+        </div>
+
+        {/* Active filter summary */}
+        {activeFilterCount > 0 && (
+          <div className={classes.activeFiltersRow}>
+            {activeFilterPills.map(pill => (
+              <Chip
+                key={pill.key}
+                label={pill.label}
+                size="small"
+                style={{ backgroundColor: pill.color, color: '#fff', fontWeight: 500, fontSize: '0.75rem' }}
+                onDelete={() => updateFilter(pill.clearKey, 'all')}
+              />
+            ))}
             <Chip
               label="Clear all"
               size="small"
               variant="outlined"
-              onDelete={() => {
-                const params = new URLSearchParams();
-                if (searchQuery) params.set('q', searchQuery);
-                setSearchParams(params, { replace: true });
-              }}
+              onDelete={clearAll}
             />
-          )}
-        </div>
+          </div>
+        )}
 
         <TableContainer>
           <Table size="small">
@@ -792,54 +716,54 @@ export const ResultsViewer = () => {
 
       {/* Baseline launch dialog */}
       <Dialog
-        open={baselineLaunchOpen}
-        onClose={() => setBaselineLaunchOpen(false)}
+        open={baseline.baselineLaunchOpen}
+        onClose={() => baseline.setBaselineLaunchOpen(false)}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle>Launch Baseline Remediation</DialogTitle>
         <DialogContent>
-          {baselineProfile ? (
+          {baseline.baselineProfile ? (
             <Box mb={2}>
               <Typography variant="body2" color="textSecondary">
-                Profile: <strong>{baselineProfile.name}</strong>
+                Profile: <strong>{baseline.baselineProfile.name}</strong>
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                Rules: {baselineProfile.selections.filter(s => s.enabled).length} selected
+                Rules: {baseline.baselineProfile.selections.filter(s => s.enabled).length} selected
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                Inventory: <strong>{profileName ? `${frameworkLabel} scan target` : `ID ${scanInventoryId}`}</strong>
+                Inventory: <strong>{meta.profileName ? `${meta.frameworkLabel} scan target` : `ID ${meta.scanInventoryId}`}</strong>
               </Typography>
             </Box>
-          ) : baselineScanChecking ? (
+          ) : baseline.baselineScanChecking ? (
             <Box display="flex" alignItems="center" py={2} style={{ gap: 8 }}>
               <CircularProgress size={20} />
               <Typography variant="body2" color="textSecondary">Loading profile...</Typography>
             </Box>
           ) : null}
 
-          {baselineScanChecking && baselineProfile && (
+          {baseline.baselineScanChecking && baseline.baselineProfile && (
             <Box display="flex" alignItems="center" style={{ gap: 8 }}>
               <CircularProgress size={16} />
               <Typography variant="body2" color="textSecondary">Checking for assessment scan...</Typography>
             </Box>
           )}
 
-          {baselineScanCheck && (
+          {baseline.baselineScanCheck && (
             <Box display="flex" alignItems="center" style={{ gap: 8, color: '#3E8635' }}>
               <CheckCircleIcon fontSize="small" />
               <Typography variant="body2">
-                Last scan: {baselineScanCheck.passRate}% pass rate ({baselineScanCheck.passCount} pass, {baselineScanCheck.failCount} fail)
-                {baselineScanCheck.scan.completedAt && (
+                Last scan: {baseline.baselineScanCheck.passRate}% pass rate ({baseline.baselineScanCheck.passCount} pass, {baseline.baselineScanCheck.failCount} fail)
+                {baseline.baselineScanCheck.scan.completedAt && (
                   <span style={{ color: '#6A6E73' }}>
-                    {' '}— {new Date(baselineScanCheck.scan.completedAt).toLocaleDateString()}
+                    {' '}&mdash; {new Date(baseline.baselineScanCheck.scan.completedAt).toLocaleDateString()}
                   </span>
                 )}
               </Typography>
             </Box>
           )}
 
-          {baselineScanMissing && (
+          {baseline.baselineScanMissing && (
             <Box>
               <Box display="flex" alignItems="center" style={{ gap: 8, color: '#C9190B', marginBottom: 8 }}>
                 <WarningIcon fontSize="small" />
@@ -849,10 +773,10 @@ export const ResultsViewer = () => {
                 size="small"
                 variant="outlined"
                 onClick={() => {
-                  setBaselineLaunchOpen(false);
+                  baseline.setBaselineLaunchOpen(false);
                   const params = new URLSearchParams();
-                  if (scanComplianceProfileId) params.set('profile', scanComplianceProfileId);
-                  if (scanInventoryId) params.set('inventory', String(scanInventoryId));
+                  if (meta.scanComplianceProfileId) params.set('profile', meta.scanComplianceProfileId);
+                  if (meta.scanInventoryId) params.set('inventory', String(meta.scanInventoryId));
                   navigate(`/compliance/scan?${params.toString()}`);
                 }}
               >
@@ -862,19 +786,19 @@ export const ResultsViewer = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBaselineLaunchOpen(false)}>Cancel</Button>
+          <Button onClick={() => baseline.setBaselineLaunchOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
             color="primary"
-            disabled={!baselineScanCheck || baselineScanChecking}
+            disabled={!baseline.baselineScanCheck || baseline.baselineScanChecking}
             startIcon={<PlayArrowIcon />}
             onClick={() => {
-              if (!baselineForScan || !baselineScanCheck || !scanInventoryId) return;
+              if (!baseline.baselineForScan || !baseline.baselineScanCheck || !meta.scanInventoryId) return;
               const params = new URLSearchParams();
-              params.set('profileId', baselineForScan.remediationProfileId);
-              params.set('inventoryId', String(scanInventoryId));
-              params.set('scanId', baselineScanCheck.scan.id);
-              setBaselineLaunchOpen(false);
+              params.set('profileId', baseline.baselineForScan.remediationProfileId);
+              params.set('inventoryId', String(meta.scanInventoryId));
+              params.set('scanId', baseline.baselineScanCheck.scan.id);
+              baseline.setBaselineLaunchOpen(false);
               navigate(`/compliance/execute/launch?${params.toString()}`);
             }}
           >
