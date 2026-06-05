@@ -174,7 +174,8 @@ export class FindingsParser {
   async storedFindingsToMultiHostAsync(
     stored: StoredFinding[],
   ): Promise<MultiHostFinding[]> {
-    const byRule = this.groupFindingsByRule(stored);
+    const filtered = stored.filter(f => f.host !== 'localhost');
+    const byRule = this.groupFindingsByRule(filtered);
     const ruleIds = Array.from(byRule.keys());
     let dbMeta = new Map<string, RuleMetadataRecord>();
     if (this.database) {
