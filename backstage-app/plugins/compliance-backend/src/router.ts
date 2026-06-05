@@ -1292,32 +1292,31 @@ export async function createRouter(
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   router.get('/remediation-profiles', async (req, res) => {
-    // Stale execution recovery: on list load, check executions stuck
-    // in 'pending'/'running' >30min. Query Controller for actual status.
+    // Execution reconciliation: on every list load, check ALL running/pending
+    // executions against Controller and resolve any that have completed.
     try {
-      const stale = await database.getStaleRunningExecutions(0.5);
-      for (const exec of stale) {
-        let resolvedStatus: 'succeeded' | 'failed' = 'failed';
-        if (exec.primaryJobId) {
-          try {
-            const job = await service.getJobStatus(exec.primaryJobId);
-            if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
-              continue;
-            }
-            resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
-          } catch (controllerErr) {
-            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
+      const userToken = getUserAapToken(req);
+      const running = await database.getStaleRunningExecutions(0);
+      for (const exec of running) {
+        if (!exec.primaryJobId) continue;
+        try {
+          const job = await service.getJobStatus(exec.primaryJobId, userToken);
+          if (['running', 'pending', 'waiting', 'new'].includes(job.status)) {
             continue;
           }
+          const resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
+          logger.info(`Reconciled execution ${exec.id} (job ${exec.primaryJobId}) → ${resolvedStatus}`);
+          await database.updateExecutionStatus(exec.id, {
+            status: resolvedStatus as 'succeeded' | 'failed',
+            completedAt: job.finished ?? new Date().toISOString(),
+            elapsedSeconds: job.elapsed ? Math.round(job.elapsed) : undefined,
+          });
+        } catch (controllerErr) {
+          logger.debug(`Reconciliation: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
         }
-        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt}) → ${resolvedStatus}`);
-        await database.updateExecutionStatus(exec.id, {
-          status: resolvedStatus,
-          completedAt: new Date().toISOString(),
-        });
       }
     } catch (err) {
-      logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);
+      logger.warn(`Execution reconciliation failed: ${err instanceof Error ? err.message : err}`);
     }
 
     const statusFilter = req.query.status as string | undefined;
