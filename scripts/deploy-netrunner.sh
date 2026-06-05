@@ -13,12 +13,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BACKSTAGE="$REPO_ROOT/backstage-app"
-PORTAL_HOST="cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com"
+DEFAULT_HOST="cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com"
 PORTAL_KEY="$HOME/.claude/keys/portal-netrunner.pem"
 REMOTE_PLUGIN_DIR="/var/lib/portal/compliance-plugins"
 OVERRIDE_YAML="/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml"
-
-SSH_OPTS="-i $PORTAL_KEY -o StrictHostKeyChecking=no -o LogLevel=ERROR"
 
 BE_PKG="$BACKSTAGE/plugins/compliance-backend"
 FE_PKG="$BACKSTAGE/plugins/compliance"
@@ -26,14 +24,18 @@ FE_PKG="$BACKSTAGE/plugins/compliance"
 DEPLOY_BE=true
 DEPLOY_FE=true
 DO_BUMP=true
+PORTAL_HOST="$DEFAULT_HOST"
 
 for arg in "$@"; do
   case "$arg" in
     backend)  DEPLOY_FE=false ;;
     frontend) DEPLOY_BE=false ;;
     --no-bump) DO_BUMP=false ;;
+    --host=*) PORTAL_HOST="${arg#--host=}" ;;
   esac
 done
+
+SSH_OPTS="-i $PORTAL_KEY -o StrictHostKeyChecking=no -o LogLevel=ERROR"
 
 bump_patch() {
   local pkg="$1"
@@ -74,6 +76,20 @@ fi
 
 BE_VER=$(get_version "$BE_PKG")
 FE_VER=$(get_version "$FE_PKG")
+
+# Step 1.5: Migration parity check
+if $DEPLOY_BE; then
+  TS_MIGRATIONS=$(ls "$BE_PKG/src/database/migrations/"*.ts 2>/dev/null | xargs -I{} basename {} .ts | sort)
+  JS_MIGRATIONS=$(ls "$BE_PKG/migrations/"*.js 2>/dev/null | xargs -I{} basename {} .js | sort)
+  MISSING=$(diff <(echo "$TS_MIGRATIONS") <(echo "$JS_MIGRATIONS") | grep "^<" | sed 's/^< //')
+  if [ -n "$MISSING" ]; then
+    echo "ERROR: TS migrations missing compiled JS counterparts:"
+    echo "$MISSING" | while read -r m; do echo "  $m.ts has no $m.js"; done
+    echo "Compile them to migrations/ before deploying."
+    exit 1
+  fi
+  echo "[1.5/7] Migration parity check passed ($(echo "$TS_MIGRATIONS" | wc -l | tr -d ' ') migrations)"
+fi
 
 # Step 2: Export dynamic plugins
 if $DEPLOY_BE; then
@@ -137,17 +153,17 @@ for tgz in "${TARBALLS[@]}"; do
 done
 echo "[3.6/7] Tarball format validated (npm-pack, <50MB each)"
 
-# Step 4: Upload
+# Step 4: Upload (keep previous tarballs for rollback)
 echo "[4/7] Uploading to Portal host..."
 scp $SSH_OPTS "${TARBALLS[@]}" "$PORTAL_HOST:/tmp/"
 ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/aap-compliance-plugin-compliance-*dynamic-*.tgz $REMOTE_PLUGIN_DIR/"
 if $DEPLOY_BE; then
-  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/$BE_TGZ $REMOTE_PLUGIN_DIR/backend.tgz"
+  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp $REMOTE_PLUGIN_DIR/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz.prev 2>/dev/null; sudo cp /tmp/$BE_TGZ $REMOTE_PLUGIN_DIR/backend.tgz"
 fi
 if $DEPLOY_FE; then
-  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp /tmp/$FE_TGZ $REMOTE_PLUGIN_DIR/frontend.tgz"
+  ssh $SSH_OPTS "$PORTAL_HOST" "sudo cp $REMOTE_PLUGIN_DIR/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz.prev 2>/dev/null; sudo cp /tmp/$FE_TGZ $REMOTE_PLUGIN_DIR/frontend.tgz"
 fi
-echo "       Uploaded ${#TARBALLS[@]} tarball(s) (versioned + stable names)"
+echo "       Uploaded ${#TARBALLS[@]} tarball(s) (versioned + stable names, prev kept for rollback)"
 
 # Step 5: Update config with integrity hashes
 echo "[5/7] Updating Portal config..."
@@ -202,22 +218,35 @@ echo "       Cleared stale extraction dirs"
 echo "[6/7] Restarting Portal service..."
 ssh $SSH_OPTS "$PORTAL_HOST" "sudo systemctl restart portal.service"
 
-# Step 7: Wait and verify
-echo "[7/7] Waiting for startup (120s)..."
-sleep 120
+# Step 7: Wait and verify (health-check poll instead of blind sleep)
+echo "[7/7] Waiting for startup..."
+MAX_WAIT=180
+ELAPSED=0
+INTERVAL=10
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+  sleep $INTERVAL
+  ELAPSED=$((ELAPSED + INTERVAL))
+  STATUS=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo systemctl is-active portal.service" 2>/dev/null || echo "unknown")
+  if [ "$STATUS" = "active" ]; then
+    COMPLIANCE_READY=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo podman logs portal 2>&1 | grep -c 'Compliance service ready'" 2>/dev/null || echo "0")
+    if [ "$COMPLIANCE_READY" -gt 0 ]; then
+      LOGS=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo podman logs portal 2>&1 | grep -E 'compliance.*info|loaded.*compliance' | tail -5")
+      echo ""
+      echo "=== Deploy successful (${ELAPSED}s) ==="
+      if $DEPLOY_BE; then echo "  Backend:  v$BE_VER"; fi
+      if $DEPLOY_FE; then echo "  Frontend: v$FE_VER"; fi
+      echo ""
+      echo "$LOGS"
+      exit 0
+    fi
+  fi
+  printf "  %ds..." $ELAPSED
+done
 
-STATUS=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo systemctl is-active portal.service")
-if [ "$STATUS" = "active" ]; then
-  LOGS=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo podman logs portal 2>&1 | grep -E 'compliance.*info|loaded.*compliance' | tail -5")
-  echo ""
-  echo "=== Deploy successful ==="
-  if $DEPLOY_BE; then echo "  Backend:  v$BE_VER"; fi
-  if $DEPLOY_FE; then echo "  Frontend: v$FE_VER"; fi
-  echo ""
-  echo "$LOGS"
-else
-  echo ""
-  echo "=== WARNING: Portal status is '$STATUS' ==="
-  echo "Check logs: ssh $SSH_OPTS $PORTAL_HOST 'sudo podman logs portal 2>&1 | tail -30'"
-  exit 1
-fi
+echo ""
+echo "=== WARNING: Portal did not become ready within ${MAX_WAIT}s ==="
+echo "Status: $(ssh $SSH_OPTS "$PORTAL_HOST" "sudo systemctl is-active portal.service" 2>/dev/null || echo 'unknown')"
+echo "Check logs: ssh $SSH_OPTS $PORTAL_HOST 'sudo podman logs portal 2>&1 | tail -30'"
+echo ""
+echo "To rollback: ssh $SSH_OPTS $PORTAL_HOST 'sudo cp $REMOTE_PLUGIN_DIR/backend.tgz.prev $REMOTE_PLUGIN_DIR/backend.tgz; sudo cp $REMOTE_PLUGIN_DIR/frontend.tgz.prev $REMOTE_PLUGIN_DIR/frontend.tgz; sudo systemctl restart portal.service'"
+exit 1
