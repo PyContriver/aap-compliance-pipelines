@@ -2,6 +2,7 @@ export type {
   FindingSeverity,
   FindingStatus,
   DisruptionLevel,
+  AapImpact,
   FindingParameter,
   Finding,
   ScanResult,

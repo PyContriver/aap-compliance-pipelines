@@ -10,6 +10,7 @@
 export type FindingSeverity = 'CAT_I' | 'CAT_II' | 'CAT_III';
 export type FindingStatus = 'pass' | 'fail' | 'error' | 'notapplicable' | 'notchecked';
 export type DisruptionLevel = 'low' | 'medium' | 'high';
+export type AapImpact = 'safe' | 'caution' | 'breaks-connectivity';
 
 export interface FindingParameter {
   name: string;
@@ -32,6 +33,8 @@ export interface Finding {
   status: FindingStatus;
   category: string;
   disruption: DisruptionLevel;
+  aapImpact: AapImpact;
+  aapImpactReason: string;
   parameters: FindingParameter[];
 }
 

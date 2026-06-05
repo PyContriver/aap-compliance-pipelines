@@ -151,6 +151,16 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
           {finding.disruption === 'high' && (
             <Chip label="High disruption" size="small" color="secondary" style={{ marginTop: 4 }} />
           )}
+          {finding.aapImpact === 'breaks-connectivity' && (
+            <Tooltip title={finding.aapImpactReason || 'May break AAP connectivity to this host'}>
+              <Chip label="Breaks AAP connectivity" size="small" style={{ marginTop: 4, backgroundColor: '#C9190B', color: '#fff' }} />
+            </Tooltip>
+          )}
+          {finding.aapImpact === 'caution' && (
+            <Tooltip title={finding.aapImpactReason || 'Review before remediating — affects AAP connectivity subsystem'}>
+              <Chip label="AAP caution" size="small" style={{ marginTop: 4, backgroundColor: '#F0AB00', color: '#fff' }} />
+            </Tooltip>
+          )}
         </TableCell>
         <TableCell>
           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>

@@ -1,7 +1,7 @@
 {
   "name": "@aap-compliance/plugin-compliance-backend-dynamic",
   "description": "Backend plugin for AAP compliance - REST API, Controller client, database, and findings ingestion",
-  "version": "0.13.8",
+  "version": "0.13.14",
   "main": "dist/index.cjs.js",
   "types": "dist/index.d.ts",
   "private": true,

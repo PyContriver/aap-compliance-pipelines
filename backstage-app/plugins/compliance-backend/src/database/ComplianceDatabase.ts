@@ -1013,6 +1013,8 @@ export class ComplianceDatabase {
       fixText: (row.fix_text as string) || '',
       category: (row.category as string) || '',
       disruption: ((row.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
+      aapImpact: ((row.aap_impact as string) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+      aapImpactReason: (row.aap_impact_reason as string) || '',
       scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
     };

@@ -138,7 +138,7 @@ export const RemediationProfileBuilder = () => {
         const saved = savedMap.get(f.ruleId);
         const isFailed = f.failCount > 0;
         initial[f.ruleId] = {
-          enabled: saved ? saved.enabled : (isFailed ? (isEditMode ? false : f.disruption !== 'high') : false),
+          enabled: saved ? saved.enabled : (isFailed ? (isEditMode ? false : f.disruption !== 'high' && f.aapImpact !== 'breaks-connectivity') : false),
           expanded: false,
           scope: (saved?.scope as RemediationScope) ?? 'failed_only',
           parameters: saved?.parameters ? { ...Object.fromEntries(f.parameters.map(p => [p.name, p.default])), ...saved.parameters } : Object.fromEntries(f.parameters.map(p => [p.name, p.default])),
@@ -185,6 +185,19 @@ export const RemediationProfileBuilder = () => {
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
   const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
   const deselectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
+  const selectSafeOnly = () => {
+    setSelections(prev => {
+      const updated = { ...prev };
+      allFindings.forEach(f => {
+        if (f.failCount > 0 && f.aapImpact !== 'breaks-connectivity') {
+          updated[f.ruleId] = { ...updated[f.ruleId], enabled: true };
+        } else {
+          updated[f.ruleId] = { ...updated[f.ruleId], enabled: false };
+        }
+      });
+      return updated;
+    });
+  };
   const setScopeAll = (scope: RemediationScope) => {
     setSelections(prev => {
       const updated = { ...prev };
@@ -270,7 +283,7 @@ export const RemediationProfileBuilder = () => {
           <div className={classes.detailPanel}>
             {finding.description && (<Box mb={2}><Typography variant="body2">{finding.description}</Typography></Box>)}
             {(finding.checkText || finding.fixText) && (<Box mb={2} display="flex" flexDirection="column" style={{ gap: 12 }}>{finding.checkText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Check</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.checkText}</Typography></div>)}{finding.fixText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Fix</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.fixText}</Typography></div>)}</Box>)}
-            {finding.disruption && (<Box mb={2}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? '#C9190B' : finding.disruption === 'medium' ? '#F0AB00' : '#3E8635', color: '#fff', fontWeight: 600 }} /></Box>)}
+            {finding.disruption && (<Box mb={2} display="flex" style={{ gap: 8 }}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? '#C9190B' : finding.disruption === 'medium' ? '#F0AB00' : '#3E8635', color: '#fff', fontWeight: 600 }} />{finding.aapImpact === 'breaks-connectivity' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="Breaks AAP connectivity" style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600 }} /></Tooltip>)}{finding.aapImpact === 'caution' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="AAP caution" style={{ backgroundColor: '#F0AB00', color: '#fff', fontWeight: 600 }} /></Tooltip>)}</Box>)}
             {finding.passCount > 0 && finding.failCount > 0 && (<div className={classes.adviceBanner}><InfoIcon className={classes.adviceIcon} fontSize="small" /><div><Typography variant="body2" style={{ color: '#856404', fontWeight: 600 }}>Only {finding.failCount} of {finding.totalCount} hosts failed this rule.</Typography><Typography variant="caption" style={{ color: '#856404' }}>Consider whether {finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')} should belong to a different inventory with different compliance requirements.</Typography></div></div>)}
             <div className={classes.remediationStrategy}>
               <Typography variant="caption" color="textSecondary" gutterBottom>Remediation Scope</Typography>
@@ -459,6 +472,9 @@ export const RemediationProfileBuilder = () => {
           </Tooltip>
           <Tooltip title="Enable all rules that have at least one failing host">
             <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
+          </Tooltip>
+          <Tooltip title="Enable all failed rules that won't break AAP connectivity">
+            <Button size="small" variant="outlined" onClick={selectSafeOnly} style={{ borderColor: '#3E8635', color: '#3E8635' }}>Select Safe Only</Button>
           </Tooltip>
           <Tooltip title="Disable every rule in this remediation">
             <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
