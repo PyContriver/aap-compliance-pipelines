@@ -99,5 +99,5 @@ requirements:
       - "faillock"
       - "faildelay"
     breaks_if:
-      - content_regex: "deny\\s*=\\s*[1-3]\\b"
-        reason: "Very low PAM lockout threshold — automated retries may lock ansible_user"
+      - content_regex: "deny\\s*=\\s*1\\b"
+        reason: "PAM lockout after single failure — automated retries will lock ansible_user"

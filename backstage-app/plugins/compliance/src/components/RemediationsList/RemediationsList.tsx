@@ -261,6 +261,8 @@ function RowActions({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
+  useEffect(() => () => { setAnchorEl(null); }, []);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>

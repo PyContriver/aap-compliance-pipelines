@@ -1032,7 +1032,7 @@ export async function createRouter(
             userToken,
           );
           const inventoryHostSet = new Set(inventoryHosts);
-          const planHosts = new Set(plan.groups.flatMap(g => g.limit?.split(',') ?? []).filter(Boolean));
+          const planHosts = new Set(plan.groups.flatMap(g => g.limit?.split(/[,\s]+/).map(h => h.trim()).filter(Boolean) ?? []));
           const missing = [...planHosts].filter(h => !inventoryHostSet.has(h));
           if (missing.length > 0) {
             logger.warn(

@@ -87,8 +87,13 @@ def classify_rule(rule: dict, platform: dict) -> tuple:
         # Check breaks_if patterns against fix_text (detailed content matching)
         for brk in req.get('breaks_if', []):
             regex = brk.get('content_regex', brk.get('setting_regex', ''))
-            if regex and re.search(regex, f'{identity} {fix_text}', re.IGNORECASE):
-                return 'breaks-connectivity', brk['reason'], req_key
+            if not regex:
+                continue
+            try:
+                if re.search(regex, f'{identity} {fix_text}', re.IGNORECASE):
+                    return 'breaks-connectivity', brk['reason'], req_key
+            except re.error:
+                continue
 
         # Matched a requirement but no breaks_if — use default impact
         default_impact = req.get('impact_default', 'caution')
