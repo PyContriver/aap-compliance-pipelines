@@ -15,6 +15,7 @@ rules:
     present   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-90843-4 '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: aide_build_database
   title: Build and Test AIDE Database
   severity: medium
@@ -29,6 +30,7 @@ rules:
     ''{{ item }}''     state: present   with_items:   - aide   when: ''"ker'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: aide_check_audit_tools
   title: Configure AIDE to Verify the Audit Tools
   severity: medium
@@ -43,6 +45,7 @@ rules:
     DISA-STIG-RHEL-09-651025   - NIST-800-53-AU-9(3)   - NIST-800-53-AU-9(3).1   - aide_check_audit_t'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: aide_periodic_cron_checking
   title: Configure Periodic Execution of AIDE
   severity: medium
@@ -59,6 +62,7 @@ rules:
     Ensure AIDE is installed   ansible.builtin.package:     name: aide     state: present   when: ''"ke'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: configure_custom_crypto_policy_cis
   title: Implement Custom Crypto Policy Modules for CIS Benchmark
   severity: medium
@@ -75,6 +79,8 @@ rules:
     - Create custom crypto     policy module NO-SSHCBC   ansible.builtin.lineinfile:     path: /etc/cryp'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: Crypto policies must allow SSH ciphers compatible with Controller
 - id: partition_for_dev_shm
   title: Ensure /dev/shm is configured
   severity: low
@@ -88,6 +94,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_home
   title: Ensure /home Located On Separate Partition
   severity: low
@@ -100,6 +107,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/home" size = 1073741824'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_tmp
   title: Ensure /tmp Located On Separate Partition
   severity: low
@@ -111,6 +119,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/tmp" size = 1073741824'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_var
   title: Ensure /var Located On Separate Partition
   severity: low
@@ -123,6 +132,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/var" size = 3221225472'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_var_log
   title: Ensure /var/log Located On Separate Partition
   severity: low
@@ -133,6 +143,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/var/log" size = 1073741824'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_var_log_audit
   title: Ensure /var/log/audit Located On Separate Partition
   severity: low
@@ -145,6 +156,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/var/log/audit" size = 10737418240'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: partition_for_var_tmp
   title: Ensure /var/tmp Located On Separate Partition
   severity: medium
@@ -156,6 +168,7 @@ rules:
   fix_text: '[[customizations.filesystem]] mountpoint = "/var/tmp" size = 1073741824'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_gdm_removed
   title: Remove the GDM Package Group
   severity: medium
@@ -170,6 +183,7 @@ rules:
     gdm     state: absent   when: ''"gdm" in ansible_facts.packages''   tags:   - CCE-83549-6   - NIST-800-53-CM-6(a) '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: dconf_db_up_to_date
   title: Make sure that the dconf databases are up-to-date with regards to respective keyfiles
   severity: high
@@ -184,6 +198,7 @@ rules:
     Get database modification time for distro   ansible.builtin.stat:     path: /etc/dconf/db/distr'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_disable_user_list
   title: Disable the GNOME3 Login User List
   severity: medium
@@ -198,6 +213,7 @@ rules:
     org/gnome/login-screen     option: disable-user-list   '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: gnome_gdm_disable_xdmcp
   title: Disable XDMCP in GDM
   severity: high
@@ -212,6 +228,7 @@ rules:
     ''"gdm" in ansible_facts.packages''   tags:   - CCE-86033-8   - gnome_gdm_disable_xdmcp   - hi'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_disable_automount
   title: Disable GNOME3 Automounting
   severity: medium
@@ -226,6 +243,7 @@ rules:
     - automount   community.general.ini_file:     dest: /etc/dconf/db/local.d/00-security-settings     se'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_disable_automount_open
   title: Disable GNOME3 Automount Opening
   severity: medium
@@ -241,6 +259,7 @@ rules:
     unknown_strategy  - name: Disable GNOME3 Automounting - automount-open   community.general.i'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_disable_autorun
   title: Disable GNOME3 Automount running
   severity: low
@@ -256,6 +275,7 @@ rules:
     Automounting - autorun-never   community.general.ini_file:     dest: /etc/dconf/db/local.d/00-secur'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_screensaver_idle_delay
   title: Set GNOME3 Screensaver Inactivity Timeout
   severity: medium
@@ -272,6 +292,7 @@ rules:
     unknown_strategy - name: XCCDF Value inactivity_timeout_value # promote to variable   set_fact:     inacti'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_screensaver_lock_delay
   title: Set GNOME3 Screensaver Lock Delay After Activation Period
   severity: medium
@@ -286,6 +307,7 @@ rules:
     - name: XCCDF Value var_screensaver_lock_delay # promote to variable   set_fact:     var_screensaver_loc'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_screensaver_user_locks
   title: Ensure Users Cannot Change GNOME3 Screensaver Settings
   severity: medium
@@ -301,6 +323,7 @@ rules:
     ^/org/gnome/desktop/screensa'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_session_idle_user_locks
   title: Ensure Users Cannot Change GNOME3 Session Idle Settings
   severity: medium
@@ -316,6 +339,7 @@ rules:
     modification of GNOME Session idle-delay   ansible.builtin.lineinfile:     path: /etc/dconf/db/local.d/loc'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_sudo_installed
   title: Install sudo Package
   severity: medium
@@ -329,6 +353,8 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-83523-1   - DISA-STIG-RHEL-09-'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: sudo/become must work for the Ansible user
 - id: sudo_add_use_pty
   title: Ensure Only Users Logged In To Real tty Can Execute Sudo - sudo use_pty
   severity: medium
@@ -342,6 +368,8 @@ rules:
     Defaults use_pty     validate: /usr/sbin/visudo -cf %s   when:   - '''
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: sudo/become must work for the Ansible user
 - id: sudo_custom_logfile
   title: Ensure Sudo Logfile Exists - sudo logfile
   severity: low
@@ -354,6 +382,8 @@ rules:
     name: Ensure logfile is enabled with the appropriate value in /etc/sudoers   ansible.builtin.lineinfi'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: sudo/become must work for the Ansible user
 - id: sudo_remove_no_authenticate
   title: Ensure Users Re-Authenticate for Privilege Escalation - sudo !authenticate
   severity: medium
@@ -368,6 +398,8 @@ rules:
     sudoers   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-83544-7   - DISA-STIG'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: sudo/become must work for the Ansible user
 - id: sudo_remove_nopasswd
   title: Ensure Users Re-Authenticate for Privilege Escalation - sudo NOPASSWD
   severity: medium
@@ -382,6 +414,8 @@ rules:
     sudoers   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-83536-3   - DISA-STIG-RHEL-0'
   disruption: low
   reboot_required: false
+  aap_impact: breaks-connectivity
+  aap_impact_reason: Modifies NOPASSWD sudo — Ansible may need passwordless sudo or become_pass
 - id: sudo_require_reauthentication
   title: Require Re-Authentication When Using the sudo Command
   severity: medium
@@ -397,6 +431,8 @@ rules:
     !!str    tags:     - always  - name: Require Re-Authentication When Usi'
   disruption: low
   reboot_required: false
+  aap_impact: breaks-connectivity
+  aap_impact_reason: Forces sudo re-authentication — blocks automated privilege escalation
 - id: ensure_gpgcheck_globally_activated
   title: Ensure gpgcheck Enabled In Main dnf Configuration
   severity: high
@@ -412,6 +448,7 @@ rules:
     PCI-DSSv4-6.3   - PCI-DSSv4-6.3.3   - configure_strategy   - ensure_gpgcheck_globally_activated   - '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: ensure_gpgcheck_never_disabled
   title: Ensure gpgcheck Enabled for All dnf Package Repositories
   severity: high
@@ -426,6 +463,7 @@ rules:
     NIST-800-53-CM-6(a)   - NIST-800-53-SA-12   - NIST-800-53-SA-12(10)   - NIST-800-53-SC-12   - '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: enable_authselect
   title: Enable authselect
   severity: medium
@@ -439,6 +477,7 @@ rules:
     !!str    tags:     - always  - name: Enable authselect - Check Current authselect Profile '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: banner_etc_issue_cis
   title: Ensure Local Login Warning Banner Is Configured Properly
   severity: medium
@@ -455,6 +494,7 @@ rules:
     - Copy using inline     content   ansible.builtin.copy:     content: ''{{ cis_banner_text }}''     '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: banner_etc_issue_net_cis
   title: Ensure Remote Login Warning Banner Is Configured Properly
   severity: medium
@@ -471,6 +511,7 @@ rules:
     - Copy using inline     content   ansible.builtin.copy:     content: ''{{ cis_banner_text }}'''
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: banner_etc_motd_cis
   title: Ensure Message Of The Day Is Configured Properly
   severity: medium
@@ -486,6 +527,7 @@ rules:
     using inline content   ansible.builtin.copy:     content: ''{{ cis_banner_text }}''     dest: /etc/mo'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_issue
   title: Verify Group Ownership of System Login Banner
   severity: medium
@@ -499,6 +541,7 @@ rules:
     file_exists   tags:   - CCE-86699-6   - configure_strategy   - file_groupowner_etc_issue   - l'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_issue_net
   title: Verify Group Ownership of System Login Banner for Remote Connections
   severity: medium
@@ -512,6 +555,7 @@ rules:
     /etc/issue.net   ansible.builtin.stat:     path: /etc/issue.net   register: file_exists   tags:   - CCE-8605'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_motd
   title: Verify Group Ownership of Message of the Day Banner
   severity: medium
@@ -525,6 +569,7 @@ rules:
     file_exists   tags:   - CCE-86697-0   - configure_strategy   - file_groupowner_etc_motd   - low_com'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_issue
   title: Verify ownership of System Login Banner
   severity: medium
@@ -538,6 +583,7 @@ rules:
     CCE-86700-2   - configure_strategy   - file_owner_etc_issue   - low_complexity   - low_di'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_issue_net
   title: Verify ownership of System Login Banner for Remote Connections
   severity: medium
@@ -551,6 +597,7 @@ rules:
     /etc/issue.net   register: file_exists   tags:   - CCE-86057-7   - PCI-DSSv4-1.2  '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_motd
   title: Verify ownership of Message of the Day Banner
   severity: medium
@@ -564,6 +611,7 @@ rules:
     CCE-86698-8   - configure_strategy   - file_owner_etc_motd   - low_complexity   - low_disrupti'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_issue
   title: Verify permissions on System Login Banner
   severity: medium
@@ -577,6 +625,7 @@ rules:
     file_exists.stat is defined and file_exists.stat.exists   tags:   - CCE-83551-2   - configure_stra'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_issue_net
   title: Verify permissions on System Login Banner for Remote Connections
   severity: medium
@@ -590,6 +639,7 @@ rules:
     /etc/issue.net     mode: u-xs,g-xws,o-xwt   when: file_exists.stat is defined and file_exi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_motd
   title: Verify permissions on Message of the Day Banner
   severity: medium
@@ -603,6 +653,7 @@ rules:
     is defined and file_exists.stat.exists   tags:   - CCE-83554-6   - configure_strategy '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_banner_enabled
   title: Enable GNOME3 Login Warning Banner
   severity: medium
@@ -619,6 +670,7 @@ rules:
     Login Warning Banner   community.general.ini_file:     dest: /etc/dconf/db/distro.d/00-security-se'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dconf_gnome_login_banner_text
   title: Set the GNOME3 Login Warning Banner Text
   severity: medium
@@ -633,6 +685,7 @@ rules:
     !!str    tags:     - always  - name: Set the GNOME3 Login Warning Banner Tex'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_pam_pwquality_installed
   title: Install pam_pwquality Package
   severity: medium
@@ -646,6 +699,8 @@ rules:
     CCE-86226-8   - enable_strategy   - low_complexity   - low_disruption   - medium_severity   - no_reboot_need'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_modules_in_authselect_profile
   title: Ensure Active Authselect Profile Includes PAM Modules
   severity: medium
@@ -661,6 +716,8 @@ rules:
     authselect check   register: result_authselect_check_cmd   changed_when: false   check_mode: false  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: account_password_pam_faillock_password_auth
   title: Configure the Use of the pam_faillock.so Module in the /etc/pam.d/password-auth File.
   severity: medium
@@ -673,6 +730,8 @@ rules:
     reselect authselect profile   ansible.builtin.shell:     cmd: authselect select "$(authselect curren'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: account_password_pam_faillock_system_auth
   title: Configure the Use of the pam_faillock.so Module in the /etc/pam.d/system-auth File.
   severity: medium
@@ -685,6 +744,8 @@ rules:
     if system relies on authselect tool   ansible.builtin.stat:     path: /usr/bin/authselect   register: re'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_pwhistory_enforce_for_root
   title: Ensure Password History Is Enforced for the Root User
   severity: medium
@@ -698,6 +759,8 @@ rules:
     ''''     line: enforce_for_root     state: present   when:   - ''"kernel-core" in ansible_facts.'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_pwhistory_remember_password_auth
   title: 'Limit Password Reuse: password-auth'
   severity: medium
@@ -712,6 +775,8 @@ rules:
     no_reboot_needed - name: XCCDF Value var_password_pam_remember # promote to variable   set_fact:     var_pas'
   disruption: medium
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_pwhistory_remember_system_auth
   title: 'Limit Password Reuse: system-auth'
   severity: medium
@@ -726,6 +791,8 @@ rules:
     no_reboot_needed - name: XCCDF Value var_password_pam_remember # promote to variable   set_fact:     var_passw'
   disruption: medium
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_passwords_pam_faillock_deny
   title: Lock Accounts After Failed Password Attempts
   severity: medium
@@ -741,6 +808,8 @@ rules:
     name: Lock Accounts After Failed Password Attempts - Check if system relies on authselec'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_passwords_pam_faillock_deny_root
   title: Configure the root Account for Failed Password Attempts
   severity: medium
@@ -756,6 +825,8 @@ rules:
     Attempts - Check if system     relies on authselect tool   ansible.builtin.stat:     path: /usr/bin/auth'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_passwords_pam_faillock_unlock_time
   title: Set Lockout Time for Failed Password Attempts
   severity: medium
@@ -771,6 +842,8 @@ rules:
     name: Set Lockout Time for Failed Password Attempts - Check if system relies on  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_dictcheck
   title: Ensure PAM Enforces Password Requirements - Prevent the Use of Dictionary Words
   severity: medium
@@ -785,6 +858,8 @@ rules:
     # promote to variable   set_fact:     var_password_pam_dictcheck: !!str    tags:     - always  -'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_difok
   title: Ensure PAM Enforces Password Requirements - Minimum Different Characters
   severity: medium
@@ -800,6 +875,8 @@ rules:
     # promote to variable   set_fact:     var_password_pam_difok: !!str    tags:     - al'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_enforce_root
   title: Ensure PAM Enforces Password Requirements - Enforce for root User
   severity: medium
@@ -815,6 +892,8 @@ rules:
     Requirements - Enforce for root User   ansible.builtin.lineinfile:     path: /etc/security/pwquality.c'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_maxrepeat
   title: Set Password Maximum Consecutive Repeating Characters
   severity: medium
@@ -830,6 +909,8 @@ rules:
     !!str    tags:     - always  - name: Set Password Maximum'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_maxsequence
   title: Limit the maximum number of sequential characters in passwords
   severity: medium
@@ -846,6 +927,8 @@ rules:
     the maximum number of sequential characters in passwords - Find pwquality.conf.d     files   ansible.builtin.'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_minclass
   title: Ensure PAM Enforces Password Requirements - Minimum Different Categories
   severity: medium
@@ -862,6 +945,8 @@ rules:
     # promote to variable   set_fact:     var_password_pam_minclass: !!str    tags:     - always  - na'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_password_pam_minlen
   title: Ensure PAM Enforces Password Requirements - Minimum Length
   severity: medium
@@ -877,6 +962,8 @@ rules:
     no_reboot_needed   - restrict_strategy - name: XCCDF Value var_password_pam_minlen # promote to variable  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: set_password_hashing_algorithm_libuserconf
   title: Set Password Hashing Algorithm in /etc/libuser.conf
   severity: medium
@@ -891,6 +978,7 @@ rules:
     set_password_hashing_algorithm_libuserconf - name: XCCDF Value var_password_hashing_algorithm_pam'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: set_password_hashing_algorithm_logindefs
   title: Set Password Hashing Algorithm in /etc/login.defs
   severity: medium
@@ -905,6 +993,7 @@ rules:
     set_password_hashing_algorithm_logindefs - name: XCCDF Value var_password_hashing_algorithm # pro'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: set_password_hashing_algorithm_passwordauth
   title: Set PAM Password Hashing Algorithm - password-auth
   severity: medium
@@ -921,6 +1010,7 @@ rules:
     - name: XCCDF Value var_password_hashing_algorithm_pam # promote to variable   set_fact'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: set_password_hashing_algorithm_systemauth
   title: Set PAM Password Hashing Algorithm - system-auth
   severity: medium
@@ -937,6 +1027,7 @@ rules:
     - name: XCCDF Value var_password_hashing_algorithm_pam # promote to variable   s'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: account_unique_id
   title: Ensure All Accounts on the System Have Unique User IDs
   severity: medium
@@ -947,6 +1038,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: group_unique_id
   title: Ensure All Groups on the System Have Unique Group ID
   severity: medium
@@ -957,6 +1049,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: account_disable_post_pw_expiration
   title: Set Account Expiration Following Inactivity
   severity: medium
@@ -973,6 +1066,7 @@ rules:
     no_reboot_needed   - restrict_strategy - name: XCCDF Value var_account_disable_post_pw_expiration # prom'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: account_unique_name
   title: Ensure All Accounts on the System Have Unique Names
   severity: medium
@@ -984,6 +1078,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: accounts_maximum_age_login_defs
   title: Set Password Maximum Age
   severity: medium
@@ -998,6 +1093,7 @@ rules:
     no_reboot_needed   - restrict_strategy - name: XCCDF Value var_accounts_maximum_age_login_defs # promote t'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_minimum_age_login_defs
   title: Set Password Minimum Age
   severity: medium
@@ -1013,6 +1109,7 @@ rules:
     Value var_accounts_minimum_age_login_defs # promote to variable   set_fact:     var_accounts_minimum_age_login_'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_set_max_life_existing
   title: Set Existing Passwords Maximum Age
   severity: medium
@@ -1026,6 +1123,7 @@ rules:
     var_accounts_maximum_age_login_defs # promote to variable   set_fact:     var_accounts_maximum_age_lo'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_set_min_life_existing
   title: Set Existing Passwords Minimum Age
   severity: medium
@@ -1039,6 +1137,7 @@ rules:
     promote to variable   set_fact:     var_accounts_minimum_age_login_defs: !!str    tags:     - always '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_set_warn_age_existing
   title: Set Existing Passwords Warning Age
   severity: medium
@@ -1053,6 +1152,7 @@ rules:
     # promote to variable   set_fact:     var_accounts_password_warn_age_login_defs: !!str '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_warn_age_login_defs
   title: Set Password Warning Age
   severity: medium
@@ -1066,6 +1166,7 @@ rules:
     - name: XCCDF Value var_accounts_password_warn_age_login_defs # promote to variable   set_fact:     var_acc'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_set_post_pw_existing
   title: Set existing passwords a period of inactivity before they been locked
   severity: medium
@@ -1078,6 +1179,7 @@ rules:
     XCCDF Value var_account_disable_post_pw_expiration # promote to variable   set_fact:     var_account_disable_p'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_all_shadowed
   title: Verify All Account Password Hashes are Shadowed
   severity: medium
@@ -1089,6 +1191,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_last_change_is_in_past
   title: Ensure all users last password change date is in the past
   severity: medium
@@ -1099,6 +1202,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: accounts_password_pam_unix_no_remember
   title: Avoid using remember in pam_unix module
   severity: medium
@@ -1114,6 +1218,8 @@ rules:
     result_pam_auth_file_present   when: ''"pam" in ansible_facts.packages''   tags:   - CCE-9'
   disruption: medium
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: gid_passwd_group_same
   title: All GIDs referenced in /etc/passwd must be defined in /etc/group
   severity: low
@@ -1125,6 +1231,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_empty_passwords
   title: Prevent Login to Accounts With Empty Password
   severity: high
@@ -1138,6 +1245,7 @@ rules:
     no_reboot_needed  - name: Prevent Login to Accounts With Empty Password - '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_empty_passwords_etc_shadow
   title: Ensure There Are No Accounts With Blank or Null Passwords
   severity: high
@@ -1151,6 +1259,7 @@ rules:
     |     awk -F: ''!$2 {print $1}'' /etc/shadow   register: users_nopasswd   changed_when: fals'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: no_forward_files
   title: Verify No .forward Files Exist
   severity: medium
@@ -1162,6 +1271,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_netrc_files
   title: Verify No netrc Files Exist
   severity: medium
@@ -1173,6 +1283,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: accounts_no_uid_except_zero
   title: Verify Only Root Has UID 0
   severity: high
@@ -1187,6 +1298,7 @@ rules:
     restrict_strategy  - name: Get all /etc/passwd file entries   ansible.builtin.getent:     dat'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_root_gid_zero
   title: Verify Root Has A Primary GID 0
   severity: high
@@ -1197,6 +1309,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: ensure_pam_wheel_group_empty
   title: Ensure the Group Used by pam_wheel.so Module Exists on System and is Empty
   severity: medium
@@ -1211,6 +1324,8 @@ rules:
     name: Ensure the Group Used by pam_wheel.so Module Exists on System and is Empty     - Ensur'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: ensure_root_password_configured
   title: Ensure Authentication Required for Single User Mode
   severity: medium
@@ -1221,6 +1336,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: groups_no_zero_gid_except_root
   title: Verify Only Group Root Has GID 0
   severity: high
@@ -1231,6 +1347,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_invalid_shell_accounts_unlocked
   title: Verify Non-Interactive Accounts Are Locked
   severity: medium
@@ -1243,6 +1360,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_password_auth_for_systemaccounts
   title: Ensure that System Accounts Are Locked
   severity: medium
@@ -1257,6 +1375,7 @@ rules:
     passwd     split: '':''   when: ''"kernel-core" in ansibl'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_shelllogin_for_systemaccounts
   title: Ensure that System Accounts Do Not Run a Shell Upon Login
   severity: medium
@@ -1271,6 +1390,7 @@ rules:
     name: Ensure that System Accounts Do Not Run a Shell Upon Login - Get All Local     Users From /etc/p'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: use_pam_wheel_group_for_su
   title: Enforce Usage of pam_wheel with Group Parameter for su Authentication
   severity: medium
@@ -1285,6 +1405,8 @@ rules:
     always  - name: Enforce Usage of pam_wheel with Group Parameter for su Authentication - Add     the grou'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: accounts_tmout
   title: Set Interactive Session Timeout
   severity: medium
@@ -1300,6 +1422,7 @@ rules:
     - name: XCCDF Value var_accounts_tmout # promote to variable   set_fact:     var_accounts_tmout: !!str   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_user_dot_group_ownership
   title: User Initialization Files Must Be Group-Owned By The Primary Group
   severity: medium
@@ -1313,6 +1436,7 @@ rules:
     passwd   register: passwd_entries   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-87037-8 '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_user_dot_user_ownership
   title: User Initialization Files Must Be Owned By the Primary User
   severity: medium
@@ -1326,6 +1450,7 @@ rules:
     passwd_entries   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-87038-6   - acco'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_user_interactive_home_directory_exists
   title: All Interactive Users Home Directories Must Exist
   severity: medium
@@ -1340,6 +1465,7 @@ rules:
     in ansible_facts.packages''   tags:   - CCE-83639-5   - DISA-STIG-RHEL-09-411065   - accounts_us'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permission_user_init_files
   title: Ensure All User Initialization Files Have Mode 0740 Or Less Permissive
   severity: medium
@@ -1352,6 +1478,7 @@ rules:
     medium_severity   - no_reboot_needed   - restrict_strategy  - name: Ensure All User Initi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_home_directories
   title: All Interactive User Home Directories Must Have mode 0750 Or Less Permissive
   severity: medium
@@ -1364,6 +1491,7 @@ rules:
     ''{{ ansible_facts.getent_passwd|dict2items }}''   tags:   - CCE-83634-6   - DISA-STIG-RHEL-09-232'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_root_path_dirs_no_write
   title: Ensure that Root's Path Does Not Include World or Group-Writable Directories
   severity: medium
@@ -1376,6 +1504,7 @@ rules:
     restrict_strategy  - name: Disable writability to root directories   ansible.builtin.fil'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_dirs_unowned_by_root
   title: Ensure that All Root's Path Directories Are Owned by Root
   severity: medium
@@ -1387,6 +1516,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: root_path_all_dirs
   title: Ensure that All Entries in The Path of Root Are Directories
   severity: medium
@@ -1398,6 +1528,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: root_path_no_dot
   title: Ensure that Root's Path Does Not Include Relative Paths or Null Directories
   severity: unknown
@@ -1410,6 +1541,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: accounts_umask_etc_bashrc
   title: Ensure the Default Bash Umask is Set Correctly
   severity: medium
@@ -1423,6 +1555,7 @@ rules:
     !!str    tags:     - always  - name: Check if umask in /etc/bashrc is already set   ansible.b'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_umask_etc_login_defs
   title: Ensure the Default Umask is Set Correctly in login.defs
   severity: medium
@@ -1436,6 +1569,7 @@ rules:
     !!str    tags:     - always  - name: Check if UMASK is already set   ansible.builtin.line'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: accounts_umask_etc_profile
   title: Ensure the Default Umask is Set Correctly in /etc/profile
   severity: medium
@@ -1450,6 +1584,7 @@ rules:
     !!str    tags:     - always  - name: Ensure the Default Umask is Set Correctly in /etc/profi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_grub2_cfg
   title: Verify /boot/grub2/grub.cfg Group Ownership
   severity: medium
@@ -1463,6 +1598,7 @@ rules:
     name: Set the file_groupowner_grub2_cfg_newgroup variable if represented by gid   ansible.builtin.'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_user_cfg
   title: Verify /boot/grub2/user.cfg Group Ownership
   severity: medium
@@ -1477,6 +1613,7 @@ rules:
     variable if represented by gid   ansible.builtin.set_fact:     file_groupowner_u'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_grub2_cfg
   title: Verify /boot/grub2/grub.cfg User Ownership
   severity: medium
@@ -1490,6 +1627,7 @@ rules:
     name: Set the file_owner_grub2_cfg_newown variable if represented by uid   ansible.builtin.set_fact:   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_user_cfg
   title: Verify /boot/grub2/user.cfg User Ownership
   severity: medium
@@ -1504,6 +1642,7 @@ rules:
     variable if represented by uid   ansible.builtin.set_fact:     file_owner_user_cfg_newown: '''
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_grub2_cfg
   title: Verify /boot/grub2/grub.cfg Permissions
   severity: medium
@@ -1516,6 +1655,7 @@ rules:
     /boot/grub2/grub.cfg   register: file_exists   when:   - ( "grub2-common" in ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_user_cfg
   title: Verify /boot/grub2/user.cfg Permissions
   severity: medium
@@ -1528,6 +1668,7 @@ rules:
     /boot/grub2/user.cfg   register: file_exists   when:   - ( "grub2-common" in ansible'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: grub2_password
   title: Set Boot Loader Password in grub2
   severity: high
@@ -1540,6 +1681,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: rsyslog_files_groupownership
   title: Ensure Log Files Are Owned By Appropriate Group
   severity: medium
@@ -1555,6 +1697,7 @@ rules:
     Are Owned By Appropriate Group - Set rsyslog logfile configuration     facts   ansible.builtin.set_fact:     r'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: rsyslog_files_ownership
   title: Ensure Log Files Are Owned By Appropriate User
   severity: medium
@@ -1570,6 +1713,7 @@ rules:
     Owned By Appropriate User - Set rsyslog logfile configuration     facts   ansible.builtin.set_fact:     rsyslog'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: rsyslog_files_permissions
   title: Ensure System Log Files Have Correct Permissions
   severity: medium
@@ -1585,6 +1729,7 @@ rules:
     Files Have Correct Permissions - Set rsyslog logfile configuration     facts   ansible.builtin.set_fact:     rsy'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_systemd-journal-remote_installed
   title: Install systemd-journal-remote Package
   severity: medium
@@ -1598,6 +1743,7 @@ rules:
     ansible_facts.packages''   tags:   - CCE-86760-6   - enable_strategy   - low_complexity   - low_disruption  '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_systemd-journald_enabled
   title: Enable systemd-journald Service
   severity: medium
@@ -1611,6 +1757,7 @@ rules:
     auto    - name: Enable systemd-journald Service - E'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: journald_compress
   title: Ensure journald is configured to compress large log files
   severity: medium
@@ -1623,6 +1770,7 @@ rules:
     ^\s*\[Journal\]     read_whole_file: true     use_regex: true   register: systemd_dr'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: journald_storage
   title: Ensure journald is configured to write log files to persistent disk
   severity: medium
@@ -1635,6 +1783,7 @@ rules:
     ''{{item.pattern}}''     contains: ^\s*\[Journal\]     read_whole_file: true     use_regex: true   register: s'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: socket_systemd-journal-remote_disabled
   title: Disable systemd-journal-remote Socket
   severity: medium
@@ -1648,6 +1797,7 @@ rules:
     --type socket   register: result_systemd_unit_files   changed_when: false   check_mode: false   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_firewalld_installed
   title: Install firewalld Package
   severity: medium
@@ -1662,6 +1812,8 @@ rules:
     present   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-84021-5   - DIS'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: Firewall must allow inbound SSH from Controller
 - id: service_firewalld_enabled
   title: Verify firewalld Enabled
   severity: medium
@@ -1675,6 +1827,8 @@ rules:
     no_reboot_needed   - service_firewalld_enabled  - name: Verify firewalld Enabled - Enable servi'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: Firewall must allow inbound SSH from Controller
 - id: firewalld_loopback_traffic_restricted
   title: Configure Firewalld to Restrict Loopback Traffic
   severity: medium
@@ -1690,6 +1844,8 @@ rules:
     ''{{ item }}''     state: present   with_items:   - firewalld   when: ''"kernel-core" in a'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: Firewall must allow inbound SSH from Controller
 - id: firewalld_loopback_traffic_trusted
   title: Configure Firewalld to Trust Loopback Traffic
   severity: medium
@@ -1704,6 +1860,8 @@ rules:
     ''{{ item }}''     state: present   with_items:   - firewalld   when: ''"kernel-core" in ansible'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: Firewall must allow inbound SSH from Controller
 - id: sysctl_net_ipv6_conf_all_accept_ra
   title: Configure Accepting Router Advertisements on All IPv6 Interfaces
   severity: medium
@@ -1717,6 +1875,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv6_conf_all_accept_ra_value: !'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_all_accept_redirects
   title: Disable Accepting ICMP Redirects for All IPv6 Interfaces
   severity: medium
@@ -1730,6 +1889,7 @@ rules:
     - name: XCCDF Value sysctl_net_ipv6_conf_all_accept_redirects_value # promote to var'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_all_accept_source_route
   title: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv6 Interfaces
   severity: medium
@@ -1745,6 +1905,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv6_conf_al'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_all_forwarding
   title: Disable Kernel Parameter for IPv6 Forwarding
   severity: medium
@@ -1758,6 +1919,7 @@ rules:
     Value sysctl_net_ipv6_conf_all_forwarding_value # promote to variable   set_fact:     sysctl_net_ipv'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_default_accept_ra
   title: Disable Accepting Router Advertisements on all IPv6 Interfaces by Default
   severity: medium
@@ -1771,6 +1933,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv6_conf_default_accept'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_default_accept_redirects
   title: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv6 Interfaces
   severity: medium
@@ -1784,6 +1947,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv6_conf_'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv6_conf_default_accept_source_route
   title: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv6 Interfaces by Default
   severity: medium
@@ -1799,6 +1963,7 @@ rules:
     reboot_required   - sysctl_net_ipv6_conf_default_accept_source_route - name: XCCDF Val'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_accept_redirects
   title: Disable Accepting ICMP Redirects for All IPv4 Interfaces
   severity: medium
@@ -1813,6 +1978,7 @@ rules:
     - name: XCCDF Value sysctl_net_ipv4_conf_all_accept_redirects_value # promote to variable   s'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_accept_source_route
   title: Disable Kernel Parameter for Accepting Source-Routed Packets on all IPv4 Interfaces
   severity: medium
@@ -1828,6 +1994,7 @@ rules:
     - name: XCCDF Value sysctl_net_ipv4_conf_all_accept_source_route_value # promote to var'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_log_martians
   title: Enable Kernel Parameter to Log Martian Packets on all IPv4 Interfaces
   severity: unknown
@@ -1842,6 +2009,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv4_conf_all_log_mart'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_rp_filter
   title: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces
   severity: medium
@@ -1856,6 +2024,7 @@ rules:
     sysctl_net_ipv4_conf_all_rp_filter - name: XCCDF Value sysctl_net_ipv4_conf_all_rp_filter_val'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_secure_redirects
   title: Disable Kernel Parameter for Accepting Secure ICMP Redirects on all IPv4 Interfaces
   severity: medium
@@ -1869,6 +2038,7 @@ rules:
     - name: XCCDF Value sysctl_net_ipv4_conf_all_secure_redirects_value # promote to'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_accept_redirects
   title: Disable Kernel Parameter for Accepting ICMP Redirects by Default on IPv4 Interfaces
   severity: medium
@@ -1883,6 +2053,7 @@ rules:
     reboot_required   - sysctl_net_ipv4_conf_default_accept_redirects - name: XCCDF Value sysctl_ne'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_accept_source_route
   title: Disable Kernel Parameter for Accepting Source-Routed Packets on IPv4 Interfaces by Default
   severity: medium
@@ -1898,6 +2069,7 @@ rules:
     - name: XCCDF Value sysctl_net_ipv4_conf_default_accept_source_route_value # promote to v'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_log_martians
   title: Enable Kernel Parameter to Log Martian Packets on all IPv4 Interfaces by Default
   severity: unknown
@@ -1912,6 +2084,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv4_conf_defa'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_rp_filter
   title: Enable Kernel Parameter to Use Reverse Path Filtering on all IPv4 Interfaces by Default
   severity: medium
@@ -1926,6 +2099,7 @@ rules:
     Value sysctl_net_ipv4_conf_default_rp_filter_value # promote to variable   set_fact:     sysctl_net_'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_secure_redirects
   title: Configure Kernel Parameter for Accepting Secure Redirects By Default
   severity: medium
@@ -1939,6 +2113,7 @@ rules:
     # promote to variable   set_fact:     sysctl_net_ipv4_conf_default_'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_icmp_echo_ignore_broadcasts
   title: Enable Kernel Parameter to Ignore ICMP Broadcast Echo Requests on IPv4 Interfaces
   severity: medium
@@ -1953,6 +2128,7 @@ rules:
     sysctl_net_ipv4_icmp_echo_ignore_broadcasts - name: XCCDF Value sysctl_net_ipv4_icmp_echo_ignore_broad'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_icmp_ignore_bogus_error_responses
   title: Enable Kernel Parameter to Ignore Bogus ICMP Error Responses on IPv4 Interfaces
   severity: unknown
@@ -1966,6 +2142,7 @@ rules:
     unknown_severity - name: XCCDF Value sysctl_net_ipv4_icmp_ignore_bogus_error_responses'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_tcp_syncookies
   title: Enable Kernel Parameter to Use TCP Syncookies on Network Interfaces
   severity: medium
@@ -1981,6 +2158,7 @@ rules:
     low_complexity   - medium_disruption   - medium_severity   - reboot_required   - sysctl_net_ipv4_tcp_sync'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_all_send_redirects
   title: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces
   severity: medium
@@ -1995,6 +2173,7 @@ rules:
     reboot_required   - sysctl_net_ipv4_conf_all_send_redirects  - name: Disable Kernel Parameter fo'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_conf_default_send_redirects
   title: Disable Kernel Parameter for Sending ICMP Redirects on all IPv4 Interfaces by Default
   severity: medium
@@ -2009,6 +2188,7 @@ rules:
     reboot_required   - sysctl_net_ipv4_conf_default_send_redirects  - name: Disable Kernel Paramete'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_net_ipv4_ip_forward
   title: Disable Kernel Parameter for IP Forwarding on IPv4 Interfaces
   severity: medium
@@ -2023,6 +2203,7 @@ rules:
     reboot_required   - sysctl_net_ipv4_ip_forward  - name: Disable Kernel Parameter for IP Forwarding '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_nftables_installed
   title: Install nftables Package
   severity: medium
@@ -2038,6 +2219,7 @@ rules:
     ansible_facts.packages )   tags:   - CCE-86378-7   - PCI-DSSv4-1.2   - PCI-DSSv4-1.2.1   - enable_strategy   -'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_nftables_disabled
   title: Verify nftables Service is Disabled
   severity: medium
@@ -2051,6 +2233,7 @@ rules:
     systemd Services Present in       the System     ansible.builtin.command: systemctl -q list-unit-files'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_dccp_disabled
   title: Disable DCCP Support
   severity: medium
@@ -2065,6 +2248,7 @@ rules:
     Ensure kernel module ''dccp'' is disabled   ansible.builtin.lineinfile:     create: true     des'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_rds_disabled
   title: Disable RDS Support
   severity: low
@@ -2079,6 +2263,7 @@ rules:
     /etc/modprobe.d/rds.conf     regexp: install\s+rds     line: install rds /bin/false   when: ''"kernel-'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_sctp_disabled
   title: Disable SCTP Support
   severity: medium
@@ -2093,6 +2278,7 @@ rules:
     reboot_required  - name: Ensure kernel module ''sctp'' is disabled   ansible.builtin.lineinf'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_tipc_disabled
   title: Disable TIPC Support
   severity: low
@@ -2107,6 +2293,7 @@ rules:
     true     dest: /etc/modprobe.d/tipc.conf     regexp: install\s+tipc     line: install'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: service_bluetooth_disabled
   title: Disable Bluetooth Service
   severity: medium
@@ -2120,6 +2307,7 @@ rules:
     name: Disable Bluetooth Service - Disable service bluetooth   block:    - name: Disable Bluetooth Service -'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: wireless_disable_interfaces
   title: Deactivate Wireless Network Interfaces
   severity: medium
@@ -2135,6 +2323,7 @@ rules:
     no_reboot_needed   - unknown_strategy   - wireless_disable_interfaces  - name: Deactiva'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: dir_perms_world_writable_sticky_bits
   title: Verify that All World-Writable Directories Have Sticky Bits Set
   severity: medium
@@ -2151,6 +2340,7 @@ rules:
     davfs     - fuse.sshfs     excluded_paths:     - dev     - proc     - run     - sys     search_paths: []   '
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_unauthorized_world_writable
   title: Ensure No World-Writable Files Exist
   severity: medium
@@ -2166,6 +2356,7 @@ rules:
     done  # Ensure /tmp is also fixed when tmpfs is used. if grep "^tmpfs /tmp" /proc/mounts; then   find /'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_ungroupowned
   title: Ensure All Files Are Owned by a Group
   severity: medium
@@ -2180,6 +2371,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: no_files_unowned_by_user
   title: Ensure All Files Are Owned by a User
   severity: medium
@@ -2194,6 +2386,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: file_etc_security_opasswd
   title: Verify Permissions and Ownership of Old Passwords File
   severity: medium
@@ -2206,6 +2399,7 @@ rules:
     preserve     access_time: preserve   tags:   - CCE-86762-2   - file_etc_security_opasswd   - low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - restrict_strategy'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_backup_etc_group
   title: Verify Group Who Owns Backup group File
   severity: medium
@@ -2219,6 +2413,7 @@ rules:
     medium_severity   - no_reboot_needed  - name: Test for existence /etc/group-   ansible.bui'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_backup_etc_gshadow
   title: Verify Group Who Owns Backup gshadow File
   severity: medium
@@ -2231,6 +2426,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/gshadow-   ansible.builtin.stat:     path: /etc/gsha'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_backup_etc_passwd
   title: Verify Group Who Owns Backup passwd File
   severity: medium
@@ -2244,6 +2440,7 @@ rules:
     medium_severity   - no_reboot_needed  - name: Test for existence /etc/passwd-   ansible'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_backup_etc_shadow
   title: Verify User Who Owns Backup shadow File
   severity: medium
@@ -2256,6 +2453,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/shadow-   ansible.builtin.stat:     path: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_group
   title: Verify Group Who Owns group File
   severity: medium
@@ -2268,6 +2466,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed  - name: Test for existence /etc/gro'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_gshadow
   title: Verify Group Who Owns gshadow File
   severity: medium
@@ -2280,6 +2479,7 @@ rules:
     /etc/gshadow   ansible.builtin.stat:     path: /etc/gshadow   register: file_ex'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_passwd
   title: Verify Group Who Owns passwd File
   severity: medium
@@ -2292,6 +2492,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed  - name: Test for existence /etc/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_shadow
   title: Verify Group Who Owns shadow File
   severity: medium
@@ -2304,6 +2505,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed  - name: Test for existence /etc/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_etc_shells
   title: Verify Group Who Owns /etc/shells File
   severity: medium
@@ -2316,6 +2518,7 @@ rules:
     /etc/shells   register: file_exists   tags:   - CCE-90434-2   - NIST-80'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_backup_etc_group
   title: Verify User Who Owns Backup group File
   severity: medium
@@ -2329,6 +2532,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/group-   ansible.builtin.stat:     path: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_backup_etc_gshadow
   title: Verify User Who Owns Backup gshadow File
   severity: medium
@@ -2341,6 +2545,7 @@ rules:
     /etc/gshadow-   ansible.builtin.stat:     path: /etc/gshadow-   register: file_e'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_backup_etc_passwd
   title: Verify User Who Owns Backup passwd File
   severity: medium
@@ -2354,6 +2559,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/passwd-   ansible.builtin.stat:     pa'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_backup_etc_shadow
   title: Verify Group Who Owns Backup shadow File
   severity: medium
@@ -2366,6 +2572,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/shadow-   ansible.builtin.stat:     pa'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_group
   title: Verify User Who Owns group File
   severity: medium
@@ -2378,6 +2585,7 @@ rules:
     no_reboot_needed  - name: Test for existence /etc/group   ansible.builti'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_gshadow
   title: Verify User Who Owns gshadow File
   severity: medium
@@ -2390,6 +2598,7 @@ rules:
     /etc/gshadow   ansible.builtin.stat:     path: /etc/gshadow   register: file_exists   tags:   - CC'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_passwd
   title: Verify User Who Owns passwd File
   severity: medium
@@ -2402,6 +2611,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed  - name: Test for existence /etc/passwd   ansible.bu'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_shadow
   title: Verify User Who Owns shadow File
   severity: medium
@@ -2415,6 +2625,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed  - name: Test for existence /etc/shadow   ansible.bu'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_etc_shells
   title: Verify Who Owns /etc/shells File
   severity: medium
@@ -2427,6 +2638,7 @@ rules:
     /etc/shells   register: file_exists   tags:   - CCE-90435-9   - NIST-800-53-AC-3   - NIST-'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_backup_etc_group
   title: Verify Permissions on Backup group File
   severity: medium
@@ -2440,6 +2652,7 @@ rules:
     name: Ensure permission u-xs,g-xws,o-xwt on /etc/group-   ansible.builtin.file:     path: /etc/group-     mode'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_backup_etc_gshadow
   title: Verify Permissions on Backup gshadow File
   severity: medium
@@ -2452,6 +2665,7 @@ rules:
     /etc/gshadow-     mode: u-xwrs,g-xwrs,o-xwrt   when: file_exists.sta'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_backup_etc_passwd
   title: Verify Permissions on Backup passwd File
   severity: medium
@@ -2465,6 +2679,7 @@ rules:
     name: Ensure permission u-xs,g-xws,o-xwt on /etc/passwd-   ansible.builtin.file:     path: /etc/passwd-    '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_backup_etc_shadow
   title: Verify Permissions on Backup shadow File
   severity: medium
@@ -2477,6 +2692,7 @@ rules:
     name: Ensure permission u-xwrs,g-xwrs,o-xwrt on /etc/shadow-   ansible.builtin.file:     path: /etc/shadow-'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_group
   title: Verify Permissions on group File
   severity: medium
@@ -2489,6 +2705,7 @@ rules:
     name: Ensure permission u-xs,g-xws,o-xwt on /etc/group   ansible.builtin.file: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_gshadow
   title: Verify Permissions on gshadow File
   severity: medium
@@ -2501,6 +2718,7 @@ rules:
     on /etc/gshadow   ansible.builtin.file:     path: /etc/gshadow     mode: u-xwrs,g-xwrs,o-xwrt   when: fil'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_passwd
   title: Verify Permissions on passwd File
   severity: medium
@@ -2514,6 +2732,7 @@ rules:
     name: Ensure permission u-xs,g-xws,o-xwt on /etc/passwd   ansible.builtin.fi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_shadow
   title: Verify Permissions on shadow File
   severity: medium
@@ -2527,6 +2746,7 @@ rules:
     name: Ensure permission u-xwrs,g-xwrs,o-xwrt on /etc/shadow   ansible.builti'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_etc_shells
   title: Verify Permissions on /etc/shells File
   severity: medium
@@ -2539,6 +2759,7 @@ rules:
     /etc/shells     mode: u-xs,g-xws,o-xwt   when: file_exists.stat is defined and file_exists.stat.ex'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_autofs_disabled
   title: Disable the Automounter
   severity: medium
@@ -2554,6 +2775,7 @@ rules:
     - Disable service autofs   block:    - name: Disable the Automounter - Collect systemd Services Presen'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_cramfs_disabled
   title: Disable Mounting of cramfs
   severity: low
@@ -2568,6 +2790,7 @@ rules:
     true     dest: /etc/modprobe.d/cramfs.conf     regexp: ins'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_freevxfs_disabled
   title: Disable Mounting of freevxfs
   severity: low
@@ -2582,6 +2805,7 @@ rules:
     true     dest: /etc/modprobe.d/freevxfs.conf     regexp: install\s+freevxfs     lin'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_hfs_disabled
   title: Disable Mounting of hfs
   severity: low
@@ -2596,6 +2820,7 @@ rules:
     true     dest: /etc/modprobe.d/hfs.conf     regexp: install\s+hfs     line: install hfs /bin/'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_hfsplus_disabled
   title: Disable Mounting of hfsplus
   severity: low
@@ -2610,6 +2835,7 @@ rules:
     true     dest: /etc/modprobe.d/hfsplus.conf     regexp: install\s+hfsplus     line: i'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_jffs2_disabled
   title: Disable Mounting of jffs2
   severity: low
@@ -2624,6 +2850,7 @@ rules:
     true     dest: /etc/modprobe.d/jffs2.conf     regexp: install\s+jffs2     line: install j'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_squashfs_disabled
   title: Disable Mounting of squashfs
   severity: low
@@ -2638,6 +2865,7 @@ rules:
     true     dest: /etc/modprobe.d/squashfs.conf     regexp: install\s+squashfs     lin'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_udf_disabled
   title: Disable Mounting of udf
   severity: low
@@ -2652,6 +2880,7 @@ rules:
     true     dest: /etc/modprobe.d/udf.conf     regexp: install\s+udf     line: install udf /bin/'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: kernel_module_usb-storage_disabled
   title: Disable Modprobe Loading of USB Storage Driver
   severity: medium
@@ -2666,6 +2895,7 @@ rules:
     reboot_required  - name: Ensure kernel module ''usb-storage'' is disabled   ansible.builtin.lineinfil'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_dev_shm_nodev
   title: Add nodev Option to /dev/shm
   severity: medium
@@ -2679,6 +2909,7 @@ rules:
     name: ''Add nodev Option to /dev/shm: Check information associated to mountpoint''   ansible.builtin.comma'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_dev_shm_noexec
   title: Add noexec Option to /dev/shm
   severity: medium
@@ -2692,6 +2923,7 @@ rules:
     name: ''Add noexec Option to /dev/shm: Check information associated to mountpoint''   ansible.builtin.com'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_dev_shm_nosuid
   title: Add nosuid Option to /dev/shm
   severity: medium
@@ -2705,6 +2937,7 @@ rules:
     name: ''Add nosuid Option to /dev/shm: Check information associated to mountpoint''   ansible.builtin.com'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_home_nodev
   title: Add nodev Option to /home
   severity: unknown
@@ -2718,6 +2951,7 @@ rules:
     device_name.rc > 1   changed_when: false   check_mode: false   when:   - ( n'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_home_nosuid
   title: Add nosuid Option to /home
   severity: medium
@@ -2731,6 +2965,7 @@ rules:
     name: ''Add nosuid Option to /home: Check information associated to mountpoint''   ansible.builtin.command: '
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_tmp_nodev
   title: Add nodev Option to /tmp
   severity: medium
@@ -2744,6 +2979,7 @@ rules:
     name: ''Add nodev Option to /tmp: Check information associated to mountpoint''   ansible.builtin.command: find'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_tmp_noexec
   title: Add noexec Option to /tmp
   severity: medium
@@ -2756,6 +2992,7 @@ rules:
     name: ''Add noexec Option to /tmp: Check information associated to mountpoint''   ansible.builtin.command: fi'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_tmp_nosuid
   title: Add nosuid Option to /tmp
   severity: medium
@@ -2769,6 +3006,7 @@ rules:
     name: ''Add nosuid Option to /tmp: Check information associated to mountpoint''   ansible.builtin.command: fi'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_audit_nodev
   title: Add nodev Option to /var/log/audit
   severity: medium
@@ -2782,6 +3020,7 @@ rules:
     name: ''Add nodev Option to /var/log/audit: Check information associated to mountpoint''   ansible.b'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_audit_noexec
   title: Add noexec Option to /var/log/audit
   severity: medium
@@ -2795,6 +3034,7 @@ rules:
     name: ''Add noexec Option to /var/log/audit: Check information associated to mountpoint''   ansible'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_audit_nosuid
   title: Add nosuid Option to /var/log/audit
   severity: medium
@@ -2808,6 +3048,7 @@ rules:
     name: ''Add nosuid Option to /var/log/audit: Check information associated to mountpoint''   ansible'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_nodev
   title: Add nodev Option to /var/log
   severity: medium
@@ -2821,6 +3062,7 @@ rules:
     name: ''Add nodev Option to /var/log: Check information associated to mountpoint''   ansible.builtin.comma'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_noexec
   title: Add noexec Option to /var/log
   severity: medium
@@ -2834,6 +3076,7 @@ rules:
     name: ''Add noexec Option to /var/log: Check information associated to mountpoint''   ansible.builtin.com'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_log_nosuid
   title: Add nosuid Option to /var/log
   severity: medium
@@ -2847,6 +3090,7 @@ rules:
     name: ''Add nosuid Option to /var/log: Check information associated to mountpoint''   ansible.builtin.com'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_nodev
   title: Add nodev Option to /var
   severity: medium
@@ -2860,6 +3104,7 @@ rules:
     name: ''Add nodev Option to /var: Check information associated to mountpoint''   ansible.builtin.command: find'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_nosuid
   title: Add nosuid Option to /var
   severity: medium
@@ -2873,6 +3118,7 @@ rules:
     > 1   changed_when: false   check_mode: false   when:   - ( not ( "kernel-core" in ansible_f'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_tmp_nodev
   title: Add nodev Option to /var/tmp
   severity: medium
@@ -2886,6 +3132,7 @@ rules:
     device_name   failed_when: device_name.rc > 1   changed_when: false   check_mode: false   when:'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_tmp_noexec
   title: Add noexec Option to /var/tmp
   severity: medium
@@ -2899,6 +3146,7 @@ rules:
     device_name   failed_when: device_name.rc > 1   changed_when: false   check_mode: false   whe'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: mount_option_var_tmp_nosuid
   title: Add nosuid Option to /var/tmp
   severity: medium
@@ -2912,6 +3160,7 @@ rules:
     device_name   failed_when: device_name.rc > 1   changed_when: false   check_mode: false   whe'
   disruption: high
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_kernel_yama_ptrace_scope
   title: Restrict usage of ptrace to descendant processes
   severity: medium
@@ -2926,6 +3175,7 @@ rules:
     /etc/sysctl.d/     - /run/sysctl.d/     - /usr/local/lib/sysctl.d/   when: ''"k'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: coredump_disable_backtraces
   title: Disable core dump backtraces
   severity: medium
@@ -2941,6 +3191,7 @@ rules:
     for a section in files   ansible.builtin.find:     paths: ''{{item.path}}''     patterns: ''{{item.pa'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: coredump_disable_storage
   title: Disable storing core dump
   severity: medium
@@ -2955,6 +3206,7 @@ rules:
     section in files   ansible.builtin.find:     paths: ''{{item.path}}''     patterns: ''{{item.pattern}'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: sysctl_kernel_randomize_va_space
   title: Enable Randomized Layout of Virtual Address Space
   severity: medium
@@ -2969,6 +3221,7 @@ rules:
     sysctl_kernel_randomize_va_space  - name: Enable Randomized Layout of Virtual Address Space - Set'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: package_libselinux_installed
   title: Install libselinux Package
   severity: high
@@ -2982,6 +3235,8 @@ rules:
     in ansible_facts.packages''   tags:   - CCE-84069-4   - PCI-DSSv4-1.2   - PCI-DSSv4-1.2.6   - enable_strategy  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SELinux must allow SSH and network access
 - id: package_mcstrans_removed
   title: Uninstall mcstrans Package
   severity: low
@@ -2995,6 +3250,7 @@ rules:
     CCE-84072-8   - disable_strategy   - low_complexity   - low_disruption   - low_severity   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_setroubleshoot_removed
   title: Uninstall setroubleshoot Package
   severity: low
@@ -3008,6 +3264,7 @@ rules:
     in ansible_facts.packages''   tags:   - CCE-84073-6   - disable_strategy   - low_complexity   - low_disrup'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: grub2_enable_selinux
   title: Ensure SELinux Not Disabled in /etc/default/grub
   severity: medium
@@ -3022,6 +3279,8 @@ rules:
     /etc/default/grub - Find /etc/grub.d/ files   ansible.builtin.find:     paths:     - /etc/grub.d/     follow: '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SELinux must allow SSH and network access
 - id: selinux_not_disabled
   title: Ensure SELinux is Not Disabled
   severity: high
@@ -3036,6 +3295,8 @@ rules:
     false   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86152-6   - high_severity '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SELinux must allow SSH and network access
 - id: selinux_policytype
   title: Configure SELinux Policy
   severity: medium
@@ -3052,6 +3313,8 @@ rules:
     selinux_policytype - name: XCCDF Value var_selinux_policy_name # promote to variable   set_fact'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SELinux must allow SSH and network access
 - id: selinux_state
   title: Ensure SELinux State is Enforcing
   severity: high
@@ -3066,6 +3329,8 @@ rules:
     selinux_state - name: XCCDF Value var_selinux_state # promote to variable   set_fact:     var_seli'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SELinux must allow SSH and network access
 - id: service_avahi-daemon_disabled
   title: Disable Avahi Server Software
   severity: medium
@@ -3078,6 +3343,7 @@ rules:
     name: Disable Avahi Server Software - Collect systemd Services Present in the   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_cron_installed
   title: Install the cron service
   severity: medium
@@ -3091,6 +3357,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86170-8   - DISA-STIG-RHEL'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_crond_enabled
   title: Enable cron Service
   severity: medium
@@ -3104,6 +3371,7 @@ rules:
     name: Enable cron Service - Enable Service crond     ansible.builtin.systemd:       name: crond       '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_d
   title: Verify Group Who Owns cron.d
   severity: medium
@@ -3117,6 +3385,7 @@ rules:
     if represented by gid   ansible.builtin.set_fact:     file_groupowner_cron_d_newgroup: ''0''   when: ''"kerne'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_daily
   title: Verify Group Who Owns cron.daily
   severity: medium
@@ -3130,6 +3399,7 @@ rules:
     variable if represented by gid   ansible.builtin.set_fact:     file_groupowner_cron_daily_newgroup: ''0''   w'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_hourly
   title: Verify Group Who Owns cron.hourly
   severity: medium
@@ -3143,6 +3413,7 @@ rules:
     variable if represented by gid   ansible.builtin.set_fact:     file_groupowner_cron_hourly_newgroup: ''0'' '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_monthly
   title: Verify Group Who Owns cron.monthly
   severity: medium
@@ -3156,6 +3427,7 @@ rules:
     variable if represented by gid   ansible.builtin.set_fact:     file_groupowner_cron_monthly_newgroup: '''
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_weekly
   title: Verify Group Who Owns cron.weekly
   severity: medium
@@ -3169,6 +3441,7 @@ rules:
     variable if represented by gid   ansible.builtin.set_fact:     file_groupowner_cron_weekly_newgroup: ''0'' '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_crontab
   title: Verify Group Who Owns Crontab
   severity: medium
@@ -3182,6 +3455,7 @@ rules:
     if represented by gid   ansible.builtin.set_fact:     file_groupowner_crontab_newgroup: ''0''   when: ''"ke'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_d
   title: Verify Owner on cron.d
   severity: medium
@@ -3195,6 +3469,7 @@ rules:
     by uid   ansible.builtin.set_fact:     file_owner_cron_d_newown: ''0''   when: ''"kernel-core" in ansible_'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_daily
   title: Verify Owner on cron.daily
   severity: medium
@@ -3208,6 +3483,7 @@ rules:
     if represented by uid   ansible.builtin.set_fact:     file_owner_cron_daily_newown: ''0''   when: ''"kernel-core"'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_hourly
   title: Verify Owner on cron.hourly
   severity: medium
@@ -3221,6 +3497,7 @@ rules:
     if represented by uid   ansible.builtin.set_fact:     file_owner_cron_hourly_newown: ''0''   when: ''"kernel-co'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_monthly
   title: Verify Owner on cron.monthly
   severity: medium
@@ -3234,6 +3511,7 @@ rules:
     if represented by uid   ansible.builtin.set_fact:     file_owner_cron_monthly_newown: ''0''   when: ''"kernel'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_weekly
   title: Verify Owner on cron.weekly
   severity: medium
@@ -3247,6 +3525,7 @@ rules:
     if represented by uid   ansible.builtin.set_fact:     file_owner_cron_weekly_newown: ''0''   when: ''"kernel-co'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_crontab
   title: Verify Owner on crontab
   severity: medium
@@ -3260,6 +3539,7 @@ rules:
     by uid   ansible.builtin.set_fact:     file_owner_crontab_newown: ''0''   when: ''"kernel-core" in ansib'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_d
   title: Verify Permissions on cron.d
   severity: medium
@@ -3273,6 +3553,7 @@ rules:
     ''find -P /etc/cron.d/ -maxdepth 0 -perm /u+s,g+xwrs,o+xwrt  -type     d ''   register: files_found   c'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_daily
   title: Verify Permissions on cron.daily
   severity: medium
@@ -3286,6 +3567,7 @@ rules:
     ''find -P /etc/cron.daily/ -maxdepth 0 -perm /u+s,g+xwrs,o+xwrt  -type     d ''   register: fil'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_hourly
   title: Verify Permissions on cron.hourly
   severity: medium
@@ -3299,6 +3581,7 @@ rules:
     ''find -P /etc/cron.hourly/ -maxdepth 0 -perm /u+s,g+xwrs,o+xwrt  -type     d ''   register: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_monthly
   title: Verify Permissions on cron.monthly
   severity: medium
@@ -3312,6 +3595,7 @@ rules:
     ''find -P /etc/cron.monthly/ -maxdepth 0 -perm /u+s,g+xwrs,o+xwrt  -type     d ''   registe'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_weekly
   title: Verify Permissions on cron.weekly
   severity: medium
@@ -3325,6 +3609,7 @@ rules:
     ''find -P /etc/cron.weekly/ -maxdepth 0 -perm /u+s,g+xwrs,o+xwrt  -type     d ''   register: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_crontab
   title: Verify Permissions on crontab
   severity: medium
@@ -3338,6 +3623,7 @@ rules:
     file_exists   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-84176-7   - N'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_at_allow_exists
   title: Ensure that /etc/at.allow exists
   severity: medium
@@ -3350,6 +3636,7 @@ rules:
     preserve     access_time: preserve   when: ''"kernel-core" in ansible_facts.packages''   tags:   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_at_deny_not_exist
   title: Ensure that /etc/at.deny does not exist
   severity: medium
@@ -3362,6 +3649,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86946-1   - PCI-DSSv4-2.2   - PCI-DSSv4-2'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_cron_allow_exists
   title: Ensure that /etc/cron.allow exists
   severity: medium
@@ -3375,6 +3663,7 @@ rules:
     preserve     access_time: preserve   when: ''"kernel-core" in ansible_facts.packages''   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_cron_deny_not_exist
   title: Ensure that /etc/cron.deny does not exist
   severity: medium
@@ -3387,6 +3676,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86850-5   - PCI-DSSv4-2.2   - PCI'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_at_allow
   title: Verify Group Who Owns /etc/at.allow file
   severity: medium
@@ -3399,6 +3689,7 @@ rules:
     ''0''   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-87103-8   - PCI-DSSv'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_cron_allow
   title: Verify Group Who Owns /etc/cron.allow file
   severity: medium
@@ -3411,6 +3702,7 @@ rules:
     ''0''   when: ''"kernel-core" in ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_owner_cron_allow
   title: Verify User Who Owns /etc/cron.allow file
   severity: medium
@@ -3423,6 +3715,7 @@ rules:
     ''0''   when: ''"kernel-core" in ansible_facts.packages''  '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_at_allow
   title: Verify Permissions on /etc/at.allow file
   severity: medium
@@ -3435,6 +3728,7 @@ rules:
     CCE-86904-0   - PCI-DSSv4-2.2   - PCI-DSSv4-2.2.6   - configur'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_cron_allow
   title: Verify Permissions on /etc/cron.allow file
   severity: medium
@@ -3447,6 +3741,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86877-8   - PCI-DSSv4-2.2   - PCI-DSSv4-2.2.6   - co'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_dhcp_removed
   title: Uninstall DHCP Server Package
   severity: medium
@@ -3458,6 +3753,7 @@ rules:
     NIST-800-53-CM-7(a)   - NIST-800-53-CM-7(b)   - PCI-DSSv4-2.2   - PCI-DSSv4-2.2.4   - disable_strategy   - low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - package_dhcp_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_dnsmasq_disabled
   title: Disable dnsmasq Service
   severity: medium
@@ -3470,6 +3766,7 @@ rules:
     systemctl -q list-unit-files --type service     register: service_exists     changed_when: false  '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_bind_removed
   title: Uninstall bind Package
   severity: low
@@ -3483,6 +3780,7 @@ rules:
     bind9.18     state: absent   tags:   - CCE-86505-5   - NIST-800-53'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_ftp_removed
   title: Remove ftp Package
   severity: low
@@ -3496,6 +3794,7 @@ rules:
     low_complexity   - low_disruption   - low_severity   - no_reboot_needed   - package_ftp_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_vsftpd_removed
   title: Uninstall vsftpd Package
   severity: high
@@ -3508,6 +3807,7 @@ rules:
     low_disruption   - no_reboot_needed   - package_vsftpd_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_httpd_removed
   title: Uninstall httpd Package
   severity: unknown
@@ -3519,6 +3819,7 @@ rules:
     NIST-800-53-CM-7(b)   - disable_strategy   - low_complexity   - low_disruption   - no_reboot_needed   - package_httpd_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_nginx_removed
   title: Uninstall nginx Package
   severity: unknown
@@ -3530,6 +3831,7 @@ rules:
     NIST-800-53-CM-7(b)   - disable_strategy   - low_complexity   - low_disruption   - no_reboot_needed   - package_nginx_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_cyrus-imapd_removed
   title: Uninstall cyrus-imapd Package
   severity: unknown
@@ -3541,6 +3843,7 @@ rules:
     low_complexity   - low_disruption   - no_reboot_needed   - package_cyrus-imapd_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_dovecot_removed
   title: Uninstall dovecot Package
   severity: unknown
@@ -3552,6 +3855,7 @@ rules:
     low_disruption   - no_reboot_needed   - package_dovecot_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_openldap-clients_removed
   title: Ensure LDAP client is not installed
   severity: low
@@ -3564,6 +3868,7 @@ rules:
     low_complexity   - low_disruption   - low_severity   - no_reboot_needed   - package_openldap-clients_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: has_nonlocal_mta
   title: Ensure Mail Transfer Agent is not Listening on any non-loopback Address
   severity: medium
@@ -3576,6 +3881,7 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: postfix_network_listening_disabled
   title: Disable Postfix Network Listening
   severity: medium
@@ -3588,6 +3894,7 @@ rules:
     !!str    tags:     - always  - name: Gather'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_rpcbind_disabled
   title: Disable rpcbind Service
   severity: low
@@ -3602,6 +3909,7 @@ rules:
     in the System     ansible.builtin.command: systemctl -q list-unit-files --type service     register: servi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_nfs_disabled
   title: Disable Network File System (nfs)
   severity: unknown
@@ -3615,6 +3923,7 @@ rules:
     Network File System (nfs) - Collect systemd Services Present in       the System     ansible.builtin.command: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_chrony_installed
   title: The Chrony package is installed
   severity: medium
@@ -3629,6 +3938,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-84215-3   - DISA-STIG-RHE'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: chronyd_specify_remote_server
   title: A remote time server for Chrony is configured
   severity: medium
@@ -3643,6 +3953,7 @@ rules:
     # promote to variable   set_fact:     var_multiple_time_servers: !!str    tags:    '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: chronyd_run_as_chrony_user
   title: Ensure that chronyd is running under chrony user account
   severity: medium
@@ -3657,6 +3968,7 @@ rules:
     chronyd     contains: ^([\s]*OPTIONS=["]?[^"]*)("?)   register: chronyd_file   when:   - ''"kernel-co'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_rsync_removed
   title: Uninstall rsync Package
   severity: medium
@@ -3668,6 +3980,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed   - package_rsync_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: no_rsh_trust_files
   title: Remove Rsh Trust Files
   severity: high
@@ -3682,6 +3995,7 @@ rules:
     true     patterns: .rhosts     hidden: true     file_type: file   check_mode: false   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_telnet-server_removed
   title: Uninstall telnet-server Package
   severity: high
@@ -3696,6 +4010,7 @@ rules:
     no_reboot_needed   - package_telnet-server_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_telnet_removed
   title: Remove telnet Clients
   severity: low
@@ -3708,6 +4023,7 @@ rules:
     PCI-DSSv4-2.2.4   - disable_strategy   - low_complexity   - low_disruption   - low_severity   - no_reboot_needed   - package_telnet_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_tftp-server_removed
   title: Uninstall tftp-server Package
   severity: high
@@ -3721,6 +4037,7 @@ rules:
     package_tftp-server_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_tftp_removed
   title: Remove tftp Daemon
   severity: low
@@ -3733,6 +4050,7 @@ rules:
     low_complexity   - low_disruption   - low_severity   - no_reboot_needed   - package_tftp_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_cups_disabled
   title: Disable the CUPS Service
   severity: unknown
@@ -3745,6 +4063,7 @@ rules:
     - Collect systemd Services Present in the System     ansible.builtin.command: systemctl -q list-unit-files '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_squid_removed
   title: Uninstall squid Package
   severity: unknown
@@ -3756,6 +4075,7 @@ rules:
     low_disruption   - no_reboot_needed   - package_squid_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_samba_removed
   title: Uninstall Samba Package
   severity: unknown
@@ -3767,6 +4087,7 @@ rules:
     low_disruption   - no_reboot_needed   - package_samba_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_net-snmp_removed
   title: Uninstall net-snmp Package
   severity: unknown
@@ -3778,6 +4099,7 @@ rules:
     disable_strategy   - low_complexity   - low_disruption   - no_reboot_needed   - package_net-snmp_removed   - unknown_severity'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupowner_sshd_config
   title: Verify Group Who Owns SSH Server config file
   severity: medium
@@ -3791,6 +4113,8 @@ rules:
     by gid   ansible.builtin.set_fact:     file_groupowner_sshd_config_newgroup: ''0''   when: ''"ker'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_groupownership_sshd_private_key
   title: Verify Group Ownership on SSH Server Private *_key Key Files
   severity: medium
@@ -3803,6 +4127,8 @@ rules:
     in ansible_facts.packages''   - file_groupownership_sshd_private_key_newgroup is undefined   tags:   - '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_groupownership_sshd_pub_key
   title: Verify Group Ownership on SSH Server Public *.pub Key Files
   severity: medium
@@ -3815,6 +4141,8 @@ rules:
     ''0''   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86136-9   - configure_strategy'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_owner_sshd_config
   title: Verify Owner on SSH Server config file
   severity: medium
@@ -3828,6 +4156,8 @@ rules:
     uid   ansible.builtin.set_fact:     file_owner_sshd_config_newown: ''0''   when: ''"kernel-core" in ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_ownership_sshd_private_key
   title: Verify Ownership on SSH Server Private *_key Key Files
   severity: medium
@@ -3840,6 +4170,8 @@ rules:
     ''0''   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86119-5   - configure_strategy   - fi'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_ownership_sshd_pub_key
   title: Verify Ownership on SSH Server Public *.pub Key Files
   severity: medium
@@ -3852,6 +4184,8 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86130-2   - configure_strategy   - file_ownership_ssh'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_permissions_sshd_config
   title: Verify Permissions on SSH Server config file
   severity: medium
@@ -3865,6 +4199,8 @@ rules:
     /etc/ssh/sshd_config   register: file_exists   whe'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_permissions_sshd_private_key
   title: Verify Permissions on SSH Server Private *_key Key Files
   severity: medium
@@ -3878,6 +4214,8 @@ rules:
     medium_severity   - no_reboot_needed  - name: Find root:root-owned keys   ansible.builtin.comm'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: file_permissions_sshd_pub_key
   title: Verify Permissions on SSH Server Public *.pub Key Files
   severity: medium
@@ -3890,6 +4228,8 @@ rules:
     medium_severity   - no_reboot_needed  - name: Find /etc/ssh/ file(s)   ansible.builtin.command: fi'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_keepalive
   title: Set SSH Client Alive Count Max
   severity: medium
@@ -3904,6 +4244,8 @@ rules:
     restrict_strategy   - sshd_set_keepalive - name: XCCDF Value var_sshd_set_keepal'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_idle_timeout
   title: Set SSH Client Alive Interval
   severity: medium
@@ -3919,6 +4261,8 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed   - restrict_strategy   - sshd_set_'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: disable_host_auth
   title: Disable Host-Based Authentication
   severity: medium
@@ -3933,6 +4277,7 @@ rules:
     no_reboot_needed   - restrict_strategy  - name: Disable Host-Based Authentication - Check if the par'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: sshd_disable_empty_passwords
   title: Disable SSH Access via Empty Passwords
   severity: high
@@ -3947,6 +4292,8 @@ rules:
     restrict_strategy   - sshd_disable_empty_passwords  - name: Disable SSH Access v'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_disable_forwarding
   title: Disable SSH Forwarding
   severity: medium
@@ -3960,6 +4307,8 @@ rules:
     (?i)^\s*{{ "DisableForwarding"| regex_escape }}\s+   register: _sshd_config_has_param'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_disable_gssapi_auth
   title: Disable GSSAPI Authentication
   severity: medium
@@ -3975,6 +4324,8 @@ rules:
     Authentication - Check if the parameter GSSAPIAuthentication     is configured   ansible.builtin.find:  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_disable_rhosts
   title: Disable SSH Support for .rhosts Files
   severity: medium
@@ -3989,6 +4340,8 @@ rules:
     sshd_disable_rhosts  - name: Disable SSH Support for .rhosts Files - Check if the parameter IgnoreRh'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_disable_root_login
   title: Disable SSH Root Login
   severity: medium
@@ -4003,6 +4356,8 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - restrict_'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_do_not_permit_user_env
   title: Do Not Allow SSH Environment Options
   severity: medium
@@ -4017,6 +4372,8 @@ rules:
     restrict_strategy   - sshd_do_not_permit_user_env  - name: Do Not Allow SSH Environment Options - Ch'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_enable_pam
   title: Enable PAM
   severity: medium
@@ -4032,6 +4389,8 @@ rules:
     /etc/ssh/sshd_config.d     contains: (?i)^\s*{{ "UsePAM"| regex_escape }}\s+   registe'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_enable_warning_banner_net
   title: Enable SSH Warning Banner
   severity: medium
@@ -4046,6 +4405,8 @@ rules:
     if the parameter Banner is configured   ansible.builtin.find:     paths:     - /etc/ssh/sshd_c'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_limit_user_access
   title: Limit Users' SSH Access
   severity: unknown
@@ -4058,6 +4419,8 @@ rules:
   fix_text: ''
   disruption: medium
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_login_grace_time
   title: Ensure SSH LoginGraceTime is configured
   severity: medium
@@ -4072,6 +4435,8 @@ rules:
     always  - name: Ensure SSH LoginGraceTime is configured - Check if the parameter LoginGraceTime    '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_loglevel_verbose
   title: Set SSH Daemon LogLevel to VERBOSE
   severity: medium
@@ -4087,6 +4452,8 @@ rules:
     SSH Daemon LogLevel to VERBOSE - Check if the parameter LogLevel is configured   ansible.builtin.find'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_max_auth_tries
   title: Set SSH authentication attempt limit
   severity: medium
@@ -4100,6 +4467,8 @@ rules:
     always  - name: Set SSH authentication attempt limit - Check if the parameter MaxAuthTries     is configured '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_max_sessions
   title: Set SSH MaxSessions limit
   severity: medium
@@ -4113,6 +4482,8 @@ rules:
     name: Set SSH MaxSessions limit - Check if the parameter MaxSessions is configured   ansible.builtin.find:   '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: sshd_set_maxstartups
   title: Ensure SSH MaxStartups is configured
   severity: medium
@@ -4127,6 +4498,8 @@ rules:
     name: Ensure SSH MaxStartups is configured - Check if the parameter MaxStartups     is configured   ansi'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: SSH daemon must accept connections from Controller
 - id: package_xorg-x11-server-common_removed
   title: Remove the X Windows Package Group
   severity: medium
@@ -4140,6 +4513,7 @@ rules:
     NIST-800-53-CM-6(a)   - NIST-800-53-CM-7(a)   - NIST-800-53-CM-7(b)   - disable_strategy   - low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - package_xorg-x11-server-common_removed'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: xwindows_runlevel_target
   title: Disable Graphical Environment Startup By Setting Default Target
   severity: medium
@@ -4154,6 +4528,7 @@ rules:
     /etc/systemd/system/default.target     state: link    '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_audit-libs_installed
   title: Ensure the audit-libs package as a part of audit Subsystem is Installed
   severity: medium
@@ -4166,6 +4541,7 @@ rules:
     name: Ensure audit-libs is installed   ansible.builtin.package:     name: audit-lib'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: package_audit_installed
   title: Ensure the audit Subsystem is Installed
   severity: medium
@@ -4178,6 +4554,7 @@ rules:
     medium_severity   - no_reboot_needed   - package_audit_installed  - name: Ensure audit is'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: service_auditd_enabled
   title: Enable auditd Service
   severity: medium
@@ -4193,6 +4570,7 @@ rules:
     PCI-DSS-Req-10.1   - PCI-DSSv4-10.2   - PCI-DSSv4-10.2.1   - enable_strateg'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: grub2_audit_argument
   title: Enable Auditing for Processes Which Start Prior to the Audit Daemon
   severity: low
@@ -4208,6 +4586,7 @@ rules:
     low_severity   - medium_complexity   - reboot_required   - restrict_strategy  - name: Check if audit argument '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: grub2_audit_backlog_limit_argument
   title: Extend Audit Backlog Limit for the Audit Daemon
   severity: low
@@ -4223,6 +4602,7 @@ rules:
     !!str    tags:     - always  - name: Check if audit_backlog_limit arg'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_immutable
   title: Make the auditd Configuration Immutable
   severity: medium
@@ -4238,6 +4618,7 @@ rules:
     name: Make the auditd Configuration Immutable - Collect all files from /etc/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_mac_modification
   title: Record Events that Modify the System's Mandatory Access Controls
   severity: medium
@@ -4252,6 +4633,7 @@ rules:
     Record Events that Modify the System''s Mandatory Access Controls - Check if     watch rule'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_mac_modification_usr_share
   title: Record Events that Modify the System's Mandatory Access Controls in usr/share
   severity: medium
@@ -4266,6 +4648,7 @@ rules:
     the System''s Mandatory Access Controls in usr/share     - Check if watch rule for /usr/share/selinux/ already '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_media_export
   title: Ensure auditd Collects Information on Exporting to Media (successful)
   severity: medium
@@ -4281,6 +4664,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit mount tasks   ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_networkconfig_modification
   title: Record Events that Modify the System's Network Environment
   severity: medium
@@ -4295,6 +4679,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit tasks   ansible.builtin.set_'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_networkconfig_modification_hostname_file
   title: Record Events that Modify the System's Network Environment - /etc/hostname
   severity: medium
@@ -4309,6 +4694,7 @@ rules:
     in /etc/audit/rules.d/   ansible.builtin.find:     paths: /etc/audit/rules.d     contains: ^\s*-w\s+/etc/ho'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_networkconfig_modification_network_scripts
   title: Record Events that Modify the System's Network Environment - /etc/sysconfig/network-scripts
   severity: medium
@@ -4323,6 +4709,7 @@ rules:
     already exists in /etc/audit/rules.d/   ansible.builtin.find:     paths: /etc/audit/ru'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_networkconfig_modification_networkmanager
   title: Record Events that Modify the System's Network Environment - /etc/NetworkManager/
   severity: medium
@@ -4337,6 +4724,7 @@ rules:
     already exists in /etc/audit/rules.d/   ansible.builtin.find:     paths: /etc/audit/rules.d     contains: ^\'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_session_events_btmp
   title: Record Attempts to Alter Process and Session Initiation Information btmp
   severity: medium
@@ -4351,6 +4739,7 @@ rules:
     and Session Initiation Information btmp -     Check if watch rule for /var/log/btmp already exists in /etc/audit/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_session_events_utmp
   title: Record Attempts to Alter Process and Session Initiation Information utmp
   severity: medium
@@ -4365,6 +4754,7 @@ rules:
     and Session Initiation Information utmp -     Check if watch rule for /var/run/utmp already exists in /etc/audit/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_session_events_wtmp
   title: Record Attempts to Alter Process and Session Initiation Information wtmp
   severity: medium
@@ -4379,6 +4769,7 @@ rules:
     and Session Initiation Information wtmp -     Check if watch rule for /var/log/wtmp already exists in /etc/audit/'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_suid_auid_privilege_function
   title: Record Events When Executables Are Run As Another User
   severity: medium
@@ -4395,6 +4786,7 @@ rules:
     CCE-86368-8   - audit_rules_suid_auid_privilege_function   - low_complexity   - low_disruption '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_sysadmin_actions
   title: Ensure auditd Collects System Administrator Actions
   severity: medium
@@ -4409,6 +4801,7 @@ rules:
     low_disruption   - medium_severity   - no_reboot_needed   - restrict_strategy'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_group
   title: Record Events that Modify User/Group Information - /etc/group
   severity: medium
@@ -4424,6 +4817,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - rest'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_gshadow
   title: Record Events that Modify User/Group Information - /etc/gshadow
   severity: medium
@@ -4439,6 +4833,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - re'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_nsswitch_conf
   title: Record Events that Modify User/Group Information - /etc/nsswitch.conf
   severity: medium
@@ -4453,6 +4848,7 @@ rules:
     /etc/audit/rules.d     contains: ^\s*-w\s+/etc/nsswit'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_opasswd
   title: Record Events that Modify User/Group Information - /etc/security/opasswd
   severity: medium
@@ -4468,6 +4864,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - re'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_pam_conf
   title: Record Events that Modify User/Group Information - /etc/pam.conf
   severity: medium
@@ -4482,6 +4879,8 @@ rules:
     /etc/audit/rules.d     contains: ^\s*-w\s+/etc/pam.conf\s+-p\s+wa(\s'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: audit_rules_usergroup_modification_pamd
   title: Record Events that Modify User/Group Information - /etc/pam.d/
   severity: medium
@@ -4496,6 +4895,7 @@ rules:
     /etc/audit/rules.d     contains: ^\s*-w\s+/etc/pam.d/\s+-p\s+wa(\s|$)+     p'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_passwd
   title: Record Events that Modify User/Group Information - /etc/passwd
   severity: medium
@@ -4511,6 +4911,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - res'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_usergroup_modification_shadow
   title: Record Events that Modify User/Group Information - /etc/shadow
   severity: medium
@@ -4526,6 +4927,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - res'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_sudo_log_events
   title: Record Attempts to perform maintenance activities
   severity: medium
@@ -4542,6 +4944,8 @@ rules:
     rule for     /var/log/sudo.log already exists in /etc/audit/rules.d/   ansible.builtin.find:  '
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: sudo/become must work for the Ansible user
 - id: directory_permissions_var_log_audit
   title: System Audit Logs Must Have Mode 0750 or Less Permissive
   severity: medium
@@ -4556,6 +4960,7 @@ rules:
     grep -iw ^log_file /etc/audit/auditd.conf   check_mo'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_group_ownership_var_log_audit
   title: System Audit Logs Must Be Group Owned By Root
   severity: medium
@@ -4570,6 +4975,7 @@ rules:
     ''/log_group/ {print $2}'' /etc/audit/auditd.conf | tr -d '' '')     if ! [ "${GROUP}" == ''root'' ]; then       chgrp ${'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: file_groupownership_audit_configuration
   title: Audit Configuration Files Must Be Owned By Group root
   severity: medium
@@ -4584,6 +4990,7 @@ rules:
     ''0''   when:   - ''"audit" in ansible_facts.packages'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_ownership_audit_configuration
   title: Audit Configuration Files Must Be Owned By Root
   severity: medium
@@ -4599,6 +5006,7 @@ rules:
     ''0''   when:   - ''"audit" in ansible_facts.packages''   - ''"kernel-core'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_ownership_var_log_audit_stig
   title: System Audit Logs Must Be Owned By Root
   severity: medium
@@ -4612,6 +5020,7 @@ rules:
     was done'' fi'
   disruption: medium
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_audit_configuration
   title: Audit Configuration Files Permissions are 640 or More Restrictive
   severity: medium
@@ -4626,6 +5035,7 @@ rules:
     -regextype posix-extended -regex "^.*audit(\.rules|d\.conf)$"   register: files_f'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_var_log_audit
   title: System Audit Logs Must Have Mode 0640 or Less Permissive
   severity: medium
@@ -4640,6 +5050,7 @@ rules:
     no_reboot_needed   - restrict_strategy  - name: System Audit Logs Must Have Mode 0640 or Less Permissive - Ge'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_chmod
   title: Record Events that Modify the System's Discretionary Access Controls - chmod
   severity: medium
@@ -4655,6 +5066,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit chmod tasks   ansible.builti'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_chown
   title: Record Events that Modify the System's Discretionary Access Controls - chown
   severity: medium
@@ -4670,6 +5082,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit chown tasks   ansible.builti'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fchmod
   title: Record Events that Modify the System's Discretionary Access Controls - fchmod
   severity: medium
@@ -4685,6 +5098,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fchmod tasks   ansible.buil'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fchmodat
   title: Record Events that Modify the System's Discretionary Access Controls - fchmodat
   severity: medium
@@ -4700,6 +5114,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fchmodat tasks   ansible.'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fchown
   title: Record Events that Modify the System's Discretionary Access Controls - fchown
   severity: medium
@@ -4715,6 +5130,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fchown tasks   ansible.buil'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fchownat
   title: Record Events that Modify the System's Discretionary Access Controls - fchownat
   severity: medium
@@ -4730,6 +5146,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fchownat tasks   ansible.'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fremovexattr
   title: Record Events that Modify the System's Discretionary Access Controls - fremovexattr
   severity: medium
@@ -4745,6 +5162,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fremovexattr tasks   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_fsetxattr
   title: Record Events that Modify the System's Discretionary Access Controls - fsetxattr
   severity: medium
@@ -4760,6 +5178,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit fsetxattr tasks   ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_lchown
   title: Record Events that Modify the System's Discretionary Access Controls - lchown
   severity: medium
@@ -4775,6 +5194,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit lchown tasks   ansible.buil'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_lremovexattr
   title: Record Events that Modify the System's Discretionary Access Controls - lremovexattr
   severity: medium
@@ -4790,6 +5210,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit lremovexattr tasks   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_lsetxattr
   title: Record Events that Modify the System's Discretionary Access Controls - lsetxattr
   severity: medium
@@ -4805,6 +5226,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit lsetxattr tasks   ansibl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_removexattr
   title: Record Events that Modify the System's Discretionary Access Controls - removexattr
   severity: medium
@@ -4820,6 +5242,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit removexattr tasks   an'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_dac_modification_setxattr
   title: Record Events that Modify the System's Discretionary Access Controls - setxattr
   severity: medium
@@ -4835,6 +5258,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit setxattr tasks   ansible.'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_execution_chacl
   title: Record Any Attempts to Run chacl
   severity: medium
@@ -4850,6 +5274,7 @@ rules:
     []       syscall_grouping: []    - name: Check existe'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_execution_setfacl
   title: Record Any Attempts to Run setfacl
   severity: medium
@@ -4865,6 +5290,7 @@ rules:
     of syscalls     ansible.builtin.set_fact:       syscalls: []       syscall_grouping: []    - name: Check '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_execution_chcon
   title: Record Any Attempts to Run chcon
   severity: medium
@@ -4881,6 +5307,7 @@ rules:
     to Run chcon - Perform remediation of Audit rules for     /usr/bin/chcon   block:    - name: Decl'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_file_deletion_events_rename
   title: Ensure auditd Collects File Deletion Events by User - rename
   severity: medium
@@ -4896,6 +5323,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit rename tasks   an'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_file_deletion_events_renameat
   title: Ensure auditd Collects File Deletion Events by User - renameat
   severity: medium
@@ -4911,6 +5339,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit renameat tasks '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_file_deletion_events_unlink
   title: Ensure auditd Collects File Deletion Events by User - unlink
   severity: medium
@@ -4926,6 +5355,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit unlink tasks   an'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_file_deletion_events_unlinkat
   title: Ensure auditd Collects File Deletion Events by User - unlinkat
   severity: medium
@@ -4941,6 +5371,7 @@ rules:
     reboot_required   - restrict_strategy  - name: Set architecture for audit unlinkat tasks '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_unsuccessful_file_modification_creat
   title: Record Unsuccessful Access Attempts to Files - creat
   severity: medium
@@ -4955,6 +5386,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit creat tasks   ansible.builtin.set_fact:     audi'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_unsuccessful_file_modification_ftruncate
   title: Record Unsuccessful Access Attempts to Files - ftruncate
   severity: medium
@@ -4969,6 +5401,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit ftruncate tasks   ansible.builtin.set_fact: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_unsuccessful_file_modification_open
   title: Record Unsuccessful Access Attempts to Files - open
   severity: medium
@@ -4983,6 +5416,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit open tasks   ansible.builtin.set_fact:     audit_'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_unsuccessful_file_modification_openat
   title: Record Unsuccessful Access Attempts to Files - openat
   severity: medium
@@ -4997,6 +5431,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit openat tasks   ansible.builtin.set_fact:     au'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_unsuccessful_file_modification_truncate
   title: Record Unsuccessful Access Attempts to Files - truncate
   severity: medium
@@ -5011,6 +5446,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit truncate tasks   ansible.builtin.set_fact:   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_kernel_module_loading_create
   title: Ensure auditd Collects Information on Kernel Module Unloading - create_module
   severity: medium
@@ -5026,6 +5462,7 @@ rules:
     b64   when:   - ''"audit" in ansible_facts.packages''   - ''"kernel-core" in'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_kernel_module_loading_delete
   title: Ensure auditd Collects Information on Kernel Module Unloading - delete_module
   severity: medium
@@ -5041,6 +5478,7 @@ rules:
     name: Ensure auditd Collects Information on Kernel Module Unloading - delete_module   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_kernel_module_loading_finit
   title: Ensure auditd Collects Information on Kernel Module Loading and Unloading - finit_module
   severity: medium
@@ -5056,6 +5494,7 @@ rules:
     name: Ensure auditd Collects Information on Kernel Module Loading and Unloading     - f'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_kernel_module_loading_init
   title: Ensure auditd Collects Information on Kernel Module Loading - init_module
   severity: medium
@@ -5071,6 +5510,7 @@ rules:
     name: Ensure auditd Collects Information on Kernel Module Loading - init_module     - Se'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_kernel_module_loading_query
   title: Ensure auditd Collects Information on Kernel Module Loading and Unloading - query_module
   severity: medium
@@ -5086,6 +5526,7 @@ rules:
     b64   when:   - ''"audit" in ansible_facts.packages''   - ''"kernel'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_login_events_faillock
   title: Record Attempts to Alter Logon and Logout Events - faillock
   severity: medium
@@ -5100,6 +5541,8 @@ rules:
     medium_severity   - no_reboot_needed   - restrict_strategy - name: XCCDF Value var_accounts_p'
   disruption: low
   reboot_required: false
+  aap_impact: caution
+  aap_impact_reason: PAM must not lock out the Ansible user
 - id: audit_rules_login_events_lastlog
   title: Record Attempts to Alter Logon and Logout Events - lastlog
   severity: medium
@@ -5114,6 +5557,7 @@ rules:
     medium_severity   - no_reboot_needed   - restrict_strategy  - name: Record Attempts to Alter L'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_privileged_commands
   title: Ensure auditd Collects Information on the Use of Privileged Commands
   severity: medium
@@ -5130,6 +5574,7 @@ rules:
     name: Ensure auditd Collects Information on the Use of Privileged Commands - Set   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_privileged_commands_kmod
   title: Ensure auditd Collects Information on the Use of Privileged Commands - kmod
   severity: medium
@@ -5145,6 +5590,7 @@ rules:
     name: Ensure auditd Collects Information on the Use of Privileged Commands'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_privileged_commands_usermod
   title: Ensure auditd Collects Information on the Use of Privileged Commands - usermod
   severity: medium
@@ -5161,6 +5607,7 @@ rules:
     name: Declare list of syscalls     ansible.builtin.set_fact:       sy'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_time_adjtimex
   title: Record attempts to alter time through adjtimex
   severity: medium
@@ -5176,6 +5623,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit tasks   ansible.builtin.set_fact:     a'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_time_clock_settime
   title: Record Attempts to Alter Time Through clock_settime
   severity: medium
@@ -5191,6 +5639,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit tasks   ansible.builtin.set_fact: '
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_time_settimeofday
   title: Record attempts to alter time through settimeofday
   severity: medium
@@ -5206,6 +5655,7 @@ rules:
     restrict_strategy  - name: Set architecture for audit tasks   set_fact:     audit_arch: b'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: audit_rules_time_watch_localtime
   title: Record Attempts to Alter the localtime File
   severity: medium
@@ -5221,6 +5671,7 @@ rules:
     restrict_strategy  - name: Record Attempts to Alter the localtime File - Check if watc'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_disk_error_action
   title: Configure auditd Disk Error Action on Disk Error
   severity: medium
@@ -5235,6 +5686,7 @@ rules:
     # promote to variable   set_fact:     var_auditd_disk_error_action: !!str    tags:     - always  - name:'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_disk_full_action
   title: Configure auditd Disk Full Action when Disk Space Is Full
   severity: medium
@@ -5249,6 +5701,7 @@ rules:
     # promote to variable   set_fact:     var_auditd_disk_full_action: !!str    tags:     - always  - name: Co'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_retention_action_mail_acct
   title: Configure auditd mail_acct Action on Low Disk Space
   severity: medium
@@ -5262,6 +5715,7 @@ rules:
     restrict_strategy - name: XCCDF Value var_auditd_action_mail_acct # promote to variable   set_'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_retention_admin_space_left_action
   title: Configure auditd admin_space_left Action on Low Disk Space
   severity: medium
@@ -5277,6 +5731,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - restrict_strategy - name:'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_retention_max_log_file
   title: Configure auditd Max Log File Size
   severity: medium
@@ -5290,6 +5745,7 @@ rules:
     !!str    tags:     - always  - name: Configure auditd Max Log File Size   ans'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_retention_max_log_file_action
   title: Configure auditd max_log_file_action Upon Reaching Maximum Log Size
   severity: medium
@@ -5305,6 +5761,7 @@ rules:
     Value var_auditd_max_log_file_action # promote to variable   set_fact:     var_auditd_max'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: auditd_data_retention_space_left_action
   title: Configure auditd space_left Action on Low Disk Space
   severity: medium
@@ -5319,6 +5776,7 @@ rules:
     low_complexity   - low_disruption   - medium_severity   - no_reboot_needed   - restrict_strategy - name: XCCDF'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_groupownership_audit_binaries
   title: Verify that audit tools are owned by group root
   severity: medium
@@ -5335,6 +5793,7 @@ rules:
     ''0''   when: ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86457-9   - configure_st'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_ownership_audit_binaries
   title: Verify that audit tools are owned by root
   severity: medium
@@ -5351,6 +5810,7 @@ rules:
     ''"kernel-core" in ansible_facts.packages''   tags:   - CCE-86454-6   - configure_strategy   - file_ownersh'
   disruption: low
   reboot_required: false
+  aap_impact: safe
 - id: file_permissions_audit_binaries
   title: Verify that audit tools Have Mode 0755 or less
   severity: medium
@@ -5367,3 +5827,4 @@ rules:
     CCE-86448-8   - configure_strategy   - file_permissions_audit_binaries   - low_complexity   '
   disruption: low
   reboot_required: false
+  aap_impact: safe
