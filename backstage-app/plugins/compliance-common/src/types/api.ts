@@ -179,6 +179,8 @@ export interface RuleMetadataRecord {
   fixText: string;
   category: string;
   disruption: 'low' | 'medium' | 'high';
+  aapImpact: 'safe' | 'caution' | 'breaks-connectivity';
+  aapImpactReason: string;
   scanner: string;
   updatedAt: string;
 }
@@ -202,6 +204,8 @@ export interface MultiHostFinding {
   severity: 'CAT_I' | 'CAT_II' | 'CAT_III';
   category: string;
   disruption: 'low' | 'medium' | 'high';
+  aapImpact: 'safe' | 'caution' | 'breaks-connectivity';
+  aapImpactReason: string;
   parameters: FindingParameter[];
   hosts: Array<{
     host: string;

@@ -46,6 +46,8 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
@@ -93,6 +95,9 @@ const useStyles = makeStyles(theme => ({
   },
   statusFilter: {
     minWidth: 140,
+  },
+  profileFilter: {
+    minWidth: 180,
   },
   nameCell: {
     fontWeight: 500,
@@ -143,6 +148,16 @@ function formatRelativeDate(iso: string): string {
   return d.toLocaleDateString();
 }
 
+function formatAbsoluteDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatHybridDate(iso: string): { absolute: string; relative: string } {
+  return { absolute: formatAbsoluteDate(iso), relative: formatRelativeDate(iso) };
+}
+
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return '—';
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -164,7 +179,11 @@ function ExecutionHistoryRow({
 
   return (
     <TableRow>
-      <TableCell>{formatRelativeDate(execution.startedAt)}</TableCell>
+      <TableCell>
+        <Tooltip title={formatRelativeDate(execution.startedAt)}>
+          <span>{formatAbsoluteDate(execution.startedAt)}</span>
+        </Tooltip>
+      </TableCell>
       <TableCell>
         <Chip
           label={execution.status}
@@ -213,6 +232,90 @@ function ExecutionHistoryRow({
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+function RowActions({
+  remediation: r,
+  isAdmin,
+  canDelete,
+  canArchive,
+  baselineTargets,
+  onBookmark,
+  onEdit,
+  onLaunch,
+  onArchive,
+  onDelete,
+}: {
+  remediation: RemediationProfile;
+  isAdmin: boolean;
+  canDelete: boolean;
+  canArchive: boolean;
+  baselineTargets: BaselineTarget[];
+  onBookmark: () => void;
+  onEdit: () => void;
+  onLaunch: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+}) {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  useEffect(() => () => { setAnchorEl(null); }, []);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>
+        <span>
+          <IconButton
+            size="small"
+            disabled={r.status === 'archived'}
+            onClick={onLaunch}
+          >
+            <PlayArrowIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <IconButton size="small" onClick={e => setAnchorEl(e.currentTarget)} aria-label="More actions">
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={() => { setAnchorEl(null); onEdit(); }}>
+          <VisibilityIcon fontSize="small" style={{ marginRight: 8 }} /> Edit Selections
+        </MenuItem>
+        {r.status === 'saved' && (
+          <MenuItem onClick={() => { setAnchorEl(null); onBookmark(); }}>
+            {baselineTargets.some(bt => bt.remediationProfileId === r.id)
+              ? <BookmarkIcon fontSize="small" style={{ marginRight: 8, color: '#0066CC' }} />
+              : <BookmarkBorderIcon fontSize="small" style={{ marginRight: 8 }} />}
+            {baselineTargets.some(bt => bt.remediationProfileId === r.id) ? 'Manage Baseline' : 'Pin as Baseline'}
+          </MenuItem>
+        )}
+        {canArchive && isAdmin && (
+          <MenuItem onClick={() => { setAnchorEl(null); onArchive(); }}>
+            {r.status === 'archived'
+              ? <><UnarchiveIcon fontSize="small" style={{ marginRight: 8 }} /> Restore</>
+              : <><ArchiveIcon fontSize="small" style={{ marginRight: 8 }} /> Archive</>}
+          </MenuItem>
+        )}
+        {isAdmin && (
+          <MenuItem
+            disabled={!canDelete}
+            onClick={() => { setAnchorEl(null); onDelete(); }}
+            style={canDelete ? { color: '#C62828' } : undefined}
+          >
+            <DeleteIcon fontSize="small" style={{ marginRight: 8 }} />
+            {!canDelete && r.status !== 'draft' ? 'Delete (archive instead)' : 'Delete'}
+          </MenuItem>
+        )}
+      </Menu>
+    </div>
   );
 }
 
@@ -404,12 +507,12 @@ export const RemediationsList = () => {
 
       <div className={classes.filterRow}>
         <FormControl variant="outlined" size="small" className={classes.statusFilter}>
-          <InputLabel id="status-filter-label">Filter</InputLabel>
+          <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
             labelId="status-filter-label"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-            label="Filter"
+            label="Status"
           >
             <MenuItem value="active">Active</MenuItem>
             <MenuItem value="all">All</MenuItem>
@@ -417,22 +520,32 @@ export const RemediationsList = () => {
             <MenuItem value="archived">Archived</MenuItem>
           </Select>
         </FormControl>
+        <FormControl variant="outlined" size="small" className={classes.profileFilter}>
+          <InputLabel id="profile-filter-label">Profile</InputLabel>
+          <Select
+            labelId="profile-filter-label"
+            value={filterByProfile || ''}
+            onChange={e => {
+              const val = e.target.value as string;
+              const next = new URLSearchParams(searchParams);
+              if (val) {
+                next.set('complianceProfileId', val);
+              } else {
+                next.delete('complianceProfileId');
+              }
+              setSearchParams(next);
+            }}
+            label="Profile"
+          >
+            <MenuItem value="">All Profiles</MenuItem>
+            {Array.from(profileNames.entries()).map(([id, name]) => (
+              <MenuItem key={id} value={id}>{name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <Typography variant="caption" className={classes.muted}>
           {remediations.length} profile{remediations.length !== 1 ? 's' : ''}
         </Typography>
-        {filterByProfile && (
-          <Chip
-            label={`Filtered to: ${profileNames.get(filterByProfile) || filterByProfile}`}
-            onDelete={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete('complianceProfileId');
-              setSearchParams(next);
-            }}
-            color="primary"
-            variant="outlined"
-            size="small"
-          />
-        )}
       </div>
 
       {remediations.length === 0 ? (
@@ -465,12 +578,12 @@ export const RemediationsList = () => {
               <TableRow>
                 <TableCell padding="checkbox" />
                 <TableCell>Name</TableCell>
-                <TableCell>Profile</TableCell>
-                <TableCell>Rules</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Profile</TableCell>
+                <TableCell align="right">Rules</TableCell>
                 <TableCell>Last Run</TableCell>
-                <TableCell>Runs</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell align="right">Runs</TableCell>
+                <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -519,16 +632,6 @@ export const RemediationsList = () => {
                         })()}
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={profileNames.get(r.complianceProfileId) || r.complianceProfileId}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {r.selections.filter(s => s.enabled).length}
-                      </TableCell>
-                      <TableCell>
                         <div className={classes.statusChips}>
                           <Chip
                             label={r.status || 'saved'}
@@ -550,80 +653,48 @@ export const RemediationsList = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {r.lastExecutedAt ? formatRelativeDate(r.lastExecutedAt) : (
+                        <Chip
+                          label={profileNames.get(r.complianceProfileId) || r.complianceProfileId}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        {r.selections.filter(s => s.enabled).length}
+                      </TableCell>
+                      <TableCell>
+                        {r.lastExecutedAt ? (() => {
+                          const { absolute, relative } = formatHybridDate(r.lastExecutedAt);
+                          return (
+                            <Tooltip title={relative}>
+                              <Typography variant="body2" style={{ whiteSpace: 'nowrap' }}>{absolute}</Typography>
+                            </Tooltip>
+                          );
+                        })() : (
                           <span className={classes.muted}>Never</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell align="right">
                         {r.executionCount ?? 0}
                       </TableCell>
                       <TableCell>
-                        <div className={classes.actions}>
-                          {r.status === 'saved' && (
-                            <Tooltip title={
-                              baselineTargets.some(bt => bt.remediationProfileId === r.id)
-                                ? 'Pinned as baseline — click to manage'
-                                : 'Pin as baseline'
-                            }>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleBookmarkClick(r.id)}
-                              >
-                                {baselineTargets.some(bt => bt.remediationProfileId === r.id)
-                                  ? <BookmarkIcon fontSize="small" style={{ color: '#0066CC' }} />
-                                  : <BookmarkBorderIcon fontSize="small" />}
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Edit selections">
-                            <IconButton
-                              size="small"
-                              onClick={() => navigate(`/compliance/remediation-edit/${r.id}`)}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                disabled={r.status === 'archived'}
-                                onClick={() => {
-                                  setLaunchTarget(r);
-                                  setLaunchInventoryId('');
-                                  setLaunchScanCheck(null);
-                                  setLaunchScanMissing(false);
-                                }}
-                              >
-                                <PlayArrowIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          {canArchive && isAdmin && (
-                            <Tooltip title={r.status === 'archived' ? 'Restore' : 'Archive'}>
-                              <IconButton size="small" data-testid={`archive-${r.id}`} onClick={() => setArchiveTarget(r)}>
-                                {r.status === 'archived' ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title={
-                            !isAdmin ? 'Admin permission required' :
-                            !canDelete && r.status !== 'draft' ? 'Only drafts can be deleted — archive instead' :
-                            !canDelete ? 'Cannot delete profile with execution history' :
-                            'Delete draft'
-                          }>
-                            <span>
-                              <IconButton
-                                size="small"
-                                data-testid={`delete-${r.id}`}
-                                disabled={!isAdmin || !canDelete}
-                                onClick={() => setDeleteTarget(r)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </div>
+                        <RowActions
+                          remediation={r}
+                          isAdmin={isAdmin}
+                          canDelete={canDelete}
+                          canArchive={canArchive}
+                          baselineTargets={baselineTargets}
+                          onBookmark={() => handleBookmarkClick(r.id)}
+                          onEdit={() => navigate(`/compliance/remediation-edit/${r.id}`)}
+                          onLaunch={() => {
+                            setLaunchTarget(r);
+                            setLaunchInventoryId('');
+                            setLaunchScanCheck(null);
+                            setLaunchScanMissing(false);
+                          }}
+                          onArchive={() => setArchiveTarget(r)}
+                          onDelete={() => setDeleteTarget(r)}
+                        />
                       </TableCell>
                     </TableRow>
                     {(hasExecutions || r.status === 'saved') && (

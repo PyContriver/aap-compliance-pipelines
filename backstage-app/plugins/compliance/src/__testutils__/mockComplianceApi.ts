@@ -92,7 +92,7 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the SSH daemon ClientAliveInterval setting.',
     severity: 'CAT_II',
     category: 'SSH',
-    disruption: 'low',
+    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
     parameters: [
       {
         name: 'interval',
@@ -122,7 +122,7 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify the password minimum length in pwquality.conf.',
     severity: 'CAT_I',
     category: 'Accounts',
-    disruption: 'low',
+    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
     parameters: [
       {
         name: 'minlen',
@@ -152,7 +152,7 @@ export const MOCK_FINDINGS: MultiHostFinding[] = [
     checkText: 'Verify PermitRootLogin is set to no.',
     severity: 'CAT_I',
     category: 'SSH',
-    disruption: 'low',
+    disruption: 'low', aapImpact: 'safe' as const, aapImpactReason: '',
     parameters: [],
     hosts: [
       { host: 'web-01.example.com', status: 'pass', actualValue: 'no', expectedValue: 'no', findingState: null },

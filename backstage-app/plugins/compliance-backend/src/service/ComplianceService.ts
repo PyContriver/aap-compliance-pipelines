@@ -52,6 +52,8 @@ interface RuleMetadata {
   fix_text: string;
   category: string;
   disruption: string;
+  aap_impact: string;
+  aap_impact_reason: string;
   parameters: Array<{
     name: string;
     label: string;
@@ -108,6 +110,8 @@ function loadRulesMetadata(logger: LoggerService): Map<string, RuleMetadata> {
             fix_text: rule.fix_text ?? '',
             category: rule.category ?? '',
             disruption: rule.disruption ?? 'low',
+            aap_impact: rule.aap_impact ?? 'safe',
+            aap_impact_reason: rule.aap_impact_reason ?? '',
             parameters: (rule.parameters ?? []).map((p: Record<string, unknown>) => ({
               name: p.name as string,
               label: (p.label as string) ?? (p.name as string),
@@ -250,6 +254,8 @@ export function buildRuleMetadataRecords(
     fixText: (raw.fix_text as string) || '',
     category: (raw.category as string) || '',
     disruption: ((raw.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
+    aapImpact: ((raw.aap_impact as string) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+    aapImpactReason: (raw.aap_impact_reason as string) || '',
     scanner: (raw.scanner as string) || 'openscap',
     updatedAt: new Date().toISOString(),
   }));
@@ -1029,6 +1035,8 @@ export class ComplianceService {
         severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
         category: dm?.category || ym?.category || '',
         disruption: (dm?.disruption || ym?.disruption || 'medium') as 'low' | 'medium' | 'high',
+        aapImpact: (ym?.aap_impact || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+        aapImpactReason: ym?.aap_impact_reason || '',
         parameters: (ym?.parameters ?? []).map(p => ({
           name: p.name,
           label: p.label,
@@ -1298,6 +1306,13 @@ export class ComplianceService {
     }
 
     return this.controllerClient!.getWorkflowJobStatus(jobId, token);
+  }
+
+  async getInventoryHostnames(inventoryId: number, token?: string): Promise<string[]> {
+    if (this.dataSource === 'mock') {
+      return ['nm-rhel01', 'nm-rhel02', 'nm-rhel03'];
+    }
+    return this.controllerClient!.getInventoryHostnames(inventoryId, token);
   }
 
   async getJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {

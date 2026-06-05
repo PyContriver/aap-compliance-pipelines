@@ -1,0 +1,103 @@
+---
+# AAP Connectivity Requirements for RHEL Managed Hosts
+#
+# This dictionary defines what AAP (Ansible Automation Platform) needs
+# to maintain connectivity to a RHEL managed host. The classify_aap_impact.py
+# script uses these patterns to tag rules that could break connectivity.
+#
+# Values:
+#   safe               — no effect on AAP connectivity
+#   caution            — modifies a connectivity-related subsystem; review before applying
+#   breaks-connectivity — likely to prevent AAP from reaching the host
+#
+# To create a dictionary for a new platform, copy this file and update
+# the requirements for that platform's transport and runtime.
+
+platform: rhel
+transport: ssh
+description: "AAP connects to RHEL hosts via SSH with Python-based modules"
+
+requirements:
+  ssh_config:
+    description: "SSH daemon must accept connections from Controller"
+    impact_default: caution
+    id_patterns:
+      - "sshd_"
+      - "ssh_"
+      - "opensshserver"
+    breaks_if:
+      - content_regex: "PermitRootLogin\\s+(no|forced-commands-only)"
+        reason: "Blocks root SSH login — ensure ansible_user is not root"
+      - content_regex: "AllowUsers\\s+"
+        reason: "Restricts SSH to named users — ansible_user must be listed"
+      - content_regex: "AllowGroups\\s+"
+        reason: "Restricts SSH to named groups — ansible_user must be in an allowed group"
+      - content_regex: "DenyUsers\\s+"
+        reason: "Blocks specific SSH users — verify ansible_user is not denied"
+
+  firewall:
+    description: "Firewall must allow inbound SSH from Controller"
+    impact_default: caution
+    id_patterns:
+      - "firewalld"
+      - "iptables"
+    breaks_if:
+      - content_regex: "service:\\s+ssh.*state:\\s+(disabled|absent)"
+        reason: "Removes SSH service from firewall — host becomes unreachable"
+      - content_regex: "port:\\s+22/tcp.*state:\\s+(disabled|absent)"
+        reason: "Closes SSH port 22 — host becomes unreachable"
+
+  sudo_access:
+    description: "sudo/become must work for the Ansible user"
+    impact_default: caution
+    id_patterns:
+      - "sudo"
+      - "sudoers"
+    breaks_if:
+      - content_regex: "Defaults.*requiretty"
+        reason: "Requires TTY for sudo — Ansible become uses non-interactive sudo"
+      - content_regex: "NOPASSWD"
+        reason: "Modifies NOPASSWD sudo — Ansible may need passwordless sudo or become_pass"
+      - content_regex: "sudo_require_reauthentication"
+        reason: "Forces sudo re-authentication — blocks automated privilege escalation"
+
+  python_runtime:
+    description: "Python interpreter must be available for Ansible modules"
+    impact_default: caution
+    id_patterns:
+      - "python"
+    breaks_if:
+      - content_regex: "(package|yum|dnf).*python.*(absent|removed)"
+        reason: "Removes Python — Ansible modules cannot execute"
+
+  crypto_policy:
+    description: "Crypto policies must allow SSH ciphers compatible with Controller"
+    impact_default: caution
+    id_patterns:
+      - "crypto_policy"
+      - "crypto-policies"
+      - "fips"
+    breaks_if:
+      - content_regex: "FIPS"
+        reason: "FIPS mode restricts ciphers — verify Controller SSH compatibility"
+
+  selinux:
+    description: "SELinux must allow SSH and network access"
+    impact_default: caution
+    id_patterns:
+      - "sebool"
+      - "selinux"
+    breaks_if:
+      - content_regex: "ssh_sysadm_login.*off"
+        reason: "Blocks sysadm SSH login via SELinux — may affect ansible_user"
+
+  pam_auth:
+    description: "PAM must not lock out the Ansible user"
+    impact_default: caution
+    id_patterns:
+      - "pam_"
+      - "faillock"
+      - "faildelay"
+    breaks_if:
+      - content_regex: "deny\\s*=\\s*1\\b"
+        reason: "PAM lockout after single failure — automated retries will lock ansible_user"

@@ -10,7 +10,7 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 import {
   Typography, Button, Chip, Box, Switch, Collapse, IconButton,
   TextField, FormControl, InputLabel, Select, MenuItem, Divider,
-  Radio, RadioGroup, FormControlLabel, makeStyles, ButtonGroup,
+  Radio, RadioGroup, FormControlLabel, makeStyles, ButtonGroup, Tooltip,
 } from '@material-ui/core';
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
@@ -82,6 +82,7 @@ export const RemediationProfileBuilder = () => {
   const [severityFilter, setSeverityFilter] = useState<'all' | FindingSeverity>('all');
   const [stateFilter, setStateFilter] = useState<'all' | FindingState>('all');
   const [passingRulesExpanded, setPassingRulesExpanded] = useState(false);
+  const [reviewMode, setReviewMode] = useState(isEditMode);
 
   useEffect(() => {
     if (!isEditMode || !remediationId) return;
@@ -137,7 +138,7 @@ export const RemediationProfileBuilder = () => {
         const saved = savedMap.get(f.ruleId);
         const isFailed = f.failCount > 0;
         initial[f.ruleId] = {
-          enabled: saved ? saved.enabled : (isFailed ? (isEditMode ? false : f.disruption !== 'high') : false),
+          enabled: saved ? saved.enabled : (isFailed ? (isEditMode ? false : f.disruption !== 'high' && f.aapImpact !== 'breaks-connectivity') : false),
           expanded: false,
           scope: (saved?.scope as RemediationScope) ?? 'failed_only',
           parameters: saved?.parameters ? { ...Object.fromEntries(f.parameters.map(p => [p.name, p.default])), ...saved.parameters } : Object.fromEntries(f.parameters.map(p => [p.name, p.default])),
@@ -172,8 +173,11 @@ export const RemediationProfileBuilder = () => {
     if (stateFilter !== 'all') {
       result = result.filter(f => f.stateSummary && (f.stateSummary[stateFilter] ?? 0) > 0);
     }
+    if (reviewMode) {
+      result = result.filter(f => selections[f.ruleId]?.enabled);
+    }
     return result;
-  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter]);
+  }, [filteredFindings, allFindings, searchQuery, severityFilter, stateFilter, reviewMode, selections]);
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
@@ -181,6 +185,30 @@ export const RemediationProfileBuilder = () => {
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
   const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
   const deselectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
+  const selectSafeOnly = () => {
+    setSelections(prev => {
+      const updated = { ...prev };
+      allFindings.forEach(f => {
+        if (f.failCount > 0 && f.aapImpact !== 'breaks-connectivity') {
+          updated[f.ruleId] = { ...updated[f.ruleId], enabled: true };
+        } else {
+          updated[f.ruleId] = { ...updated[f.ruleId], enabled: false };
+        }
+      });
+      return updated;
+    });
+  };
+  const setScopeAll = (scope: RemediationScope) => {
+    setSelections(prev => {
+      const updated = { ...prev };
+      allFindings.forEach(f => {
+        if (f.failCount > 0 && f.passCount > 0) {
+          updated[f.ruleId] = { ...updated[f.ruleId], scope };
+        }
+      });
+      return updated;
+    });
+  };
 
   const enabledCount = Object.values(selections).filter(s => s.enabled).length;
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
@@ -255,7 +283,7 @@ export const RemediationProfileBuilder = () => {
           <div className={classes.detailPanel}>
             {finding.description && (<Box mb={2}><Typography variant="body2">{finding.description}</Typography></Box>)}
             {(finding.checkText || finding.fixText) && (<Box mb={2} display="flex" flexDirection="column" style={{ gap: 12 }}>{finding.checkText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Check</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.checkText}</Typography></div>)}{finding.fixText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Fix</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.fixText}</Typography></div>)}</Box>)}
-            {finding.disruption && (<Box mb={2}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? '#C9190B' : finding.disruption === 'medium' ? '#F0AB00' : '#3E8635', color: '#fff', fontWeight: 600 }} /></Box>)}
+            {finding.disruption && (<Box mb={2} display="flex" style={{ gap: 8 }}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? '#C9190B' : finding.disruption === 'medium' ? '#F0AB00' : '#3E8635', color: '#fff', fontWeight: 600 }} />{finding.aapImpact === 'breaks-connectivity' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="Breaks AAP connectivity" style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600 }} /></Tooltip>)}{finding.aapImpact === 'caution' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="AAP caution" style={{ backgroundColor: '#F0AB00', color: '#fff', fontWeight: 600 }} /></Tooltip>)}</Box>)}
             {finding.passCount > 0 && finding.failCount > 0 && (<div className={classes.adviceBanner}><InfoIcon className={classes.adviceIcon} fontSize="small" /><div><Typography variant="body2" style={{ color: '#856404', fontWeight: 600 }}>Only {finding.failCount} of {finding.totalCount} hosts failed this rule.</Typography><Typography variant="caption" style={{ color: '#856404' }}>Consider whether {finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')} should belong to a different inventory with different compliance requirements.</Typography></div></div>)}
             <div className={classes.remediationStrategy}>
               <Typography variant="caption" color="textSecondary" gutterBottom>Remediation Scope</Typography>
@@ -402,11 +430,22 @@ export const RemediationProfileBuilder = () => {
             <Button onClick={() => setViewMode('status')} variant={viewMode === 'status' ? 'contained' : 'outlined'} color={viewMode === 'status' ? 'primary' : 'default'} data-testid="view-by-status">By Status</Button>
             <Button onClick={() => setViewMode('category')} variant={viewMode === 'category' ? 'contained' : 'outlined'} color={viewMode === 'category' ? 'primary' : 'default'} data-testid="view-by-category">By Category</Button>
           </ButtonGroup>
+          <Tooltip title="Show only selected rules for a final review before launching">
+            <Button
+              size="small"
+              variant={reviewMode ? 'contained' : 'outlined'}
+              color={reviewMode ? 'primary' : 'default'}
+              onClick={() => setReviewMode(!reviewMode)}
+              data-testid="review-mode-toggle"
+            >
+              {reviewMode ? `Review (${enabledCount})` : 'Review'}
+            </Button>
+          </Tooltip>
           <ButtonGroup size="small" variant="outlined" aria-label="Severity filter">
             <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'contained' : 'outlined'} color={severityFilter === 'all' ? 'primary' : 'default'}>View All</Button>
-            <Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button>
-            <Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button>
-            <Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button>
+            <Tooltip title="Critical — immediate risk to system security"><Button onClick={() => setSeverityFilter('CAT_I')} variant={severityFilter === 'CAT_I' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_I' ? 'primary' : 'default'}>CAT I</Button></Tooltip>
+            <Tooltip title="Medium — could lead to security degradation"><Button onClick={() => setSeverityFilter('CAT_II')} variant={severityFilter === 'CAT_II' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_II' ? 'primary' : 'default'}>CAT II</Button></Tooltip>
+            <Tooltip title="Low — reduces defense-in-depth"><Button onClick={() => setSeverityFilter('CAT_III')} variant={severityFilter === 'CAT_III' ? 'contained' : 'outlined'} color={severityFilter === 'CAT_III' ? 'primary' : 'default'}>CAT III</Button></Tooltip>
           </ButtonGroup>
           {!isEditMode && (
             <ButtonGroup size="small" variant="outlined" aria-label="State filter">
@@ -417,10 +456,29 @@ export const RemediationProfileBuilder = () => {
               <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
             </ButtonGroup>
           )}
-          <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
-          <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
-          <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
-          <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
+          <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
+            <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
+              <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
+            </Tooltip>
+            <Tooltip title="Set all mixed-result rules to apply to every host, standardizing configuration">
+              <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
+            </Tooltip>
+          </ButtonGroup>
+          <Tooltip title="Enable all rules currently visible (respects search and filters)">
+            <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
+          </Tooltip>
+          <Tooltip title="Disable all rules currently visible">
+            <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
+          </Tooltip>
+          <Tooltip title="Enable all rules that have at least one failing host">
+            <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
+          </Tooltip>
+          <Tooltip title="Enable all failed rules that won't break AAP connectivity">
+            <Button size="small" variant="outlined" onClick={selectSafeOnly} style={{ borderColor: '#3E8635', color: '#3E8635' }}>Select Safe Only</Button>
+          </Tooltip>
+          <Tooltip title="Disable every rule in this remediation">
+            <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>
+          </Tooltip>
         </div>
       </div>
       {/* Search bar with select/deselect visible */}

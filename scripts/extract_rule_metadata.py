@@ -145,11 +145,23 @@ def extract_rules(datastream_path, xccdf_profile=None):
             if 'cisecurity' in href and text:
                 cis_id = text
 
+        # Extract disruption and reboot from SSG fix text tags (before truncation)
+        disruption = 'medium'
+        if 'high_disruption' in fix_text:
+            disruption = 'high'
+        elif 'low_disruption' in fix_text:
+            disruption = 'low'
+        elif 'medium_disruption' in fix_text:
+            disruption = 'medium'
+        reboot_required = 'reboot_needed' in fix_text and 'no_reboot_needed' not in fix_text
+
         rules.append({
             'id': rule_id,
             'title': title,
             'description': description[:500] if description else '',
             'severity': severity,
+            'disruption': disruption,
+            'reboot_required': reboot_required,
             'check_text': check_text[:500] if check_text else '',
             'fix_text': fix_text[:500] if fix_text else '',
             'stig_id': stig_id,
@@ -192,6 +204,9 @@ def to_yaml(rules, framework, profile_name, version):
         lines.append(f'  - id: {r["id"]}')
         lines.append(f'    title: {esc(r["title"])}')
         lines.append(f'    severity: {r["severity"]}')
+        lines.append(f'    disruption: {r["disruption"]}')
+        if r['reboot_required']:
+            lines.append(f'    reboot_required: true')
         if r['stig_id']:
             lines.append(f'    stig_id: {r["stig_id"]}')
         if r['cis_id']:

@@ -262,7 +262,17 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     hosts: allFail('DoD banner configured', () => 'no banner'),
     passCount: 0, failCount: 20, totalCount: 20,
   },
-].map(f => ({ ...f, stateSummary: computeStateSummary(f.hosts) }));
+].map(f => {
+  const AAP_IMPACT_MAP: Record<string, { aapImpact: 'safe' | 'caution' | 'breaks-connectivity'; aapImpactReason: string }> = {
+    sshd_set_idle_timeout: { aapImpact: 'caution', aapImpactReason: 'SSH daemon must accept connections from Controller' },
+    sshd_disable_root_login: { aapImpact: 'caution', aapImpactReason: 'SSH daemon must accept connections from Controller' },
+    enable_fips_mode: { aapImpact: 'breaks-connectivity', aapImpactReason: 'FIPS mode restricts ciphers — verify Controller SSH compatibility' },
+    configure_crypto_policy: { aapImpact: 'caution', aapImpactReason: 'Crypto policies must allow SSH ciphers compatible with Controller' },
+    selinux_enforcing: { aapImpact: 'caution', aapImpactReason: 'SELinux must allow SSH and network access' },
+  };
+  const impact = AAP_IMPACT_MAP[f.ruleId] ?? { aapImpact: 'safe' as const, aapImpactReason: '' };
+  return { ...f, ...impact, stateSummary: computeStateSummary(f.hosts) };
+});
 
 // ─── Mock inventories ─────────────────────────────────────────────────
 

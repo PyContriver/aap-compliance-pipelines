@@ -888,19 +888,28 @@ controller_templates:
 
 ### Remediation Error Details
 
-When a remediation execution fails, the compliance plugin fetches detailed error information from the Automation Controller API to help users diagnose the failure. The error details endpoint (`GET /remediation-error-details?jobIds=1,2,3`) accepts up to 20 comma-separated job IDs and fetches error details in parallel from three fallback sources:
+When a remediation execution fails, the compliance plugin fetches detailed error information from the Automation Controller API to help users diagnose the failure. The error details endpoint (`GET /remediation-error-details?jobIds=1,2,3`) accepts up to 20 comma-separated job IDs and fetches error details in parallel from four fallback sources:
 
 1. **`result_traceback`** — Ansible task exceptions with Python stack traces (e.g., module execution errors, connection failures)
 2. **`runner_on_failed` events** — Per-host per-task failure messages from the playbook run (e.g., "Package not found", "Permission denied")
 3. **`job_explanation`** — Pre-start failures that prevent the job from launching (e.g., "Project sync failed", "Inventory not found", "Credential invalid")
+4. **Job stdout** — Raw job output used as a final fallback when no failure events exist (e.g., host pattern mismatch where no tasks execute at all)
 
 The endpoint queries the Controller's job events API (`/api/controller/v2/jobs/{id}/job_events/`) and returns a structured response with error messages for each job. If no error details are found, the endpoint returns an empty array for that job ID.
 
 **Key characteristics:**
 - No database persistence — always fetches live from Controller
 - Parallel API calls for performance (Promise.all)
-- Graceful fallback through the three error sources
+- Graceful fallback through the four error sources
 - Rate-limited to 20 job IDs per request to prevent Controller API overload
+
+### Failed Remediation Status
+
+When a remediation job fails before any tasks execute (e.g., due to a host pattern mismatch or inventory misconfiguration), the plugin reports affected rules as "Not run" rather than "Compliant." This prevents false positives -- a job that never reached any hosts cannot have remediated any rules. The "Not run" status is distinct from "Pass" or "Fail" and indicates that the remediation was attempted but did not execute.
+
+### Remediation Host Scoping
+
+Remediation findings are scoped to the target inventory. When building the remediation scope, the plugin uses findings from the most recent scan of the **target inventory** only. This prevents cross-inventory contamination -- launching remediation against inventory B will never use host findings from inventory A's scans.
 
 ### AAP Controller Resource Configuration (Critical)
 
@@ -1329,6 +1338,74 @@ For custom profiles, default to `uncertified` unless the profile author can demo
 
 ---
 
+## 10.5 AAP-Impact Classification
+
+When a compliance rule is remediated, it may modify a subsystem that AAP relies on to maintain connectivity to the managed host (SSH, sudo, firewall, Python, crypto policies). The AAP-impact classification system tags each rule with its potential effect on AAP connectivity.
+
+### Impact Levels
+
+| Level | Meaning | UI Behavior |
+|-------|---------|-------------|
+| `safe` | No effect on AAP connectivity | Default; no indicator shown |
+| `caution` | Modifies a connectivity-related subsystem | Amber chip; rule enabled by default |
+| `breaks-connectivity` | Likely to prevent AAP from reaching the host | Red chip; rule auto-disabled in new remediations |
+
+### Platform Dictionaries
+
+Impact classification uses platform-specific dictionaries stored in `profiles/_shared/aap_impact/`:
+
+```
+profiles/_shared/aap_impact/
+  rhel.yml              # RHEL: SSH, sudo, firewall, Python, crypto, SELinux, PAM
+  # windows.yml         # Future: WinRM, PowerShell, Windows Firewall
+  # network.yml         # Future: NETCONF/SSH, no-agent
+```
+
+Each dictionary defines AAP's connectivity requirements for that platform and provides `id_patterns` and `breaks_if` regex patterns for automatic classification.
+
+### Classification Workflow
+
+```bash
+# 1. Enrich rules YAML with SSG disruption tags (automatic)
+python3 scripts/enrich_disruption.py --all
+
+# 2. Classify rules by AAP impact (deterministic pattern matching)
+python3 scripts/classify_aap_impact.py --all
+
+# 3. Review the breaks-connectivity rules (manual review)
+python3 scripts/classify_aap_impact.py --all --dry-run
+
+# 4. Commit the enriched rules YAML
+git add profiles/*/ansible_collections/*/compliance_*/rules/*.yml
+```
+
+### Creating a Dictionary for a New Platform
+
+1. Create `profiles/_shared/aap_impact/<platform>.yml`
+2. Define `platform`, `transport`, and `requirements` sections
+3. Each requirement has:
+   - `id_patterns`: substrings to match against rule IDs
+   - `module_patterns` / `file_patterns`: fallback matches against fix text
+   - `impact_default`: default impact when matched (`caution`)
+   - `breaks_if`: list of `content_regex` + `reason` for `breaks-connectivity`
+4. Set `platform_spec.os_family` in the profile's `meta/compliance-profile.yml`
+5. The classifier auto-selects the correct dictionary based on `os_family`
+
+### Overrides
+
+If the classifier produces an incorrect result for a specific rule, add an override to the rules YAML:
+
+```yaml
+aap_impact_overrides:
+  - id: sshd_disable_root_login
+    aap_impact: safe
+    reason: "Our ansible_user is 'ansible', not root"
+```
+
+Overrides survive re-classification and always take priority.
+
+---
+
 ## 11. Checklist
 
 Use this checklist when building a new compliance profile. Every item must be satisfied before the compliance profile is considered shippable.
@@ -1397,7 +1474,9 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Remediation uses `--tags` for rule selection, `--extra-vars` for parameter overrides, `--limit` for host targeting
 - [ ] Remediation roles are scanner-agnostic (same role regardless of which scanner found the issue)
 - [ ] Tunable parameters defined in rules YAML with `name`, `label`, `type`, `default` fields
-- [ ] Disruption level documented for each remediatable rule (`low` / `medium` / `high`)
+- [ ] Disruption level extracted from SSG fix text tags (`low` / `medium` / `high`) via `scripts/enrich_disruption.py`
+- [ ] AAP-impact classified via `scripts/classify_aap_impact.py` with appropriate platform dictionary
+- [ ] `breaks-connectivity` rules reviewed manually and overridden where necessary
 
 ### Testing
 

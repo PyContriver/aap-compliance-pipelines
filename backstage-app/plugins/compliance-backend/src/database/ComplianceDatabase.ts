@@ -824,15 +824,19 @@ export class ComplianceDatabase {
   }
 
   /**
-   * Recover stale executions stuck in running state (ADR-014 architect review).
-   * Returns IDs of executions that need Controller status reconciliation.
+   * Get executions in running/pending state for Controller reconciliation.
+   * maxAgeHours=0 returns ALL running/pending (used on every list load).
+   * maxAgeHours>0 returns only those older than the cutoff (legacy fallback).
    */
-  async getStaleRunningExecutions(maxAgeHours: number = 4): Promise<RemediationExecution[]> {
-    const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - maxAgeHours);
-    const rows = await this.db('compliance_remediation_executions')
-      .whereIn('status', ['pending', 'running'])
-      .where('started_at', '<', cutoff.toISOString());
+  async getStaleRunningExecutions(maxAgeHours: number = 0): Promise<RemediationExecution[]> {
+    let query = this.db('compliance_remediation_executions')
+      .whereIn('status', ['pending', 'running']);
+    if (maxAgeHours > 0) {
+      const cutoff = new Date();
+      cutoff.setHours(cutoff.getHours() - maxAgeHours);
+      query = query.where('started_at', '<', cutoff.toISOString());
+    }
+    const rows = await query;
     return rows.map((row: Record<string, unknown>) => this.mapExecutionRow(row));
   }
 
@@ -1009,6 +1013,8 @@ export class ComplianceDatabase {
       fixText: (row.fix_text as string) || '',
       category: (row.category as string) || '',
       disruption: ((row.disruption as string) || 'medium') as 'low' | 'medium' | 'high',
+      aapImpact: ((row.aap_impact as string) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+      aapImpactReason: (row.aap_impact_reason as string) || '',
       scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
     };

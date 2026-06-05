@@ -282,6 +282,14 @@ def parse_xccdf_results(filepath, framework='auto'):
         )
 
         rule_title = meta.get('title', short_rule_id)
+        fix_text = meta.get('fix_text', '')
+        disruption = 'medium'
+        if 'high_disruption' in fix_text:
+            disruption = 'high'
+        elif 'low_disruption' in fix_text:
+            disruption = 'low'
+        elif 'medium_disruption' in fix_text:
+            disruption = 'medium'
         finding = {
             'rule_id': short_rule_id,
             'stig_id': meta.get('stig_id', ''),
@@ -296,10 +304,10 @@ def parse_xccdf_results(filepath, framework='auto'):
                 'expected': 'pass',
                 'message': f'{rule_title}: {status_text}',
             },
-            'fix_text': meta.get('fix_text', ''),
+            'fix_text': fix_text,
             'check_text': meta.get('check_text', ''),
             'category': '',
-            'disruption': 'medium',
+            'disruption': disruption,
             'parameters': [],
         }
         findings.append(finding)

@@ -394,6 +394,17 @@ export class ControllerClient {
     );
   }
 
+  async getInventoryHostnames(
+    inventoryId: number,
+    token?: string,
+  ): Promise<string[]> {
+    const hosts = await this.fetchAllPages<{ id: number; name: string }>(
+      `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`,
+      token,
+    );
+    return hosts.map(h => h.name);
+  }
+
   async getInventoryHostFacts(
     inventoryId: number,
     token?: string,

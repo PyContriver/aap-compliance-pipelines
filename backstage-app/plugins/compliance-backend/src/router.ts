@@ -1024,6 +1024,30 @@ export async function createRouter(
         `Remediation plan: ${plan.groups.length} groups, ${plan.totalRules} rules, ${plan.totalHosts} hosts`,
       );
 
+      // Pre-launch host validation: verify plan hosts exist in target inventory
+      if (plan.groups.length > 0 && service.getDataSource() === 'live') {
+        try {
+          const inventoryHosts = await service.getInventoryHostnames(
+            remediateRequest.inventoryId,
+            userToken,
+          );
+          const inventoryHostSet = new Set(inventoryHosts);
+          const planHosts = new Set(plan.groups.flatMap(g => g.limit?.split(/[,\s]+/).map(h => h.trim()).filter(Boolean) ?? []));
+          const missing = [...planHosts].filter(h => !inventoryHostSet.has(h));
+          if (missing.length > 0) {
+            logger.warn(
+              `Host validation: ${missing.length} hosts from plan not found in inventory ${remediateRequest.inventoryId}: ${missing.join(', ')}`,
+            );
+            res.status(422).json({
+              error: `${missing.length} host(s) from scan findings not found in target inventory: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ` (+${missing.length - 5} more)` : ''}. The inventory may have changed since the last scan.`,
+            });
+            return;
+          }
+        } catch (hostErr) {
+          logger.debug(`Host validation skipped: ${hostErr instanceof Error ? hostErr.message : hostErr}`);
+        }
+      }
+
       if (execution) {
         await database.updateExecutionStatus(execution.id, {
           status: 'pending',
@@ -1292,32 +1316,31 @@ export async function createRouter(
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   router.get('/remediation-profiles', async (req, res) => {
-    // Stale execution recovery: on list load, check executions stuck
-    // in 'pending'/'running' >30min. Query Controller for actual status.
+    // Execution reconciliation: on every list load, check ALL running/pending
+    // executions against Controller and resolve any that have completed.
     try {
-      const stale = await database.getStaleRunningExecutions(0.5);
-      for (const exec of stale) {
-        let resolvedStatus: 'succeeded' | 'failed' = 'failed';
-        if (exec.primaryJobId) {
-          try {
-            const job = await service.getJobStatus(exec.primaryJobId);
-            if (job.status === 'running' || job.status === 'pending' || job.status === 'waiting' || job.status === 'new') {
-              continue;
-            }
-            resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
-          } catch (controllerErr) {
-            logger.debug(`Stale recovery: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
+      const userToken = getUserAapToken(req);
+      const running = await database.getStaleRunningExecutions(0);
+      for (const exec of running) {
+        if (!exec.primaryJobId) continue;
+        try {
+          const job = await service.getJobStatus(exec.primaryJobId, userToken);
+          if (['running', 'pending', 'waiting', 'new'].includes(job.status)) {
             continue;
           }
+          const resolvedStatus = job.status === 'successful' ? 'succeeded' : 'failed';
+          logger.info(`Reconciled execution ${exec.id} (job ${exec.primaryJobId}) → ${resolvedStatus}`);
+          await database.updateExecutionStatus(exec.id, {
+            status: resolvedStatus as 'succeeded' | 'failed',
+            completedAt: job.finished ?? new Date().toISOString(),
+            elapsedSeconds: job.elapsed ? Math.round(job.elapsed) : undefined,
+          });
+        } catch (controllerErr) {
+          logger.debug(`Reconciliation: Controller unreachable for execution ${exec.id}, skipping: ${controllerErr instanceof Error ? controllerErr.message : controllerErr}`);
         }
-        logger.warn(`Recovering stale execution ${exec.id} (started ${exec.startedAt}) → ${resolvedStatus}`);
-        await database.updateExecutionStatus(exec.id, {
-          status: resolvedStatus,
-          completedAt: new Date().toISOString(),
-        });
       }
     } catch (err) {
-      logger.warn(`Stale execution recovery failed: ${err instanceof Error ? err.message : err}`);
+      logger.warn(`Execution reconciliation failed: ${err instanceof Error ? err.message : err}`);
     }
 
     const statusFilter = req.query.status as string | undefined;
