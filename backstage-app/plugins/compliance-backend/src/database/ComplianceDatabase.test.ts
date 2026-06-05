@@ -38,6 +38,7 @@ async function createTables(database: Knex): Promise<void> {
     table.text('expected_value').defaultTo('');
     table.text('evidence').nullable();
     table.string('finding_state').nullable();
+    table.unique(['scan_id', 'rule_id', 'host']);
   });
 
   await database.schema.createTable(
@@ -131,6 +132,8 @@ async function createTables(database: Knex): Promise<void> {
     table.text('fix_text').notNullable().defaultTo('');
     table.string('category').notNullable().defaultTo('');
     table.string('disruption').notNullable().defaultTo('medium');
+    table.string('aap_impact').notNullable().defaultTo('safe');
+    table.text('aap_impact_reason').notNullable().defaultTo('');
     table.string('scanner').notNullable().defaultTo('');
     table.timestamp('updated_at').notNullable().defaultTo(database.fn.now());
   });

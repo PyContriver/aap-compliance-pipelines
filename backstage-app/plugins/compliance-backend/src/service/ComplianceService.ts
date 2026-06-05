@@ -987,13 +987,16 @@ export class ComplianceService {
         expectedValue: string;
         findingState?: import('@aap-compliance/common').FindingState | null;
       }>;
+      seenHosts: Set<string>;
     }>();
     for (const f of stored) {
       let entry = byRule.get(f.ruleId);
       if (!entry) {
-        entry = { finding: f, hosts: [] };
+        entry = { finding: f, hosts: [], seenHosts: new Set() };
         byRule.set(f.ruleId, entry);
       }
+      if (entry.seenHosts.has(f.host)) continue;
+      entry.seenHosts.add(f.host);
       entry.hosts.push({
         host: f.host,
         status: (f.status as 'pass' | 'fail' | 'error') || 'error',
@@ -1035,8 +1038,8 @@ export class ComplianceService {
         severity: (entry.finding.severity as 'CAT_I' | 'CAT_II' | 'CAT_III') || 'CAT_II',
         category: dm?.category || ym?.category || '',
         disruption: (dm?.disruption || ym?.disruption || 'medium') as 'low' | 'medium' | 'high',
-        aapImpact: (ym?.aap_impact || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
-        aapImpactReason: ym?.aap_impact_reason || '',
+        aapImpact: ((dm?.aapImpact && dm.aapImpact !== 'safe' ? dm.aapImpact : null) || ym?.aap_impact || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
+        aapImpactReason: dm?.aapImpactReason || ym?.aap_impact_reason || '',
         parameters: (ym?.parameters ?? []).map(p => ({
           name: p.name,
           label: p.label,

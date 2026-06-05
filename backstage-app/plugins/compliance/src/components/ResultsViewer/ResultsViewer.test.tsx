@@ -61,8 +61,7 @@ describe('ResultsViewer', () => {
     expect(screen.getByText('Title')).toBeInTheDocument();
     expect(screen.getByText('Hosts')).toBeInTheDocument();
     expect(screen.getByText('Pass Rate')).toBeInTheDocument();
-    // "Severity" appears both as a table column header and as a filter label
-    expect(screen.getAllByText('Severity').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Severity')).toBeInTheDocument();
   });
 
   it('displays scan results title', async () => {
