@@ -125,6 +125,9 @@ function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
     getControllerWorkflowTemplates: jest.fn().mockResolvedValue([]),
     getControllerExecutionEnvironments: jest.fn().mockResolvedValue([]),
+    getBaselineTargets: jest.fn().mockResolvedValue([]),
+    getAuthoritativeScan: jest.fn().mockResolvedValue(null),
+    getBaselineScores: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -224,7 +227,7 @@ describe('RemediationsList', () => {
     });
   });
 
-  it('shows archive button for saved profiles and calls API on confirm', async () => {
+  it('shows archive option in overflow menu and calls API on confirm', async () => {
     const mockApi = createMockApi({
       getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE]),
     });
@@ -233,7 +236,11 @@ describe('RemediationsList', () => {
       expect(screen.getByText('STIG SSH Hardening')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('archive-rem-1'));
+    fireEvent.click(screen.getByLabelText('More actions'));
+    await waitFor(() => {
+      expect(screen.getByText('Archive')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Archive'));
     await waitFor(() => {
       expect(screen.getByText('Archive Profile')).toBeInTheDocument();
     });
@@ -252,7 +259,11 @@ describe('RemediationsList', () => {
       expect(screen.getByText('Audit Rules Baseline')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('delete-rem-2'));
+    fireEvent.click(screen.getByLabelText('More actions'));
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Delete'));
     await waitFor(() => {
       expect(screen.getByText('Delete Draft')).toBeInTheDocument();
     });
@@ -272,7 +283,7 @@ describe('RemediationsList', () => {
     });
 
     // MUI Select: mouseDown on the select element opens the listbox
-    const selectInput = screen.getByLabelText('Filter');
+    const selectInput = screen.getByLabelText('Status');
     fireEvent.mouseDown(selectInput);
     await waitFor(() => {
       const listbox = screen.getByRole('listbox');
@@ -305,9 +316,14 @@ describe('RemediationsList', () => {
     await waitFor(() => {
       expect(screen.getByText('STIG SSH Hardening')).toBeInTheDocument();
     });
-    expect(screen.queryByTestId('archive-rem-1')).not.toBeInTheDocument();
-    const deleteBtn = screen.getByTestId('delete-rem-2').closest('button')!;
-    expect(deleteBtn).toBeDisabled();
+    // Open overflow menu for saved profile — archive and delete should not appear for non-admin
+    const kebabButtons = screen.getAllByLabelText('More actions');
+    fireEvent.click(kebabButtons[0]);
+    await waitFor(() => {
+      expect(screen.getByText('Edit Selections')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 
   it('fetches execution history when row is expanded', async () => {
