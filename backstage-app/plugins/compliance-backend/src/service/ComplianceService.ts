@@ -470,7 +470,7 @@ export class ComplianceService {
     if (!scanId) {
       if (this.database) {
         const latest = await this.database.getLatestFindings(profileId, inventoryId);
-        if (latest.length > 0) return this.findingsParser.storedFindingsToMultiHost(latest);
+        if (latest.length > 0) return this.findingsParser.aggregateFindingsWithMetadata(latest);
       }
       return [];
     }
@@ -478,7 +478,7 @@ export class ComplianceService {
     if (this.database) {
       const dbFindings = await this.database.getFindingsByScanId(scanId);
       if (dbFindings.length > 0) {
-        return this.findingsParser.storedFindingsToMultiHost(dbFindings);
+        return this.findingsParser.aggregateFindingsWithMetadata(dbFindings);
       }
     }
 

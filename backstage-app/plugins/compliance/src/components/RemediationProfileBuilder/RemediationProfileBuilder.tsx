@@ -556,14 +556,16 @@ export const RemediationProfileBuilder = () => {
               {reviewMode ? `Review (${enabledCount})` : 'Review'}
             </Button>
           </Tooltip>
-          <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
-            <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
-              <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
-            </Tooltip>
-            <Tooltip title="Set all mixed-result rules to apply to every host, standardizing configuration">
-              <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
-            </Tooltip>
-          </ButtonGroup>
+          {!isEditMode && (
+            <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
+              <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
+                <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
+              </Tooltip>
+              <Tooltip title="Set all mixed-result rules to apply to every host, standardizing configuration">
+                <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
+              </Tooltip>
+            </ButtonGroup>
+          )}
         </div>
       </div>
       {/* Selection actions row */}
