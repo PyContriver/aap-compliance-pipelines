@@ -18,9 +18,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
   Menu,
   TextField,
@@ -31,6 +28,7 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  IconButton,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
@@ -38,10 +36,11 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import BuildIcon from '@material-ui/icons/Build';
 import AssessmentIcon from '@material-ui/icons/Assessment';
-import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import ListIcon from '@material-ui/icons/List';
 import type { FindingSeverity, FindingState, MultiHostFinding, ScanCertification, BaselineTarget, AuthoritativeScanResponse, RemediationProfile } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
@@ -54,9 +53,36 @@ import { FindingRow } from './FindingRow';
 const useStyles = makeStyles(theme => ({
   filterRow: {
     display: 'flex',
-    gap: theme.spacing(2),
+    gap: theme.spacing(1),
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginBottom: theme.spacing(2),
+  },
+  filterGroup: {
+    display: 'flex',
+    gap: theme.spacing(0.5),
+    alignItems: 'center',
+    borderRight: `1px solid ${theme.palette.divider}`,
+    paddingRight: theme.spacing(1),
+    marginRight: theme.spacing(0.5),
+    '&:last-child': {
+      borderRight: 'none',
+      paddingRight: 0,
+      marginRight: 0,
+    },
+  },
+  filterChip: {
+    cursor: 'pointer',
+    fontWeight: 500,
+    fontSize: '0.75rem',
+  },
+  filterChipActive: {
+    fontWeight: 600,
+  },
+  actionBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: theme.spacing(2),
   },
   emptyState: {
@@ -90,6 +116,8 @@ export const ResultsViewer = () => {
   const severityFilter = searchParams.get('severity') || 'all';
   const statusFilter = searchParams.get('status') || 'all';
   const stateFilter = (searchParams.get('state') || 'all') as FindingState | 'all';
+  const disruptionFilter = searchParams.get('disruption') || 'all';
+  const aapFilter = searchParams.get('aap') || 'all';
   const searchQuery = searchParams.get('q') || '';
 
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
@@ -109,6 +137,7 @@ export const ResultsViewer = () => {
   const [compareSwapped, setCompareSwapped] = useState(false);
   const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
   const [remMenuAnchor, setRemMenuAnchor] = useState<null | HTMLElement>(null);
+  const [overflowAnchor, setOverflowAnchor] = useState<null | HTMLElement>(null);
   const [baselineLaunchOpen, setBaselineLaunchOpen] = useState(false);
   const [baselineProfile, setBaselineProfile] = useState<RemediationProfile | null>(null);
   const [baselineScanCheck, setBaselineScanCheck] = useState<AuthoritativeScanResponse | null>(null);
@@ -320,14 +349,19 @@ export const ResultsViewer = () => {
         if (!f.stateSummary) return false;
         return (f.stateSummary[stateFilter] ?? 0) > 0;
       })
+      .filter(f => disruptionFilter === 'all' || f.disruption === disruptionFilter)
+      .filter(f => aapFilter === 'all' || f.aapImpact === aapFilter)
       .filter(f =>
         searchQuery === '' ||
         f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         f.stigId.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
-    [findings, severityFilter, statusFilter, stateFilter, searchQuery],
+    [findings, severityFilter, statusFilter, stateFilter, disruptionFilter, aapFilter, searchQuery],
   );
+
+  const activeFilterCount = [severityFilter, statusFilter, stateFilter, disruptionFilter, aapFilter]
+    .filter(f => f !== 'all').length;
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams);
@@ -522,61 +556,82 @@ export const ResultsViewer = () => {
 
       <Box mt={2} />
 
-      {/* Action Buttons */}
-      <Box display="flex" justifyContent="flex-end" mb={2} style={{ gap: 8 }}>
-        <ExportButton findings={filtered} profileName={jobId} />
+      {/* Action Bar */}
+      <Box className={classes.actionBar}>
         <Button variant="outlined" onClick={() => navigate('/compliance')}>
           Back to Overview
         </Button>
-        {baselineForScan ? (
-          <>
+
+        <Box display="flex" style={{ gap: 8 }} alignItems="center">
+          <ExportButton findings={filtered} profileName={jobId} />
+
+          {baselineForScan ? (
             <Button
               variant="contained"
               color="primary"
+              size="large"
               onClick={() => setBaselineLaunchOpen(true)}
-              endIcon={<ArrowDropDownIcon onClick={e => { e.stopPropagation(); setRemMenuAnchor(e.currentTarget); }} />}
             >
               Use Baseline Remediation
             </Button>
-            <Menu
-              anchorEl={remMenuAnchor}
-              open={Boolean(remMenuAnchor)}
-              onClose={() => setRemMenuAnchor(null)}
+          ) : (
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              startIcon={<BuildIcon />}
+              onClick={() => navigate(`/compliance/remediation/${jobId}`)}
             >
+              Build Remediation ({rulesWithFailures})
+            </Button>
+          )}
+
+          <IconButton
+            size="small"
+            onClick={e => setOverflowAnchor(e.currentTarget)}
+            aria-label="More actions"
+          >
+            <MoreVertIcon />
+          </IconButton>
+          <Menu
+            anchorEl={overflowAnchor}
+            open={Boolean(overflowAnchor)}
+            onClose={() => setOverflowAnchor(null)}
+          >
+            {baselineForScan ? (
+              [
+                <MenuItem key="build" onClick={() => {
+                  setOverflowAnchor(null);
+                  navigate(`/compliance/remediation/${jobId}`);
+                }}>
+                  <BuildIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Build New Remediation ({rulesWithFailures})
+                </MenuItem>,
+                <MenuItem key="other" onClick={() => {
+                  setOverflowAnchor(null);
+                  const filter = scanComplianceProfileId
+                    ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
+                    : '';
+                  navigate(`/compliance/remediations${filter}`);
+                }}>
+                  <ListIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Use Other Remediation...
+                </MenuItem>,
+              ]
+            ) : (
               <MenuItem onClick={() => {
-                setRemMenuAnchor(null);
+                setOverflowAnchor(null);
                 const filter = scanComplianceProfileId
                   ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
                   : '';
                 navigate(`/compliance/remediations${filter}`);
               }}>
-                Use Other Remediation...
+                <ListIcon fontSize="small" style={{ marginRight: 8 }} />
+                Use Existing Remediation
               </MenuItem>
-            </Menu>
-          </>
-        ) : (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => {
-              const filter = scanComplianceProfileId
-                ? `?complianceProfileId=${encodeURIComponent(scanComplianceProfileId)}`
-                : '';
-              navigate(`/compliance/remediations${filter}`);
-            }}
-          >
-            Use Existing Remediation
-          </Button>
-        )}
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<BuildIcon />}
-          onClick={() => navigate(`/compliance/remediation/${jobId}`)}
-        >
-          {isVerification ? 'Build New Remediation' : 'Build Remediation'} ({rulesWithFailures} rules with failures)
-        </Button>
+            )}
+          </Menu>
+        </Box>
       </Box>
 
       {/* Findings collapse trigger for comparison views */}
@@ -601,7 +656,7 @@ export const ResultsViewer = () => {
             placeholder="Search by title or rule ID..."
             variant="outlined"
             size="small"
-            style={{ minWidth: 280 }}
+            style={{ minWidth: 240, flex: '1 1 240px', maxWidth: 360 }}
             value={searchQuery}
             onChange={e => updateFilter('q', e.target.value)}
             InputProps={{
@@ -610,34 +665,94 @@ export const ResultsViewer = () => {
               ),
             }}
           />
-          <FormControl variant="outlined" size="small" style={{ minWidth: 130 }}>
-            <InputLabel>Severity</InputLabel>
-            <Select value={severityFilter} onChange={e => updateFilter('severity', e.target.value as string)} label="Severity">
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value="CAT_I">CAT I</MenuItem>
-              <MenuItem value="CAT_II">CAT II</MenuItem>
-              <MenuItem value="CAT_III">CAT III</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl variant="outlined" size="small" style={{ minWidth: 130 }}>
-            <InputLabel>Status</InputLabel>
-            <Select value={statusFilter} onChange={e => updateFilter('status', e.target.value as string)} label="Status">
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value="pass">All Pass</MenuItem>
-              <MenuItem value="fail">Has Failures</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl variant="outlined" size="small" style={{ minWidth: 140 }}>
-            <InputLabel>State</InputLabel>
-            <Select value={stateFilter} onChange={e => updateFilter('state', e.target.value as string)} label="State">
-              <MenuItem value="all">All States</MenuItem>
-              <MenuItem value="new">New</MenuItem>
-              <MenuItem value="fixed">Fixed</MenuItem>
-              <MenuItem value="resurfaced">Resurfaced</MenuItem>
-              <MenuItem value="active">Active</MenuItem>
-            </Select>
-          </FormControl>
-          <Chip label={`${filtered.length} rules`} variant="outlined" />
+
+          <div className={classes.filterGroup}>
+            {(['CAT_I', 'CAT_II', 'CAT_III'] as const).map(sev => (
+              <Chip
+                key={sev}
+                label={sev.replace('_', ' ')}
+                size="small"
+                className={`${classes.filterChip} ${severityFilter === sev ? classes.filterChipActive : ''}`}
+                variant={severityFilter === sev ? 'default' : 'outlined'}
+                color={severityFilter === sev ? (sev === 'CAT_I' ? 'secondary' : 'primary') : 'default'}
+                onClick={() => updateFilter('severity', severityFilter === sev ? 'all' : sev)}
+              />
+            ))}
+          </div>
+
+          <div className={classes.filterGroup}>
+            <Chip
+              label="Failing"
+              size="small"
+              className={`${classes.filterChip} ${statusFilter === 'fail' ? classes.filterChipActive : ''}`}
+              variant={statusFilter === 'fail' ? 'default' : 'outlined'}
+              color={statusFilter === 'fail' ? 'secondary' : 'default'}
+              onClick={() => updateFilter('status', statusFilter === 'fail' ? 'all' : 'fail')}
+            />
+            <Chip
+              label="Passing"
+              size="small"
+              className={`${classes.filterChip} ${statusFilter === 'pass' ? classes.filterChipActive : ''}`}
+              variant={statusFilter === 'pass' ? 'default' : 'outlined'}
+              color={statusFilter === 'pass' ? 'primary' : 'default'}
+              onClick={() => updateFilter('status', statusFilter === 'pass' ? 'all' : 'pass')}
+            />
+          </div>
+
+          <div className={classes.filterGroup}>
+            {(['new', 'fixed', 'resurfaced', 'active'] as FindingState[]).map(state => (
+              <Chip
+                key={state}
+                label={state.charAt(0).toUpperCase() + state.slice(1)}
+                size="small"
+                className={`${classes.filterChip} ${stateFilter === state ? classes.filterChipActive : ''}`}
+                variant={stateFilter === state ? 'default' : 'outlined'}
+                color={stateFilter === state ? 'primary' : 'default'}
+                onClick={() => updateFilter('state', stateFilter === state ? 'all' : state)}
+              />
+            ))}
+          </div>
+
+          <div className={classes.filterGroup}>
+            <Chip
+              label="High Disruption"
+              size="small"
+              className={`${classes.filterChip} ${disruptionFilter === 'high' ? classes.filterChipActive : ''}`}
+              variant={disruptionFilter === 'high' ? 'default' : 'outlined'}
+              style={disruptionFilter === 'high' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
+              onClick={() => updateFilter('disruption', disruptionFilter === 'high' ? 'all' : 'high')}
+            />
+            <Chip
+              label="AAP Caution"
+              size="small"
+              className={`${classes.filterChip} ${aapFilter === 'caution' ? classes.filterChipActive : ''}`}
+              variant={aapFilter === 'caution' ? 'default' : 'outlined'}
+              style={aapFilter === 'caution' ? { backgroundColor: '#F0AB00', color: '#fff' } : undefined}
+              onClick={() => updateFilter('aap', aapFilter === 'caution' ? 'all' : 'caution')}
+            />
+            <Chip
+              label="Breaks AAP"
+              size="small"
+              className={`${classes.filterChip} ${aapFilter === 'breaks-connectivity' ? classes.filterChipActive : ''}`}
+              variant={aapFilter === 'breaks-connectivity' ? 'default' : 'outlined'}
+              style={aapFilter === 'breaks-connectivity' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
+              onClick={() => updateFilter('aap', aapFilter === 'breaks-connectivity' ? 'all' : 'breaks-connectivity')}
+            />
+          </div>
+
+          <Chip label={`${filtered.length} rules`} variant="outlined" size="small" />
+          {activeFilterCount > 0 && (
+            <Chip
+              label="Clear all"
+              size="small"
+              variant="outlined"
+              onDelete={() => {
+                const params = new URLSearchParams();
+                if (searchQuery) params.set('q', searchQuery);
+                setSearchParams(params, { replace: true });
+              }}
+            />
+          )}
         </div>
 
         <TableContainer>

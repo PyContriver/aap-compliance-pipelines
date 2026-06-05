@@ -168,6 +168,13 @@
     # that host. The backend iterates over ALL events to collect
     # findings from every host. This avoids Controller's event size
     # limit which truncates payloads with 4000+ findings.
+    - name: Locate rules metadata file
+      ansible.builtin.find:
+        paths: "{{ (role_path | default(playbook_dir)) + '/../rules' }}"
+        patterns: "*.yml"
+      register: _rules_files
+      failed_when: false
+
     - name: Evaluate compliance for each host
       security.compliance_rhel9_stig.normalize_xccdf:
         results_files:
@@ -177,6 +184,7 @@
         framework: "DISA_STIG"
         certification_status: "certified"
         certification_authority: "NIST SCAP 1.2"
+        rules_metadata_file: "{{ (_rules_files.files | default([]) | first | default({})).path | default('') }}"
       vars:
         _host_label: "{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}"
       loop: "{{ _result_files.files }}"

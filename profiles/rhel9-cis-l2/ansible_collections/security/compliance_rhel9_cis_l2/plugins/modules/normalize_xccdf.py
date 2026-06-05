@@ -57,6 +57,15 @@ options:
     required: false
     default: ""
     version_added: "0.1.0"
+  rules_metadata_file:
+    description: >
+      Path to a rules YAML file containing aap_impact and aap_impact_reason
+      per rule_id. When provided, findings are enriched with AAP-specific
+      impact data that cannot be derived from the XCCDF datastream alone.
+    type: str
+    required: false
+    default: ""
+    version_added: "0.1.0"
 author:
   - Ansible Security Team (@ansible)
 '''
@@ -122,7 +131,33 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
 from ansible.module_utils.basic import AnsibleModule
+
+
+def load_aap_impact_map(filepath):
+    """Load aap_impact metadata from a rules YAML file, keyed by rule id."""
+    if not filepath or not HAS_YAML or not os.path.exists(filepath):
+        return {}
+    try:
+        with open(filepath, 'r') as f:
+            content = yaml.safe_load(f)
+        result = {}
+        for rule in content.get('rules', []):
+            rule_id = rule.get('id', '')
+            if rule_id and rule.get('aap_impact'):
+                result[rule_id] = {
+                    'aap_impact': rule['aap_impact'],
+                    'aap_impact_reason': rule.get('aap_impact_reason', ''),
+                }
+        return result
+    except Exception:
+        return {}
 
 XCCDF_NS = {
     'xccdf': 'http://checklists.nist.gov/xccdf/1.2',
@@ -308,6 +343,8 @@ def parse_xccdf_results(filepath, framework='auto'):
             'check_text': meta.get('check_text', ''),
             'category': '',
             'disruption': disruption,
+            'aap_impact': 'safe',
+            'aap_impact_reason': '',
             'parameters': [],
         }
         findings.append(finding)
@@ -326,6 +363,7 @@ def main():
             certification_status=dict(type='str', required=False, default='uncertified',
                                       choices=['certified', 'conformant', 'uncertified']),
             certification_authority=dict(type='str', required=False, default=''),
+            rules_metadata_file=dict(type='str', required=False, default=''),
         ),
         supports_check_mode=True,
     )
@@ -336,6 +374,9 @@ def main():
     cert_status = module.params['certification_status']
     cert_authority = module.params['certification_authority']
     framework = module.params['framework']
+    rules_metadata_file = module.params['rules_metadata_file']
+
+    aap_impact_map = load_aap_impact_map(rules_metadata_file)
 
     all_findings = []
     hosts_processed = 0
@@ -361,6 +402,13 @@ def main():
             module.warn(f'Error reading {filepath}: {e}')
         except (KeyError, ValueError) as e:
             module.warn(f'Error processing {filepath}: {e}')
+
+    if aap_impact_map:
+        for f in all_findings:
+            impact = aap_impact_map.get(f['rule_id'])
+            if impact:
+                f['aap_impact'] = impact['aap_impact']
+                f['aap_impact_reason'] = impact.get('aap_impact_reason', '')
 
     certification = {
         'status': cert_status,

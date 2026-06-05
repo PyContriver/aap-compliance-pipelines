@@ -115,7 +115,10 @@ export class ComplianceDatabase {
 
     const batchSize = 100;
     for (let i = 0; i < rows.length; i += batchSize) {
-      await this.db('compliance_findings').insert(rows.slice(i, i + batchSize));
+      await this.db('compliance_findings')
+        .insert(rows.slice(i, i + batchSize))
+        .onConflict(['scan_id', 'rule_id', 'host'])
+        .merge(['status', 'severity', 'actual_value', 'expected_value', 'evidence', 'finding_state']);
     }
 
     return findings.length;
@@ -969,13 +972,15 @@ export class ComplianceDatabase {
         fix_text: r.fixText,
         category: r.category,
         disruption: r.disruption,
+        aap_impact: r.aapImpact ?? 'safe',
+        aap_impact_reason: r.aapImpactReason ?? '',
         scanner: r.scanner,
         updated_at: now,
       }));
       await this.db('compliance_rule_metadata')
         .insert(rows)
         .onConflict('rule_id')
-        .merge(['stig_id', 'title', 'description', 'check_text', 'fix_text', 'category', 'disruption', 'scanner', 'updated_at']);
+        .merge(['stig_id', 'title', 'description', 'check_text', 'fix_text', 'category', 'disruption', 'aap_impact', 'aap_impact_reason', 'scanner', 'updated_at']);
     }
 
     return rules.length;
