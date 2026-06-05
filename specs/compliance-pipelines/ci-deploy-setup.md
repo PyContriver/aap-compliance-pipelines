@@ -84,9 +84,20 @@ If GitLab CI is down, use the local deploy script:
 ./scripts/deploy-netrunner.sh backend      # backend only
 ./scripts/deploy-netrunner.sh frontend     # frontend only
 ./scripts/deploy-netrunner.sh --no-bump    # skip version bump
+./scripts/deploy-netrunner.sh --host=user@host  # deploy to alternate host
 ```
 
 Requires `~/.claude/keys/portal-netrunner.pem` on the local machine.
+
+## Deploy Hardening (2026-06-06)
+
+The deploy script (`scripts/deploy-netrunner.sh`) includes several safety mechanisms:
+
+- **Migration parity check (step 1.5):** Before building, validates that every `.ts` migration in `src/database/migrations/` has a compiled `.js` counterpart in `migrations/`. Exits with an error listing missing files if parity fails. Prevents deploying a backend that references migrations the runtime cannot find.
+- **Tarball format validation (step 3.6):** Verifies each tarball starts with `package/` (npm-pack format) and is under 50MB. Catches raw `tar` archives that Portal cannot extract.
+- **Rollback preservation (step 4):** Before overwriting `backend.tgz`/`frontend.tgz`, copies the current stable tarball to `*.tgz.prev`. The rollback command is printed on health check failure.
+- **Health poll (step 7):** Instead of a blind `sleep`, polls `systemctl is-active` + checks for "Compliance service ready" in container logs every 10s for up to 180s. Reports success time or prints rollback instructions on timeout.
+- **`--host` flag:** Allows deploying to an alternate Portal host without editing the script.
 
 ## Version Bump Strategy
 
