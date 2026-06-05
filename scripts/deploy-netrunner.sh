@@ -81,7 +81,7 @@ FE_VER=$(get_version "$FE_PKG")
 if $DEPLOY_BE; then
   TS_MIGRATIONS=$(ls "$BE_PKG/src/database/migrations/"*.ts 2>/dev/null | xargs -I{} basename {} .ts | sort)
   JS_MIGRATIONS=$(ls "$BE_PKG/migrations/"*.js 2>/dev/null | xargs -I{} basename {} .js | sort)
-  MISSING=$(diff <(echo "$TS_MIGRATIONS") <(echo "$JS_MIGRATIONS") | grep "^<" | sed 's/^< //')
+  MISSING=$(diff <(echo "$TS_MIGRATIONS") <(echo "$JS_MIGRATIONS") | grep "^<" | sed 's/^< //' || true)
   if [ -n "$MISSING" ]; then
     echo "ERROR: TS migrations missing compiled JS counterparts:"
     echo "$MISSING" | while read -r m; do echo "  $m.ts has no $m.js"; done
