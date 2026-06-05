@@ -666,15 +666,19 @@ export const ResultsViewer = () => {
           />
 
           <div className={classes.filterGroup}>
-            {(['CAT_I', 'CAT_II', 'CAT_III'] as const).map(sev => (
+            {([
+              { key: 'CAT_I' as const, bg: '#C9190B' },
+              { key: 'CAT_II' as const, bg: '#F0AB00' },
+              { key: 'CAT_III' as const, bg: '#0066CC' },
+            ]).map(({ key, bg }) => (
               <Chip
-                key={sev}
-                label={sev.replace('_', ' ')}
+                key={key}
+                label={key.replace('_', ' ')}
                 size="small"
-                className={`${classes.filterChip} ${severityFilter === sev ? classes.filterChipActive : ''}`}
-                variant={severityFilter === sev ? 'default' : 'outlined'}
-                color={severityFilter === sev ? (sev === 'CAT_I' ? 'secondary' : 'primary') : 'default'}
-                onClick={() => updateFilter('severity', severityFilter === sev ? 'all' : sev)}
+                className={`${classes.filterChip} ${severityFilter === key ? classes.filterChipActive : ''}`}
+                variant={severityFilter === key ? 'default' : 'outlined'}
+                style={severityFilter === key ? { backgroundColor: bg, color: '#fff' } : undefined}
+                onClick={() => updateFilter('severity', severityFilter === key ? 'all' : key)}
               />
             ))}
           </div>
@@ -685,7 +689,7 @@ export const ResultsViewer = () => {
               size="small"
               className={`${classes.filterChip} ${statusFilter === 'fail' ? classes.filterChipActive : ''}`}
               variant={statusFilter === 'fail' ? 'default' : 'outlined'}
-              color={statusFilter === 'fail' ? 'secondary' : 'default'}
+              style={statusFilter === 'fail' ? { backgroundColor: '#C9190B', color: '#fff' } : undefined}
               onClick={() => updateFilter('status', statusFilter === 'fail' ? 'all' : 'fail')}
             />
             <Chip
@@ -693,21 +697,26 @@ export const ResultsViewer = () => {
               size="small"
               className={`${classes.filterChip} ${statusFilter === 'pass' ? classes.filterChipActive : ''}`}
               variant={statusFilter === 'pass' ? 'default' : 'outlined'}
-              color={statusFilter === 'pass' ? 'primary' : 'default'}
+              style={statusFilter === 'pass' ? { backgroundColor: '#3E8635', color: '#fff' } : undefined}
               onClick={() => updateFilter('status', statusFilter === 'pass' ? 'all' : 'pass')}
             />
           </div>
 
           <div className={classes.filterGroup}>
-            {(['new', 'fixed', 'resurfaced', 'active'] as FindingState[]).map(state => (
+            {([
+              { key: 'new' as FindingState, bg: '#0066CC' },
+              { key: 'fixed' as FindingState, bg: '#3E8635' },
+              { key: 'resurfaced' as FindingState, bg: '#C9190B' },
+              { key: 'active' as FindingState, bg: '#6A6E73' },
+            ]).map(({ key, bg }) => (
               <Chip
-                key={state}
-                label={state.charAt(0).toUpperCase() + state.slice(1)}
+                key={key}
+                label={key.charAt(0).toUpperCase() + key.slice(1)}
                 size="small"
-                className={`${classes.filterChip} ${stateFilter === state ? classes.filterChipActive : ''}`}
-                variant={stateFilter === state ? 'default' : 'outlined'}
-                color={stateFilter === state ? 'primary' : 'default'}
-                onClick={() => updateFilter('state', stateFilter === state ? 'all' : state)}
+                className={`${classes.filterChip} ${stateFilter === key ? classes.filterChipActive : ''}`}
+                variant={stateFilter === key ? 'default' : 'outlined'}
+                style={stateFilter === key ? { backgroundColor: bg, color: '#fff' } : undefined}
+                onClick={() => updateFilter('state', stateFilter === key ? 'all' : key)}
               />
             ))}
           </div>

@@ -164,8 +164,13 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
         </TableCell>
         <TableCell>
           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-            {finding.stigId || finding.ruleId}
+            {finding.ruleId}
           </Typography>
+          {finding.stigId && finding.stigId !== finding.ruleId && (
+            <Typography variant="caption" color="textSecondary" style={{ fontFamily: 'monospace', display: 'block' }}>
+              {finding.stigId}
+            </Typography>
+          )}
         </TableCell>
         <TableCell align="center">
           {finding.failCount === 0 && finding.passCount > 0 ? (
