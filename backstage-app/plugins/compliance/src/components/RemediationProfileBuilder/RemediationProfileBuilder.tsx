@@ -185,6 +185,17 @@ export const RemediationProfileBuilder = () => {
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
   const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
   const deselectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
+  const setScopeAll = (scope: RemediationScope) => {
+    setSelections(prev => {
+      const updated = { ...prev };
+      allFindings.forEach(f => {
+        if (f.failCount > 0 && f.passCount > 0) {
+          updated[f.ruleId] = { ...updated[f.ruleId], scope };
+        }
+      });
+      return updated;
+    });
+  };
 
   const enabledCount = Object.values(selections).filter(s => s.enabled).length;
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
@@ -430,6 +441,20 @@ export const RemediationProfileBuilder = () => {
               <Button onClick={() => setStateFilter('resurfaced')} variant={stateFilter === 'resurfaced' ? 'contained' : 'outlined'} color={stateFilter === 'resurfaced' ? 'primary' : 'default'}>Resurfaced</Button>
             </ButtonGroup>
           )}
+          <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
+            <Button
+              onClick={() => setScopeAll('failed_only')}
+              title="Set all rules to remediate failed hosts only"
+            >
+              Failed Only
+            </Button>
+            <Button
+              onClick={() => setScopeAll('standardize_all')}
+              title="Set all rules to apply to all hosts (standardize)"
+            >
+              All Hosts
+            </Button>
+          </ButtonGroup>
           <Button size="small" variant="outlined" onClick={selectDisplayed}>Select Displayed</Button>
           <Button size="small" variant="outlined" onClick={deselectDisplayed}>Deselect Displayed</Button>
           <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
