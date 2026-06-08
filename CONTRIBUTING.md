@@ -262,7 +262,8 @@ This provides implicit organization/team scoping without Backstage-level org pol
 
 ### Backend (`plugins/compliance-backend/`)
 
-- **Router**: `src/router.ts` — Express REST endpoints
+- **Router**: `src/router.ts` — slim orchestrator, delegates to `src/routes/` modules
+- **Routes**: `src/routes/` — decomposed route modules (health, scans, findings, remediation, baseline, dashboard, controller, profiles) with shared types, validation, and permission helpers
 - **Service**: `src/service/ComplianceService.ts` — orchestration and mock/live toggle (~1040 lines)
 - **FindingsParser**: `src/service/FindingsParser.ts` — finding extraction, severity/status mapping, multi-host grouping, and aggregation (extracted from ComplianceService)
 - **RemediationPlanBuilder**: `src/service/RemediationPlanBuilder.ts` — builds optimized remediation plans by grouping rules that target the same host set into batched runs (extracted from ComplianceService)
@@ -305,7 +306,7 @@ Profiles follow the standard `ansible_collections/{namespace}/{name}/` conventio
 
 ### New API endpoint
 
-1. Add the route in `router.ts`
+1. Add the route in the appropriate `src/routes/` module (e.g., `scans.ts` for scan endpoints, `findings.ts` for finding endpoints). If the endpoint doesn't fit an existing module, create a new one and register it in `router.ts`.
 2. Add the service method in the appropriate class:
    - `ComplianceService.ts` for orchestration and general endpoints (with mock path)
    - `FindingsParser.ts` for finding extraction, mapping, or aggregation logic
