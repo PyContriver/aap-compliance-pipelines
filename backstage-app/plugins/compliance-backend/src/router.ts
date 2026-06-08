@@ -328,7 +328,7 @@ export async function createRouter(
 
   router.get('/scans/:scanId/findings/na', async (req, res) => {
     const { scanId: rawScanId } = req.params;
-    if (!rawScanId || rawScanId.length > 128) {
+    if (!rawScanId || rawScanId.length > 128 || !isValidScanId(rawScanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
       return;
     }

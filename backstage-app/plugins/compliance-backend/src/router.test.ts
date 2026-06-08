@@ -235,6 +235,8 @@ function createMockDatabase() {
     pinBaselineTarget: jest.fn().mockResolvedValue({ id: 'bt-1' }),
     unpinBaselineTarget: jest.fn().mockResolvedValue(true),
     getBaselineTargetsForProfile: jest.fn().mockResolvedValue([]),
+    getNotApplicableRules: jest.fn().mockResolvedValue([]),
+    getBatchScanStatsAggregated: jest.fn().mockResolvedValue(new Map()),
   } as any;
 }
 

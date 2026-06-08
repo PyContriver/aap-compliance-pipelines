@@ -481,11 +481,16 @@ export class ComplianceDatabase {
   }
 
   async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
-    const rows = await this.db('compliance_findings')
-      .distinct('rule_id', 'rule_title', 'severity')
-      .where('scan_id', scanId)
-      .where('status', 'not_applicable')
-      .orderBy('severity')
+    const rows = await this.db('compliance_findings as f')
+      .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')
+      .distinct(
+        'f.rule_id',
+        this.db.raw("COALESCE(m.title, f.rule_id) as rule_title"),
+        'f.severity',
+      )
+      .where('f.scan_id', scanId)
+      .where('f.status', 'not_applicable')
+      .orderBy('f.severity')
       .orderBy('rule_title');
     return rows.map((row: Record<string, unknown>) => ({
       ruleId: row.rule_id as string,

@@ -36,7 +36,6 @@ STATUS_MAP = {
     'unknown': 'error',
     'notapplicable': 'not_applicable',
     'notchecked': 'not_checked',
-    'notselected': 'not_applicable',
     'informational': 'pass',
     'fixed': 'pass',
 }
