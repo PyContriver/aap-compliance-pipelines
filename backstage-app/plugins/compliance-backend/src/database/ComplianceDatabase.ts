@@ -421,57 +421,77 @@ export class ComplianceDatabase {
     return rows.map(this.mapFindingRow);
   }
 
-  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>> {
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>> {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')
       .select('scan_id', 'status', 'severity', 'host', 'rule_id')
       .whereIn('scan_id', scanIds);
-    const result = new Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>();
+    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>();
     for (const row of rows) {
       const sid = row.scan_id as string;
       let entry = result.get(sid);
       if (!entry) {
-        entry = { pass: 0, fail: 0, catI: 0, hosts: new Set(), rules: new Set() };
+        entry = { pass: 0, fail: 0, catI: 0, na: 0, hosts: new Set(), rules: new Set() };
         result.set(sid, entry);
       }
-      entry.hosts.add(row.host as string);
-      entry.rules.add(row.rule_id as string);
-      if (row.status === 'pass') entry.pass++;
-      if (row.status === 'fail') {
-        entry.fail++;
-        if (row.severity === 'CAT_I') entry.catI++;
+      if (row.status === 'not_applicable') {
+        entry.na++;
+      } else {
+        entry.hosts.add(row.host as string);
+        entry.rules.add(row.rule_id as string);
+        if (row.status === 'pass') entry.pass++;
+        if (row.status === 'fail') {
+          entry.fail++;
+          if (row.severity === 'CAT_I') entry.catI++;
+        }
       }
     }
     return result;
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
       .count({ total: '*' })
       .sum({ pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END") })
       .sum({ fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END") })
+      .sum({ na_count: this.db.raw("CASE WHEN status = 'not_applicable' THEN 1 ELSE 0 END") })
       .sum({ state_new: this.db.raw("CASE WHEN finding_state = 'new' THEN 1 ELSE 0 END") })
       .sum({ state_fixed: this.db.raw("CASE WHEN finding_state = 'fixed' THEN 1 ELSE 0 END") })
       .sum({ state_resurfaced: this.db.raw("CASE WHEN finding_state = 'resurfaced' THEN 1 ELSE 0 END") })
-      .countDistinct({ rule_count: 'rule_id' })
-      .countDistinct({ host_count: 'host' })
+      .countDistinct({ rule_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN rule_id END") })
+      .countDistinct({ host_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN host END") })
       .whereIn('scan_id', scanIds)
       .groupBy('scan_id');
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
     for (const row of rows as Array<Record<string, unknown>>) {
       result[row.scan_id as string] = {
         pass: Number(row.pass_count) || 0,
         fail: Number(row.fail_count) || 0,
         rules: Number(row.rule_count) || 0,
         hosts: Number(row.host_count) || 0,
+        naCount: Number(row.na_count) || 0,
         stateNew: Number(row.state_new) || 0,
         stateFixed: Number(row.state_fixed) || 0,
         stateResurfaced: Number(row.state_resurfaced) || 0,
       };
     }
     return result;
+  }
+
+  async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
+    const rows = await this.db('compliance_findings')
+      .distinct('rule_id', 'rule_title', 'severity')
+      .where('scan_id', scanId)
+      .where('status', 'not_applicable')
+      .orderBy('severity')
+      .orderBy('rule_title');
+    return rows.map((row: Record<string, unknown>) => ({
+      ruleId: row.rule_id as string,
+      ruleTitle: row.rule_title as string,
+      severity: row.severity as string,
+    }));
   }
 
   private mapFindingRow(row: Record<string, unknown>): StoredFinding {
@@ -807,6 +827,7 @@ export class ComplianceDatabase {
       hostsTargeted?: number;
       hostsSucceeded?: number;
       hostsFailed?: number;
+      planSummary?: object;
     },
   ): Promise<void> {
     const row: Record<string, unknown> = { status: update.status };
@@ -819,6 +840,7 @@ export class ComplianceDatabase {
     if (update.hostsTargeted !== undefined) row.hosts_targeted = update.hostsTargeted;
     if (update.hostsSucceeded !== undefined) row.hosts_succeeded = update.hostsSucceeded;
     if (update.hostsFailed !== undefined) row.hosts_failed = update.hostsFailed;
+    if (update.planSummary !== undefined) row.plan_summary = JSON.stringify(update.planSummary);
     await this.db('compliance_remediation_executions').where('id', id).update(row);
   }
 

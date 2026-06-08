@@ -369,6 +369,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     ]),
     getAuthoritativeScan: jest.fn().mockResolvedValue(null),
     getBatchScanStats: jest.fn().mockResolvedValue({}),
+    getNotApplicableRules: jest.fn().mockResolvedValue([]),
     getAllRecentExecutions: jest.fn().mockResolvedValue([]),
     getBaselineTargets: jest.fn().mockResolvedValue([]),
     pinBaselineTarget: jest.fn().mockResolvedValue({

@@ -323,6 +323,26 @@ export async function createRouter(
     }
   });
 
+  // ─── N/A rules for a scan ─────────────────────────────────────────
+  // Must be registered BEFORE /scans/:scanId to avoid wildcard capture.
+
+  router.get('/scans/:scanId/findings/na', async (req, res) => {
+    const { scanId: rawScanId } = req.params;
+    if (!rawScanId || rawScanId.length > 128) {
+      res.status(400).json({ error: 'Invalid scanId' });
+      return;
+    }
+    try {
+      const { resolvedScanId } = await resolveScanId(rawScanId);
+      const rules = await database.getNotApplicableRules(resolvedScanId ?? rawScanId);
+      res.json(rules);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get N/A rules for scan ${rawScanId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve not-applicable rules' });
+    }
+  });
+
   router.get('/scans/:scanId', async (req, res) => {
     const { scanId } = req.params;
     const userToken = getUserAapToken(req);
@@ -1053,6 +1073,7 @@ export async function createRouter(
           status: 'pending',
           rulesApplied: plan.totalRules,
           hostsTargeted: plan.totalHosts,
+          planSummary: plan,
         });
       }
 

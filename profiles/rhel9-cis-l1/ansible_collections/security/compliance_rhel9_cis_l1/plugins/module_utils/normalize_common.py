@@ -41,7 +41,9 @@ STATUS_MAP = {
     'fixed': 'pass',
 }
 
-SKIP_STATUSES = {'notapplicable', 'notselected', 'notchecked'}
+# notapplicable is now passed through as 'not_applicable' for UI reporting.
+# notselected (rules outside the profile) and notchecked are still dropped.
+SKIP_STATUSES = {'notselected', 'notchecked'}
 
 
 def load_aap_impact_map(filepath):

@@ -151,6 +151,12 @@ export const ResultsViewer = () => {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const compareToScanId = searchParams.get('compareTo');
 
+  // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
+  const [naCount, setNaCount] = useState<number | null>(null);
+  const [naRules, setNaRules] = useState<Array<{ ruleId: string; ruleTitle: string; severity: string }> | null>(null);
+  const [naExpanded, setNaExpanded] = useState(false);
+  const [naLoading, setNaLoading] = useState(false);
+
   // ─── Risk filter: merges disruption + aap into a single group ──
   const riskActiveValue = useMemo(() => {
     if (filters.disruption !== 'all') return `disruption:${filters.disruption}`;
@@ -201,6 +207,34 @@ export const ResultsViewer = () => {
     }
     return pills;
   }, [filters]);
+
+  // ─── N/A count: fetch via batch stats when jobId is known ────────
+  useEffect(() => {
+    if (!jobId) return;
+    let cancelled = false;
+    api.getBatchScanStats([jobId]).then(stats => {
+      if (cancelled) return;
+      const s = stats[jobId];
+      if (s && typeof s.naCount === 'number') {
+        setNaCount(s.naCount);
+      }
+    }).catch(() => { /* non-critical */ });
+    return () => { cancelled = true; };
+  }, [api, jobId]);
+
+  const handleNaChipClick = useCallback(() => {
+    setNaExpanded(prev => !prev);
+    if (!naRules && jobId) {
+      setNaLoading(true);
+      api.getNotApplicableRules(jobId).then(rules => {
+        setNaRules(rules);
+        setNaLoading(false);
+      }).catch(() => {
+        setNaRules([]);
+        setNaLoading(false);
+      });
+    }
+  }, [api, jobId, naRules]);
 
   // ─── Comparison / verification data ──────────────────────────────
 
@@ -510,6 +544,54 @@ export const ResultsViewer = () => {
           totalRules={totalRules}
           rulesWithFailures={rulesWithFailures}
         />
+      )}
+
+      {/* N/A rules info — only shown when N/A rules exist */}
+      {naCount !== null && naCount > 0 && (
+        <Box mt={1} mb={1} display="flex" alignItems="flex-start" flexDirection="column" style={{ gap: 4 }}>
+          <Chip
+            label={`${naCount} rule${naCount === 1 ? '' : 's'} not applicable`}
+            size="small"
+            variant="outlined"
+            clickable
+            onClick={handleNaChipClick}
+            icon={naExpanded ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}
+            style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+          />
+          <Collapse in={naExpanded} unmountOnExit>
+            <Box mt={1} style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #d2d2d2', borderRadius: 4 }}>
+              {naLoading ? (
+                <Box display="flex" alignItems="center" p={1} style={{ gap: 8 }}>
+                  <CircularProgress size={14} />
+                  <Typography variant="caption" color="textSecondary">Loading N/A rules...</Typography>
+                </Box>
+              ) : naRules && naRules.length > 0 ? (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Severity</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Rule ID</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Title</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {naRules.map(r => (
+                      <TableRow key={r.ruleId}>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.severity}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', fontFamily: 'monospace', color: '#6A6E73' }}>{r.ruleId}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.ruleTitle}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Typography variant="caption" color="textSecondary" style={{ padding: '8px 12px', display: 'block' }}>
+                  No N/A rule details available.
+                </Typography>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
       )}
 
       <Box mt={2} />
