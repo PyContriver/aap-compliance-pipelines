@@ -313,8 +313,8 @@ export class FindingsParser {
 
     if (!actualValue && !expectedValue && raw.evidence && typeof raw.evidence === 'object') {
       const ev = raw.evidence as Record<string, unknown>;
-      actualValue = String(ev.actual ?? '');
-      expectedValue = String(ev.expected ?? '');
+      actualValue = String(ev.actual ?? ev.actual_value ?? '');
+      expectedValue = String(ev.expected ?? ev.expected_value ?? '');
     }
 
     if (!actualValue && !expectedValue && typeof raw.evidence === 'string') {
