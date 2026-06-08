@@ -7,7 +7,8 @@ import {
   createMockComplianceApi,
   MOCK_FINDINGS,
 } from '../../__testutils__/mockComplianceApi';
-import type { ComplianceApi } from '../../api';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ComplianceApi } from '../../api';
 
 // Mock useParams to provide a jobId
 jest.mock('react-router-dom', () => ({
@@ -113,8 +114,9 @@ describe('ResultsViewer', () => {
   });
 
   it('shows N/A chip when getBatchScanStats returns naCount > 0', async () => {
+    // N/A stats use the resolved scan UUID ('scan-1'), not the URL param ('42')
     mockApi.getBatchScanStats.mockResolvedValue({
-      '42': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 8 },
+      'scan-1': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 8 },
     });
     await renderResults();
     await waitFor(() => {
@@ -124,7 +126,7 @@ describe('ResultsViewer', () => {
 
   it('lazily calls getNotApplicableRules on first N/A chip click', async () => {
     mockApi.getBatchScanStats.mockResolvedValue({
-      '42': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 3 },
+      'scan-1': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 3 },
     });
     mockApi.getNotApplicableRules.mockResolvedValue([
       { ruleId: 'xccdf_rule_a', ruleTitle: 'Rule A', severity: 'CAT_II' },
@@ -134,7 +136,7 @@ describe('ResultsViewer', () => {
     expect(mockApi.getNotApplicableRules).not.toHaveBeenCalled();
     chip.click();
     await waitFor(() => {
-      expect(mockApi.getNotApplicableRules).toHaveBeenCalledWith('42');
+      expect(mockApi.getNotApplicableRules).toHaveBeenCalledWith('scan-1');
     });
   });
 });

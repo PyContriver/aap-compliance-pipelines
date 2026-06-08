@@ -38,6 +38,14 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(0.5),
     fontSize: '0.9rem',
   },
+  clickableStat: {
+    cursor: 'pointer',
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(0.25, 0.75),
+    margin: theme.spacing(-0.25, -0.75),
+    transition: 'background-color 0.15s',
+    '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
   deltaPositive: {
     color: '#3E8635',
     fontWeight: 600,
@@ -59,6 +67,8 @@ interface VerificationComparisonProps {
   totalRules: number;
   comparisonStats: { improved: number; regressed: number; unchanged: number };
   title?: string;
+  activeComparison?: string;
+  onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
 }
 
 export const VerificationComparison = ({
@@ -68,6 +78,8 @@ export const VerificationComparison = ({
   totalRules,
   comparisonStats,
   title,
+  activeComparison,
+  onStatClick,
 }: VerificationComparisonProps) => {
   const classes = useStyles();
 
@@ -93,8 +105,12 @@ export const VerificationComparison = ({
           <Typography variant="body2" color="textSecondary">Rules:</Typography>
           <Typography variant="body2" style={{ fontWeight: 600 }}>{totalRules}</Typography>
         </div>
-        <Tooltip title="Rules where all hosts changed from failing to passing between scans" arrow>
-          <div className={classes.deltaStat}>
+        <Tooltip title="Click to filter: rules where all hosts changed from failing to passing" arrow>
+          <div
+            className={`${classes.deltaStat} ${onStatClick ? classes.clickableStat : ''}`}
+            onClick={() => onStatClick?.(activeComparison === 'improved' ? 'all' : 'improved')}
+            style={activeComparison === 'improved' ? { backgroundColor: 'rgba(62,134,53,0.1)' } : undefined}
+          >
             <TrendingUpIcon fontSize="small" style={{ color: '#3E8635' }} />
             <Typography variant="body2" className={classes.deltaPositive}>
               {comparisonStats.improved} Rules Improved
@@ -102,8 +118,12 @@ export const VerificationComparison = ({
           </div>
         </Tooltip>
         {comparisonStats.regressed > 0 && (
-          <Tooltip title="Rules that were passing in the previous scan but now have failures" arrow>
-            <div className={classes.deltaStat}>
+          <Tooltip title="Click to filter: rules that were passing but now have failures" arrow>
+            <div
+              className={`${classes.deltaStat} ${onStatClick ? classes.clickableStat : ''}`}
+              onClick={() => onStatClick?.(activeComparison === 'regressed' ? 'all' : 'regressed')}
+              style={activeComparison === 'regressed' ? { backgroundColor: 'rgba(201,25,11,0.1)' } : undefined}
+            >
               <TrendingDownIcon fontSize="small" style={{ color: '#C9190B' }} />
               <Typography variant="body2" className={classes.deltaNegative}>
                 {comparisonStats.regressed} Rules Regressed
@@ -111,8 +131,12 @@ export const VerificationComparison = ({
             </div>
           </Tooltip>
         )}
-        <Tooltip title="Rules with no change in pass/fail status between scans" arrow>
-          <div className={classes.deltaStat}>
+        <Tooltip title="Click to filter: rules with no change between scans" arrow>
+          <div
+            className={`${classes.deltaStat} ${onStatClick ? classes.clickableStat : ''}`}
+            onClick={() => onStatClick?.(activeComparison === 'unchanged' ? 'all' : 'unchanged')}
+            style={activeComparison === 'unchanged' ? { backgroundColor: 'rgba(106,110,115,0.1)' } : undefined}
+          >
             <RemoveIcon fontSize="small" style={{ color: '#6A6E73' }} />
             <Typography variant="body2" className={classes.deltaUnchanged}>
               {comparisonStats.unchanged} Rules Unchanged

@@ -92,7 +92,7 @@ export class FindingsParser {
       finding: StoredFinding;
       hosts: Array<{
         host: string;
-        status: 'pass' | 'fail' | 'error';
+        status: 'pass' | 'fail' | 'error' | 'not_applicable';
         actualValue: string;
         expectedValue: string;
         findingState?: FindingState | null;
@@ -107,9 +107,12 @@ export class FindingsParser {
       }
       if (entry.seenHosts.has(f.host)) continue;
       entry.seenHosts.add(f.host);
+      const status = (['pass', 'fail', 'error', 'not_applicable'].includes(f.status)
+        ? f.status
+        : 'error') as 'pass' | 'fail' | 'error' | 'not_applicable';
       entry.hosts.push({
         host: f.host,
-        status: (f.status as 'pass' | 'fail' | 'error') || 'error',
+        status,
         actualValue: f.actualValue,
         expectedValue: f.expectedValue,
         findingState: f.findingState,
@@ -128,6 +131,7 @@ export class FindingsParser {
     for (const [ruleId, entry] of byRule) {
       const passCount = entry.hosts.filter(h => h.status === 'pass').length;
       const failCount = entry.hosts.filter(h => h.status === 'fail').length;
+      const naCount = entry.hosts.filter(h => h.status === 'not_applicable').length;
       const dm = dbMeta.get(ruleId);
 
       const stateSummary = { new: 0, active: 0, fixed: 0, resurfaced: 0 };
@@ -137,6 +141,9 @@ export class FindingsParser {
         else if (h.findingState === 'fixed') stateSummary.fixed++;
         else if (h.findingState === 'resurfaced') stateSummary.resurfaced++;
       }
+
+      // totalCount excludes N/A so pass rate = passCount / totalCount is accurate
+      const applicableHosts = entry.hosts.filter(h => h.status !== 'not_applicable').length;
 
       results.push({
         ruleId,
@@ -154,7 +161,8 @@ export class FindingsParser {
         hosts: entry.hosts,
         passCount,
         failCount,
-        totalCount: entry.hosts.length,
+        naCount,
+        totalCount: applicableHosts,
         stateSummary,
       });
     }

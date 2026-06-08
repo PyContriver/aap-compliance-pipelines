@@ -491,7 +491,8 @@ export class ComplianceDatabase {
       .where('f.scan_id', scanId)
       .where('f.status', 'not_applicable')
       .orderBy('f.severity')
-      .orderBy('rule_title');
+      .orderBy('rule_title')
+      .limit(500);
     return rows.map((row: Record<string, unknown>) => ({
       ruleId: row.rule_id as string,
       ruleTitle: row.rule_title as string,
@@ -980,6 +981,71 @@ export class ComplianceDatabase {
       if (row.status === 'fail') failCount = Number(row.cnt);
     }
     return { passCount, failCount };
+  }
+
+  async getBaselineScoresBatch(
+    configs: Array<{ key: string; scanId: string; ruleIds: string[] }>,
+  ): Promise<Map<string, { passCount: number; failCount: number }>> {
+    const result = new Map<string, { passCount: number; failCount: number }>();
+    if (configs.length === 0) return result;
+
+    // Build a single query with UNION ALL for each config
+    const allPairs: Array<{ scanId: string; ruleId: string; configKey: string }> = [];
+    for (const cfg of configs) {
+      if (cfg.ruleIds.length === 0) {
+        result.set(cfg.key, { passCount: 0, failCount: 0 });
+        continue;
+      }
+      for (const ruleId of cfg.ruleIds) {
+        allPairs.push({ scanId: cfg.scanId, ruleId, configKey: cfg.key });
+      }
+    }
+
+    if (allPairs.length === 0) return result;
+
+    // Group by scanId for efficient querying
+    const byScanId = new Map<string, { keys: Set<string>; ruleIds: Set<string> }>();
+    for (const pair of allPairs) {
+      let group = byScanId.get(pair.scanId);
+      if (!group) {
+        group = { keys: new Set(), ruleIds: new Set() };
+        byScanId.set(pair.scanId, group);
+      }
+      group.keys.add(pair.configKey);
+      group.ruleIds.add(pair.ruleId);
+    }
+
+    // Build rule-to-config mapping for result attribution
+    const ruleToConfig = new Map<string, string>();
+    for (const pair of allPairs) {
+      ruleToConfig.set(`${pair.scanId}::${pair.ruleId}`, pair.configKey);
+    }
+
+    // Single batch query for all scan IDs
+    const scanIds = Array.from(byScanId.keys());
+    const allRuleIds = new Set(allPairs.map(p => p.ruleId));
+    const rows = await this.db('compliance_findings')
+      .select('scan_id', 'rule_id', 'status')
+      .whereIn('scan_id', scanIds)
+      .whereIn('rule_id', Array.from(allRuleIds));
+
+    // Aggregate per config key
+    const counters = new Map<string, { pass: number; fail: number }>();
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const key = ruleToConfig.get(`${row.scan_id}::${row.rule_id}`);
+      if (!key) continue;
+      if (!counters.has(key)) counters.set(key, { pass: 0, fail: 0 });
+      const c = counters.get(key)!;
+      if (row.status === 'pass') c.pass++;
+      if (row.status === 'fail') c.fail++;
+    }
+
+    for (const cfg of configs) {
+      const c = counters.get(cfg.key);
+      result.set(cfg.key, { passCount: c?.pass ?? 0, failCount: c?.fail ?? 0 });
+    }
+
+    return result;
   }
 
   // ─── Rule metadata ─────────────────────────────────────────────────

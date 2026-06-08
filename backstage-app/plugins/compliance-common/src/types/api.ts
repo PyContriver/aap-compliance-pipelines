@@ -209,13 +209,14 @@ export interface MultiHostFinding {
   parameters: FindingParameter[];
   hosts: Array<{
     host: string;
-    status: 'pass' | 'fail' | 'error';
+    status: 'pass' | 'fail' | 'error' | 'not_applicable';
     actualValue: string;
     expectedValue: string;
     findingState?: FindingState | null;
   }>;
   passCount: number;
   failCount: number;
+  naCount: number;
   totalCount: number;
   stateSummary?: FindingStateSummary;
 }

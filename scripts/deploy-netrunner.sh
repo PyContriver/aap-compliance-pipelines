@@ -221,6 +221,12 @@ echo "[5.5/7] Clearing old plugin extractions..."
 ssh $SSH_OPTS "$PORTAL_HOST" "sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-plugin-compliance-* && sudo rm -f /opt/app-root/src/dynamic-plugins-root/install-dynamic-plugins.lock"
 echo "       Cleared stale extraction dirs and lock file"
 
+# Step 5.6: Ensure frontend route uses wildcard for sub-route support
+# Portal's dynamic-plugins config mounts the plugin at an exact path by default.
+# Without the wildcard, /compliance/results/:id returns a 404 from the React router.
+DYNAMIC_PLUGINS_YAML="/sysroot/ostree/deploy/default/var/lib/portal/dynamic-plugins-root/app-config.dynamic-plugins.yaml"
+ssh $SSH_OPTS "$PORTAL_HOST" "sudo sed -i 's|path: /compliance\$|path: /compliance/*|' $DYNAMIC_PLUGINS_YAML"
+
 # Step 6: Restart Portal
 echo "[6/7] Restarting Portal service..."
 ssh $SSH_OPTS "$PORTAL_HOST" "sudo systemctl restart portal.service"

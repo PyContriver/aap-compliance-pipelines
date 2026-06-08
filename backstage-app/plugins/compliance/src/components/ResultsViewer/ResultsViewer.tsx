@@ -137,11 +137,29 @@ export const ResultsViewer = () => {
   const meta = useScanMetadata(api, jobId);
   const baseline = useBaselineState(api, meta.scanComplianceProfileId, meta.scanInventoryId);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
-  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings);
+  const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
+
+  const comparisonMap = useMemo(() => {
+    if (previousFindings.length === 0) return undefined;
+    const prevMap = new Map<string, MultiHostFinding>();
+    for (const f of previousFindings) prevMap.set(f.ruleId, f);
+    const map = new Map<string, 'improved' | 'regressed' | 'unchanged'>();
+    for (const current of findings) {
+      const prev = prevMap.get(current.ruleId);
+      if (!prev) { map.set(current.ruleId, 'unchanged'); continue; }
+      const prevFailing = prev.failCount > 0;
+      const currentFailing = current.failCount > 0;
+      if (prevFailing && !currentFailing) map.set(current.ruleId, 'improved');
+      else if (!prevFailing && currentFailing) map.set(current.ruleId, 'regressed');
+      else map.set(current.ruleId, 'unchanged');
+    }
+    return map;
+  }, [findings, previousFindings]);
+
+  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings, comparisonMap);
 
   // ─── Local state ─────────────────────────────────────────────────
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-  const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [findingsExpanded, setFindingsExpanded] = useState(true);
@@ -205,28 +223,38 @@ export const ResultsViewer = () => {
       const opt = RISK_OPTIONS.find(o => o.key === rKey);
       if (opt) pills.push({ label: opt.label, key: 'aap', clearKey: 'aap', color: opt.color });
     }
+    if (filters.comparison !== 'all') {
+      const compLabels: Record<string, { label: string; color: string }> = {
+        improved: { label: 'Improved', color: '#3E8635' },
+        regressed: { label: 'Regressed', color: '#C9190B' },
+        unchanged: { label: 'Unchanged', color: '#6A6E73' },
+      };
+      const cl = compLabels[filters.comparison];
+      if (cl) pills.push({ label: cl.label, key: 'comparison', clearKey: 'comparison', color: cl.color });
+    }
     return pills;
   }, [filters]);
 
-  // ─── N/A count: fetch via batch stats when jobId is known ────────
+  // ─── N/A count: fetch via batch stats using resolved scan UUID ───
+  const resolvedId = meta.resolvedScanId || jobId;
   useEffect(() => {
-    if (!jobId) return;
+    if (!resolvedId) return;
     let cancelled = false;
-    api.getBatchScanStats([jobId]).then(stats => {
+    api.getBatchScanStats([resolvedId]).then(stats => {
       if (cancelled) return;
-      const s = stats[jobId];
+      const s = stats[resolvedId];
       if (s && typeof s.naCount === 'number') {
         setNaCount(s.naCount);
       }
     }).catch(() => { /* non-critical */ });
     return () => { cancelled = true; };
-  }, [api, jobId]);
+  }, [api, resolvedId]);
 
   const handleNaChipClick = useCallback(() => {
     setNaExpanded(prev => !prev);
-    if (!naRules && jobId) {
+    if (!naRules && !naLoading && resolvedId) {
       setNaLoading(true);
-      api.getNotApplicableRules(jobId).then(rules => {
+      api.getNotApplicableRules(resolvedId).then(rules => {
         setNaRules(rules);
         setNaLoading(false);
       }).catch(() => {
@@ -234,7 +262,7 @@ export const ResultsViewer = () => {
         setNaLoading(false);
       });
     }
-  }, [api, jobId, naRules]);
+  }, [api, resolvedId, naRules, naLoading]);
 
   // ─── Comparison / verification data ──────────────────────────────
 
@@ -342,24 +370,15 @@ export const ResultsViewer = () => {
   }, [previousFindings]);
 
   const comparisonStats = useMemo(() => {
-    if (!isComparison || previousFindings.length === 0) {
-      return { improved: 0, regressed: 0, unchanged: 0 };
-    }
-    const prevMap = new Map<string, MultiHostFinding>();
-    for (const f of previousFindings) prevMap.set(f.ruleId, f);
-
+    if (!comparisonMap) return { improved: 0, regressed: 0, unchanged: 0 };
     let improved = 0, regressed = 0, unchanged = 0;
-    for (const current of findings) {
-      const prev = prevMap.get(current.ruleId);
-      if (!prev) { unchanged++; continue; }
-      const prevFailing = prev.failCount > 0;
-      const currentFailing = current.failCount > 0;
-      if (prevFailing && !currentFailing) improved++;
-      else if (!prevFailing && currentFailing) regressed++;
+    for (const v of comparisonMap.values()) {
+      if (v === 'improved') improved++;
+      else if (v === 'regressed') regressed++;
       else unchanged++;
     }
     return { improved, regressed, unchanged };
-  }, [isComparison, findings, previousFindings]);
+  }, [comparisonMap]);
 
   // ─── Scan progress callbacks ─────────────────────────────────────
 
@@ -510,11 +529,25 @@ export const ResultsViewer = () => {
 
       <Box mt={2} />
 
-      {meta.profileCert && (
+      {meta.profileName && (
         <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
           <Typography variant="subtitle2">{meta.profileName}</Typography>
-          <Chip label={meta.frameworkLabel} size="small" variant="outlined" />
-          <CertificationBadge certification={meta.profileCert} />
+          {meta.frameworkLabel && <Chip label={meta.frameworkLabel} size="small" variant="outlined" />}
+          {meta.profileCert && <CertificationBadge certification={meta.profileCert} />}
+          {meta.scanInventoryName && (
+            <Chip
+              label={meta.scanInventoryName}
+              size="small"
+              variant="outlined"
+              icon={<ListIcon style={{ fontSize: 16 }} />}
+              style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+            />
+          )}
+          {meta.scanStartedAt && (
+            <Typography variant="caption" color="textSecondary">
+              {new Date(meta.scanStartedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -536,6 +569,8 @@ export const ResultsViewer = () => {
           comparisonStats={compareSwapped
             ? { improved: comparisonStats.regressed, regressed: comparisonStats.improved, unchanged: comparisonStats.unchanged }
             : comparisonStats}
+          activeComparison={filters.comparison}
+          onStatClick={stat => updateFilter('comparison', stat)}
         />
       ) : (
         <SummaryCards
