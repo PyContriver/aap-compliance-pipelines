@@ -325,12 +325,28 @@ export const ResultsViewer = () => {
           } else {
             if (jobId && !isWorkflowPoll) {
               api.getScan(jobId).then(scan => {
-                if (!cancelled && scan?.status === 'failed') {
+                if (cancelled) return;
+                if (scan?.status === 'failed') {
                   setScanFailed(scan.errorDetails || 'failed');
+                  setLoading(false);
+                } else if (scan?.status === 'pending' || scan?.status === 'running') {
+                  if (scan.workflowJobId) {
+                    setPendingScanWorkflowJobId(scan.workflowJobId);
+                  } else {
+                    retries++;
+                    if (retries < maxRetries) {
+                      timeoutId = setTimeout(fetchFindings, pollInterval);
+                    } else {
+                      setLoading(false);
+                    }
+                  }
+                } else {
+                  setLoading(false);
                 }
-              }).catch(() => { /* ignore */ });
+              }).catch(() => { setLoading(false); });
+            } else {
+              setLoading(false);
             }
-            setLoading(false);
           }
         })
         .catch(err => {
@@ -383,11 +399,12 @@ export const ResultsViewer = () => {
   // ─── Scan progress callbacks ─────────────────────────────────────
 
   const [showProgress, setShowProgress] = useState(false);
+  const [pendingScanWorkflowJobId, setPendingScanWorkflowJobId] = useState<number | null>(null);
   useEffect(() => {
-    if (!loading || !isWorkflowPoll) return;
+    if (!loading || (!isWorkflowPoll && !pendingScanWorkflowJobId)) return;
     const t = setTimeout(() => setShowProgress(true), 1500);
     return () => clearTimeout(t);
-  }, [loading, isWorkflowPoll]);
+  }, [loading, isWorkflowPoll, pendingScanWorkflowJobId]);
 
   const [scanFailed, setScanFailed] = useState<string | null>(null);
 
@@ -430,6 +447,13 @@ export const ResultsViewer = () => {
   // ─── Render states ───────────────────────────────────────────────
 
   if (loading) {
+    if (showProgress && pendingScanWorkflowJobId) {
+      return (
+        <Box p={4}>
+          <ScanProgress workflowJobId={pendingScanWorkflowJobId} onComplete={triggerFetch} onFailed={handleScanFailed} scanType={meta.scanType} />
+        </Box>
+      );
+    }
     if (showProgress && isWorkflowPoll && jobId) {
       return (
         <Box p={4}>

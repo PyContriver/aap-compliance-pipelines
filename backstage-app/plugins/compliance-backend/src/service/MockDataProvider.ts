@@ -364,7 +364,6 @@ export class MockDataProvider {
       recentScans: [
         { id: '1', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 78, timestamp: '2 hours ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
         { id: '2', profileName: 'CIS RHEL 9 L1', inventoryName: 'staging-db-servers', passRate: 85, timestamp: '1 day ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
-        { id: '3', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 0, timestamp: '12 hours ago', status: 'successful', scanner: 'remediation' },
         { id: '4', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'dev-servers', passRate: 62, timestamp: '3 days ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
       ],
       frameworkScores: [

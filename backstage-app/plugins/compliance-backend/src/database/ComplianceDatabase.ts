@@ -449,6 +449,29 @@ export class ComplianceDatabase {
     return result;
   }
 
+  async getDeltaBetweenScans(
+    assessScanId: string,
+    verifyScanId: string,
+  ): Promise<{ fixed: number; regressed: number; unchanged: number }> {
+    const rows = await this.db.raw(`
+      SELECT
+        SUM(CASE WHEN a.status = 'fail' AND v.status = 'pass' THEN 1 ELSE 0 END) AS fixed,
+        SUM(CASE WHEN a.status = 'pass' AND v.status = 'fail' THEN 1 ELSE 0 END) AS regressed,
+        SUM(CASE WHEN a.status = v.status THEN 1 ELSE 0 END) AS unchanged
+      FROM compliance_findings a
+      INNER JOIN compliance_findings v
+        ON a.rule_id = v.rule_id AND a.host = v.host
+      WHERE a.scan_id = ? AND v.scan_id = ?
+        AND a.status IN ('pass','fail') AND v.status IN ('pass','fail')
+    `, [assessScanId, verifyScanId]);
+    const row = Array.isArray(rows) ? rows[0] : rows?.rows?.[0] ?? {};
+    return {
+      fixed: Number(row.fixed) || 0,
+      regressed: Number(row.regressed) || 0,
+      unchanged: Number(row.unchanged) || 0,
+    };
+  }
+
   async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
@@ -608,7 +631,7 @@ export class ComplianceDatabase {
     }
 
     const id = randomUUID();
-    await this.db('compliance_remediation_profiles').insert({
+    const insertRow = {
       id,
       name: profile.name,
       description: profile.description,
@@ -619,7 +642,26 @@ export class ComplianceDatabase {
       created_by: profile.createdBy ?? null,
       created_at: now,
       updated_at: now,
-    });
+    };
+
+    if (status === 'draft') {
+      const updated = await this.db('compliance_remediation_profiles')
+        .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+        .update({
+          description: profile.description,
+          creation_scan_id: scanId,
+          selections_json: insertRow.selections_json,
+          updated_at: now,
+        });
+      if (updated > 0) {
+        const existing = await this.db('compliance_remediation_profiles')
+          .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+          .first('id');
+        return { id: existing.id };
+      }
+    }
+
+    await this.db('compliance_remediation_profiles').insert(insertRow);
     return { id };
   }
 

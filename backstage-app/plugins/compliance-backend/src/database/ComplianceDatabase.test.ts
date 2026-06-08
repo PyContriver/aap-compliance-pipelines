@@ -60,6 +60,7 @@ async function createTables(database: Knex): Promise<void> {
         .timestamp('updated_at')
         .notNullable()
         .defaultTo(database.fn.now());
+      table.unique(['name', 'profile_id', 'status']);
     },
   );
 
@@ -1785,6 +1786,66 @@ describe('ComplianceDatabase', () => {
 
       const rules = await complianceDb.getNotApplicableRules(scan.id);
       expect(rules).toHaveLength(0);
+    });
+  });
+
+  describe('getDeltaBetweenScans', () => {
+    it('computes fixed/regressed/unchanged between two scans', async () => {
+      await db('compliance_scans').insert({ id: 'delta-s1', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'assessment', workflow_job_id: 100, status: 'completed', started_at: '2026-06-01T00:00:00Z', completed_at: '2026-06-01T00:01:00Z' });
+      await db('compliance_scans').insert({ id: 'delta-s2', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'verification', workflow_job_id: 101, status: 'completed', started_at: '2026-06-01T01:00:00Z', completed_at: '2026-06-01T01:01:00Z' });
+      await complianceDb.saveFindingsForScan('delta-s1', [
+        { ruleId: 'rule1', stigId: 'V-1', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { ruleId: 'rule2', stigId: 'V-2', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { ruleId: 'rule3', stigId: 'V-3', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+      await complianceDb.saveFindingsForScan('delta-s2', [
+        { ruleId: 'rule1', stigId: 'V-1', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { ruleId: 'rule2', stigId: 'V-2', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { ruleId: 'rule3', stigId: 'V-3', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+      const delta = await complianceDb.getDeltaBetweenScans('delta-s1', 'delta-s2');
+      expect(delta.fixed).toBe(1);
+      expect(delta.regressed).toBe(1);
+      expect(delta.unchanged).toBe(1);
+    });
+
+    it('returns zeros for scans with no common findings', async () => {
+      await db('compliance_scans').insert({ id: 'empty-s1', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'assessment', workflow_job_id: 200, status: 'completed', started_at: '2026-06-02T00:00:00Z', completed_at: '2026-06-02T00:01:00Z' });
+      await db('compliance_scans').insert({ id: 'empty-s2', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'verification', workflow_job_id: 201, status: 'completed', started_at: '2026-06-02T01:00:00Z', completed_at: '2026-06-02T01:01:00Z' });
+      const delta = await complianceDb.getDeltaBetweenScans('empty-s1', 'empty-s2');
+      expect(delta.fixed).toBe(0);
+      expect(delta.regressed).toBe(0);
+      expect(delta.unchanged).toBe(0);
+    });
+  });
+
+  describe('draft upsert', () => {
+    it('updates existing draft with same name and profileId instead of inserting', async () => {
+      const first = await complianceDb.saveRemediationProfile({
+        name: 'Upsert Test', description: '', profileId: 'rhel9-stig',
+        selections: [], status: 'draft',
+      });
+      const second = await complianceDb.saveRemediationProfile({
+        name: 'Upsert Test', description: 'updated', profileId: 'rhel9-stig',
+        selections: [], status: 'draft',
+      });
+      expect(second.id).toBe(first.id);
+      const rows = await db('compliance_remediation_profiles')
+        .where({ name: 'Upsert Test', profile_id: 'rhel9-stig', status: 'draft' });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].description).toBe('updated');
+    });
+
+    it('inserts new row when saving as saved status', async () => {
+      const draft = await complianceDb.saveRemediationProfile({
+        name: 'Status Test', description: '', profileId: 'rhel9-stig',
+        selections: [], status: 'draft',
+      });
+      const saved = await complianceDb.saveRemediationProfile({
+        name: 'Status Test', description: '', profileId: 'rhel9-stig',
+        selections: [], status: 'saved',
+      });
+      expect(saved.id).not.toBe(draft.id);
     });
   });
 });

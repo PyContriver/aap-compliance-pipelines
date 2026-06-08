@@ -78,6 +78,7 @@ export interface ComplianceApi {
   unpinBaselineTarget(id: string): Promise<void>;
   getRemediationErrorDetails(jobIds: number[]): Promise<string | null>;
   getBaselineScores(remediationProfileId: string): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>>;
+  getChain(executionId: string): Promise<import('@aap-compliance/common').ChainResponse>;
 }
 
 /** API ref for the compliance plugin, consumed via useApi(complianceApiRef). */

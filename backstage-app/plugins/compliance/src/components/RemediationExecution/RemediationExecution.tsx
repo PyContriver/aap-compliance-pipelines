@@ -35,6 +35,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
+import { formatElapsed } from '../shared/formatTime';
 import type { JobEvent, MultiHostFinding, RemediationSelection, RemediationExecutionStatus } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -158,14 +159,6 @@ function computeProgress(nodes: Array<{ status: string }>): number {
     else if (n.status === 'failed' || n.status === 'error') pct += step;
   }
   return Math.round(pct);
-}
-
-/** Format seconds into human-readable elapsed time. */
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
 }
 
 /**

@@ -161,6 +161,11 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               <Chip label="AAP caution" size="small" style={{ marginTop: 4, backgroundColor: '#F0AB00', color: '#fff' }} />
             </Tooltip>
           )}
+          {finding.automationAvailable === false && (
+            <Tooltip title="No automated remediation available — manual fix required">
+              <Chip label="Manual only" size="small" variant="outlined" style={{ marginTop: 4, color: '#6A6E73', borderColor: '#6A6E73' }} />
+            </Tooltip>
+          )}
         </TableCell>
         <TableCell>
           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
@@ -221,7 +226,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
       </TableRow>
 
       <TableRow>
-        <TableCell colSpan={6} style={{ padding: 0, border: 'none' }}>
+        <TableCell colSpan={6} style={{ padding: 0, border: 'none', maxWidth: 0 }}>
           <Collapse in={expanded}>
             <div className={classes.ruleDescription}>
               <Typography variant="body2" gutterBottom>{finding.description}</Typography>
@@ -291,13 +296,14 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                               fontFamily: 'monospace',
                               color: hostFinding.status === 'fail' ? '#C9190B' : 'inherit',
                               fontWeight: hostFinding.status === 'fail' ? 600 : 400,
+                              wordBreak: 'break-all',
                             }}
                           >
                             {hostFinding.actualValue}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
+                          <Typography variant="body2" style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
                             {hostFinding.expectedValue}
                           </Typography>
                         </TableCell>

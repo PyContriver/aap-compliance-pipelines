@@ -49,6 +49,7 @@ import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
+import { formatDuration } from '../shared/formatTime';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
   RemediationProfile,
@@ -158,14 +159,6 @@ function formatHybridDate(iso: string): { absolute: string; relative: string } {
   return { absolute: formatAbsoluteDate(iso), relative: formatRelativeDate(iso) };
 }
 
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return '—';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const min = Math.floor(seconds / 60);
-  const sec = Math.round(seconds % 60);
-  return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
-}
-
 function ExecutionHistoryRow({
   execution,
   inventoryNames,
@@ -265,11 +258,11 @@ function RowActions({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>
+      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : r.status === 'draft' ? 'Save the profile before launching' : 'Launch remediation'}>
         <span>
           <IconButton
             size="small"
-            disabled={r.status === 'archived'}
+            disabled={r.status === 'archived' || r.status === 'draft'}
             onClick={onLaunch}
           >
             <PlayArrowIcon fontSize="small" />

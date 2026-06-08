@@ -33,15 +33,11 @@ export function registerScanRoutes(
         try {
           state.staleScanThrottle.set(scan.id, now);
           let status;
-          if (scan.scanner === 'remediation') {
+          try {
+            status = await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
+          } catch (err) {
+            logger.debug(`WJT status failed for scan ${scan.id}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
             status = await service.getJobStatus(scan.workflowJobId!, userToken);
-          } else {
-            try {
-              status = await service.getWorkflowJobStatus(scan.workflowJobId!, userToken);
-            } catch (err) {
-              logger.debug(`WJT status failed for scan ${scan.id}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
-              status = await service.getJobStatus(scan.workflowJobId!, userToken);
-            }
           }
           const terminal = ['successful', 'failed', 'error', 'canceled'];
           if (terminal.includes(status.status) && scan.status !== 'completed') {

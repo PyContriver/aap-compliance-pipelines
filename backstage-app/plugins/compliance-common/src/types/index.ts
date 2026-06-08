@@ -48,6 +48,8 @@ export type {
   RemediationProfileStatus,
   RemediationExecutionStatus,
   RemediationExecution,
+  ChainScanStats,
+  ChainResponse,
   BaselineTarget,
   AuthoritativeScanResponse,
 } from './api';

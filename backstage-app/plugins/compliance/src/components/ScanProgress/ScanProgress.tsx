@@ -19,6 +19,7 @@ import {
 } from '@material-ui/core';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
+import { formatElapsed } from '../shared/formatTime';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -79,13 +80,6 @@ function computeProgress(nodes: NodeStatus[]): number {
     else if (n.status === 'failed' || n.status === 'error') pct += step;
   }
   return Math.round(pct);
-}
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
 }
 
 export interface ScanProgressProps {

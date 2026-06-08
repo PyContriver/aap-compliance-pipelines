@@ -316,9 +316,10 @@ export const ScanHistory = () => {
         groupKey = scanToGroup.get(exec.informingScanId);
       }
       if (!groupKey) {
-        // Fallback: match by inventoryId, pick the first group with matching inventory
+        // Fallback: match by profileId + inventoryId (not inventoryId alone,
+        // which would assign all executions to whichever group is iterated first)
         for (const [key, group] of groupMap) {
-          if (group.inventoryId === exec.inventoryId) {
+          if (group.profileId === exec.remediationProfileId && group.inventoryId === exec.inventoryId) {
             groupKey = key;
             break;
           }
@@ -722,7 +723,21 @@ export const ScanHistory = () => {
                                   {formatRelativeDate(execution.startedAt)}
                                 </Typography>
                               </TableCell>
-                              <TableCell width={40} />
+                              <TableCell width={40}>
+                                {execution.informingScanId && (
+                                  <Tooltip title="View assessment chain" arrow>
+                                    <IconButton
+                                      size="small"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        navigate(`/compliance/chain/${execution.id}`);
+                                      }}
+                                    >
+                                      <CompareArrowsIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -756,11 +771,7 @@ export const ScanHistory = () => {
                   className={classes.clickableRow}
                   onClick={() => {
                     const jobId = scan.workflowJobId ?? scan.id;
-                    if (scan.scanner === 'remediation') {
-                      navigate(`/compliance/remediation-result/${scan.workflowJobId ?? scan.id}`);
-                    } else {
-                      navigate(`/compliance/results/${jobId}`);
-                    }
+                    navigate(`/compliance/results/${jobId}`);
                   }}
                 >
                   <TableCell>
@@ -777,13 +788,13 @@ export const ScanHistory = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      icon={scan.scanner === 'remediation' ? <BuildIcon /> : scan.scanType === 'verification' ? <VerifiedUserIcon /> : <AssessmentIcon />}
-                      label={scan.scanner === 'remediation' ? 'Remediation' : scan.scanType === 'verification' ? 'Verification' : 'Assessment'}
+                      icon={scan.scanType === 'verification' ? <VerifiedUserIcon /> : <AssessmentIcon />}
+                      label={scan.scanType === 'verification' ? 'Verification' : 'Assessment'}
                       size="small"
                       variant="outlined"
                       style={{
-                        borderColor: scan.scanner === 'remediation' ? '#3E8635' : scan.scanType === 'verification' ? '#0066CC' : undefined,
-                        color: scan.scanner === 'remediation' ? '#3E8635' : scan.scanType === 'verification' ? '#0066CC' : undefined,
+                        borderColor: scan.scanType === 'verification' ? '#0066CC' : undefined,
+                        color: scan.scanType === 'verification' ? '#0066CC' : undefined,
                       }}
                     />
                   </TableCell>
