@@ -194,6 +194,15 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
       status: 'completed',
       scanner: 'oscap',
     },
+    {
+      id: 'scan-3',
+      profileName: 'RHEL 9 STIG V2R8',
+      inventoryName: 'production-web-servers',
+      passRate: 0,
+      timestamp: '2026-04-28 10:00',
+      status: 'successful',
+      scanner: 'remediation',
+    },
   ],
   frameworkScores: [
     { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2026-04-28', contributingScans: [{ scanId: 's1', inventoryId: 1, inventoryName: 'prod-servers', passRate: 78, passCount: 285, failCount: 81, ruleCount: 366, timestamp: '2026-04-28' }] },

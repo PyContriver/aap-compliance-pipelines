@@ -25,6 +25,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import HistoryIcon from '@material-ui/icons/History';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+import BuildIcon from '@material-ui/icons/Build';
 
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
@@ -740,24 +741,39 @@ export const ComplianceDashboard = () => {
               }
             >
               {stats.recentScans.map(scan => {
-                const activityLabel = scan.scanType === 'verification'
-                  ? 'Verification'
-                  : 'Assessment';
-                const activityColor = scan.scanType === 'verification'
-                  ? 'secondary'
-                  : 'default';
+                const isRemediation = scan.scanner === 'remediation';
+                const activityLabel = isRemediation
+                  ? 'Remediation'
+                  : scan.scanType === 'verification'
+                    ? 'Verification'
+                    : 'Assessment';
+                const activityColor = isRemediation
+                  ? 'primary'
+                  : scan.scanType === 'verification'
+                    ? 'secondary'
+                    : 'default';
 
                 return (
                   <div
                     key={scan.id}
                     className={classes.scanRow}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`results/${scan.id}`)}
+                    onClick={() => {
+                      if (isRemediation) {
+                        navigate(`remediation-result/${scan.id}`);
+                      } else {
+                        navigate(`results/${scan.id}`);
+                      }
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
-                        navigate(`results/${scan.id}`);
+                        if (isRemediation) {
+                          navigate(`remediation-result/${scan.id}`);
+                        } else {
+                          navigate(`results/${scan.id}`);
+                        }
                       }
                     }}
                   >
@@ -765,11 +781,14 @@ export const ComplianceDashboard = () => {
                       <Box display="flex" alignItems="center" style={{ gap: 6 }}>
                         <Typography variant="subtitle2">{scan.profileName}</Typography>
                         <Chip
+                          icon={isRemediation ? <BuildIcon style={{ fontSize: 12 }} /> : undefined}
                           label={activityLabel}
                           size="small"
                           variant="outlined"
                           color={activityColor as 'primary' | 'secondary' | 'default'}
-                          style={{ height: 18, fontSize: '0.65rem' }}
+                          style={isRemediation
+                            ? { height: 18, fontSize: '0.65rem', borderColor: '#3E8635', color: '#3E8635' }
+                            : { height: 18, fontSize: '0.65rem' }}
                         />
                       </Box>
                       <Typography variant="body2" color="textSecondary">
@@ -779,6 +798,8 @@ export const ComplianceDashboard = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {scan.status === 'failed' ? (
                         <StatusError />
+                      ) : isRemediation ? (
+                        <StatusOK />
                       ) : scan.passRate >= 80 ? (
                         <StatusOK />
                       ) : scan.passRate >= 65 ? (
@@ -787,7 +808,7 @@ export const ComplianceDashboard = () => {
                         <StatusError />
                       )}
                       <Typography variant="subtitle2">
-                        {scan.status === 'failed' ? 'Failed' : `${scan.passRate}%`}
+                        {scan.status === 'failed' ? 'Failed' : isRemediation ? scan.status : `${scan.passRate}%`}
                       </Typography>
                     </div>
                   </div>
