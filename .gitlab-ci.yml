@@ -201,10 +201,13 @@ deploy-netrunner:
       $SSH "
         sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz
         sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz
-        # Remove extracted plugin dirs so Portal re-extracts from new tarballs
+        # Remove extracted plugin dirs AND the lock file so Portal re-extracts cleanly.
+        # Without removing the lock, Portal's cleanup sweep treats the just-installed
+        # same-version dir as a stale entry and deletes it (causing 404 on all API routes).
         sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-*
+        sudo rm -f /opt/app-root/src/dynamic-plugins-root/install-dynamic-plugins.lock
       "
-    - echo "Tarballs uploaded, old extractions cleared"
+    - echo "Tarballs uploaded, old extractions and lock file cleared"
 
     # Update Portal config with integrity hashes
     - |

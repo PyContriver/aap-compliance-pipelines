@@ -7,7 +7,7 @@
 #   ./scripts/deploy-netrunner.sh              # bump patch, deploy both
 #   ./scripts/deploy-netrunner.sh backend      # backend only
 #   ./scripts/deploy-netrunner.sh frontend     # frontend only
-#   ./scripts/deploy-netrunner.sh --no-bump    # skip version bump
+#   ./scripts/deploy-netrunner.sh --no-bump    # skip version bump (step 5.5 clears lock file to prevent same-version sweep bug)
 #
 set -euo pipefail
 
@@ -210,9 +210,16 @@ RESULT=$(ssh $SSH_OPTS "$PORTAL_HOST" "sudo python3 -c $(printf '%q' "$PYTHON_SC
 echo "       Updated: $RESULT"
 
 # Step 5.5: Clear old extracted plugins to force re-extraction
+#
+# IMPORTANT: must delete the lock file alongside the plugin dirs.
+# Portal's install-dynamic-plugins.sh compares the lock against the current
+# config at startup. If the lock records version X and we re-deploy version X
+# (same version, e.g. --no-bump), the cleanup sweep treats the just-extracted
+# dir as "previously installed but now gone" and removes it. Deleting the lock
+# forces Portal to treat this boot as a clean install with no prior state.
 echo "[5.5/7] Clearing old plugin extractions..."
-ssh $SSH_OPTS "$PORTAL_HOST" "sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-plugin-compliance-*"
-echo "       Cleared stale extraction dirs"
+ssh $SSH_OPTS "$PORTAL_HOST" "sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-plugin-compliance-* && sudo rm -f /opt/app-root/src/dynamic-plugins-root/install-dynamic-plugins.lock"
+echo "       Cleared stale extraction dirs and lock file"
 
 # Step 6: Restart Portal
 echo "[6/7] Restarting Portal service..."
