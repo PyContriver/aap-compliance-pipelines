@@ -765,7 +765,7 @@ export const ScanHistory = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {scans.map(scan => (
+              {scans.filter(s => s.scanner !== 'remediation').map(scan => (
                 <TableRow
                   key={scan.id}
                   className={classes.clickableRow}

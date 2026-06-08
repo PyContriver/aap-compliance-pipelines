@@ -186,13 +186,20 @@ function extractTasksFromEvents(
     const hostName = event.host_name || (event.event_data?.host as string) || '';
 
     // CaC monolithic playbooks don't populate event_data.role or task_tags.
-    // Match against known rule IDs by substring in the task name.
+    // Match against known rule IDs by word-overlap in the task name.
     let ruleId = '';
-    const nameLower = taskName.toLowerCase().replace(/[\s-]/g, '_');
+    const nameWords = new Set(
+      taskName.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 1),
+    );
+    let bestScore = 0;
     for (const candidate of knownRuleIds) {
-      if (nameLower.includes(candidate.toLowerCase())) {
+      const ruleWords = candidate.toLowerCase().split('_').filter(w => w.length > 1);
+      if (ruleWords.length === 0) continue;
+      const matched = ruleWords.filter(w => nameWords.has(w)).length;
+      const ratio = matched / ruleWords.length;
+      if (ratio >= 0.75 && matched > bestScore) {
+        bestScore = matched;
         ruleId = candidate;
-        break;
       }
     }
 
@@ -279,16 +286,16 @@ function groupTasksByRule(
   }
 
   /**
-   * Extract significant words (>3 chars, lowercased) from a string,
+   * Extract significant words (>2 chars, lowercased) from a string,
    * filtering out common stop words that don't contribute to matching.
    */
   const extractWords = (text: string): string[] => {
-    const stopWords = new Set(['with', 'from', 'that', 'this', 'have', 'been', 'will', 'should', 'must', 'shall', 'ensure', 'verify']);
+    const stopWords = new Set(['with', 'from', 'that', 'this', 'have', 'been', 'will', 'should', 'must', 'shall', 'ensure', 'verify', 'the']);
     return text
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length > 3 && !stopWords.has(w));
+      .filter(w => w.length > 2 && !stopWords.has(w));
   };
 
   /**
