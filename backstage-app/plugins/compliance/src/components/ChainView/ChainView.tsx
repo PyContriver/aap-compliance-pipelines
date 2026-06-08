@@ -30,6 +30,7 @@ import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import { complianceApiRef } from '../../api';
+import { formatDuration } from '../shared/formatTime';
 import type { ChainResponse } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -78,14 +79,6 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(1),
   },
 }));
-
-function formatDuration(seconds: number | null): string {
-  if (seconds === null) return '—';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {

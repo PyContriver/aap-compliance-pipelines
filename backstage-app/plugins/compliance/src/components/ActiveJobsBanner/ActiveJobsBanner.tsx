@@ -16,6 +16,7 @@ import {
 import CloseIcon from '@material-ui/icons/Close';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
+import { formatElapsed } from '../shared/formatTime';
 import type { ComplianceScan, RemediationExecution } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -75,13 +76,6 @@ const useStyles = makeStyles(theme => ({
 }));
 
 /** Format seconds into human-readable elapsed time. */
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
-}
-
 function scanTypeLabel(scan: ComplianceScan): string {
   if (scan.scanType === 'verification') return 'Verification Scan';
   return 'Assessment Scan';

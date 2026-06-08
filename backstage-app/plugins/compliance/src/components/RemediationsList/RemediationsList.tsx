@@ -49,6 +49,7 @@ import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
+import { formatDuration } from '../shared/formatTime';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
   RemediationProfile,
@@ -156,14 +157,6 @@ function formatAbsoluteDate(iso: string): string {
 
 function formatHybridDate(iso: string): { absolute: string; relative: string } {
   return { absolute: formatAbsoluteDate(iso), relative: formatRelativeDate(iso) };
-}
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return '—';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const min = Math.floor(seconds / 60);
-  const sec = Math.round(seconds % 60);
-  return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
 }
 
 function ExecutionHistoryRow({

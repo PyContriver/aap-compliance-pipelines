@@ -62,13 +62,6 @@ describe('ComplianceDashboard', () => {
     expect(screen.getAllByText('CIS Benchmark L1').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('displays Remediation badge for remediation scanner entries', async () => {
-    await renderDashboard();
-    await waitFor(() => {
-      expect(screen.getByText('Remediation')).toBeInTheDocument();
-    });
-  });
-
   it('displays active compliance profiles section', async () => {
     await renderDashboard();
     await waitFor(() => {

@@ -224,25 +224,10 @@ export function registerRemediationRoutes(
 
     let delta: { fixed: number; regressed: number; unchanged: number } | null = null;
     if (execution.informingScanId && execution.verificationScanId) {
-      const [assessFindings, verifyFindings] = await Promise.all([
-        database.getFindingsByScanId(execution.informingScanId),
-        database.getFindingsByScanId(execution.verificationScanId),
-      ]);
-      const assessMap = new Map<string, string>();
-      for (const f of assessFindings) {
-        const key = `${f.ruleId}::${f.host}`;
-        assessMap.set(key, f.status);
-      }
-      let fixed = 0, regressed = 0, unchanged = 0;
-      for (const f of verifyFindings) {
-        const key = `${f.ruleId}::${f.host}`;
-        const prev = assessMap.get(key);
-        if (!prev) continue;
-        if (prev === 'fail' && f.status === 'pass') fixed++;
-        else if (prev === 'pass' && f.status === 'fail') regressed++;
-        else unchanged++;
-      }
-      delta = { fixed, regressed, unchanged };
+      delta = await database.getDeltaBetweenScans(
+        execution.informingScanId,
+        execution.verificationScanId,
+      );
     }
 
     res.json({
@@ -401,6 +386,7 @@ export function registerRemediationRoutes(
       complianceProfileId: body.complianceProfileId ?? '',
       scanId: body.scanId,
       selections: body.selections,
+      status: body.status,
     };
 
     try {

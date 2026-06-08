@@ -304,6 +304,8 @@ export const RemediationProfileBuilder = () => {
     } catch (err) { setAutoSaveStatus('error'); setSaveError(err instanceof Error ? err.message : 'Auto-save failed'); } finally { savingInProgress.current = false; }
   }, [api, allFindings, editProfile, isEditMode, jobId]);
 
+  useEffect(() => { if (profileSaved) setProfileSaved(false); }, [selections, profileName, profileDescription]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasInitializedRef = useRef(false);
   useEffect(() => {
     if (Object.keys(selections).length === 0 || !profileName) { hasInitializedRef.current = false; return; }
@@ -596,6 +598,7 @@ export const RemediationProfileBuilder = () => {
       <Box display="flex" justifyContent="flex-end" style={{ gap: 16 }}>
         <Button variant="outlined" color="primary" size="large" startIcon={<SaveIcon />} disabled={!profileName || enabledCount === 0 || profileSaved}
           onClick={async () => {
+            if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
             try {
               const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selections[f.ruleId]?.enabled ?? false, parameters: selections[f.ruleId]?.parameters ?? {}, scope: selections[f.ruleId]?.scope }));
               const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');

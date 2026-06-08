@@ -60,6 +60,7 @@ async function createTables(database: Knex): Promise<void> {
         .timestamp('updated_at')
         .notNullable()
         .defaultTo(database.fn.now());
+      table.unique(['name', 'profile_id', 'status']);
     },
   );
 
