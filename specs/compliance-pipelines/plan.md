@@ -244,7 +244,20 @@ plugins/compliance-backend/
 ├── src/
 │   ├── index.ts              # Public exports
 │   ├── plugin.ts             # createBackendPlugin('compliance')
-│   ├── router.ts             # Express router with all endpoints
+│   ├── router.ts             # Slim orchestrator (~80 lines), delegates to routes/
+│   ├── routes/               # Decomposed route modules (ADR-021)
+│   │   ├── types.ts          # RouterDependencies, SharedState interfaces
+│   │   ├── validation.ts     # Input validation predicates
+│   │   ├── permissions.ts    # Auth helpers (getUserAapToken, requirePermission, extractUserIdentity)
+│   │   ├── helpers.ts        # Shared helpers (resolveScanId, savePostureFromFindings, fetchLiveFindings)
+│   │   ├── health.ts         # Health, settings, cleanup
+│   │   ├── scans.ts          # Scan history, launch, stats, N/A, backfill
+│   │   ├── findings.ts       # Get findings, previous findings, ingest (rate-limited)
+│   │   ├── remediation.ts    # Launch, executions, profiles, reconciliation
+│   │   ├── baseline.ts       # Baseline targets and scores
+│   │   ├── dashboard.ts      # Dashboard stats, posture history
+│   │   ├── controller.ts     # Controller proxy (status, events, nodes, resource lookups)
+│   │   └── profiles.ts       # Compliance profile CRUD
 │   ├── database/
 │   │   ├── DatabaseHandler.ts             # CRUD operations
 │   │   └── migrations/
@@ -575,7 +588,9 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.7.6, Frontend v0.5.4, 271 tests across 12 suites, 11 ADRs
+**Current versions**: Backend v0.13.24, Frontend v0.10.26, 311 tests across 13 suites, 21 ADRs
+
+**P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
 
 **Terminology alignment (2026-05-30)**: Renamed all internal "cartridge" references to "compliance profile" — types (`ComplianceProfile`, `SaveProfileRequest`), DB table (`compliance_profile_registry` via migration 008), API routes (`/compliance-profiles`), component directory (`ProfileSettings/`), and 35+ source files. API methods for registered profiles use `getRegisteredProfiles`/`saveRegisteredProfile` to disambiguate from the display profile endpoint (`getProfiles`). Old migrations preserved with historical table name. No external API contract existed — clean rename with zero backwards-compatibility concerns.
 

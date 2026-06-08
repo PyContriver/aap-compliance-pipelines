@@ -137,11 +137,29 @@ export const ResultsViewer = () => {
   const meta = useScanMetadata(api, jobId);
   const baseline = useBaselineState(api, meta.scanComplianceProfileId, meta.scanInventoryId);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
-  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings);
+  const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
+
+  const comparisonMap = useMemo(() => {
+    if (previousFindings.length === 0) return undefined;
+    const prevMap = new Map<string, MultiHostFinding>();
+    for (const f of previousFindings) prevMap.set(f.ruleId, f);
+    const map = new Map<string, 'improved' | 'regressed' | 'unchanged'>();
+    for (const current of findings) {
+      const prev = prevMap.get(current.ruleId);
+      if (!prev) { map.set(current.ruleId, 'unchanged'); continue; }
+      const prevFailing = prev.failCount > 0;
+      const currentFailing = current.failCount > 0;
+      if (prevFailing && !currentFailing) map.set(current.ruleId, 'improved');
+      else if (!prevFailing && currentFailing) map.set(current.ruleId, 'regressed');
+      else map.set(current.ruleId, 'unchanged');
+    }
+    return map;
+  }, [findings, previousFindings]);
+
+  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings, comparisonMap);
 
   // ─── Local state ─────────────────────────────────────────────────
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-  const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [findingsExpanded, setFindingsExpanded] = useState(true);
@@ -150,6 +168,12 @@ export const ResultsViewer = () => {
   const [overflowAnchor, setOverflowAnchor] = useState<null | HTMLElement>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const compareToScanId = searchParams.get('compareTo');
+
+  // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
+  const [naCount, setNaCount] = useState<number | null>(null);
+  const [naRules, setNaRules] = useState<Array<{ ruleId: string; ruleTitle: string; severity: string }> | null>(null);
+  const [naExpanded, setNaExpanded] = useState(false);
+  const [naLoading, setNaLoading] = useState(false);
 
   // ─── Risk filter: merges disruption + aap into a single group ──
   const riskActiveValue = useMemo(() => {
@@ -199,8 +223,46 @@ export const ResultsViewer = () => {
       const opt = RISK_OPTIONS.find(o => o.key === rKey);
       if (opt) pills.push({ label: opt.label, key: 'aap', clearKey: 'aap', color: opt.color });
     }
+    if (filters.comparison !== 'all') {
+      const compLabels: Record<string, { label: string; color: string }> = {
+        improved: { label: 'Improved', color: '#3E8635' },
+        regressed: { label: 'Regressed', color: '#C9190B' },
+        unchanged: { label: 'Unchanged', color: '#6A6E73' },
+      };
+      const cl = compLabels[filters.comparison];
+      if (cl) pills.push({ label: cl.label, key: 'comparison', clearKey: 'comparison', color: cl.color });
+    }
     return pills;
   }, [filters]);
+
+  // ─── N/A count: fetch via batch stats using resolved scan UUID ───
+  const resolvedId = meta.resolvedScanId || jobId;
+  useEffect(() => {
+    if (!resolvedId) return;
+    let cancelled = false;
+    api.getBatchScanStats([resolvedId]).then(stats => {
+      if (cancelled) return;
+      const s = stats[resolvedId];
+      if (s && typeof s.naCount === 'number') {
+        setNaCount(s.naCount);
+      }
+    }).catch(() => { /* non-critical */ });
+    return () => { cancelled = true; };
+  }, [api, resolvedId]);
+
+  const handleNaChipClick = useCallback(() => {
+    setNaExpanded(prev => !prev);
+    if (!naRules && !naLoading && resolvedId) {
+      setNaLoading(true);
+      api.getNotApplicableRules(resolvedId).then(rules => {
+        setNaRules(rules);
+        setNaLoading(false);
+      }).catch(() => {
+        setNaRules([]);
+        setNaLoading(false);
+      });
+    }
+  }, [api, resolvedId, naRules, naLoading]);
 
   // ─── Comparison / verification data ──────────────────────────────
 
@@ -308,24 +370,15 @@ export const ResultsViewer = () => {
   }, [previousFindings]);
 
   const comparisonStats = useMemo(() => {
-    if (!isComparison || previousFindings.length === 0) {
-      return { improved: 0, regressed: 0, unchanged: 0 };
-    }
-    const prevMap = new Map<string, MultiHostFinding>();
-    for (const f of previousFindings) prevMap.set(f.ruleId, f);
-
+    if (!comparisonMap) return { improved: 0, regressed: 0, unchanged: 0 };
     let improved = 0, regressed = 0, unchanged = 0;
-    for (const current of findings) {
-      const prev = prevMap.get(current.ruleId);
-      if (!prev) { unchanged++; continue; }
-      const prevFailing = prev.failCount > 0;
-      const currentFailing = current.failCount > 0;
-      if (prevFailing && !currentFailing) improved++;
-      else if (!prevFailing && currentFailing) regressed++;
+    for (const v of comparisonMap.values()) {
+      if (v === 'improved') improved++;
+      else if (v === 'regressed') regressed++;
       else unchanged++;
     }
     return { improved, regressed, unchanged };
-  }, [isComparison, findings, previousFindings]);
+  }, [comparisonMap]);
 
   // ─── Scan progress callbacks ─────────────────────────────────────
 
@@ -476,11 +529,25 @@ export const ResultsViewer = () => {
 
       <Box mt={2} />
 
-      {meta.profileCert && (
+      {meta.profileName && (
         <Box mb={2} display="flex" alignItems="center" style={{ gap: 8 }}>
           <Typography variant="subtitle2">{meta.profileName}</Typography>
-          <Chip label={meta.frameworkLabel} size="small" variant="outlined" />
-          <CertificationBadge certification={meta.profileCert} />
+          {meta.frameworkLabel && <Chip label={meta.frameworkLabel} size="small" variant="outlined" />}
+          {meta.profileCert && <CertificationBadge certification={meta.profileCert} />}
+          {meta.scanInventoryName && (
+            <Chip
+              label={meta.scanInventoryName}
+              size="small"
+              variant="outlined"
+              icon={<ListIcon style={{ fontSize: 16 }} />}
+              style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+            />
+          )}
+          {meta.scanStartedAt && (
+            <Typography variant="caption" color="textSecondary">
+              {new Date(meta.scanStartedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -502,6 +569,8 @@ export const ResultsViewer = () => {
           comparisonStats={compareSwapped
             ? { improved: comparisonStats.regressed, regressed: comparisonStats.improved, unchanged: comparisonStats.unchanged }
             : comparisonStats}
+          activeComparison={filters.comparison}
+          onStatClick={stat => updateFilter('comparison', stat)}
         />
       ) : (
         <SummaryCards
@@ -510,6 +579,54 @@ export const ResultsViewer = () => {
           totalRules={totalRules}
           rulesWithFailures={rulesWithFailures}
         />
+      )}
+
+      {/* N/A rules info — only shown when N/A rules exist */}
+      {naCount !== null && naCount > 0 && (
+        <Box mt={1} mb={1} display="flex" alignItems="flex-start" flexDirection="column" style={{ gap: 4 }}>
+          <Chip
+            label={`${naCount} rule${naCount === 1 ? '' : 's'} not applicable`}
+            size="small"
+            variant="outlined"
+            clickable
+            onClick={handleNaChipClick}
+            icon={naExpanded ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}
+            style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+          />
+          <Collapse in={naExpanded} unmountOnExit>
+            <Box mt={1} style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #d2d2d2', borderRadius: 4 }}>
+              {naLoading ? (
+                <Box display="flex" alignItems="center" p={1} style={{ gap: 8 }}>
+                  <CircularProgress size={14} />
+                  <Typography variant="caption" color="textSecondary">Loading N/A rules...</Typography>
+                </Box>
+              ) : naRules && naRules.length > 0 ? (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Severity</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Rule ID</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Title</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {naRules.map(r => (
+                      <TableRow key={r.ruleId}>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.severity}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', fontFamily: 'monospace', color: '#6A6E73' }}>{r.ruleId}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.ruleTitle}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Typography variant="caption" color="textSecondary" style={{ padding: '8px 12px', display: 'block' }}>
+                  No N/A rule details available.
+                </Typography>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
       )}
 
       <Box mt={2} />

@@ -421,57 +421,83 @@ export class ComplianceDatabase {
     return rows.map(this.mapFindingRow);
   }
 
-  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>> {
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>> {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')
       .select('scan_id', 'status', 'severity', 'host', 'rule_id')
       .whereIn('scan_id', scanIds);
-    const result = new Map<string, { pass: number; fail: number; catI: number; hosts: Set<string>; rules: Set<string> }>();
+    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>();
     for (const row of rows) {
       const sid = row.scan_id as string;
       let entry = result.get(sid);
       if (!entry) {
-        entry = { pass: 0, fail: 0, catI: 0, hosts: new Set(), rules: new Set() };
+        entry = { pass: 0, fail: 0, catI: 0, na: 0, hosts: new Set(), rules: new Set() };
         result.set(sid, entry);
       }
-      entry.hosts.add(row.host as string);
-      entry.rules.add(row.rule_id as string);
-      if (row.status === 'pass') entry.pass++;
-      if (row.status === 'fail') {
-        entry.fail++;
-        if (row.severity === 'CAT_I') entry.catI++;
+      if (row.status === 'not_applicable') {
+        entry.na++;
+      } else {
+        entry.hosts.add(row.host as string);
+        entry.rules.add(row.rule_id as string);
+        if (row.status === 'pass') entry.pass++;
+        if (row.status === 'fail') {
+          entry.fail++;
+          if (row.severity === 'CAT_I') entry.catI++;
+        }
       }
     }
     return result;
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
       .count({ total: '*' })
       .sum({ pass_count: this.db.raw("CASE WHEN status = 'pass' THEN 1 ELSE 0 END") })
       .sum({ fail_count: this.db.raw("CASE WHEN status = 'fail' THEN 1 ELSE 0 END") })
+      .sum({ na_count: this.db.raw("CASE WHEN status = 'not_applicable' THEN 1 ELSE 0 END") })
       .sum({ state_new: this.db.raw("CASE WHEN finding_state = 'new' THEN 1 ELSE 0 END") })
       .sum({ state_fixed: this.db.raw("CASE WHEN finding_state = 'fixed' THEN 1 ELSE 0 END") })
       .sum({ state_resurfaced: this.db.raw("CASE WHEN finding_state = 'resurfaced' THEN 1 ELSE 0 END") })
-      .countDistinct({ rule_count: 'rule_id' })
-      .countDistinct({ host_count: 'host' })
+      .countDistinct({ rule_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN rule_id END") })
+      .countDistinct({ host_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN host END") })
       .whereIn('scan_id', scanIds)
       .groupBy('scan_id');
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
     for (const row of rows as Array<Record<string, unknown>>) {
       result[row.scan_id as string] = {
         pass: Number(row.pass_count) || 0,
         fail: Number(row.fail_count) || 0,
         rules: Number(row.rule_count) || 0,
         hosts: Number(row.host_count) || 0,
+        naCount: Number(row.na_count) || 0,
         stateNew: Number(row.state_new) || 0,
         stateFixed: Number(row.state_fixed) || 0,
         stateResurfaced: Number(row.state_resurfaced) || 0,
       };
     }
     return result;
+  }
+
+  async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
+    const rows = await this.db('compliance_findings as f')
+      .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')
+      .distinct(
+        'f.rule_id',
+        this.db.raw("COALESCE(m.title, f.rule_id) as rule_title"),
+        'f.severity',
+      )
+      .where('f.scan_id', scanId)
+      .where('f.status', 'not_applicable')
+      .orderBy('f.severity')
+      .orderBy('rule_title')
+      .limit(500);
+    return rows.map((row: Record<string, unknown>) => ({
+      ruleId: row.rule_id as string,
+      ruleTitle: row.rule_title as string,
+      severity: row.severity as string,
+    }));
   }
 
   private mapFindingRow(row: Record<string, unknown>): StoredFinding {
@@ -807,6 +833,7 @@ export class ComplianceDatabase {
       hostsTargeted?: number;
       hostsSucceeded?: number;
       hostsFailed?: number;
+      planSummary?: object;
     },
   ): Promise<void> {
     const row: Record<string, unknown> = { status: update.status };
@@ -819,6 +846,7 @@ export class ComplianceDatabase {
     if (update.hostsTargeted !== undefined) row.hosts_targeted = update.hostsTargeted;
     if (update.hostsSucceeded !== undefined) row.hosts_succeeded = update.hostsSucceeded;
     if (update.hostsFailed !== undefined) row.hosts_failed = update.hostsFailed;
+    if (update.planSummary !== undefined) row.plan_summary = JSON.stringify(update.planSummary);
     await this.db('compliance_remediation_executions').where('id', id).update(row);
   }
 
@@ -953,6 +981,71 @@ export class ComplianceDatabase {
       if (row.status === 'fail') failCount = Number(row.cnt);
     }
     return { passCount, failCount };
+  }
+
+  async getBaselineScoresBatch(
+    configs: Array<{ key: string; scanId: string; ruleIds: string[] }>,
+  ): Promise<Map<string, { passCount: number; failCount: number }>> {
+    const result = new Map<string, { passCount: number; failCount: number }>();
+    if (configs.length === 0) return result;
+
+    // Build a single query with UNION ALL for each config
+    const allPairs: Array<{ scanId: string; ruleId: string; configKey: string }> = [];
+    for (const cfg of configs) {
+      if (cfg.ruleIds.length === 0) {
+        result.set(cfg.key, { passCount: 0, failCount: 0 });
+        continue;
+      }
+      for (const ruleId of cfg.ruleIds) {
+        allPairs.push({ scanId: cfg.scanId, ruleId, configKey: cfg.key });
+      }
+    }
+
+    if (allPairs.length === 0) return result;
+
+    // Group by scanId for efficient querying
+    const byScanId = new Map<string, { keys: Set<string>; ruleIds: Set<string> }>();
+    for (const pair of allPairs) {
+      let group = byScanId.get(pair.scanId);
+      if (!group) {
+        group = { keys: new Set(), ruleIds: new Set() };
+        byScanId.set(pair.scanId, group);
+      }
+      group.keys.add(pair.configKey);
+      group.ruleIds.add(pair.ruleId);
+    }
+
+    // Build rule-to-config mapping for result attribution
+    const ruleToConfig = new Map<string, string>();
+    for (const pair of allPairs) {
+      ruleToConfig.set(`${pair.scanId}::${pair.ruleId}`, pair.configKey);
+    }
+
+    // Single batch query for all scan IDs
+    const scanIds = Array.from(byScanId.keys());
+    const allRuleIds = new Set(allPairs.map(p => p.ruleId));
+    const rows = await this.db('compliance_findings')
+      .select('scan_id', 'rule_id', 'status')
+      .whereIn('scan_id', scanIds)
+      .whereIn('rule_id', Array.from(allRuleIds));
+
+    // Aggregate per config key
+    const counters = new Map<string, { pass: number; fail: number }>();
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const key = ruleToConfig.get(`${row.scan_id}::${row.rule_id}`);
+      if (!key) continue;
+      if (!counters.has(key)) counters.set(key, { pass: 0, fail: 0 });
+      const c = counters.get(key)!;
+      if (row.status === 'pass') c.pass++;
+      if (row.status === 'fail') c.fail++;
+    }
+
+    for (const cfg of configs) {
+      const c = counters.get(cfg.key);
+      result.set(cfg.key, { passCount: c?.pass ?? 0, failCount: c?.fail ?? 0 });
+    }
+
+    return result;
   }
 
   // ─── Rule metadata ─────────────────────────────────────────────────

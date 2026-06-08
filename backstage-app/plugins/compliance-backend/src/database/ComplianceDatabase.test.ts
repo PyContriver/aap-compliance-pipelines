@@ -1725,5 +1725,66 @@ describe('ComplianceDatabase', () => {
         stateResurfaced: 1,
       });
     });
+
+    it('excludes not_applicable rows from rule/host counts and exposes naCount', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-02T10:00:00Z', completedAt: '2026-06-02T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.saveFindingsForScan(scan.id, [
+        { scanId: scan.id, ruleId: 'r-pass', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { scanId: scan.id, ruleId: 'r-na-1', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { scanId: scan.id, ruleId: 'r-na-2', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_III', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+
+      const stats = await complianceDb.getBatchScanStatsAggregated([scan.id]);
+      expect(stats[scan.id]).toMatchObject({
+        pass: 1,
+        fail: 0,
+        rules: 1,
+        naCount: 2,
+      });
+    });
+  });
+
+  // ─── getNotApplicableRules ─────────────────────────────────────────
+
+  describe('getNotApplicableRules', () => {
+    it('returns distinct N/A rules joined with rule metadata titles', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-03T10:00:00Z', completedAt: '2026-06-03T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.upsertRuleMetadata([
+        { ruleId: 'rule-na-1', stigId: '', title: 'Disable USB Storage', description: '', checkText: '', fixText: '', category: '', disruption: 'low', scanner: 'openscap', updatedAt: '2026-06-03T10:00:00Z' },
+      ]);
+      await complianceDb.saveFindingsForScan(scan.id, [
+        { scanId: scan.id, ruleId: 'rule-na-1', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { scanId: scan.id, ruleId: 'rule-na-1', stigId: '', host: 'h2', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { scanId: scan.id, ruleId: 'rule-na-2', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_I', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        { scanId: scan.id, ruleId: 'rule-pass', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+
+      const rules = await complianceDb.getNotApplicableRules(scan.id);
+      // Returns distinct rules (not per-host), non-applicable only
+      expect(rules).toHaveLength(2);
+      const na1 = rules.find(r => r.ruleId === 'rule-na-1');
+      expect(na1?.ruleTitle).toBe('Disable USB Storage'); // from rule_metadata JOIN
+      const na2 = rules.find(r => r.ruleId === 'rule-na-2');
+      expect(na2?.ruleTitle).toBe('rule-na-2'); // COALESCE fallback: no metadata → use rule_id
+    });
+
+    it('returns empty array when scan has no N/A findings', async () => {
+      const scan = await complianceDb.createScan({
+        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
+        workflowJobId: null, status: 'completed', startedAt: '2026-06-04T10:00:00Z', completedAt: '2026-06-04T10:00:00Z', errorDetails: null,
+      });
+      await complianceDb.saveFindingsForScan(scan.id, [
+        { scanId: scan.id, ruleId: 'r1', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+      ]);
+
+      const rules = await complianceDb.getNotApplicableRules(scan.id);
+      expect(rules).toHaveLength(0);
+    });
   });
 });

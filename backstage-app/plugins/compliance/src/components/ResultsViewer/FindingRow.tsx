@@ -182,7 +182,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
             />
           ) : finding.failCount === 0 && finding.passCount === 0 ? (
             <Chip
-              label={`${finding.totalCount} N/A`}
+              label={`${finding.naCount} N/A`}
               size="small"
               variant="outlined"
               className={classes.hostCountChip}

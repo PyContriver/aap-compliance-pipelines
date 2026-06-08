@@ -44,7 +44,6 @@ export class DashboardAggregator {
 
   // ─── Dashboard ──────────────────────────────────────────────────────
 
-  // TODO: N+1 queries in scan findings aggregation — add caching or materialized stats
   async getDashboardStats(): Promise<DashboardStats> {
     if (this.service.getDataSource() === 'mock') {
       return MockDataProvider.getDashboardStats();
@@ -209,17 +208,19 @@ export class DashboardAggregator {
           .filter((s): s is NonNullable<typeof s> => s !== null),
       })).filter(inv => inv.profileScores.length > 0);
 
-      // ── Baseline enrichment (ADR-014 §7) ────────────────────────────
+      // ── Baseline enrichment (ADR-014 §7) — batched to avoid N+1 ─────
       const allBaselines = await this.database.getAllBaselineTargets();
       if (allBaselines.length > 0) {
         const remProfileCache = new Map<string, RemediationProfile | null>();
+        // Pre-fetch all remediation profiles (deduplicated)
+        const uniqueRemProfileIds = [...new Set(allBaselines.map(b => b.remediationProfileId))];
+        await Promise.all(uniqueRemProfileIds.map(async id => {
+          remProfileCache.set(id, await this.service.getRemediationProfile(id));
+        }));
+
+        // Collect all baseline score configs for batch query
+        const scoreConfigs: Array<{ key: string; scanId: string; ruleIds: string[]; baseline: typeof allBaselines[0]; remProfile: RemediationProfile }> = [];
         for (const baseline of allBaselines) {
-          if (!remProfileCache.has(baseline.remediationProfileId)) {
-            remProfileCache.set(
-              baseline.remediationProfileId,
-              await this.service.getRemediationProfile(baseline.remediationProfileId),
-            );
-          }
           const remProfile = remProfileCache.get(baseline.remediationProfileId);
           if (!remProfile) continue;
 
@@ -232,20 +233,29 @@ export class DashboardAggregator {
           const latestScan = latestByProfileInventory.get(scanKey);
           if (!latestScan) continue;
 
-          const score = await this.database.getBaselineScore(latestScan.id, baselineRuleIds);
+          scoreConfigs.push({ key: scanKey, scanId: latestScan.id, ruleIds: baselineRuleIds, baseline, remProfile });
+        }
+
+        // Single batch query for all baseline scores
+        const batchScores = await this.database.getBaselineScoresBatch(
+          scoreConfigs.map(c => ({ key: c.key, scanId: c.scanId, ruleIds: c.ruleIds })),
+        );
+
+        for (const cfg of scoreConfigs) {
+          const score = batchScores.get(cfg.key) ?? { passCount: 0, failCount: 0 };
           const total = score.passCount + score.failCount;
           const baselineRate = total > 0 ? Math.round((score.passCount / total) * 1000) / 10 : 0;
 
-          const invEntry = byInventory.find(inv => inv.inventoryId === baseline.inventoryId);
-          const profileScore = invEntry?.profileScores.find(ps => ps.profileId === baseline.complianceProfileId);
+          const invEntry = byInventory.find(inv => inv.inventoryId === cfg.baseline.inventoryId);
+          const profileScore = invEntry?.profileScores.find(ps => ps.profileId === cfg.baseline.complianceProfileId);
           if (profileScore) {
             profileScore.baseline = {
-              remediationProfileId: baseline.remediationProfileId,
-              remediationProfileName: remProfile.name,
+              remediationProfileId: cfg.baseline.remediationProfileId,
+              remediationProfileName: cfg.remProfile.name,
               rate: baselineRate,
               passCount: score.passCount,
-              ruleCount: baselineRuleIds.length,
-              pinnedAt: baseline.pinnedAt,
+              ruleCount: cfg.ruleIds.length,
+              pinnedAt: cfg.baseline.pinnedAt,
             };
           }
         }

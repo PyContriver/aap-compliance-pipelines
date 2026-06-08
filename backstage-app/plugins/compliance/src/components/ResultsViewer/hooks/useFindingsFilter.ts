@@ -14,6 +14,7 @@ export interface FindingsFilters {
   state: string;
   disruption: string;
   aap: string;
+  comparison: string;
   search: string;
 }
 
@@ -27,6 +28,7 @@ export interface FindingsFilterResult {
 
 export function useFindingsFilter(
   findings: MultiHostFinding[],
+  comparisonMap?: Map<string, 'improved' | 'regressed' | 'unchanged'>,
 ): FindingsFilterResult {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -36,6 +38,7 @@ export function useFindingsFilter(
     state: searchParams.get('state') || 'all',
     disruption: searchParams.get('disruption') || 'all',
     aap: searchParams.get('aap') || 'all',
+    comparison: searchParams.get('comparison') || 'all',
     search: searchParams.get('q') || '',
   }), [searchParams]);
 
@@ -71,13 +74,17 @@ export function useFindingsFilter(
       })
       .filter(f => filters.disruption === 'all' || f.disruption === filters.disruption)
       .filter(f => filters.aap === 'all' || f.aapImpact === filters.aap)
+      .filter(f => {
+        if (filters.comparison === 'all' || !comparisonMap) return true;
+        return comparisonMap.get(f.ruleId) === filters.comparison;
+      })
       .filter(f =>
         filters.search === '' ||
         f.title.toLowerCase().includes(filters.search.toLowerCase()) ||
         f.stigId.toLowerCase().includes(filters.search.toLowerCase()),
       )
       .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
-    [findings, filters],
+    [findings, filters, comparisonMap],
   );
 
   const activeFilterCount = [
@@ -86,6 +93,7 @@ export function useFindingsFilter(
     filters.state,
     filters.disruption,
     filters.aap,
+    filters.comparison,
   ].filter(f => f !== 'all').length;
 
   return { filtered, filters, updateFilter, activeFilterCount, clearAll };

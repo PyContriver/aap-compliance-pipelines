@@ -368,7 +368,8 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
       { id: 1, name: 'compliance-ee', image: 'registry.example.com/compliance-ee:latest' },
     ]),
     getAuthoritativeScan: jest.fn().mockResolvedValue(null),
-    getBatchScanStats: jest.fn().mockResolvedValue({}),
+    getBatchScanStats: jest.fn().mockResolvedValue({}  as Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>),
+    getNotApplicableRules: jest.fn().mockResolvedValue([]),
     getAllRecentExecutions: jest.fn().mockResolvedValue([]),
     getBaselineTargets: jest.fn().mockResolvedValue([]),
     pinBaselineTarget: jest.fn().mockResolvedValue({

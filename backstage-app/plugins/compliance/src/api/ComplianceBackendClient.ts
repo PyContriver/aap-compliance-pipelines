@@ -288,8 +288,14 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getBatchScanStats(scanIds: string[]) {
-    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>(
+    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>(
       `/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`,
+    );
+  }
+
+  getNotApplicableRules(scanId: string) {
+    return this.request<Array<{ ruleId: string; ruleTitle: string; severity: string }>>(
+      `/scans/${encodeURIComponent(scanId)}/findings/na`,
     );
   }
 

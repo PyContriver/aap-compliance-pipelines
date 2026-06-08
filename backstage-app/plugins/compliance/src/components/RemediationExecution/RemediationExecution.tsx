@@ -589,6 +589,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [selections, setSelections] = useState<RemediationSelection[]>([]);
   const [findingsMap, setFindingsMap] = useState<Map<string, MultiHostFinding>>(new Map());
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
+  const [hasPlanSnapshot, setHasPlanSnapshot] = useState(false);
 
   // Extract the remediation profile ID and scan ID from query params
   // (set by the RemediationProfileBuilder when "Apply Remediation" is clicked)
@@ -692,8 +693,10 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       setAllJobIds(result.allJobIds ?? [result.workflowJobId]);
       if (result.executionId) setExecutionId(result.executionId);
       setPhase('preparing');
-      // Replace URL so page refresh enters view mode instead of re-launching
-      window.history.replaceState(null, '', `/compliance/remediation-result/${result.workflowJobId}`);
+      // Replace URL so page refresh enters view mode instead of re-launching.
+      // Include executionId so the view can load the plan snapshot.
+      const execQs = result.executionId ? `?executionId=${encodeURIComponent(result.executionId)}` : '';
+      window.history.replaceState(null, '', `/compliance/remediation-result/${result.workflowJobId}${execQs}`);
     } catch (err) {
       setPhase('failed');
       const raw = err instanceof Error ? err.message : 'Failed to launch remediation workflow';
@@ -723,10 +726,12 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }).catch(() => {});
       }
       // Load findings for rule grouping + resolve context for verification scan
+      let cancelled = false;
       const loadContext = async () => {
         try {
           // Resolve numeric job ID — might be a UUID from the route
           const scans = await api.getScans().catch(() => []);
+          if (cancelled) return;
           let resolvedJobId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
           if (!resolvedJobId) {
             const match = scans.find(s => s.id === jobId);
@@ -745,33 +750,66 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
             findingsScanId = assessmentScan?.id;
           }
 
-          const [findings, jobStatus] = await Promise.all([
-            (findingsScanId ? api.getFindings(findingsScanId) : api.getFindings()).catch(() => []),
-            resolvedJobId ? api.getJobStatus(resolvedJobId).catch(() => null) : Promise.resolve(null),
-          ]);
+          // Try to load the execution record for plan snapshot.
+          // executionId may come from URL (?executionId=) for executions launched
+          // after this feature shipped, or fall back to matching by primaryJobId.
+          const execIdFromUrl = new URLSearchParams(window.location.search).get('executionId');
+          let executionRecord = execIdFromUrl
+            ? await api.getRemediationExecution(execIdFromUrl).catch(() => null)
+            : null;
+          if (cancelled) return;
+          if (!executionRecord && resolvedJobId) {
+            const recent = await api.getAllRecentExecutions(50).catch(() => []);
+            if (cancelled) return;
+            executionRecord = recent.find(e => e.primaryJobId === resolvedJobId) ?? null;
+          }
+          if (executionRecord?.id && !executionId) {
+            setExecutionId(executionRecord.id);
+          }
 
-          const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
-          findings.forEach(f => fMap.set(f.ruleId, f));
-          setFindingsMap(fMap);
+          if (executionRecord?.planSummary) {
+            // Plan snapshot: derive selections from what was planned at launch time.
+            const plan = executionRecord.planSummary as { groups: Array<{ tags?: string[]; limit?: string }> };
+            const snapshotRuleIds = plan.groups.flatMap(g => g.tags ?? []);
+            const allFindings = await api.getFindings(findingsScanId).catch(() => []);
+            if (cancelled) return;
+            const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
+            allFindings.forEach(f => fMap.set(f.ruleId, f));
+            setFindingsMap(fMap);
+            setHasPlanSnapshot(true);
+            setSelections(snapshotRuleIds.map(ruleId => ({
+              ruleId,
+              enabled: true,
+              parameters: {},
+            })));
+          } else {
+            // Legacy fallback: rebuild from live findings + job_tags
+            const [findings, jobStatus] = await Promise.all([
+              (findingsScanId ? api.getFindings(findingsScanId) : api.getFindings()).catch(() => []),
+              resolvedJobId ? api.getJobStatus(resolvedJobId).catch(() => null) : Promise.resolve(null),
+            ]);
+            if (cancelled) return;
 
-          // Derive selections from findings, filtered by job_tags if available.
-          // job_tags tells us exactly which rules the remediation applied.
-          if (findings.length > 0) {
-            const jobTags = jobStatus?.job_tags;
-            if (jobTags) {
-              const tagSet = new Set(jobTags.split(',').map(t => t.trim()).filter(Boolean));
-              setSelections(findings.map(f => ({
-                ruleId: f.ruleId,
-                enabled: tagSet.has(f.ruleId),
-                parameters: {},
-              })));
-            } else {
-              // No job_tags (full run or unavailable) — enable all
-              setSelections(findings.map(f => ({
-                ruleId: f.ruleId,
-                enabled: true,
-                parameters: {},
-              })));
+            const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
+            findings.forEach(f => fMap.set(f.ruleId, f));
+            setFindingsMap(fMap);
+
+            if (findings.length > 0) {
+              const jobTags = jobStatus?.job_tags;
+              if (jobTags) {
+                const tagSet = new Set(jobTags.split(',').map(t => t.trim()).filter(Boolean));
+                setSelections(findings.map(f => ({
+                  ruleId: f.ruleId,
+                  enabled: tagSet.has(f.ruleId),
+                  parameters: {},
+                })));
+              } else {
+                setSelections(findings.map(f => ({
+                  ruleId: f.ruleId,
+                  enabled: true,
+                  parameters: {},
+                })));
+              }
             }
           }
 
@@ -784,9 +822,10 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
       };
       loadContext();
-    } else {
-      launchRemediation();
+      return () => { cancelled = true; };
     }
+    launchRemediation();
+    return undefined;
   }, [launchRemediation, isViewMode, jobId, api]);
 
   // Derive known rule IDs from selections for task matching
@@ -992,6 +1031,20 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           </Typography>
           <Typography>Remediation</Typography>
         </Breadcrumbs>
+
+        {hasPlanSnapshot && (
+          <Box mt={1} display="flex" alignItems="center" style={{ gap: 8 }}>
+            <Chip
+              label="Plan snapshot"
+              size="small"
+              variant="outlined"
+              style={{ color: '#6A6E73', borderColor: '#6A6E73', fontSize: '0.72rem' }}
+            />
+            <Typography variant="caption" color="textSecondary">
+              Rule list shows the plan at launch time, not current findings.
+            </Typography>
+          </Box>
+        )}
 
         <Box mt={3} />
 

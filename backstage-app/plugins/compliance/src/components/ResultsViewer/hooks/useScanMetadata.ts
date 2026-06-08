@@ -9,7 +9,9 @@ export interface ScanMetadata {
   profileCert: ScanCertification | null;
   scanComplianceProfileId: string;
   scanInventoryId: number | null;
+  scanInventoryName: string;
   scanStartedAt: string;
+  resolvedScanId: string | null;
 }
 
 export function useScanMetadata(
@@ -22,7 +24,9 @@ export function useScanMetadata(
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
   const [scanComplianceProfileId, setScanComplianceProfileId] = useState('');
   const [scanInventoryId, setScanInventoryId] = useState<number | null>(null);
+  const [scanInventoryName, setScanInventoryName] = useState('');
   const [scanStartedAt, setScanStartedAt] = useState('');
+  const [resolvedScanId, setResolvedScanId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!jobId) return;
@@ -36,6 +40,7 @@ export function useScanMetadata(
         setScanType(match.scanType);
       }
       if (match) {
+        setResolvedScanId(match.id);
         setScanComplianceProfileId(match.profileId);
         setScanInventoryId(match.inventoryId);
         setScanStartedAt(match.startedAt);
@@ -46,6 +51,13 @@ export function useScanMetadata(
             setProfileName(cart.displayName);
             setFrameworkLabel(cart.framework);
             setProfileCert(cart.certification);
+          }
+        }).catch(() => {});
+        api.getInventories().then(inventories => {
+          if (cancelled) return;
+          const inv = inventories.find(i => i.id === match.inventoryId);
+          if (inv) {
+            setScanInventoryName(inv.name);
           }
         }).catch(() => {});
       }
@@ -62,6 +74,8 @@ export function useScanMetadata(
     profileCert,
     scanComplianceProfileId,
     scanInventoryId,
+    scanInventoryName,
     scanStartedAt,
+    resolvedScanId,
   };
 }
