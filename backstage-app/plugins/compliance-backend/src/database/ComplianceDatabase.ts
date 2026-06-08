@@ -607,6 +607,24 @@ export class ComplianceDatabase {
       return { id: profile.id };
     }
 
+    // Upsert: if a draft with the same (name, profileId) exists, update it
+    if (status === 'draft') {
+      const existing = await this.db('compliance_remediation_profiles')
+        .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+        .first('id');
+      if (existing) {
+        await this.db('compliance_remediation_profiles')
+          .where('id', existing.id)
+          .update({
+            description: profile.description,
+            creation_scan_id: scanId,
+            selections_json: JSON.stringify(profile.selections),
+            updated_at: now,
+          });
+        return { id: existing.id };
+      }
+    }
+
     const id = randomUUID();
     await this.db('compliance_remediation_profiles').insert({
       id,

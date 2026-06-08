@@ -427,4 +427,10 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
+  getChain(executionId: string) {
+    return this.request<import('@aap-compliance/common').ChainResponse>(
+      `/chain/${encodeURIComponent(executionId)}`,
+    );
+  }
+
 }

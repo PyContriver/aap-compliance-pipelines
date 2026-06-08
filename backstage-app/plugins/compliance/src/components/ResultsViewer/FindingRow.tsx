@@ -161,6 +161,11 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               <Chip label="AAP caution" size="small" style={{ marginTop: 4, backgroundColor: '#F0AB00', color: '#fff' }} />
             </Tooltip>
           )}
+          {finding.automationAvailable === false && (
+            <Tooltip title="No automated remediation available — manual fix required">
+              <Chip label="Manual only" size="small" variant="outlined" style={{ marginTop: 4, color: '#6A6E73', borderColor: '#6A6E73' }} />
+            </Tooltip>
+          )}
         </TableCell>
         <TableCell>
           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>

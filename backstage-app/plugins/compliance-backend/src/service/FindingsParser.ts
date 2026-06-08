@@ -157,6 +157,7 @@ export class FindingsParser {
         disruption: (dm?.disruption || 'medium') as 'low' | 'medium' | 'high',
         aapImpact: ((dm?.aapImpact && dm.aapImpact !== 'safe' ? dm.aapImpact : null) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
         aapImpactReason: dm?.aapImpactReason || '',
+        automationAvailable: !!(dm?.fixText && dm.fixText.includes('- name:')),
         parameters: [],
         hosts: entry.hosts,
         passCount,

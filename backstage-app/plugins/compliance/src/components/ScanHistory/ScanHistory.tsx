@@ -722,7 +722,21 @@ export const ScanHistory = () => {
                                   {formatRelativeDate(execution.startedAt)}
                                 </Typography>
                               </TableCell>
-                              <TableCell width={40} />
+                              <TableCell width={40}>
+                                {execution.informingScanId && (
+                                  <Tooltip title="View assessment chain" arrow>
+                                    <IconButton
+                                      size="small"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        navigate(`/compliance/chain/${execution.id}`);
+                                      }}
+                                    >
+                                      <CompareArrowsIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </TableCell>
                             </TableRow>
                           );
                         })}

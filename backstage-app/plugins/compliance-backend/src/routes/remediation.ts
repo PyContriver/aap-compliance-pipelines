@@ -163,22 +163,6 @@ export function registerRemediationRoutes(
         });
       }
 
-      try {
-        await database.createScan({
-          profileId: remediateRequest.profileId,
-          inventoryId: remediateRequest.inventoryId,
-          scanner: 'remediation',
-          scanType: 'assessment',
-          workflowJobId: result.workflowJobId,
-          status: 'running',
-          startedAt: new Date().toISOString(),
-          completedAt: null,
-          errorDetails: null,
-        });
-      } catch (scanErr) {
-        logger.warn(`Failed to create dual-write scan record: ${scanErr instanceof Error ? scanErr.message : scanErr}`);
-      }
-
       res.json({ ...result, executionId: execution?.id ?? null, plan });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -212,6 +196,63 @@ export function registerRemediationRoutes(
       return;
     }
     res.json(execution);
+  });
+
+  router.get('/chain/:executionId', async (req, res) => {
+    const execution = await database.getExecutionById(req.params.executionId);
+    if (!execution) {
+      res.status(404).json({ error: 'Execution not found' });
+      return;
+    }
+
+    const scanIds: string[] = [];
+    if (execution.informingScanId) scanIds.push(execution.informingScanId);
+    if (execution.verificationScanId) scanIds.push(execution.verificationScanId);
+
+    const [assessmentScan, verificationScan, statsMap] = await Promise.all([
+      execution.informingScanId ? database.getScanById(execution.informingScanId) : null,
+      execution.verificationScanId ? database.getScanById(execution.verificationScanId) : null,
+      scanIds.length > 0 ? database.getAggregatedStatsByScanIds(scanIds) : new Map(),
+    ]);
+
+    const toStats = (scanId: string | null) => {
+      if (!scanId) return null;
+      const s = statsMap.get(scanId);
+      if (!s) return null;
+      return { pass: s.pass, fail: s.fail, rules: s.rules.size, hosts: s.hosts.size };
+    };
+
+    let delta: { fixed: number; regressed: number; unchanged: number } | null = null;
+    if (execution.informingScanId && execution.verificationScanId) {
+      const [assessFindings, verifyFindings] = await Promise.all([
+        database.getFindingsByScanId(execution.informingScanId),
+        database.getFindingsByScanId(execution.verificationScanId),
+      ]);
+      const assessMap = new Map<string, string>();
+      for (const f of assessFindings) {
+        const key = `${f.ruleId}::${f.host}`;
+        assessMap.set(key, f.status);
+      }
+      let fixed = 0, regressed = 0, unchanged = 0;
+      for (const f of verifyFindings) {
+        const key = `${f.ruleId}::${f.host}`;
+        const prev = assessMap.get(key);
+        if (!prev) continue;
+        if (prev === 'fail' && f.status === 'pass') fixed++;
+        else if (prev === 'pass' && f.status === 'fail') regressed++;
+        else unchanged++;
+      }
+      delta = { fixed, regressed, unchanged };
+    }
+
+    res.json({
+      execution,
+      assessmentScan,
+      assessmentStats: toStats(execution.informingScanId),
+      verificationScan,
+      verificationStats: toStats(execution.verificationScanId),
+      delta,
+    });
   });
 
   router.patch('/remediation-executions/:id', async (req, res) => {

@@ -265,11 +265,11 @@ function RowActions({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : 'Launch remediation'}>
+      <Tooltip title={r.status === 'archived' ? 'Archived — restore to launch' : r.status === 'draft' ? 'Save the profile before launching' : 'Launch remediation'}>
         <span>
           <IconButton
             size="small"
-            disabled={r.status === 'archived'}
+            disabled={r.status === 'archived' || r.status === 'draft'}
             onClick={onLaunch}
           >
             <PlayArrowIcon fontSize="small" />

@@ -16,7 +16,7 @@ import {
 import CloseIcon from '@material-ui/icons/Close';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { ComplianceScan } from '@aap-compliance/common';
+import type { ComplianceScan, RemediationExecution } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -84,15 +84,12 @@ function formatElapsed(seconds: number): string {
 
 function scanTypeLabel(scan: ComplianceScan): string {
   if (scan.scanType === 'verification') return 'Verification Scan';
-  if (scan.scanner === 'remediation') return 'Remediation';
   return 'Assessment Scan';
 }
 
-interface ActiveJob {
-  scan: ComplianceScan;
-  elapsed: number;
-  startTime: number;
-}
+type ActiveItem =
+  | { kind: 'scan'; scan: ComplianceScan; id: string; elapsed: number; startTime: number }
+  | { kind: 'execution'; execution: RemediationExecution; id: string; elapsed: number; startTime: number };
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -100,13 +97,13 @@ export const ActiveJobsBanner = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
-  const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  const [activeItems, setActiveItems] = useState<ActiveItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(true);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const dismissJob = useCallback((scanId: string) => {
-    setDismissedIds(prev => new Set(prev).add(scanId));
+  const dismissJob = useCallback((id: string) => {
+    setDismissedIds(prev => new Set(prev).add(id));
   }, []);
 
   // Track tab visibility for polling pause
@@ -116,7 +113,7 @@ export const ActiveJobsBanner = () => {
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
-  // Poll for active scans
+  // Poll for active scans and executions
   useEffect(() => {
     if (!visible) return;
 
@@ -124,23 +121,49 @@ export const ActiveJobsBanner = () => {
 
     const poll = async () => {
       try {
-        const scans = await api.getScans();
+        const [scans, executions] = await Promise.all([
+          api.getScans(),
+          api.getAllRecentExecutions(20),
+        ]);
         if (cancelled) return;
 
         const cutoff = Date.now() - TWO_HOURS_MS;
-        const active = scans.filter(
-          s =>
-            (s.status === 'pending' || s.status === 'running') &&
-            new Date(s.startedAt).getTime() > cutoff,
+        const now = Date.now();
+
+        const activeScanItems: ActiveItem[] = scans
+          .filter(
+            s =>
+              s.scanner !== 'remediation' &&
+              (s.status === 'pending' || s.status === 'running') &&
+              new Date(s.startedAt).getTime() > cutoff,
+          )
+          .map(scan => ({
+            kind: 'scan' as const,
+            scan,
+            id: `scan-${scan.id}`,
+            elapsed: (now - new Date(scan.startedAt).getTime()) / 1000,
+            startTime: new Date(scan.startedAt).getTime(),
+          }));
+
+        const activeExecItems: ActiveItem[] = executions
+          .filter(
+            e =>
+              (e.status === 'pending' || e.status === 'running') &&
+              new Date(e.startedAt).getTime() > cutoff,
+          )
+          .map(exec => ({
+            kind: 'execution' as const,
+            execution: exec,
+            id: `exec-${exec.id}`,
+            elapsed: (now - new Date(exec.startedAt).getTime()) / 1000,
+            startTime: new Date(exec.startedAt).getTime(),
+          }));
+
+        const combined = [...activeScanItems, ...activeExecItems].sort(
+          (a, b) => b.startTime - a.startTime,
         );
 
-        setActiveJobs(
-          active.map(scan => ({
-            scan,
-            elapsed: (Date.now() - new Date(scan.startedAt).getTime()) / 1000,
-            startTime: new Date(scan.startedAt).getTime(),
-          })),
-        );
+        setActiveItems(combined);
       } catch {
         // API not available — will retry on next poll
       }
@@ -157,7 +180,7 @@ export const ActiveJobsBanner = () => {
 
   // Tick elapsed time every second for smooth display
   useEffect(() => {
-    if (activeJobs.length === 0) {
+    if (activeItems.length === 0) {
       if (tickRef.current) {
         clearInterval(tickRef.current);
         tickRef.current = null;
@@ -166,10 +189,10 @@ export const ActiveJobsBanner = () => {
     }
 
     tickRef.current = setInterval(() => {
-      setActiveJobs(prev =>
-        prev.map(job => ({
-          ...job,
-          elapsed: (Date.now() - job.startTime) / 1000,
+      setActiveItems(prev =>
+        prev.map(item => ({
+          ...item,
+          elapsed: (Date.now() - item.startTime) / 1000,
         })),
       );
     }, 1000);
@@ -180,64 +203,74 @@ export const ActiveJobsBanner = () => {
         tickRef.current = null;
       }
     };
-  }, [activeJobs.length]);
+  }, [activeItems.length]);
 
-  const visibleJobs = activeJobs.filter(job => !dismissedIds.has(job.scan.id));
+  const visibleItems = activeItems.filter(item => !dismissedIds.has(item.id));
 
-  if (visibleJobs.length === 0) return null;
+  if (visibleItems.length === 0) return null;
 
   return (
     <Box className={classes.root}>
-      {visibleJobs.map(job => (
-        <Paper
-          key={job.scan.id}
-          variant="outlined"
-          className={classes.banner}
-          onClick={() => {
-            const id = job.scan.workflowJobId ?? job.scan.id;
-            if (job.scan.scanner === 'remediation') {
-              navigate(`/compliance/remediation-result/${id}`);
-            } else {
-              navigate(`/compliance/results/${id}`);
-            }
-          }}
-        >
-          <Box className={classes.statusSection}>
-            {job.scan.status === 'running' ? <StatusRunning /> : <StatusPending />}
-            <Typography variant="body2" style={{ fontWeight: 500 }}>
-              {scanTypeLabel(job.scan)}
-            </Typography>
-            <Chip
-              size="small"
-              label={job.scan.status === 'running' ? 'Running' : 'Pending'}
-              color={job.scan.status === 'running' ? 'primary' : 'default'}
-              variant="outlined"
-            />
-          </Box>
+      {visibleItems.map(item => {
+        const isRunning = item.kind === 'scan'
+          ? item.scan.status === 'running'
+          : item.execution.status === 'running';
+        const label = item.kind === 'scan'
+          ? scanTypeLabel(item.scan)
+          : 'Remediation';
 
-          <Box className={classes.progressSection}>
-            {job.scan.status === 'running' && (
-              <LinearProgress className={classes.progressBar} />
-            )}
-          </Box>
-
-          <Typography variant="body2" className={classes.elapsed}>
-            {formatElapsed(job.elapsed)}
-          </Typography>
-
-          <IconButton
-            className={classes.dismissButton}
-            size="small"
-            onClick={e => {
-              e.stopPropagation();
-              dismissJob(job.scan.id);
+        return (
+          <Paper
+            key={item.id}
+            variant="outlined"
+            className={classes.banner}
+            onClick={() => {
+              if (item.kind === 'scan') {
+                const id = item.scan.workflowJobId ?? item.scan.id;
+                navigate(`/compliance/results/${id}`);
+              } else {
+                const id = item.execution.primaryJobId ?? item.execution.id;
+                navigate(`/compliance/remediation-result/${id}`);
+              }
             }}
-            aria-label="Dismiss job notification"
           >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Paper>
-      ))}
+            <Box className={classes.statusSection}>
+              {isRunning ? <StatusRunning /> : <StatusPending />}
+              <Typography variant="body2" style={{ fontWeight: 500 }}>
+                {label}
+              </Typography>
+              <Chip
+                size="small"
+                label={isRunning ? 'Running' : 'Pending'}
+                color={isRunning ? 'primary' : 'default'}
+                variant="outlined"
+              />
+            </Box>
+
+            <Box className={classes.progressSection}>
+              {isRunning && (
+                <LinearProgress className={classes.progressBar} />
+              )}
+            </Box>
+
+            <Typography variant="body2" className={classes.elapsed}>
+              {formatElapsed(item.elapsed)}
+            </Typography>
+
+            <IconButton
+              className={classes.dismissButton}
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                dismissJob(item.id);
+              }}
+              aria-label="Dismiss job notification"
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Paper>
+        );
+      })}
     </Box>
   );
 };

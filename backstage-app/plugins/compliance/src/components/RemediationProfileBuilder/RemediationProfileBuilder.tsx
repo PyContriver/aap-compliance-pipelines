@@ -19,6 +19,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import WarningIcon from '@material-ui/icons/Warning';
 import InfoIcon from '@material-ui/icons/Info';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import SaveIcon from '@material-ui/icons/Save';
 import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { FilterGroup } from '../ResultsViewer/FilterGroup';
@@ -103,6 +104,7 @@ export const RemediationProfileBuilder = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedProfileId, setSavedProfileId] = useState<string | undefined>(undefined);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [allFindings, setAllFindings] = useState<MultiHostFinding[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -245,15 +247,15 @@ export const RemediationProfileBuilder = () => {
   const failedFindings = useMemo(() => displayFindings.filter(f => f.failCount > 0), [displayFindings]);
   const passingFindings = useMemo(() => displayFindings.filter(f => f.failCount === 0), [displayFindings]);
 
-  const selectAllFailed = () => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { if (f.failCount > 0) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
+  const selectAllFailed = () => { setSelections(prev => { const updated = { ...prev }; allFindings.forEach(f => { if (f.failCount > 0 && f.automationAvailable !== false) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
   const clearAll = () => { setSelections(prev => { const updated = { ...prev }; Object.keys(updated).forEach(k => { updated[k] = { ...updated[k], enabled: false }; }); return updated; }); };
-  const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; }); return updated; }); };
+  const selectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { if (f.automationAvailable !== false) { updated[f.ruleId] = { ...updated[f.ruleId], enabled: true }; } }); return updated; }); };
   const deselectDisplayed = () => { setSelections(prev => { const updated = { ...prev }; displayFindings.forEach(f => { updated[f.ruleId] = { ...updated[f.ruleId], enabled: false }; }); return updated; }); };
   const selectSafeOnly = () => {
     setSelections(prev => {
       const updated = { ...prev };
       allFindings.forEach(f => {
-        if (f.failCount > 0 && f.aapImpact !== 'breaks-connectivity') {
+        if (f.failCount > 0 && f.aapImpact !== 'breaks-connectivity' && f.automationAvailable !== false) {
           updated[f.ruleId] = { ...updated[f.ruleId], enabled: true };
         } else {
           updated[f.ruleId] = { ...updated[f.ruleId], enabled: false };
@@ -296,7 +298,7 @@ export const RemediationProfileBuilder = () => {
     try {
       const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selectionsRef.current[f.ruleId]?.enabled ?? false, parameters: selectionsRef.current[f.ruleId]?.parameters ?? {}, scope: selectionsRef.current[f.ruleId]?.scope }));
       const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
-      const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections });
+      const saved = await api.saveRemediationProfile({ id: savedProfileIdRef.current ?? (isEditMode ? editProfile?.id : undefined), name, description: profileDescriptionRef.current, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections, status: 'draft' });
       if (!savedProfileIdRef.current) { savedProfileIdRef.current = saved.id; setSavedProfileId(saved.id); }
       setAutoSaveStatus('saved');
     } catch (err) { setAutoSaveStatus('error'); setSaveError(err instanceof Error ? err.message : 'Auto-save failed'); } finally { savingInProgress.current = false; }
@@ -313,7 +315,7 @@ export const RemediationProfileBuilder = () => {
 
   const renderAutoSaveStatus = () => {
     if (autoSaveStatus === 'saving') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><Typography variant="caption" style={{ color: '#6A6E73' }}>Saving...</Typography></div>);
-    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: '#3E8635' }}>Saved</Typography></div>);
+    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: '#3E8635' }}>Draft saved</Typography></div>);
     if (autoSaveStatus === 'error') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><WarningIcon style={{ fontSize: 14, color: '#C9190B' }} /><Typography variant="caption" style={{ color: '#C9190B' }}>Save failed</Typography></div>);
     return null;
   };
@@ -324,7 +326,8 @@ export const RemediationProfileBuilder = () => {
     return (
       <div key={finding.ruleId} className={`${classes.findingCard} ${sel.enabled ? classes.findingEnabled : classes.findingDisabled}`}>
         <div className={classes.findingHeader}>
-          <Switch checked={sel.enabled} onChange={() => toggleFinding(finding.ruleId)} color="primary" size="small" inputProps={{ 'aria-label': `Toggle rule ${finding.stigId} for remediation` }} />
+          <Switch checked={sel.enabled} onChange={() => toggleFinding(finding.ruleId)} color="primary" size="small" disabled={finding.automationAvailable === false} inputProps={{ 'aria-label': `Toggle rule ${finding.stigId} for remediation` }} />
+          {finding.automationAvailable === false && (<Chip label="Manual" size="small" variant="outlined" style={{ color: '#6A6E73', borderColor: '#6A6E73', fontSize: '0.7rem' }} />)}
           {finding.stigId && <Chip label={finding.stigId} size="small" variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />}
           <Chip label={finding.severity === 'CAT_I' ? 'CAT I' : finding.severity === 'CAT_II' ? 'CAT II' : 'CAT III'} size="small" className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`} />
           <div className={classes.titleGroup}>
@@ -591,13 +594,25 @@ export const RemediationProfileBuilder = () => {
       {viewMode === 'status' ? renderStatusView() : renderCategoryView()}
       <Divider style={{ margin: '24px 0' }} />
       <Box display="flex" justifyContent="flex-end" style={{ gap: 16 }}>
+        <Button variant="outlined" color="primary" size="large" startIcon={<SaveIcon />} disabled={!profileName || enabledCount === 0 || profileSaved}
+          onClick={async () => {
+            try {
+              const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selections[f.ruleId]?.enabled ?? false, parameters: selections[f.ruleId]?.parameters ?? {}, scope: selections[f.ruleId]?.scope }));
+              const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
+              const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName, description: profileDescription, complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: allSelections, status: 'saved' });
+              if (!savedProfileId) { setSavedProfileId(saved.id); savedProfileIdRef.current = saved.id; }
+              setProfileSaved(true);
+              setAutoSaveStatus('saved');
+            } catch (err) { setSaveError(err instanceof Error ? err.message : 'Failed to save'); }
+          }}
+        >{profileSaved ? 'Saved' : 'Save'}</Button>
         <Button variant="contained" color="primary" size="large" startIcon={<PlayArrowIcon />} disabled={enabledCount === 0 || !canRemediate || launching || !profileName} title={!canRemediate ? 'You do not have permission to apply remediations' : !profileName ? 'Enter a remediation name first' : undefined}
           onClick={async () => {
             setLaunching(true);
             try {
               const enabledSelections = allFindings.filter(f => selections[f.ruleId]?.enabled).map(f => ({ ruleId: f.ruleId, enabled: true, scope: selections[f.ruleId].scope ?? 'failed_only' as const, parameters: selections[f.ruleId].parameters }));
               const effectiveScanId = isEditMode ? (editProfile?.creationScanId || editProfile?.complianceProfileId || '') : (jobId ?? '');
-              const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName || editProfile?.name || 'Remediation', description: profileDescription || editProfile?.description || '', complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: enabledSelections });
+              const saved = await api.saveRemediationProfile({ id: savedProfileId ?? (isEditMode ? editProfile?.id : undefined), name: profileName || editProfile?.name || 'Remediation', description: profileDescription || editProfile?.description || '', complianceProfileId: editProfile?.complianceProfileId || resolvedProfileId, scanId: effectiveScanId, selections: enabledSelections, status: 'saved' });
               const params = new URLSearchParams(); params.set('profileId', saved.id); params.set('scanId', effectiveScanId);
               navigate(`/compliance/execute/${effectiveScanId}?${params.toString()}`);
             } catch (err) { setSaveError(err instanceof Error ? err.message : 'Failed to prepare remediation'); setLaunching(false); }

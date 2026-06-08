@@ -96,6 +96,23 @@ export interface RemediationExecution {
   createdBy: string | null;
 }
 
+/** Chain view response — assessment → remediation → verification (ADR-016 Layer 3). */
+export interface ChainScanStats {
+  pass: number;
+  fail: number;
+  rules: number;
+  hosts: number;
+}
+
+export interface ChainResponse {
+  execution: RemediationExecution;
+  assessmentScan: ComplianceScan | null;
+  assessmentStats: ChainScanStats | null;
+  verificationScan: ComplianceScan | null;
+  verificationStats: ChainScanStats | null;
+  delta: { fixed: number; regressed: number; unchanged: number } | null;
+}
+
 /** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */
 export interface BaselineTarget {
   id: string;
@@ -206,6 +223,7 @@ export interface MultiHostFinding {
   disruption: 'low' | 'medium' | 'high';
   aapImpact: 'safe' | 'caution' | 'breaks-connectivity';
   aapImpactReason: string;
+  automationAvailable?: boolean;
   parameters: FindingParameter[];
   hosts: Array<{
     host: string;
