@@ -645,18 +645,20 @@ export class ComplianceDatabase {
     };
 
     if (status === 'draft') {
-      const result = await this.db('compliance_remediation_profiles')
-        .insert(insertRow)
-        .onConflict(['name', 'profile_id', 'status'])
-        .merge({
+      const updated = await this.db('compliance_remediation_profiles')
+        .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+        .update({
           description: profile.description,
           creation_scan_id: scanId,
           selections_json: insertRow.selections_json,
           updated_at: now,
-        })
-        .returning('id');
-      const upsertedId = result?.[0]?.id ?? result?.[0] ?? id;
-      return { id: typeof upsertedId === 'string' ? upsertedId : id };
+        });
+      if (updated > 0) {
+        const existing = await this.db('compliance_remediation_profiles')
+          .where({ name: profile.name, profile_id: profile.profileId, status: 'draft' })
+          .first('id');
+        return { id: existing.id };
+      }
     }
 
     await this.db('compliance_remediation_profiles').insert(insertRow);

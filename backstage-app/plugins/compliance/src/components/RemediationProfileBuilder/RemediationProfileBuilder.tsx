@@ -598,6 +598,7 @@ export const RemediationProfileBuilder = () => {
       <Box display="flex" justifyContent="flex-end" style={{ gap: 16 }}>
         <Button variant="outlined" color="primary" size="large" startIcon={<SaveIcon />} disabled={!profileName || enabledCount === 0 || profileSaved}
           onClick={async () => {
+            if (savingInProgress.current) return;
             if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
             try {
               const allSelections = allFindings.map(f => ({ ruleId: f.ruleId, enabled: selections[f.ruleId]?.enabled ?? false, parameters: selections[f.ruleId]?.parameters ?? {}, scope: selections[f.ruleId]?.scope }));

@@ -1160,6 +1160,39 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(201);
       expect(service.saveRemediationProfile).toHaveBeenCalledTimes(1);
     });
+
+    it('forwards status field to service', async () => {
+      const { app, service } = await createApp();
+      await testRequest(app, {
+        method: 'POST',
+        path: '/remediation-profiles',
+        body: {
+          name: 'draft-profile',
+          selections: [{ ruleId: 'r1', enabled: true }],
+          status: 'draft',
+        },
+      });
+
+      expect(service.saveRemediationProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'draft' }),
+      );
+    });
+
+    it('returns 400 for invalid status value', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/remediation-profiles',
+        body: {
+          name: 'bad-status',
+          selections: [{ ruleId: 'r1', enabled: true }],
+          status: 'invalid',
+        },
+      });
+
+      expect(res.status).toBe(400);
+      expect((res.body as any).error).toMatch(/status/);
+    });
   });
 
   // ─── GET /findings ────────────────────────────────────────────────

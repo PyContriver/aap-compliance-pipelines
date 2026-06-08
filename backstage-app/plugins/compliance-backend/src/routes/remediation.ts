@@ -209,17 +209,17 @@ export function registerRemediationRoutes(
     if (execution.informingScanId) scanIds.push(execution.informingScanId);
     if (execution.verificationScanId) scanIds.push(execution.verificationScanId);
 
-    const [assessmentScan, verificationScan, statsMap] = await Promise.all([
+    const [assessmentScan, verificationScan, batchStats] = await Promise.all([
       execution.informingScanId ? database.getScanById(execution.informingScanId) : null,
       execution.verificationScanId ? database.getScanById(execution.verificationScanId) : null,
-      scanIds.length > 0 ? database.getAggregatedStatsByScanIds(scanIds) : new Map(),
+      scanIds.length > 0 ? database.getBatchScanStatsAggregated(scanIds) : {},
     ]);
 
     const toStats = (scanId: string | null) => {
       if (!scanId) return null;
-      const s = statsMap.get(scanId);
+      const s = batchStats[scanId];
       if (!s) return null;
-      return { pass: s.pass, fail: s.fail, rules: s.rules.size, hosts: s.hosts.size };
+      return { pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts };
     };
 
     let delta: { fixed: number; regressed: number; unchanged: number } | null = null;
@@ -376,6 +376,11 @@ export function registerRemediationRoutes(
     }
     if (!isArray(body.selections)) {
       res.status(400).json({ error: 'selections is required and must be an array' });
+      return;
+    }
+    const validStatuses = ['draft', 'saved', 'archived'];
+    if (body.status && !validStatuses.includes(body.status)) {
+      res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
       return;
     }
 

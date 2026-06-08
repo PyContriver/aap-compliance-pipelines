@@ -25,7 +25,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import HistoryIcon from '@material-ui/icons/History';
 import SettingsIcon from '@material-ui/icons/Settings';
 import AssessmentIcon from '@material-ui/icons/Assessment';
-import BuildIcon from '@material-ui/icons/Build';
+
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
 import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
