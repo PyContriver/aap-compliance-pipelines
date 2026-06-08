@@ -111,4 +111,30 @@ describe('ResultsViewer', () => {
       expect(screen.getByText(/Connection refused/)).toBeInTheDocument();
     });
   });
+
+  it('shows N/A chip when getBatchScanStats returns naCount > 0', async () => {
+    mockApi.getBatchScanStats.mockResolvedValue({
+      '42': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 8 },
+    });
+    await renderResults();
+    await waitFor(() => {
+      expect(screen.getByText(/not applicable/)).toBeInTheDocument();
+    });
+  });
+
+  it('lazily calls getNotApplicableRules on first N/A chip click', async () => {
+    mockApi.getBatchScanStats.mockResolvedValue({
+      '42': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 3 },
+    });
+    mockApi.getNotApplicableRules.mockResolvedValue([
+      { ruleId: 'xccdf_rule_a', ruleTitle: 'Rule A', severity: 'CAT_II' },
+    ]);
+    await renderResults();
+    const chip = await screen.findByText(/not applicable/);
+    expect(mockApi.getNotApplicableRules).not.toHaveBeenCalled();
+    chip.click();
+    await waitFor(() => {
+      expect(mockApi.getNotApplicableRules).toHaveBeenCalledWith('42');
+    });
+  });
 });

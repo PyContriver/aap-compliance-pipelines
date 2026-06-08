@@ -85,6 +85,10 @@ scp -i portal-key.pem \
 ssh cloud-user@<portal-host>
 sudo mkdir -p /var/lib/portal/compliance-plugins
 sudo cp /tmp/aap-compliance-*.tgz /var/lib/portal/compliance-plugins/
+
+# Copy to stable filenames so config references don't change between versions
+sudo cp /tmp/aap-compliance-plugin-compliance-backend-dynamic-<VERSION>.tgz /var/lib/portal/compliance-plugins/backend.tgz
+sudo cp /tmp/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz /var/lib/portal/compliance-plugins/frontend.tgz
 ```
 
 **Important:** Do NOT place plugin source directories or tarballs inside `/var/lib/portal/dynamic-plugins-root/`. The backend plugin scanner scans that entire directory tree — if both source and extracted copies exist, you get `Plugin 'compliance' is already registered`.
@@ -94,8 +98,8 @@ sudo cp /tmp/aap-compliance-*.tgz /var/lib/portal/compliance-plugins/
 Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
 
 ```yaml
-  # AAP Compliance Plugins
-  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-backend-dynamic-<VERSION>.tgz
+  # AAP Compliance Plugins (using stable tarball names — no path changes on version bumps)
+  - package: /var/lib/portal/compliance-plugins/backend.tgz
     disabled: false
     integrity: sha512-<hash-from-step-2>
     pluginConfig:
@@ -103,7 +107,7 @@ Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
         backend:
           aap-compliance.plugin-compliance-backend: {}
 
-  - package: /var/lib/portal/compliance-plugins/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz
+  - package: /var/lib/portal/compliance-plugins/frontend.tgz
     disabled: false
     integrity: sha512-<hash-from-step-2>
     pluginConfig:
@@ -223,8 +227,17 @@ To deploy a new version:
 
 1. Rebuild, re-export, re-pack locally
 2. Recompute integrity hashes
-3. Upload new tarballs to `/var/lib/portal/compliance-plugins/`
-4. Update `integrity:` values in `dynamic-plugins.override.yaml`
-5. Remove the old extracted directory: `sudo rm -rf /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-*-0.1.0/`
+3. Upload new tarballs to `/var/lib/portal/compliance-plugins/` using stable names (`backend.tgz` and `frontend.tgz`). The deploy script (`scripts/deploy-netrunner.sh`) copies versioned tarballs to these stable filenames so the `dynamic-plugins.override.yaml` config does not need path updates on each deploy.
+4. Update `integrity:` values in `dynamic-plugins.override.yaml` (the deploy script does this automatically via Python/YAML on the remote host)
+5. Clear stale extracted plugin directories before restart: `sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-plugin-compliance-*`. This forces Portal to re-extract the new tarballs on startup rather than using cached extractions from the previous version.
 6. Create migration files again if schema changed
 7. `sudo systemctl restart portal.service`
+
+The automated deploy script handles steps 1--7 in a single invocation:
+
+```bash
+./scripts/deploy-netrunner.sh              # bump patch, deploy both plugins
+./scripts/deploy-netrunner.sh backend      # backend only
+./scripts/deploy-netrunner.sh frontend     # frontend only
+./scripts/deploy-netrunner.sh --no-bump    # skip version bump
+```

@@ -334,7 +334,8 @@ export async function createRouter(
     }
     try {
       const { resolvedScanId } = await resolveScanId(rawScanId);
-      const rules = await database.getNotApplicableRules(resolvedScanId ?? rawScanId);
+      // resolvedScanId is always rawScanId or the DB-resolved UUID; never undefined here
+      const rules = await database.getNotApplicableRules(resolvedScanId!);
       res.json(rules);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

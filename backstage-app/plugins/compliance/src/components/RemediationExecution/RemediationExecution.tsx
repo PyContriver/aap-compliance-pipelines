@@ -726,10 +726,12 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }).catch(() => {});
       }
       // Load findings for rule grouping + resolve context for verification scan
+      let cancelled = false;
       const loadContext = async () => {
         try {
           // Resolve numeric job ID — might be a UUID from the route
           const scans = await api.getScans().catch(() => []);
+          if (cancelled) return;
           let resolvedJobId = !Number.isNaN(Number(jobId)) ? Number(jobId) : null;
           if (!resolvedJobId) {
             const match = scans.find(s => s.id === jobId);
@@ -755,8 +757,10 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
           let executionRecord = execIdFromUrl
             ? await api.getRemediationExecution(execIdFromUrl).catch(() => null)
             : null;
+          if (cancelled) return;
           if (!executionRecord && resolvedJobId) {
             const recent = await api.getAllRecentExecutions(50).catch(() => []);
+            if (cancelled) return;
             executionRecord = recent.find(e => e.primaryJobId === resolvedJobId) ?? null;
           }
           if (executionRecord?.id && !executionId) {
@@ -765,13 +769,14 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
 
           if (executionRecord?.planSummary) {
             // Plan snapshot: derive selections from what was planned at launch time.
-            setHasPlanSnapshot(true);
             const plan = executionRecord.planSummary as { groups: Array<{ tags?: string[]; limit?: string }> };
             const snapshotRuleIds = plan.groups.flatMap(g => g.tags ?? []);
             const allFindings = await api.getFindings(findingsScanId).catch(() => []);
+            if (cancelled) return;
             const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
             allFindings.forEach(f => fMap.set(f.ruleId, f));
             setFindingsMap(fMap);
+            setHasPlanSnapshot(true);
             setSelections(snapshotRuleIds.map(ruleId => ({
               ruleId,
               enabled: true,
@@ -783,6 +788,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
               (findingsScanId ? api.getFindings(findingsScanId) : api.getFindings()).catch(() => []),
               resolvedJobId ? api.getJobStatus(resolvedJobId).catch(() => null) : Promise.resolve(null),
             ]);
+            if (cancelled) return;
 
             const fMap = new Map<MultiHostFinding['ruleId'], MultiHostFinding>();
             findings.forEach(f => fMap.set(f.ruleId, f));
@@ -816,9 +822,10 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
       };
       loadContext();
-    } else {
-      launchRemediation();
+      return () => { cancelled = true; };
     }
+    launchRemediation();
+    return undefined;
   }, [launchRemediation, isViewMode, jobId, api]);
 
   // Derive known rule IDs from selections for task matching
