@@ -319,34 +319,40 @@ export const ResultsViewer = () => {
           if (data.length > 0) {
             setFindings(data);
             setLoading(false);
-          } else if (isWorkflowPoll && retries < maxRetries) {
-            retries++;
-            timeoutId = setTimeout(fetchFindings, pollInterval);
-          } else {
-            if (jobId && !isWorkflowPoll) {
-              api.getScan(jobId).then(scan => {
-                if (cancelled) return;
-                if (scan?.status === 'failed') {
-                  setScanFailed(scan.errorDetails || 'failed');
-                  setLoading(false);
-                } else if (scan?.status === 'pending' || scan?.status === 'running') {
-                  if (scan.workflowJobId) {
-                    setPendingScanWorkflowJobId(scan.workflowJobId);
-                  } else {
-                    retries++;
-                    if (retries < maxRetries) {
-                      timeoutId = setTimeout(fetchFindings, pollInterval);
-                    } else {
-                      setLoading(false);
-                    }
-                  }
+          } else if (jobId) {
+            api.getScan(jobId).then(scan => {
+              if (cancelled) return;
+              if (scan?.status === 'failed' || scan?.status === 'cancelled') {
+                setScanFailed(scan.errorDetails || scan.status);
+                setLoading(false);
+              } else if (scan?.status === 'completed') {
+                setLoading(false);
+              } else if (scan?.status === 'pending' || scan?.status === 'running') {
+                if (scan.workflowJobId && !isWorkflowPoll) {
+                  setPendingScanWorkflowJobId(scan.workflowJobId);
+                } else if (retries < maxRetries) {
+                  retries++;
+                  timeoutId = setTimeout(fetchFindings, pollInterval);
                 } else {
                   setLoading(false);
                 }
-              }).catch(() => { setLoading(false); });
-            } else {
-              setLoading(false);
-            }
+              } else if (retries < maxRetries) {
+                retries++;
+                timeoutId = setTimeout(fetchFindings, pollInterval);
+              } else {
+                setLoading(false);
+              }
+            }).catch(() => {
+              if (retries < maxRetries) {
+                retries++;
+                timeoutId = setTimeout(fetchFindings, pollInterval);
+              } else {
+                setScanFailed('Unable to load scan status');
+                setLoading(false);
+              }
+            });
+          } else {
+            setLoading(false);
           }
         })
         .catch(err => {
@@ -681,7 +687,7 @@ export const ResultsViewer = () => {
               startIcon={<BuildIcon />}
               onClick={() => navigate(`/compliance/remediation/${jobId}`)}
             >
-              Build Remediation ({rulesWithFailures})
+              Remediate ({rulesWithFailures} rules)
             </Button>
           )}
 

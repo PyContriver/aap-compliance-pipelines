@@ -712,6 +712,20 @@ export const ComplianceDashboard = () => {
               </Card>
               <Box mt={1} />
               <Card variant="outlined">
+                <CardActionArea onClick={() => navigate('remediations')}>
+                  <div className={classes.quickAction}>
+                    <BuildIcon className={classes.actionIcon} />
+                    <div>
+                      <Typography variant="subtitle1">Remediations</Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        View saved remediations or launch one
+                      </Typography>
+                    </div>
+                  </div>
+                </CardActionArea>
+              </Card>
+              <Box mt={1} />
+              <Card variant="outlined">
                 <CardActionArea onClick={() => navigate('profiles/all')}>
                   <div className={classes.quickAction}>
                     <SecurityIcon className={classes.actionIcon} />
@@ -791,9 +805,17 @@ export const ComplianceDashboard = () => {
                             : { height: 18, fontSize: '0.65rem' }}
                         />
                       </Box>
-                      <Typography variant="body2" color="textSecondary">
-                        {scan.inventoryName} &middot; {new Date(scan.timestamp).toLocaleString()}
-                      </Typography>
+                      <Box display="flex" alignItems="center" style={{ gap: 6, marginTop: 2 }}>
+                        <Chip
+                          label={scan.inventoryName}
+                          size="small"
+                          variant="outlined"
+                          style={{ height: 18, fontSize: '0.65rem', fontFamily: 'monospace' }}
+                        />
+                        <Typography variant="caption" color="textSecondary">
+                          {new Date(scan.timestamp).toLocaleString()}
+                        </Typography>
+                      </Box>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {scan.status === 'failed' ? (

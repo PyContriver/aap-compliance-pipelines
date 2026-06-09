@@ -18,6 +18,8 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
+import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -48,6 +50,12 @@ const useStyles = makeStyles(theme => ({
   },
   hostStatusFail: {
     color: '#C9190B',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+  hostStatusNA: {
+    color: '#6A6E73',
     display: 'flex',
     alignItems: 'center',
     gap: 4,
@@ -240,6 +248,28 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                   <Typography variant="body2">{finding.fixText}</Typography>
                 </div>
               </Box>
+              {finding.automationAvailable === false && (
+                <Box mt={1.5} p={1.5} style={{ backgroundColor: '#F5F5F5', borderRadius: 4, border: '1px solid #D2D2D2' }}>
+                  <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                    <HelpOutlineIcon style={{ fontSize: 16, color: '#6A6E73' }} />
+                    <Typography variant="caption" style={{ fontWeight: 600, color: '#6A6E73' }}>Manual remediation required</Typography>
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 4 }}>
+                    This rule has no automated remediation playbook in the SCAP Security Guide. It must be resolved through manual configuration changes — review the Check and Fix guidance above.
+                  </Typography>
+                </Box>
+              )}
+              {finding.naCount > 0 && finding.failCount === 0 && finding.passCount === 0 && (
+                <Box mt={1.5} p={1.5} style={{ backgroundColor: '#F5F5F5', borderRadius: 4, border: '1px solid #D2D2D2' }}>
+                  <Box display="flex" alignItems="center" style={{ gap: 6 }}>
+                    <RemoveCircleOutlineIcon style={{ fontSize: 16, color: '#6A6E73' }} />
+                    <Typography variant="caption" style={{ fontWeight: 600, color: '#6A6E73' }}>Not Applicable</Typography>
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 4 }}>
+                    This check was not evaluated because the preconditions are not met on any scanned host — the relevant software, service, or configuration is not present.
+                  </Typography>
+                </Box>
+              )}
             </div>
 
             <div className={classes.expandedSection}>
@@ -255,7 +285,10 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                 </TableHead>
                 <TableBody>
                   {finding.hosts
-                    .sort((a, b) => (a.status === 'fail' ? -1 : 1) - (b.status === 'fail' ? -1 : 1))
+                    .sort((a, b) => {
+                      const order = (s: string) => s === 'fail' ? 0 : s === 'not_applicable' ? 2 : s === 'pass' ? 3 : 1;
+                      return order(a.status) - order(b.status);
+                    })
                     .map(hostFinding => (
                       <TableRow key={hostFinding.host} className={classes.hostDetailRow}>
                         <TableCell>
@@ -264,9 +297,11 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <div className={hostFinding.status === 'pass' ? classes.hostStatusPass : classes.hostStatusFail}>
+                          <div className={hostFinding.status === 'pass' ? classes.hostStatusPass : hostFinding.status === 'not_applicable' ? classes.hostStatusNA : classes.hostStatusFail}>
                             {hostFinding.status === 'pass'
                               ? <><CheckCircleIcon fontSize="small" /> Pass</>
+                              : hostFinding.status === 'not_applicable'
+                              ? <><RemoveCircleOutlineIcon fontSize="small" /> Not Applicable</>
                               : <><ErrorIcon fontSize="small" /> Fail</>
                             }
                           </div>
@@ -294,12 +329,13 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                             variant="body2"
                             style={{
                               fontFamily: 'monospace',
-                              color: hostFinding.status === 'fail' ? '#C9190B' : 'inherit',
+                              color: hostFinding.status === 'fail' ? '#C9190B' : hostFinding.status === 'not_applicable' ? '#6A6E73' : 'inherit',
                               fontWeight: hostFinding.status === 'fail' ? 600 : 400,
+                              fontStyle: hostFinding.status === 'not_applicable' ? 'italic' : 'normal',
                               wordBreak: 'break-all',
                             }}
                           >
-                            {hostFinding.actualValue}
+                            {hostFinding.status === 'not_applicable' && !hostFinding.actualValue ? 'Not applicable — check not evaluated on this host' : hostFinding.actualValue}
                           </Typography>
                         </TableCell>
                         <TableCell>

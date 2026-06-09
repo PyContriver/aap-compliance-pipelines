@@ -417,7 +417,7 @@ export function registerRemediationRoutes(
       res.status(204).send();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('Only draft') || msg.includes('Cannot delete') || msg.includes('RESTRICT')) {
+      if (msg.includes('Cannot delete') || msg.includes('RESTRICT')) {
         res.status(409).json({ error: msg });
         return;
       }

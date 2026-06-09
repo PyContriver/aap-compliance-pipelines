@@ -734,19 +734,20 @@ export class ComplianceDatabase {
   }
 
   /**
-   * Delete a remediation profile. Only drafts with no execution history
-   * can be deleted (ADR-014 Q6). Saved/archived profiles should be
-   * archived instead. Returns false if not found, throws if blocked by FK.
+   * Delete a remediation profile. Profiles with no execution history and
+   * not pinned as a baseline can be deleted regardless of status.
+   * Returns false if not found, throws if blocked by executions or baseline pin.
    */
   async deleteRemediationProfile(id: string): Promise<boolean> {
     const profile = await this.getRemediationProfile(id);
     if (!profile) return false;
-    if (profile.status !== 'draft') {
-      throw new Error('Only draft profiles can be deleted. Use archive for saved profiles.');
-    }
     const executions = await this.getExecutionsByProfileId(id, 1);
     if (executions.length > 0) {
-      throw new Error('Cannot delete a profile with execution history.');
+      throw new Error('Cannot delete a profile with execution history. Archive it instead.');
+    }
+    const isPinned = await this.isProfilePinnedAsBaseline(id);
+    if (isPinned) {
+      throw new Error('Cannot delete a profile pinned as a baseline. Unpin it first.');
     }
     const deleted = await this.db('compliance_remediation_profiles')
       .where('id', id)

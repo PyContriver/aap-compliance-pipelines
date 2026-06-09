@@ -572,6 +572,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
   const [elapsed, setElapsed] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const errorDetailsFetched = useRef(false);
   const [overallStatus, setOverallStatus] = useState('pending');
   const launchFired = useRef(false);
@@ -700,10 +701,20 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
     } catch (err) {
       setPhase('failed');
       const raw = err instanceof Error ? err.message : 'Failed to launch remediation workflow';
-      // Extract the actual error message from the API response JSON
       let msg = raw;
-      const jsonMatch = raw.match(/\{.*"error"\s*:\s*"([^"]+)"/);
-      if (jsonMatch) msg = jsonMatch[1];
+      try {
+        const jsonStart = raw.indexOf('{');
+        if (jsonStart >= 0) {
+          const parsed = JSON.parse(raw.slice(jsonStart));
+          const detail = parsed?.error?.detail;
+          if (parsed?.error?.message) {
+            msg = parsed.error.message;
+            if (detail?.startedAt) {
+              msg += ` (started ${new Date(detail.startedAt).toLocaleString()})`;
+            }
+          }
+        }
+      } catch { /* use raw message */ }
       setErrorMessage(msg);
     }
   }, [api, remediationProfileId, scanId]);
@@ -1134,14 +1145,20 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                       )}
                       {errorDetails && errorDetails.trim().length > 0 && (
                         <Box mt={2} mx="auto" maxWidth={800} textAlign="left">
-                          <Typography variant="subtitle2" gutterBottom>
-                            Controller Error Details
+                          <Typography
+                            variant="subtitle2"
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => setShowErrorDetails(prev => !prev)}
+                          >
+                            Controller Error Details {showErrorDetails ? '▾' : '▸'}
                           </Typography>
-                          <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16 }}>
-                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, margin: 0 }}>
-                              {errorDetails}
-                            </pre>
-                          </Paper>
+                          <Collapse in={showErrorDetails}>
+                            <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16, marginTop: 8 }}>
+                              <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, margin: 0 }}>
+                                {errorDetails}
+                              </pre>
+                            </Paper>
+                          </Collapse>
                         </Box>
                       )}
                       <Box mt={2} display="flex" style={{ gap: 16 }} justifyContent="center">

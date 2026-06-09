@@ -304,7 +304,7 @@ function RowActions({
             style={canDelete ? { color: '#C62828' } : undefined}
           >
             <DeleteIcon fontSize="small" style={{ marginRight: 8 }} />
-            {!canDelete && r.status !== 'draft' ? 'Delete (archive instead)' : 'Delete'}
+            {!canDelete ? ((r.executionCount ?? 0) > 0 ? 'Delete (has history)' : 'Delete (pinned)') : 'Delete'}
           </MenuItem>
         )}
       </Menu>
@@ -459,7 +459,9 @@ export const RemediationsList = () => {
     try {
       const newStatus = archiveTarget.status === 'archived' ? 'saved' : 'archived';
       await api.updateRemediationProfileStatus(archiveTarget.id, newStatus as RemediationProfileStatus);
-      if (statusFilter === 'active' && newStatus === 'archived') {
+      const shouldRemoveFromView = (statusFilter === 'active' && newStatus === 'archived')
+        || (statusFilter === 'archived' && newStatus === 'saved');
+      if (shouldRemoveFromView) {
         setRemediations(prev => prev.filter(r => r.id !== archiveTarget.id));
       } else {
         setRemediations(prev => prev.map(r => r.id === archiveTarget.id ? { ...r, status: newStatus as RemediationProfileStatus } : r));
@@ -585,7 +587,8 @@ export const RemediationsList = () => {
                 const hasExecutions = (r.executionCount ?? 0) > 0;
                 const profileColor = STATUS_CHIP_COLORS[r.status || 'saved'];
                 const latestExec = r.latestExecution;
-                const canDelete = r.status === 'draft' && !hasExecutions;
+                const isPinned = baselineTargets.some(bt => bt.remediationProfileId === r.id);
+                const canDelete = !hasExecutions && !isPinned;
                 const canArchive = r.status === 'saved' || r.status === 'archived';
 
                 return (
@@ -866,7 +869,7 @@ export const RemediationsList = () => {
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Delete Draft</DialogTitle>
+        <DialogTitle>Delete {deleteTarget?.status === 'draft' ? 'Draft' : 'Profile'}</DialogTitle>
         <DialogContent>
           <DialogContentText>
             Delete <strong>{deleteTarget?.name}</strong>? This cannot be undone.

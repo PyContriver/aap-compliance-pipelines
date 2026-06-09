@@ -56,7 +56,6 @@ const useStyles = makeStyles(theme => ({
   summaryBar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: theme.spacing(2), backgroundColor: theme.palette.background.default, borderRadius: theme.shape.borderRadius, marginBottom: theme.spacing(2), flexWrap: 'wrap' as const, gap: theme.spacing(1) },
   summaryCount: { display: 'flex', gap: theme.spacing(3), flexWrap: 'wrap' as const },
   bulkActions: { display: 'flex', gap: theme.spacing(1), flexWrap: 'wrap' as const, alignItems: 'center' },
-  disruptionWarning: { display: 'flex', alignItems: 'center', gap: theme.spacing(0.5), color: theme.palette.warning.main, fontSize: '0.75rem' },
   sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: theme.spacing(1.5, 2), backgroundColor: theme.palette.action.hover, borderRadius: theme.shape.borderRadius, marginBottom: theme.spacing(1), marginTop: theme.spacing(2), cursor: 'pointer' },
   titleGroup: { display: 'flex', flexDirection: 'column' as const, flex: 1, minWidth: 0 },
   hostBreakdown: { display: 'flex', alignItems: 'center', gap: theme.spacing(1), fontSize: '0.8rem', color: theme.palette.text.secondary },
@@ -268,13 +267,18 @@ export const RemediationProfileBuilder = () => {
     setSelections(prev => {
       const updated = { ...prev };
       allFindings.forEach(f => {
-        if (f.failCount > 0 && f.passCount > 0) {
+        if (f.failCount > 0) {
           updated[f.ruleId] = { ...updated[f.ruleId], scope };
         }
       });
       return updated;
     });
   };
+  const dominantScope = useMemo(() => {
+    const scopes = allFindings.filter(f => f.failCount > 0).map(f => selections[f.ruleId]?.scope ?? 'failed_only');
+    if (scopes.length === 0) return null;
+    return scopes.every(s => s === 'standardize_all') ? 'standardize_all' : scopes.every(s => s === 'failed_only') ? 'failed_only' : null;
+  }, [allFindings, selections]);
 
   const enabledCount = Object.values(selections).filter(s => s.enabled).length;
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
@@ -317,7 +321,7 @@ export const RemediationProfileBuilder = () => {
 
   const renderAutoSaveStatus = () => {
     if (autoSaveStatus === 'saving') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><Typography variant="caption" style={{ color: '#6A6E73' }}>Saving...</Typography></div>);
-    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: '#3E8635' }}>Draft saved</Typography></div>);
+    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: '#3E8635' }}>{profileSaved ? 'Saved' : 'Draft saved'}</Typography></div>);
     if (autoSaveStatus === 'error') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><WarningIcon style={{ fontSize: 14, color: '#C9190B' }} /><Typography variant="caption" style={{ color: '#C9190B' }}>Save failed</Typography></div>);
     return null;
   };
@@ -345,7 +349,7 @@ export const RemediationProfileBuilder = () => {
               )}
             </div>
           </div>
-          {finding.disruption === 'high' && (<div className={classes.disruptionWarning}><WarningIcon fontSize="small" /><span>High disruption</span></div>)}
+          {finding.disruption === 'high' && (<Chip label="High disruption" size="small" color="secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }} />)}
           {finding.aapImpact === 'breaks-connectivity' && (
             <Chip label="Breaks AAP" size="small" style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
           )}
@@ -563,11 +567,11 @@ export const RemediationProfileBuilder = () => {
           </Tooltip>
           {!isEditMode && (
             <ButtonGroup size="small" variant="outlined" aria-label="Host scope for all rules">
-              <Tooltip title="Set all mixed-result rules to remediate only failed hosts">
-                <Button onClick={() => setScopeAll('failed_only')}>Failed Only</Button>
+              <Tooltip title="Remediate only failed hosts for each rule">
+                <Button onClick={() => setScopeAll('failed_only')} variant={dominantScope === 'failed_only' ? 'contained' : 'outlined'} color={dominantScope === 'failed_only' ? 'primary' : 'default'}>Failed Only</Button>
               </Tooltip>
-              <Tooltip title="Set all mixed-result rules to apply to every host, standardizing configuration">
-                <Button onClick={() => setScopeAll('standardize_all')}>All Hosts</Button>
+              <Tooltip title="Apply to every host, standardizing configuration across the inventory">
+                <Button onClick={() => setScopeAll('standardize_all')} variant={dominantScope === 'standardize_all' ? 'contained' : 'outlined'} color={dominantScope === 'standardize_all' ? 'primary' : 'default'}>All Hosts</Button>
               </Tooltip>
             </ButtonGroup>
           )}

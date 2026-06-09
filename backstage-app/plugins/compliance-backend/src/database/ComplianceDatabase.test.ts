@@ -1387,7 +1387,7 @@ describe('ComplianceDatabase', () => {
       expect(deleted).toBe(true);
     });
 
-    it('rejects deleting saved profiles', async () => {
+    it('allows deleting saved profiles with no executions or pins', async () => {
       const { id } = await complianceDb.saveRemediationProfile({
         name: 'Saved Profile',
         description: '',
@@ -1395,16 +1395,17 @@ describe('ComplianceDatabase', () => {
         selections: [],
         status: 'saved',
       });
-      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('Only draft');
+      const deleted = await complianceDb.deleteRemediationProfile(id);
+      expect(deleted).toBe(true);
     });
 
-    it('rejects deleting drafts with execution history', async () => {
+    it('rejects deleting profiles with execution history', async () => {
       const { id } = await complianceDb.saveRemediationProfile({
-        name: 'Used Draft',
+        name: 'Used Profile',
         description: '',
         profileId: 'rhel9-stig',
         selections: [],
-        status: 'draft',
+        status: 'saved',
       });
       const exec = await complianceDb.createExecution({
         remediationProfileId: id,
@@ -1415,6 +1416,23 @@ describe('ComplianceDatabase', () => {
         completedAt: new Date().toISOString(),
       });
       await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('execution history');
+    });
+
+    it('rejects deleting profiles pinned as baseline', async () => {
+      const { id } = await complianceDb.saveRemediationProfile({
+        name: 'Pinned Profile',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'saved',
+      });
+      await complianceDb.pinBaselineTarget({
+        remediationProfileId: id,
+        complianceProfileId: 'rhel9-stig',
+        inventoryId: 1,
+        pinnedBy: 'test-user',
+      });
+      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('pinned as a baseline');
     });
   });
 

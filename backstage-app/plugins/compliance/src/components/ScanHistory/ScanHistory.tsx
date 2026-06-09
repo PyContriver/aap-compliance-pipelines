@@ -206,6 +206,7 @@ export const ScanHistory = () => {
   const [filterInventory, setFilterInventory] = useState<string>('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [compareSelection, setCompareSelection] = useState<{ groupKey: string; scanId: string } | null>(null);
+  const [filterType, setFilterType] = useState<string>('');
 
   // Sync URL param filter with state
   useEffect(() => {
@@ -354,9 +355,19 @@ export const ScanHistory = () => {
     if (filterInventory) {
       sorted = sorted.filter(g => g.inventoryId === Number(filterInventory));
     }
+    if (filterType) {
+      sorted = sorted.map(g => ({
+        ...g,
+        items: g.items.filter(item => {
+          if (item.type === 'execution') return filterType === 'remediation';
+          if (filterType === 'remediation') return item.scan.scanner === 'remediation';
+          return item.scan.scanType === filterType;
+        }),
+      })).filter(g => g.items.length > 0);
+    }
 
     return sorted;
-  }, [scans, executions, scanStats, profileMap, inventoryMap, filterProfile, filterInventory]);
+  }, [scans, executions, scanStats, profileMap, inventoryMap, filterProfile, filterInventory, filterType]);
 
   // Profiles and inventories that appear in scan data (for filter dropdowns)
   const scannedProfiles = useMemo(() => {
@@ -442,49 +453,63 @@ export const ScanHistory = () => {
         </Box>
       </div>
 
-      {viewMode === 'grouped' && (scannedProfiles.length > 1 || scannedInventories.length > 1) && (
-        <div className={classes.filterRow}>
-          <FormControl variant="outlined" size="small" className={classes.filterSelect}>
-            <InputLabel id="filter-profile-label">Compliance Profile</InputLabel>
-            <Select
-              labelId="filter-profile-label"
-              value={filterProfile}
-              onChange={e => setFilterProfile(e.target.value as string)}
-              label="Compliance Profile"
-            >
-              <MenuItem value="">All Profiles</MenuItem>
-              {scannedProfiles.map(p => (
-                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl variant="outlined" size="small" className={classes.filterSelect}>
-            <InputLabel id="filter-inventory-label">Inventory</InputLabel>
-            <Select
-              labelId="filter-inventory-label"
-              value={filterInventory}
-              onChange={e => setFilterInventory(e.target.value as string)}
-              label="Inventory"
-            >
-              <MenuItem value="">All Inventories</MenuItem>
-              {scannedInventories.map(inv => (
-                <MenuItem key={inv.id} value={inv.id.toString()}>{inv.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {(filterProfile || filterInventory) && (
-            <Chip
-              label="Clear filters"
-              size="small"
-              onDelete={() => { setFilterProfile(''); setFilterInventory(''); }}
-              variant="outlined"
-            />
-          )}
+      <div className={classes.filterRow}>
+        <FormControl variant="outlined" size="small" className={classes.filterSelect}>
+          <InputLabel id="filter-profile-label">Compliance Profile</InputLabel>
+          <Select
+            labelId="filter-profile-label"
+            value={filterProfile}
+            onChange={e => setFilterProfile(e.target.value as string)}
+            label="Compliance Profile"
+          >
+            <MenuItem value="">All Profiles</MenuItem>
+            {scannedProfiles.map(p => (
+              <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" size="small" className={classes.filterSelect}>
+          <InputLabel id="filter-inventory-label">Inventory</InputLabel>
+          <Select
+            labelId="filter-inventory-label"
+            value={filterInventory}
+            onChange={e => setFilterInventory(e.target.value as string)}
+            label="Inventory"
+          >
+            <MenuItem value="">All Inventories</MenuItem>
+            {scannedInventories.map(inv => (
+              <MenuItem key={inv.id} value={inv.id.toString()}>{inv.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" size="small" className={classes.filterSelect}>
+          <InputLabel id="filter-type-label">Type</InputLabel>
+          <Select
+            labelId="filter-type-label"
+            value={filterType}
+            onChange={e => setFilterType(e.target.value as string)}
+            label="Type"
+          >
+            <MenuItem value="">All Types</MenuItem>
+            <MenuItem value="assessment">Assessment</MenuItem>
+            <MenuItem value="verification">Verification</MenuItem>
+            <MenuItem value="remediation">Remediation</MenuItem>
+          </Select>
+        </FormControl>
+        {(filterProfile || filterInventory || filterType) && (
+          <Chip
+            label="Clear filters"
+            size="small"
+            onDelete={() => { setFilterProfile(''); setFilterInventory(''); setFilterType(''); }}
+            variant="outlined"
+          />
+        )}
+        {viewMode === 'grouped' && (
           <Typography variant="caption" color="textSecondary" style={{ marginLeft: 'auto' }}>
             {groups.length} group{groups.length !== 1 ? 's' : ''}
           </Typography>
-        </div>
-      )}
+        )}
+      </div>
 
       {activeScans.map(scan => scan.workflowJobId && (
         <ScanProgress
@@ -758,14 +783,25 @@ export const ScanHistory = () => {
                 <TableCell>Status</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Profile</TableCell>
-                <TableCell>Scanner</TableCell>
+                <TableCell>Inventory</TableCell>
+                <TableCell>Pass Rate</TableCell>
                 <TableCell>Workflow Job</TableCell>
                 <TableCell>Started</TableCell>
                 <TableCell>Completed</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {scans.map(scan => (
+              {scans
+                .filter(scan => {
+                  if (filterProfile && scan.profileId !== filterProfile) return false;
+                  if (filterInventory && scan.inventoryId !== Number(filterInventory)) return false;
+                  if (filterType) {
+                    if (filterType === 'remediation') return scan.scanner === 'remediation';
+                    return scan.scanType === filterType;
+                  }
+                  return true;
+                })
+                .map(scan => (
                 <TableRow
                   key={scan.id}
                   className={classes.clickableRow}
@@ -810,7 +846,35 @@ export const ScanHistory = () => {
                       <CertificationBadge certification={profileMap.get(scan.profileId)!.certification} style={{ marginTop: 4 }} />
                     )}
                   </TableCell>
-                  <TableCell>{scan.scanner}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={inventoryMap.get(scan.inventoryId) || `#${scan.inventoryId}`}
+                      size="small"
+                      variant="outlined"
+                      style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const stats = scanStats[scan.id];
+                      if (!stats || scan.status !== 'completed') return '--';
+                      const total = stats.pass + stats.fail;
+                      if (total === 0) return '--';
+                      const pct = Math.round((stats.pass / total) * 100);
+                      return (
+                        <Chip
+                          label={`${pct}%`}
+                          size="small"
+                          style={{
+                            backgroundColor: pct >= 80 ? '#3E8635' : pct >= 50 ? '#F0AB00' : '#C9190B',
+                            color: '#fff',
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                          }}
+                        />
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <Box display="flex" alignItems="center" style={{ gap: 4 }}>
                       {authoritativeScanIds.has(scan.id) && (
