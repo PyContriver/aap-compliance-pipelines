@@ -7,9 +7,6 @@ import {
   createMockComplianceApi,
   MOCK_FINDINGS,
 } from '../../__testutils__/mockComplianceApi';
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { ComplianceApi } from '../../api';
-
 // Mock useParams to provide a jobId
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -17,7 +14,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 describe('ResultsViewer', () => {
-  let mockApi: jest.Mocked<ComplianceApi>;
+  let mockApi;
 
   beforeEach(() => {
     mockApi = createMockComplianceApi();
