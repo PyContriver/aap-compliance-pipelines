@@ -143,8 +143,9 @@ jobs:
 
       - name: Stage tarballs to deploy-artifacts/
         run: |
-          cp artifacts/backend/*.tgz deploy-artifacts/backend.tgz
-          cp artifacts/frontend/*.tgz deploy-artifacts/frontend.tgz
+          ls -R artifacts/
+          find artifacts/ -name '*.tgz' -path '*/backend/*' -exec cp {} deploy-artifacts/backend.tgz \;
+          find artifacts/ -name '*.tgz' -path '*/frontend/*' -exec cp {} deploy-artifacts/frontend.tgz \;
           ls -lh deploy-artifacts/
 
           # Validate npm-pack format
