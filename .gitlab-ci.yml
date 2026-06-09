@@ -255,8 +255,10 @@ deploy-netrunner:
       fi
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-      allow_failure: true
+      changes:
+        - deploy-artifacts/**/*
+        - .gitlab-ci.yml
+      when: on_success
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
       allow_failure: true
