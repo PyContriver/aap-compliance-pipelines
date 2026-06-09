@@ -164,7 +164,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add deploy-artifacts/backend.tgz deploy-artifacts/frontend.tgz
+          git add -f deploy-artifacts/backend.tgz deploy-artifacts/frontend.tgz
           if git diff --cached --quiet; then
             echo "No tarball changes to commit"
           else
