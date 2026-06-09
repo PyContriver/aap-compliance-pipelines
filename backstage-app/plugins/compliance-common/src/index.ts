@@ -43,5 +43,6 @@ export type {
   AuthoritativeScanResponse,
   FindingState,
   FindingStateSummary,
+  ChainResponse,
 } from './types';
 

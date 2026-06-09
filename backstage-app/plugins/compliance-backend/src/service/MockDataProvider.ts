@@ -132,7 +132,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_I' as const, category: 'Access Control', disruption: 'low' as const,
     parameters: [{ name: 'var_sshd_set_keepalive', label: 'Client Alive Interval (seconds)', description: 'SSH client alive interval', type: 'number' as const, default: 600, value: 600 }],
     hosts: mostPassSomeFail('600', ['db-prod-03', 'app-prod-05'], { 'db-prod-03': '300', 'app-prod-05': 'not set' }, 'resurfaced'),
-    passCount: 18, failCount: 2, totalCount: 20,
+    passCount: 18, failCount: 2, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'sshd_disable_root_login', stigId: 'V-257846',
@@ -145,7 +145,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     hosts: mostPassSomeFail('no', ['web-prod-03', 'db-prod-01', 'db-prod-02', 'db-prod-03', 'db-prod-04'], {
       'web-prod-03': 'yes', 'db-prod-01': 'yes', 'db-prod-02': 'yes', 'db-prod-03': 'yes', 'db-prod-04': 'yes',
     }, 'active'),
-    passCount: 15, failCount: 5, totalCount: 20,
+    passCount: 15, failCount: 5, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'enable_fips_mode', stigId: 'V-257777',
@@ -156,7 +156,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_I' as const, category: 'System and Communications Protection', disruption: 'high' as const,
     parameters: [],
     hosts: allFail('FIPS', () => 'DEFAULT', 'new'),
-    passCount: 0, failCount: 20, totalCount: 20,
+    passCount: 0, failCount: 20, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'accounts_tmout', stigId: 'V-257893',
@@ -167,7 +167,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_II' as const, category: 'Access Control', disruption: 'low' as const,
     parameters: [{ name: 'var_accounts_tmout', label: 'Timeout (seconds)', description: 'Session inactivity timeout', type: 'number' as const, default: 900, value: 900 }],
     hosts: mostPassSomeFail('900', ['web-prod-09', 'app-prod-06'], { 'web-prod-09': '1800', 'app-prod-06': 'not set' }),
-    passCount: 18, failCount: 2, totalCount: 20,
+    passCount: 18, failCount: 2, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'package_aide_installed', stigId: 'V-257780',
@@ -180,7 +180,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     hosts: mostPassSomeFail('installed', [
       'web-prod-04', 'web-prod-05', 'web-prod-06', 'db-prod-03', 'db-prod-04', 'app-prod-01', 'app-prod-02',
     ], Object.fromEntries(['web-prod-04', 'web-prod-05', 'web-prod-06', 'db-prod-03', 'db-prod-04', 'app-prod-01', 'app-prod-02'].map(h => [h, 'not installed'])), 'new'),
-    passCount: 13, failCount: 7, totalCount: 20,
+    passCount: 13, failCount: 7, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'service_auditd_enabled', stigId: 'V-257783',
@@ -194,7 +194,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
       host: h, status: 'pass' as const, actualValue: 'enabled', expectedValue: 'enabled',
       findingState: ['web-prod-03', 'db-prod-01', 'db-prod-02'].includes(h) ? 'fixed' as const : null,
     })),
-    passCount: 20, failCount: 0, totalCount: 20,
+    passCount: 20, failCount: 0, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'grub2_password', stigId: 'V-257785',
@@ -205,7 +205,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_I' as const, category: 'Configuration Management', disruption: 'medium' as const,
     parameters: [],
     hosts: mostPassSomeFail('set', ['web-prod-01', 'app-prod-03'], { 'web-prod-01': 'not set', 'app-prod-03': 'not set' }),
-    passCount: 18, failCount: 2, totalCount: 20,
+    passCount: 18, failCount: 2, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'selinux_enforcing', stigId: 'V-257786',
@@ -216,7 +216,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_I' as const, category: 'Access Control', disruption: 'high' as const,
     parameters: [],
     hosts: allPass('Enforcing'),
-    passCount: 20, failCount: 0, totalCount: 20,
+    passCount: 20, failCount: 0, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'configure_crypto_policy', stigId: 'V-257778',
@@ -227,7 +227,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_II' as const, category: 'System and Communications Protection', disruption: 'medium' as const,
     parameters: [{ name: 'var_system_crypto_policy', label: 'Crypto Policy', description: 'System-wide cryptographic policy', type: 'select' as const, default: 'FIPS', value: 'FIPS', options: [{ label: 'DEFAULT', value: 'DEFAULT' }, { label: 'FIPS', value: 'FIPS' }, { label: 'FIPS:OSPP', value: 'FIPS:OSPP' }] }],
     hosts: allFail('FIPS', () => 'DEFAULT'),
-    passCount: 0, failCount: 20, totalCount: 20,
+    passCount: 0, failCount: 20, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'passwd_permissions', stigId: 'V-257820',
@@ -238,7 +238,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_II' as const, category: 'Configuration Management', disruption: 'low' as const,
     parameters: [],
     hosts: mostPassSomeFail('0644', ['app-prod-04'], { 'app-prod-04': '0666' }),
-    passCount: 19, failCount: 1, totalCount: 20,
+    passCount: 19, failCount: 1, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'package_telnet_not_installed', stigId: 'V-257835',
@@ -249,7 +249,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_I' as const, category: 'Configuration Management', disruption: 'low' as const,
     parameters: [],
     hosts: mostPassSomeFail('not installed', ['db-prod-02'], { 'db-prod-02': 'installed' }),
-    passCount: 19, failCount: 1, totalCount: 20,
+    passCount: 19, failCount: 1, naCount: 0, totalCount: 20,
   },
   {
     ruleId: 'banner_etc_issue', stigId: 'V-257795',
@@ -260,7 +260,7 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
     severity: 'CAT_II' as const, category: 'Access Control', disruption: 'low' as const,
     parameters: [{ name: 'login_banner_text', label: 'Banner Text', description: 'Text to display', type: 'string' as const, default: 'You are accessing a U.S. Government Information System...', value: 'You are accessing a U.S. Government Information System...' }],
     hosts: allFail('DoD banner configured', () => 'no banner'),
-    passCount: 0, failCount: 20, totalCount: 20,
+    passCount: 0, failCount: 20, naCount: 0, totalCount: 20,
   },
 ].map(f => {
   const AAP_IMPACT_MAP: Record<string, { aapImpact: 'safe' | 'caution' | 'breaks-connectivity'; aapImpactReason: string }> = {

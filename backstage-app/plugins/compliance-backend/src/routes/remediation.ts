@@ -217,7 +217,7 @@ export function registerRemediationRoutes(
 
     const toStats = (scanId: string | null) => {
       if (!scanId) return null;
-      const s = batchStats[scanId];
+      const s = (batchStats as Record<string, { pass: number; fail: number; rules: number; hosts: number }>)[scanId];
       if (!s) return null;
       return { pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts };
     };
