@@ -243,7 +243,7 @@ export const ScanProgress = ({
                   error={node?.status === 'failed' || node?.status === 'error'}
                   icon={node ? nodeStatusIcon(node.status) : <StatusPending />}
                 >
-                  {label}
+                  {isFailed ? 'Scan Failed' : label}
                 </StepLabel>
               </Step>
             );

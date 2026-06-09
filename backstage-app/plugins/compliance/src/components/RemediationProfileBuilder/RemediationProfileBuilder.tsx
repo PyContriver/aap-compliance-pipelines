@@ -123,10 +123,25 @@ export const RemediationProfileBuilder = () => {
       .then(profile => {
         if (cancelled || !profile) { if (!cancelled) setLoading(false); return undefined; }
         setEditProfile(profile); setProfileName(profile.name); setProfileDescription(profile.description); setSavedProfileId(profile.id);
-        const scanIdToUse = profile.creationScanId && /^\d+$/.test(profile.creationScanId) ? profile.creationScanId : undefined;
-        return scanIdToUse ? api.getFindings(scanIdToUse) : api.getFindings();
+        const scanIdToUse = profile.creationScanId || undefined;
+        return (scanIdToUse ? api.getFindings(scanIdToUse) : api.getFindings()).then(findings => ({ findings: findings ?? [], profile }));
       })
-      .then(data => { if (!cancelled && data) setAllFindings(data); })
+      .then(result => {
+        if (!cancelled && result) {
+          const { findings, profile: prof } = result;
+          const findingIds = new Set(findings.map(f => f.ruleId));
+          const stubs: MultiHostFinding[] = (prof.selections ?? [])
+            .filter(s => !findingIds.has(s.ruleId))
+            .map(s => ({
+              ruleId: s.ruleId, stigId: s.ruleId, title: s.ruleId, description: '', fixText: '', checkText: '',
+              severity: 'CAT_II' as const, category: '', disruption: 'low' as const,
+              aapImpact: 'safe' as const, aapImpactReason: '', parameters: [],
+              hosts: [], passCount: 0, failCount: 0, naCount: 0, totalCount: 0,
+              automationAvailable: true,
+            }));
+          setAllFindings([...findings, ...stubs]);
+        }
+      })
       .catch(err => { console.error('Failed to load remediation profile for editing:', err); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

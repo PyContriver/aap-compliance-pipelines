@@ -214,6 +214,14 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                 size="small"
                 style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem' }}
               />
+              {finding.naCount > 0 && (
+                <Chip
+                  label={`${finding.naCount} N/A`}
+                  size="small"
+                  variant="outlined"
+                  style={{ fontSize: '0.7rem', color: '#6A6E73' }}
+                />
+              )}
             </Box>
           )}
         </TableCell>
@@ -255,7 +263,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                     <Typography variant="caption" style={{ fontWeight: 600, color: '#6A6E73' }}>Manual remediation required</Typography>
                   </Box>
                   <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 4 }}>
-                    This rule has no automated remediation playbook in the SCAP Security Guide. It must be resolved through manual configuration changes — review the Check and Fix guidance above.
+                    This rule has no automated remediation playbook available. It must be resolved through manual configuration changes — review the Check and Fix guidance above.
                   </Typography>
                 </Box>
               )}
