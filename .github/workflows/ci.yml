@@ -142,6 +142,7 @@ jobs:
           path: artifacts/frontend
 
       - name: Stage tarballs to deploy-artifacts/
+        working-directory: .
         run: |
           ls -R artifacts/
           find artifacts/ -name '*.tgz' -path '*/backend/*' -exec cp {} deploy-artifacts/backend.tgz \;
@@ -159,6 +160,7 @@ jobs:
           echo "Tarball format validated"
 
       - name: Commit and push tarballs
+        working-directory: .
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
