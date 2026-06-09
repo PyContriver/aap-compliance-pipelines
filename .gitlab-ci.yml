@@ -255,10 +255,11 @@ deploy-netrunner:
       fi
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - deploy-artifacts/**/*
-        - .gitlab-ci.yml
-      when: on_success
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+      allow_failure: true
   environment:
     name: netrunner-staging
     url: https://dev-portal-netrunner.demoredhat.com/compliance

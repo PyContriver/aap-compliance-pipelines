@@ -117,3 +117,126 @@ jobs:
         with:
           name: compliance-frontend-dynamic
           path: backstage-app/plugins/compliance/dist-dynamic/*.tgz
+
+  deploy-netrunner:
+    name: Deploy to Netrunner
+    needs: export-dynamic
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: netrunner-staging
+      url: https://dev-portal-netrunner.demoredhat.com/compliance
+
+    env:
+      REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
+      OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
+
+    steps:
+      - name: Download backend tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: compliance-backend-dynamic
+          path: artifacts/backend
+
+      - name: Download frontend tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: compliance-frontend-dynamic
+          path: artifacts/frontend
+
+      - name: Prepare tarballs
+        run: |
+          mv artifacts/backend/*.tgz backend.tgz
+          mv artifacts/frontend/*.tgz frontend.tgz
+          ls -lh backend.tgz frontend.tgz
+
+          # Validate npm-pack format
+          for tgz in backend.tgz frontend.tgz; do
+            FIRST_ENTRY=$(tar tzf "$tgz" | head -1)
+            if [[ "$FIRST_ENTRY" != package/* ]]; then
+              echo "ERROR: $tgz is not npm-pack format (first entry: '$FIRST_ENTRY')"
+              exit 1
+            fi
+          done
+          echo "Tarball format validated"
+        working-directory: .
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PORTAL_SSH_KEY }}" > ~/.ssh/portal.pem
+          chmod 600 ~/.ssh/portal.pem
+          echo -e "Host *\n  StrictHostKeyChecking no\n  LogLevel ERROR" >> ~/.ssh/config
+        working-directory: .
+
+      - name: Upload tarballs to Portal
+        run: |
+          scp -i ~/.ssh/portal.pem backend.tgz "${{ secrets.PORTAL_HOST }}:/tmp/backend.tgz"
+          scp -i ~/.ssh/portal.pem frontend.tgz "${{ secrets.PORTAL_HOST }}:/tmp/frontend.tgz"
+        working-directory: .
+
+      - name: Deploy plugins
+        run: |
+          SSH="ssh -i ~/.ssh/portal.pem ${{ secrets.PORTAL_HOST }}"
+
+          $SSH "
+            sudo cp /tmp/backend.tgz ${{ env.REMOTE_PLUGIN_DIR }}/backend.tgz
+            sudo cp /tmp/frontend.tgz ${{ env.REMOTE_PLUGIN_DIR }}/frontend.tgz
+            sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-*
+            sudo rm -f /opt/app-root/src/dynamic-plugins-root/install-dynamic-plugins.lock
+          "
+
+          # Update integrity hashes
+          $SSH "sudo python3 << 'PYEOF'
+          import yaml, subprocess, base64
+
+          with open('${{ env.OVERRIDE_YAML }}') as f:
+              data = yaml.safe_load(f)
+
+          for plugin in data['plugins']:
+              pkg = plugin.get('package', '')
+              if 'compliance-backend' in pkg:
+                  new_pkg = '${{ env.REMOTE_PLUGIN_DIR }}/backend.tgz'
+                  h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
+                  plugin['package'] = new_pkg
+                  plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
+                  print(f'Updated backend: {new_pkg}')
+              elif 'compliance' in pkg and 'backend' not in pkg:
+                  new_pkg = '${{ env.REMOTE_PLUGIN_DIR }}/frontend.tgz'
+                  h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
+                  plugin['package'] = new_pkg
+                  plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
+                  print(f'Updated frontend: {new_pkg}')
+
+          with open('${{ env.OVERRIDE_YAML }}', 'w') as f:
+              yaml.dump(data, f, default_flow_style=False, sort_keys=False, width=200)
+          PYEOF"
+        working-directory: .
+
+      - name: Restart Portal
+        run: |
+          SSH="ssh -i ~/.ssh/portal.pem ${{ secrets.PORTAL_HOST }}"
+          $SSH "sudo systemctl restart portal.service"
+          echo "Portal restarting..."
+        working-directory: .
+
+      - name: Verify deployment
+        run: |
+          SSH="ssh -i ~/.ssh/portal.pem ${{ secrets.PORTAL_HOST }}"
+          for i in $(seq 1 18); do
+            sleep 10
+            STATUS=$($SSH "sudo systemctl is-active portal.service" 2>/dev/null || echo "inactive")
+            if [ "$STATUS" = "active" ]; then
+              LOGS=$($SSH "sudo podman logs portal 2>&1 | grep -i 'compliance' | tail -3" 2>/dev/null || true)
+              if echo "$LOGS" | grep -qi "ready\|loaded\|info"; then
+                echo "Deploy successful — Portal active with compliance plugin"
+                echo "$LOGS"
+                exit 0
+              fi
+            fi
+            echo "Attempt $i/18: status=$STATUS, waiting..."
+          done
+          echo "WARNING: Portal did not become healthy within 180s"
+          $SSH "sudo podman logs portal 2>&1 | tail -20" || true
+          exit 1
+        working-directory: .
