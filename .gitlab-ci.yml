@@ -236,6 +236,9 @@ deploy-netrunner:
           yaml.dump(data, f, default_flow_style=False, sort_keys=False, width=200)
       PYEOF"
 
+    # Ensure frontend route wildcard for sub-routes
+    - $SSH "sudo sed -i 's|path: /compliance\$|path: /compliance/*|' $OVERRIDE_YAML"
+
     # Restart Portal
     - $SSH "sudo systemctl restart portal.service"
     - echo "Portal restarting, waiting 120s..."
