@@ -123,6 +123,12 @@ export const RemediationProfileBuilder = () => {
       .then(profile => {
         if (cancelled || !profile) { if (!cancelled) setLoading(false); return undefined; }
         setEditProfile(profile); setProfileName(profile.name); setProfileDescription(profile.description); setSavedProfileId(profile.id);
+        if (profile.complianceProfileId) {
+          api.getRegisteredProfiles().then(rps => {
+            const cp = rps.find(p => p.id === profile.complianceProfileId);
+            if (cp) setContextProfileName(cp.displayName);
+          }).catch(() => {});
+        }
         const scanIdToUse = profile.creationScanId || undefined;
         return (scanIdToUse ? api.getFindings(scanIdToUse) : api.getFindings()).then(findings => ({ findings: findings ?? [], profile }));
       })
@@ -148,6 +154,8 @@ export const RemediationProfileBuilder = () => {
   }, [api, isEditMode, remediationId]);
 
   const [resolvedProfileId, setResolvedProfileId] = useState<string>('');
+  const [contextProfileName, setContextProfileName] = useState('');
+  const [contextInventoryName, setContextInventoryName] = useState('');
 
   useEffect(() => {
     if (isEditMode) return;
@@ -156,13 +164,19 @@ export const RemediationProfileBuilder = () => {
       api.getFindings(jobId),
       api.getRegisteredProfiles().catch(() => []),
       api.getScans().catch(() => []),
-    ]).then(([data, profiles, scans]) => {
+      api.getInventories().catch(() => []),
+    ]).then(([data, profiles, scans, inventories]) => {
       if (cancelled) return;
       setAllFindings(data);
       if (profiles.length > 0) {
         const scan = scans.find(s => s.id === jobId || String(s.workflowJobId) === jobId);
         const matchedProfile = scan ? profiles.find(p => p.id === scan.profileId) : undefined;
         setResolvedProfileId(matchedProfile?.id ?? profiles[0].id);
+        if (matchedProfile) setContextProfileName(matchedProfile.displayName);
+        if (scan) {
+          const inv = inventories.find(i => i.id === scan.inventoryId);
+          if (inv) setContextInventoryName(inv.name);
+        }
       }
     }).catch(err => {
       console.error('Failed to load findings:', err);
@@ -502,7 +516,17 @@ export const RemediationProfileBuilder = () => {
         {isEditMode ? (<Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance/remediations')}>Remediations</Typography>) : (<Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate(`/compliance/results/${jobId}`)}>Scan Results</Typography>)}
         <Typography>{isApplyMode ? 'Apply Remediation' : isEditMode ? 'Edit Remediation' : 'Remediation'}</Typography>
       </Breadcrumbs>
-      <Box mt={2} />
+      {(contextProfileName || contextInventoryName) && (
+        <Box display="flex" alignItems="center" mt={1} mb={1} style={{ gap: 8 }}>
+          {contextProfileName && (
+            <Chip label={contextProfileName} size="small" variant="outlined" />
+          )}
+          {contextInventoryName && (
+            <Chip label={contextInventoryName} size="small" variant="outlined" icon={<SettingsIcon style={{ fontSize: 14 }} />} />
+          )}
+        </Box>
+      )}
+      {!(contextProfileName || contextInventoryName) && <Box mt={2} />}
       <div className={classes.profileHeader}>
         <Box flex={1} display="flex" flexDirection="column" style={{ gap: 12 }}>
           <TextField label="Remediation Name" variant="outlined" size="small" fullWidth required value={profileName} onChange={e => setProfileName(e.target.value)} placeholder="e.g., production-web-servers-stig-v2r8" helperText={!profileName ? 'Name your remediation to enable auto-save' : undefined} inputProps={{ 'aria-label': 'Remediation profile name' }} />
