@@ -25,8 +25,6 @@ import {
   Card,
   CardContent,
   Chip,
-  FormControlLabel,
-  Switch,
   makeStyles,
 } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
@@ -108,10 +106,8 @@ export const ScanLauncher = () => {
   const [selectedProfile, setSelectedProfile] = useState(preselectedProfile);
   const [selectedInventory, setSelectedInventory] = useState(preselectedInventory);
   const [limit, setLimit] = useState('');
-  const [evaluateOnly, setEvaluateOnly] = useState(true);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [platformWarning, setPlatformWarning] = useState<PlatformValidationResult | null>(null);
 
   // Backend-fetched data — start empty, no hardcoded fallback
@@ -170,7 +166,6 @@ export const ScanLauncher = () => {
       const scanRequest: Parameters<typeof api.launchScan>[0] = {
         profileId: selectedProfile,
         inventoryId: inventory?.id ?? 0,
-        evaluateOnly,
         scanType: scanTypeParam || 'assessment',
         limit: limit || undefined,
         workflowTemplateId: profile?.workflowTemplateId ?? undefined,
@@ -289,60 +284,6 @@ export const ScanLauncher = () => {
               helperText="Restrict scan to specific hosts or groups within the inventory"
             />
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={evaluateOnly}
-                  onChange={e => {
-                    if (!e.target.checked) {
-                      setConfirmDialogOpen(true);
-                    } else {
-                      setEvaluateOnly(true);
-                    }
-                  }}
-                  color="primary"
-                />
-              }
-              label={
-                <div>
-                  <Typography variant="body1">Evaluate only (recommended)</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    Scan and report findings without making changes. Uncheck to scan and
-                    auto-remediate all findings.
-                  </Typography>
-                </div>
-              }
-            />
-
-            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-              <DialogTitle>Enable Auto-Remediation?</DialogTitle>
-              <DialogContent>
-                <Typography variant="body1" paragraph>
-                  Disabling &quot;Evaluate only&quot; will automatically apply ALL remediation
-                  rules to the target hosts. This can break running services and
-                  production workloads.
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  For most use cases, we recommend scanning first (evaluate only),
-                  then building a remediation to selectively choose which rules
-                  to apply.
-                </Typography>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setConfirmDialogOpen(false)} color="primary">
-                  Keep Evaluate Only
-                </Button>
-                <Button
-                  onClick={() => {
-                    setEvaluateOnly(false);
-                    setConfirmDialogOpen(false);
-                  }}
-                  color="secondary"
-                >
-                  Enable Auto-Remediation
-                </Button>
-              </DialogActions>
-            </Dialog>
           </div>
         );
 
@@ -377,16 +318,6 @@ export const ScanLauncher = () => {
                 <Typography variant="body1">
                   {inventory?.name} ({inventory?.hostCount} hosts)
                 </Typography>
-              </div>
-              <div className={classes.reviewItem}>
-                <Typography variant="body2" color="textSecondary">
-                  Mode
-                </Typography>
-                <Chip
-                  label={evaluateOnly ? 'Evaluate Only' : 'Evaluate & Remediate'}
-                  color={evaluateOnly ? 'primary' : 'secondary'}
-                  size="small"
-                />
               </div>
             </InfoCard>
 

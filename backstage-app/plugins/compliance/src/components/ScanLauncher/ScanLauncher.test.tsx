@@ -94,7 +94,6 @@ describe('ScanLauncher', () => {
     await waitFor(() => {
       expect(screen.getByText('Select target hosts to scan')).toBeInTheDocument();
     });
-    expect(screen.getByText('Evaluate only (recommended)')).toBeInTheDocument();
   });
 
   it('calls getRegisteredProfiles, getProfiles, and getInventories on mount', async () => {

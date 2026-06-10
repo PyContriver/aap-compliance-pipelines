@@ -344,7 +344,7 @@ describe('ComplianceService', () => {
       const response = await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-        evaluateOnly: true,
+
       });
 
       expect(response).toHaveProperty('scanId');
@@ -402,7 +402,7 @@ describe('ComplianceService', () => {
       await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-        evaluateOnly: true,
+
         workflowTemplateId: 42,
       });
 
@@ -438,7 +438,7 @@ describe('ComplianceService', () => {
       await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-        evaluateOnly: true,
+
       });
 
       expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
@@ -459,7 +459,7 @@ describe('ComplianceService', () => {
       await service.launchScan({
         profileId: 'rhel9-stig',
         inventoryId: 1,
-        evaluateOnly: true,
+
       });
 
       expect(mockDb.getProfile).toHaveBeenCalledWith('rhel9-stig');
@@ -488,7 +488,7 @@ describe('ComplianceService', () => {
         service.launchScan({
           profileId: 'nonexistent-profile',
           inventoryId: 1,
-          evaluateOnly: true,
+  
         }),
       ).rejects.toThrow(/no compliance workflow job template found/i);
     });

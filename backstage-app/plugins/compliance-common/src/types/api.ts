@@ -28,7 +28,7 @@ export interface ScanCertification {
 export interface LaunchScanRequest {
   profileId: string;
   inventoryId: number;
-  evaluateOnly: boolean;
+  evaluateOnly?: boolean;
   scanType?: 'assessment' | 'verification';
   limit?: string;
   workflowTemplateId?: number;

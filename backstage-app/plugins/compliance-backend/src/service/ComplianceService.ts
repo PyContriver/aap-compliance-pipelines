@@ -246,7 +246,6 @@ export class ComplianceService {
     const backstageUrl = this.config?.getOptionalString('backend.baseUrl') || '';
     const extraVars: Record<string, unknown> = {
       compliance_profile: request.profileId,
-      evaluate_only: request.evaluateOnly,
       inventory_id: request.inventoryId,
       backstage_api_url: backstageUrl,
       scan_id: scanId || '',

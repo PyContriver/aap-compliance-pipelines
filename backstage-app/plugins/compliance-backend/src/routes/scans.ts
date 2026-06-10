@@ -316,7 +316,6 @@ export function registerScanRoutes(
     const scanRequest: LaunchScanRequest = {
       profileId: body.profileId,
       inventoryId: body.inventoryId,
-      evaluateOnly: body.evaluateOnly ?? true,
       limit: body.limit,
       workflowTemplateId: body.workflowTemplateId ?? undefined,
       gatherFacts: body.gatherFacts ?? false,

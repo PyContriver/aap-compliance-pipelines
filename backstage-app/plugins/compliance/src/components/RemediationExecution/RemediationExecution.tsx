@@ -614,7 +614,6 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
       const result = await api.launchScan({
         profileId: complianceProfileIdRef.current,
         inventoryId: inventoryIdRef.current,
-        evaluateOnly: true,
         scanType: 'verification',
         workflowTemplateId: profile?.workflowTemplateId ?? undefined,
       });
