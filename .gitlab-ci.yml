@@ -244,7 +244,8 @@ deploy-netrunner:
       PYEOF"
 
     # Ensure frontend route wildcard for sub-routes
-    - $SSH "sudo sed -i 's|path: /compliance\$|path: /compliance/*|' $OVERRIDE_YAML"
+    - |
+      $SSH "sudo sed -i 's|path: /compliance\$|path: /compliance/*|' $OVERRIDE_YAML"
 
     # Restart Portal
     - $SSH "sudo systemctl restart portal.service"
