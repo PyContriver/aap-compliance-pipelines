@@ -123,9 +123,9 @@ type ExecutionPhase = 'launching' | 'preparing' | 'running' | 'verifying' | 'com
 
 const PHASES = ['Preparing', 'Remediating', 'Verifying', 'Complete'];
 
-type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 
-interface RemediationTask {
+export interface RemediationTask {
   name: string;
   stigId: string;
   /** The rule ID this task belongs to (e.g. 'sshd_set_idle_timeout'). Empty if unmatched. */
@@ -135,7 +135,7 @@ interface RemediationTask {
 }
 
 /** A group of tasks under a single compliance rule. */
-interface RuleGroup {
+export interface RuleGroup {
   ruleId: string;
   stigId: string;
   title: string;
@@ -149,7 +149,7 @@ const TERMINAL_STATUSES = ['successful', 'failed', 'error', 'canceled'];
  * Compute overall progress percentage from workflow nodes.
  * Each node contributes equally to the total.
  */
-function computeProgress(nodes: Array<{ status: string }>): number {
+export function computeProgress(nodes: Array<{ status: string }>): number {
   if (nodes.length === 0) return 0;
   let pct = 0;
   const step = 100 / nodes.length;
@@ -169,7 +169,7 @@ function computeProgress(nodes: Array<{ status: string }>): number {
  * by checking for Ansible role names, task tags in event data, and
  * falling back to substring matching against known rule IDs.
  */
-function extractTasksFromEvents(
+export function extractTasksFromEvents(
   events: JobEvent[],
   knownRuleIds: string[],
 ): RemediationTask[] {
@@ -256,7 +256,7 @@ function extractTasksFromEvents(
  * all tasks between anchors to the same rule. Tasks before the first
  * anchor are pre-requisites (Gathering Facts, etc.).
  */
-function groupTasksByRule(
+export function groupTasksByRule(
   tasks: RemediationTask[],
   selections: RemediationSelection[],
   findingsMap: Map<string, MultiHostFinding>,
@@ -444,7 +444,7 @@ function groupTasksByRule(
 }
 
 /** Compute per-rule progress as percentage of completed/failed tasks. */
-function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false, jobFailed: boolean = false): number {
+export function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false, jobFailed: boolean = false): number {
   if (group.tasks.length === 0) return (jobComplete && !jobFailed) ? 100 : 0;
   const done = group.tasks.filter(
     t => t.status === 'completed' || t.status === 'failed',
@@ -453,7 +453,7 @@ function computeRuleProgress(group: RuleGroup, jobComplete: boolean = false, job
 }
 
 /** Compute overall status for a rule group. */
-function computeRuleStatus(group: RuleGroup, jobComplete: boolean, jobFailed: boolean = false): TaskStatus {
+export function computeRuleStatus(group: RuleGroup, jobComplete: boolean, jobFailed: boolean = false): TaskStatus {
   if (group.tasks.length === 0) {
     if (!jobComplete) return 'pending';
     return jobFailed ? 'failed' : 'completed';
