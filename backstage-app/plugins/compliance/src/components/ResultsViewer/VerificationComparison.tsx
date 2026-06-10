@@ -73,6 +73,8 @@ interface VerificationComparisonProps {
   onAfterScanClick?: () => void;
   beforeBaselineRate?: number;
   afterBaselineRate?: number;
+  beforeStandardRate?: number;
+  afterStandardRate?: number;
   isBaselineView?: boolean;
   activeComparison?: string;
   onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
@@ -91,6 +93,8 @@ export const VerificationComparison = ({
   onAfterScanClick,
   beforeBaselineRate,
   afterBaselineRate,
+  beforeStandardRate,
+  afterStandardRate,
   isBaselineView,
   activeComparison,
   onStatClick,
@@ -113,8 +117,8 @@ export const VerificationComparison = ({
             </Typography>
           )}
           {beforeBaselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: beforeBaselineRate >= 90 ? '#3E8635' : beforeBaselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>
-              {isBaselineView ? `Standard: ${previousPassRate}%` : `Baseline: ${beforeBaselineRate}%`}
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: (isBaselineView ? (beforeStandardRate ?? previousPassRate) : beforeBaselineRate) >= 90 ? '#3E8635' : (isBaselineView ? (beforeStandardRate ?? previousPassRate) : beforeBaselineRate) >= 70 ? '#F0AB00' : '#C9190B' }}>
+              {isBaselineView ? `Standard: ${beforeStandardRate ?? previousPassRate}%` : `Baseline: ${beforeBaselineRate}%`}
             </Typography>
           )}
         </div>
@@ -134,8 +138,8 @@ export const VerificationComparison = ({
             </Typography>
           )}
           {afterBaselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: afterBaselineRate >= 90 ? '#3E8635' : afterBaselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>
-              {isBaselineView ? `Standard: ${overallPassRate}%` : `Baseline: ${afterBaselineRate}%`}
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: (isBaselineView ? (afterStandardRate ?? overallPassRate) : afterBaselineRate) >= 90 ? '#3E8635' : (isBaselineView ? (afterStandardRate ?? overallPassRate) : afterBaselineRate) >= 70 ? '#F0AB00' : '#C9190B' }}>
+              {isBaselineView ? `Standard: ${afterStandardRate ?? overallPassRate}%` : `Baseline: ${afterBaselineRate}%`}
             </Typography>
           )}
         </div>

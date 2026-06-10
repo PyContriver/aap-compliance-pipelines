@@ -177,6 +177,14 @@ export const ResultsViewer = () => {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const compareToScanId = searchParams.get('compareTo');
 
+  useEffect(() => {
+    setFindingsExpanded(true);
+    setFindings([]);
+    setPreviousFindings([]);
+    setLoading(true);
+    setError(null);
+  }, [jobId]);
+
   // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
   const [naCount, setNaCount] = useState<number | null>(null);
   const [naRules, setNaRules] = useState<Array<{ ruleId: string; ruleTitle: string; severity: string }> | null>(null);
@@ -396,6 +404,13 @@ export const ResultsViewer = () => {
     ? Math.round((displayFindings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
     : 0;
 
+  const standardPassRate = useMemo(() => {
+    const allChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);
+    return allChecks > 0
+      ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / allChecks) * 1000) / 10
+      : 0;
+  }, [findings]);
+
   const baselinePassRate = useMemo(() => {
     if (baseline.baselineRuleIds.size === 0) return undefined;
     const blFindings = findings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
@@ -404,6 +419,14 @@ export const ResultsViewer = () => {
       ? Math.round((blFindings.reduce((sum, f) => sum + f.passCount, 0) / blChecks) * 1000) / 10
       : 0;
   }, [findings, baseline.baselineRuleIds]);
+
+  const previousStandardPassRate = useMemo(() => {
+    if (previousFindings.length === 0) return 0;
+    const allChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
+    return allChecks > 0
+      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / allChecks) * 1000) / 10
+      : 0;
+  }, [previousFindings]);
 
   const previousBaselinePassRate = useMemo(() => {
     if (baseline.baselineRuleIds.size === 0 || previousFindings.length === 0) return undefined;
@@ -682,6 +705,8 @@ export const ResultsViewer = () => {
           } : undefined}
           beforeBaselineRate={compareSwapped ? baselinePassRate : previousBaselinePassRate}
           afterBaselineRate={compareSwapped ? previousBaselinePassRate : baselinePassRate}
+          beforeStandardRate={compareSwapped ? standardPassRate : previousStandardPassRate}
+          afterStandardRate={compareSwapped ? previousStandardPassRate : standardPassRate}
           isBaselineView={baselineFilterActive}
           activeComparison={filters.comparison}
           onStatClick={stat => updateFilter('comparison', stat)}
@@ -693,6 +718,7 @@ export const ResultsViewer = () => {
           totalRules={totalRules}
           rulesWithFailures={rulesWithFailures}
           baselineRate={baselinePassRate}
+          standardRate={standardPassRate}
           isBaselineView={baselineFilterActive}
         />
       )}
