@@ -140,6 +140,7 @@ export interface PostureSnapshot {
 /** A scan that contributes to a profile's posture score. */
 export interface ContributingScan {
   scanId: string;
+  workflowJobId?: number;
   inventoryId: number;
   inventoryName: string;
   passRate: number;
@@ -296,6 +297,7 @@ export interface SaveRemediationProfileRequest {
 /** Recent scan entry for dashboard display. */
 export interface RecentScan {
   id: string;
+  workflowJobId?: number;
   profileName: string;
   inventoryName: string;
   passRate: number;

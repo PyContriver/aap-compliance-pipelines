@@ -567,7 +567,7 @@ export const ComplianceDashboard = () => {
                 const fw = stats.frameworkScores.find(f => f.profileId === profileId);
                 const scan = fw?.contributingScans.find(s => s.inventoryId === inventoryId);
                 if (scan) {
-                  navigate(`results/${scan.scanId}`);
+                  navigate(`results/${scan.workflowJobId ?? scan.scanId}`);
                 }
               }}
             />
@@ -773,21 +773,15 @@ export const ComplianceDashboard = () => {
                     className={classes.scanRow}
                     style={{ cursor: 'pointer' }}
                     onClick={() => {
-                      if (isRemediation) {
-                        navigate(`remediation-result/${scan.id}`);
-                      } else {
-                        navigate(`results/${scan.id}`);
-                      }
+                      const navId = scan.workflowJobId ?? scan.id;
+                      navigate(isRemediation ? `remediation-result/${navId}` : `results/${navId}`);
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
-                        if (isRemediation) {
-                          navigate(`remediation-result/${scan.id}`);
-                        } else {
-                          navigate(`results/${scan.id}`);
-                        }
+                        const navId = scan.workflowJobId ?? scan.id;
+                        navigate(isRemediation ? `remediation-result/${navId}` : `results/${navId}`);
                       }
                     }}
                   >

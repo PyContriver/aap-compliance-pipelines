@@ -12,6 +12,7 @@ export interface ScanMetadata {
   scanInventoryName: string;
   scanStartedAt: string;
   resolvedScanId: string | null;
+  resolvedWorkflowJobId: number | null;
 }
 
 export function useScanMetadata(
@@ -27,6 +28,7 @@ export function useScanMetadata(
   const [scanInventoryName, setScanInventoryName] = useState('');
   const [scanStartedAt, setScanStartedAt] = useState('');
   const [resolvedScanId, setResolvedScanId] = useState<string | null>(null);
+  const [resolvedWorkflowJobId, setResolvedWorkflowJobId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!jobId) return;
@@ -41,6 +43,7 @@ export function useScanMetadata(
       }
       if (match) {
         setResolvedScanId(match.id);
+        setResolvedWorkflowJobId(match.workflowJobId ?? null);
         setScanComplianceProfileId(match.profileId);
         setScanInventoryId(match.inventoryId);
         setScanStartedAt(match.startedAt);
@@ -77,5 +80,6 @@ export function useScanMetadata(
     scanInventoryName,
     scanStartedAt,
     resolvedScanId,
+    resolvedWorkflowJobId,
   };
 }
