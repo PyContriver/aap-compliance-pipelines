@@ -405,6 +405,15 @@ export const ResultsViewer = () => {
       : 0;
   }, [findings, baseline.baselineRuleIds]);
 
+  const previousBaselinePassRate = useMemo(() => {
+    if (baseline.baselineRuleIds.size === 0 || previousFindings.length === 0) return undefined;
+    const blFindings = previousFindings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
+    const blChecks = blFindings.reduce((sum, f) => sum + f.totalCount, 0);
+    return blChecks > 0
+      ? Math.round((blFindings.reduce((sum, f) => sum + f.passCount, 0) / blChecks) * 1000) / 10
+      : 0;
+  }, [previousFindings, baseline.baselineRuleIds]);
+
   const isVerification = meta.scanType === 'verification';
   const isComparison = !!compareToScanId || isVerification;
   const displayPreviousFindings = useMemo(() => {
@@ -656,12 +665,12 @@ export const ResultsViewer = () => {
           beforeScanLabel={(() => {
             if (!compareToScanId) return undefined;
             const id = compareSwapped ? (meta.resolvedWorkflowJobId ?? jobId) : (compareWorkflowJobId ?? compareToScanId);
-            return `Run #${id}`;
+            return `Scan #${id}`;
           })()}
           afterScanLabel={(() => {
             if (!compareToScanId) return undefined;
             const id = compareSwapped ? (compareWorkflowJobId ?? compareToScanId) : (meta.resolvedWorkflowJobId ?? jobId);
-            return `Run #${id}`;
+            return `Scan #${id}`;
           })()}
           onBeforeScanClick={compareToScanId ? () => {
             const id = compareSwapped ? (meta.resolvedWorkflowJobId ?? jobId) : (compareWorkflowJobId ?? compareToScanId);
@@ -671,7 +680,9 @@ export const ResultsViewer = () => {
             const id = compareSwapped ? (compareWorkflowJobId ?? compareToScanId) : (meta.resolvedWorkflowJobId ?? jobId);
             navigate(`/compliance/results/${id}`);
           } : undefined}
-          baselineRate={baselinePassRate}
+          beforeBaselineRate={compareSwapped ? baselinePassRate : previousBaselinePassRate}
+          afterBaselineRate={compareSwapped ? previousBaselinePassRate : baselinePassRate}
+          isBaselineView={baselineFilterActive}
           activeComparison={filters.comparison}
           onStatClick={stat => updateFilter('comparison', stat)}
         />
