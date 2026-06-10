@@ -187,13 +187,17 @@ deploy-netrunner:
       echo "Tarballs found:"
       ls -lh deploy-artifacts/
       for tgz in deploy-artifacts/backend.tgz deploy-artifacts/frontend.tgz; do
-        FIRST_ENTRY=$(tar tzf "$tgz" | head -1)
-        if [[ "$FIRST_ENTRY" != package/* ]]; then
-          echo "ERROR: $tgz is not a valid npm-pack tarball."
-          echo "  First entry: '$FIRST_ENTRY' (must start with 'package/')"
-          echo "  Use ./scripts/deploy-netrunner.sh to rebuild, or 'npm pack' in dist-dynamic/."
-          exit 1
-        fi
+        FIRST_ENTRY=$(tar tzf "$tgz" 2>/dev/null | head -1 || true)
+        case "$FIRST_ENTRY" in
+          package/*)
+            ;;
+          *)
+            echo "ERROR: $tgz is not a valid npm-pack tarball."
+            echo "  First entry: '$FIRST_ENTRY' (must start with 'package/')"
+            echo "  Use ./scripts/deploy-netrunner.sh to rebuild, or 'npm pack' in dist-dynamic/."
+            exit 1
+            ;;
+        esac
         SIZE_MB=$(du -m "$tgz" | cut -f1)
         if [ "$SIZE_MB" -gt 50 ]; then
           echo "ERROR: $tgz is ${SIZE_MB}MB — too large (>50MB). Check for accumulated old tarballs."
