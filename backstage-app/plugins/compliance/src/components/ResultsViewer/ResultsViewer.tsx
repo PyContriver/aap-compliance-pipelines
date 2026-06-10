@@ -388,15 +388,29 @@ export const ResultsViewer = () => {
     ? Math.round((displayFindings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
     : 0;
 
+  const baselinePassRate = useMemo(() => {
+    if (baseline.baselineRuleIds.size === 0) return undefined;
+    const blFindings = findings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
+    const blChecks = blFindings.reduce((sum, f) => sum + f.totalCount, 0);
+    return blChecks > 0
+      ? Math.round((blFindings.reduce((sum, f) => sum + f.passCount, 0) / blChecks) * 1000) / 10
+      : 0;
+  }, [findings, baseline.baselineRuleIds]);
+
   const isVerification = meta.scanType === 'verification';
   const isComparison = !!compareToScanId || isVerification;
+  const displayPreviousFindings = useMemo(() => {
+    if (!baselineFilterActive || baseline.baselineRuleIds.size === 0) return previousFindings;
+    return previousFindings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
+  }, [previousFindings, baselineFilterActive, baseline.baselineRuleIds]);
+
   const previousPassRate = useMemo(() => {
-    if (previousFindings.length === 0) return 0;
-    const prevTotalChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
+    if (displayPreviousFindings.length === 0) return 0;
+    const prevTotalChecks = displayPreviousFindings.reduce((sum, f) => sum + f.totalCount, 0);
     return prevTotalChecks > 0
-      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 1000) / 10
+      ? Math.round((displayPreviousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 1000) / 10
       : 0;
-  }, [previousFindings]);
+  }, [displayPreviousFindings]);
 
   const comparisonStats = useMemo(() => {
     if (!comparisonMap) return { improved: 0, regressed: 0, unchanged: 0 };
@@ -600,10 +614,15 @@ export const ResultsViewer = () => {
               ? `Baseline View (${baseline.baselineRuleIds.size} rules)`
               : 'Show Baseline Only'}
           </Button>
-          {baselineFilterActive && (
-            <Typography variant="caption" color="textSecondary">
-              Showing only rules from pinned baseline &ldquo;{baseline.baselineProfile?.name}&rdquo;
-            </Typography>
+          {baselineFilterActive && baseline.baselineProfile && (
+            <Chip
+              label={baseline.baselineProfile.name}
+              size="small"
+              variant="outlined"
+              clickable
+              onClick={() => navigate(`/compliance/remediations?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`)}
+              style={{ cursor: 'pointer' }}
+            />
           )}
         </Box>
       )}
@@ -641,6 +660,8 @@ export const ResultsViewer = () => {
           totalHosts={totalHosts}
           totalRules={totalRules}
           rulesWithFailures={rulesWithFailures}
+          baselineRate={baselinePassRate}
+          isBaselineView={baselineFilterActive}
         />
       )}
 

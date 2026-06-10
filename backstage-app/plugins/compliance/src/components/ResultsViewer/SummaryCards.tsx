@@ -29,24 +29,41 @@ interface SummaryCardsProps {
   totalHosts: number;
   totalRules: number;
   rulesWithFailures: number;
+  baselineRate?: number;
+  isBaselineView?: boolean;
 }
+
+const getColor = (rate: number) => rate >= 90 ? '#3E8635' : rate >= 70 ? '#F0AB00' : '#C9190B';
 
 export const SummaryCards = ({
   overallPassRate,
   totalHosts,
   totalRules,
   rulesWithFailures,
+  baselineRate,
+  isBaselineView,
 }: SummaryCardsProps) => {
   const classes = useStyles();
+
+  const displayRate = isBaselineView && baselineRate !== undefined ? baselineRate : overallPassRate;
 
   return (
     <div className={classes.summarySection}>
       <InfoCard>
         <div className={classes.summaryCard}>
-          <Typography className={classes.summaryValue} style={{ color: overallPassRate >= 80 ? '#3E8635' : '#C9190B' }}>
-            {overallPassRate}%
+          <Typography className={classes.summaryValue} style={{ color: getColor(displayRate) }}>
+            {displayRate}%
           </Typography>
-          <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
+          <Typography className={classes.summaryLabel}>
+            {isBaselineView ? 'Baseline Compliance' : 'Overall Compliance'}
+          </Typography>
+          {baselineRate !== undefined && !isBaselineView && (
+            <Typography variant="caption" style={{ display: 'block', marginTop: 4 }}>
+              <span style={{ fontWeight: 600, color: getColor(overallPassRate) }}>Standard: {overallPassRate}%</span>
+              {' / '}
+              <span style={{ fontWeight: 600, color: getColor(baselineRate) }}>Baseline: {baselineRate}%</span>
+            </Typography>
+          )}
         </div>
       </InfoCard>
       <InfoCard>
