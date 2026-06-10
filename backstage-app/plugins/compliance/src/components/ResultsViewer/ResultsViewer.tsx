@@ -628,7 +628,7 @@ export const ResultsViewer = () => {
               size="small"
               variant="outlined"
               clickable
-              onClick={() => navigate(`/compliance/remediations?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`)}
+              onClick={() => navigate(`/compliance/remediation-edit/${baseline.baselineProfile!.id}`)}
               style={{ cursor: 'pointer' }}
             />
           )}
@@ -671,6 +671,7 @@ export const ResultsViewer = () => {
             const id = compareSwapped ? (compareWorkflowJobId ?? compareToScanId) : (meta.resolvedWorkflowJobId ?? jobId);
             navigate(`/compliance/results/${id}`);
           } : undefined}
+          baselineRate={baselinePassRate}
           activeComparison={filters.comparison}
           onStatClick={stat => updateFilter('comparison', stat)}
         />

@@ -71,6 +71,7 @@ interface VerificationComparisonProps {
   afterScanLabel?: string;
   onBeforeScanClick?: () => void;
   onAfterScanClick?: () => void;
+  baselineRate?: number;
   activeComparison?: string;
   onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
 }
@@ -86,6 +87,7 @@ export const VerificationComparison = ({
   afterScanLabel,
   onBeforeScanClick,
   onAfterScanClick,
+  baselineRate,
   activeComparison,
   onStatClick,
 }: VerificationComparisonProps) => {
@@ -124,6 +126,13 @@ export const VerificationComparison = ({
           )}
         </div>
       </div>
+      {baselineRate !== undefined && (
+        <Typography variant="caption" style={{ display: 'block', textAlign: 'center', marginBottom: 8 }}>
+          <span style={{ fontWeight: 600, color: overallPassRate >= 90 ? '#3E8635' : overallPassRate >= 70 ? '#F0AB00' : '#C9190B' }}>Standard: {overallPassRate}%</span>
+          {' / '}
+          <span style={{ fontWeight: 600, color: baselineRate >= 90 ? '#3E8635' : baselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>Baseline: {baselineRate}%</span>
+        </Typography>
+      )}
       <div className={classes.deltaStats}>
         <div className={classes.deltaStat}>
           <Typography variant="body2" color="textSecondary">Hosts Scanned:</Typography>
