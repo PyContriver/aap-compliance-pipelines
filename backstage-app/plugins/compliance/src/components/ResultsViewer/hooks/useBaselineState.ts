@@ -11,6 +11,7 @@ export interface BaselineState {
   baselineLaunchOpen: boolean;
   setBaselineLaunchOpen: (open: boolean) => void;
   baselineProfile: RemediationProfile | null;
+  baselineRuleIds: Set<string>;
   baselineScanCheck: AuthoritativeScanResponse | null;
   baselineScanChecking: boolean;
   baselineScanMissing: boolean;
@@ -24,6 +25,7 @@ export function useBaselineState(
   const [baselineForScan, setBaselineForScan] = useState<BaselineTarget | null>(null);
   const [baselineLaunchOpen, setBaselineLaunchOpen] = useState(false);
   const [baselineProfile, setBaselineProfile] = useState<RemediationProfile | null>(null);
+  const [baselineRuleIds, setBaselineRuleIds] = useState<Set<string>>(new Set());
   const [baselineScanCheck, setBaselineScanCheck] = useState<AuthoritativeScanResponse | null>(null);
   const [baselineScanChecking, setBaselineScanChecking] = useState(false);
   const [baselineScanMissing, setBaselineScanMissing] = useState(false);
@@ -38,6 +40,24 @@ export function useBaselineState(
       })
       .catch(() => setBaselineForScan(null));
   }, [api, scanComplianceProfileId, scanInventoryId]);
+
+  // Eagerly fetch remediation profile when baseline is detected
+  useEffect(() => {
+    if (!baselineForScan) {
+      setBaselineRuleIds(new Set());
+      return;
+    }
+    api.getRemediationProfile(baselineForScan.remediationProfileId)
+      .then(profile => {
+        if (profile) {
+          setBaselineProfile(profile);
+          setBaselineRuleIds(
+            new Set(profile.selections.filter(s => s.enabled).map(s => s.ruleId)),
+          );
+        }
+      })
+      .catch(() => {});
+  }, [api, baselineForScan]);
 
   // Fetch baseline profile and authoritative scan when launch dialog opens
   useEffect(() => {
@@ -73,6 +93,7 @@ export function useBaselineState(
     baselineLaunchOpen,
     setBaselineLaunchOpen,
     baselineProfile,
+    baselineRuleIds,
     baselineScanCheck,
     baselineScanChecking,
     baselineScanMissing,

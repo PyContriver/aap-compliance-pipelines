@@ -156,7 +156,14 @@ export const ResultsViewer = () => {
     return map;
   }, [findings, previousFindings]);
 
-  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(findings, comparisonMap);
+  const [baselineFilterActive, setBaselineFilterActive] = useState(false);
+
+  const displayFindings = useMemo(() => {
+    if (!baselineFilterActive || baseline.baselineRuleIds.size === 0) return findings;
+    return findings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
+  }, [findings, baselineFilterActive, baseline.baselineRuleIds]);
+
+  const { filtered, filters, updateFilter, activeFilterCount, clearAll } = useFindingsFilter(displayFindings, comparisonMap);
 
   // ─── Local state ─────────────────────────────────────────────────
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
@@ -371,14 +378,14 @@ export const ResultsViewer = () => {
 
   const totalHosts = useMemo(() => {
     const hostSet = new Set<string>();
-    findings.forEach(f => f.hosts.forEach(h => hostSet.add(h.host)));
+    displayFindings.forEach(f => f.hosts.forEach(h => hostSet.add(h.host)));
     return hostSet.size;
-  }, [findings]);
-  const rulesWithFailures = findings.filter(f => f.failCount > 0).length;
-  const totalRules = findings.length;
-  const totalChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);
+  }, [displayFindings]);
+  const rulesWithFailures = displayFindings.filter(f => f.failCount > 0).length;
+  const totalRules = displayFindings.length;
+  const totalChecks = displayFindings.reduce((sum, f) => sum + f.totalCount, 0);
   const overallPassRate = totalChecks > 0
-    ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
+    ? Math.round((displayFindings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
     : 0;
 
   const isVerification = meta.scanType === 'verification';
@@ -576,6 +583,26 @@ export const ResultsViewer = () => {
           {meta.scanStartedAt && (
             <Typography variant="caption" color="textSecondary">
               {new Date(meta.scanStartedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </Typography>
+          )}
+        </Box>
+      )}
+
+      {baseline.baselineForScan && baseline.baselineRuleIds.size > 0 && (
+        <Box mb={1} display="flex" alignItems="center" style={{ gap: 8 }}>
+          <Button
+            variant={baselineFilterActive ? 'contained' : 'outlined'}
+            color={baselineFilterActive ? 'primary' : 'default'}
+            size="small"
+            onClick={() => setBaselineFilterActive(prev => !prev)}
+          >
+            {baselineFilterActive
+              ? `Baseline View (${baseline.baselineRuleIds.size} rules)`
+              : 'Show Baseline Only'}
+          </Button>
+          {baselineFilterActive && (
+            <Typography variant="caption" color="textSecondary">
+              Showing only rules from pinned baseline &ldquo;{baseline.baselineProfile?.name}&rdquo;
             </Typography>
           )}
         </Box>
