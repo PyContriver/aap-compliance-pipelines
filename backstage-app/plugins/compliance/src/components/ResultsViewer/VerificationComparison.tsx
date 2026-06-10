@@ -67,6 +67,8 @@ interface VerificationComparisonProps {
   totalRules: number;
   comparisonStats: { improved: number; regressed: number; unchanged: number };
   title?: string;
+  beforeScanLabel?: string;
+  afterScanLabel?: string;
   activeComparison?: string;
   onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
 }
@@ -78,6 +80,8 @@ export const VerificationComparison = ({
   totalRules,
   comparisonStats,
   title,
+  beforeScanLabel,
+  afterScanLabel,
   activeComparison,
   onStatClick,
 }: VerificationComparisonProps) => {
@@ -87,13 +91,13 @@ export const VerificationComparison = ({
     <InfoCard title={title || 'Verification Results'}>
       <div className={classes.comparisonHeader}>
         <div className={classes.comparisonGauge}>
-          <ComplianceGauge value={previousPassRate} label="Before" />
+          <ComplianceGauge value={previousPassRate} label="Before" subtitle={beforeScanLabel} />
         </div>
         <div className={classes.comparisonArrow}>
           <ArrowForwardIcon fontSize="large" />
         </div>
         <div className={classes.comparisonGauge}>
-          <ComplianceGauge value={overallPassRate} label="After" />
+          <ComplianceGauge value={overallPassRate} label="After" subtitle={afterScanLabel} />
         </div>
       </div>
       <div className={classes.deltaStats}>

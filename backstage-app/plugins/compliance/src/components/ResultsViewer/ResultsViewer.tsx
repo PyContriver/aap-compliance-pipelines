@@ -599,6 +599,12 @@ export const ResultsViewer = () => {
           comparisonStats={compareSwapped
             ? { improved: comparisonStats.regressed, regressed: comparisonStats.improved, unchanged: comparisonStats.unchanged }
             : comparisonStats}
+          beforeScanLabel={compareToScanId
+            ? (compareSwapped ? `Scan ${/^\d+$/.test(jobId ?? '') ? `#${jobId}` : (jobId ?? '').substring(0, 8)}` : `Scan ${/^\d+$/.test(compareToScanId) ? `#${compareToScanId}` : compareToScanId.substring(0, 8)}`)
+            : undefined}
+          afterScanLabel={compareToScanId
+            ? (compareSwapped ? `Scan ${/^\d+$/.test(compareToScanId) ? `#${compareToScanId}` : compareToScanId.substring(0, 8)}` : `Scan ${/^\d+$/.test(jobId ?? '') ? `#${jobId}` : (jobId ?? '').substring(0, 8)}`)
+            : undefined}
           activeComparison={filters.comparison}
           onStatClick={stat => updateFilter('comparison', stat)}
         />
