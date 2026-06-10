@@ -30,6 +30,7 @@ interface SummaryCardsProps {
   totalRules: number;
   rulesWithFailures: number;
   baselineRate?: number;
+  standardRate?: number;
   isBaselineView?: boolean;
 }
 
@@ -41,6 +42,7 @@ export const SummaryCards = ({
   totalRules,
   rulesWithFailures,
   baselineRate,
+  standardRate,
   isBaselineView,
 }: SummaryCardsProps) => {
   const classes = useStyles();
@@ -58,8 +60,8 @@ export const SummaryCards = ({
             {isBaselineView ? 'Baseline Compliance' : 'Overall Compliance'}
           </Typography>
           {baselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: getColor(isBaselineView ? overallPassRate : baselineRate) }}>
-              {isBaselineView ? `Standard: ${overallPassRate}%` : `Baseline: ${baselineRate}%`}
+            <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: getColor(isBaselineView ? (standardRate ?? overallPassRate) : baselineRate!) }}>
+              {isBaselineView ? `Standard: ${standardRate ?? overallPassRate}%` : `Baseline: ${baselineRate}%`}
             </Typography>
           )}
         </div>
