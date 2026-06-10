@@ -155,6 +155,7 @@ export class DashboardAggregator {
           const cTotal = c.pass + c.fail;
           return {
             scanId: c.scan.id,
+            workflowJobId: c.scan.workflowJobId ?? undefined,
             inventoryId: c.scan.inventoryId,
             inventoryName: inventoryNameMap.get(c.scan.inventoryId) || `Inventory ${c.scan.inventoryId}`,
             passRate: cTotal > 0 ? Math.round((c.pass / cTotal) * 1000) / 10 : 0,
@@ -292,6 +293,7 @@ export class DashboardAggregator {
         }
         return {
           id: scan.id,
+          workflowJobId: scan.workflowJobId ?? undefined,
           profileName: profileNameMap.get(scan.profileId) || scan.profileId,
           inventoryName: inventoryNameMap.get(scan.inventoryId) || `Inventory ${scan.inventoryId}`,
           passRate,

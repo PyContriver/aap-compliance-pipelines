@@ -172,6 +172,7 @@ export const ResultsViewer = () => {
   const [findingsExpanded, setFindingsExpanded] = useState(true);
   const [compareProfileMismatch, setCompareProfileMismatch] = useState(false);
   const [compareSwapped, setCompareSwapped] = useState(false);
+  const [compareWorkflowJobId, setCompareWorkflowJobId] = useState<number | null>(null);
   const [overflowAnchor, setOverflowAnchor] = useState<null | HTMLElement>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const compareToScanId = searchParams.get('compareTo');
@@ -278,6 +279,7 @@ export const ResultsViewer = () => {
     if (compareToScanId) {
       setCompareProfileMismatch(false);
       setCompareSwapped(false);
+      setCompareWorkflowJobId(null);
       Promise.all([
         api.getFindings(compareToScanId),
         api.getScans().then(scans =>
@@ -290,6 +292,9 @@ export const ResultsViewer = () => {
         }
         if (compareScan && meta.scanStartedAt && new Date(compareScan.startedAt) > new Date(meta.scanStartedAt)) {
           setCompareSwapped(true);
+        }
+        if (compareScan?.workflowJobId) {
+          setCompareWorkflowJobId(compareScan.workflowJobId);
         }
         setPreviousFindings(data);
         if (data.length > 0) setFindingsExpanded(false);
@@ -329,12 +334,15 @@ export const ResultsViewer = () => {
           } else if (jobId) {
             api.getScan(jobId).then(scan => {
               if (cancelled) return;
-              if (scan?.status === 'failed' || scan?.status === 'cancelled') {
+              if (!scan) {
+                setScanFailed('Scan not found. It may have been deleted or the ID is invalid.');
+                setLoading(false);
+              } else if (scan.status === 'failed' || scan.status === 'cancelled') {
                 setScanFailed(scan.errorDetails || scan.status);
                 setLoading(false);
-              } else if (scan?.status === 'completed') {
+              } else if (scan.status === 'completed') {
                 setLoading(false);
-              } else if (scan?.status === 'pending' || scan?.status === 'running') {
+              } else if (scan.status === 'pending' || scan.status === 'running') {
                 if (scan.workflowJobId && !isWorkflowPoll) {
                   setPendingScanWorkflowJobId(scan.workflowJobId);
                 } else if (retries < maxRetries) {
@@ -645,12 +653,24 @@ export const ResultsViewer = () => {
           comparisonStats={compareSwapped
             ? { improved: comparisonStats.regressed, regressed: comparisonStats.improved, unchanged: comparisonStats.unchanged }
             : comparisonStats}
-          beforeScanLabel={compareToScanId
-            ? (compareSwapped ? `Scan ${/^\d+$/.test(jobId ?? '') ? `#${jobId}` : (jobId ?? '').substring(0, 8)}` : `Scan ${/^\d+$/.test(compareToScanId) ? `#${compareToScanId}` : compareToScanId.substring(0, 8)}`)
-            : undefined}
-          afterScanLabel={compareToScanId
-            ? (compareSwapped ? `Scan ${/^\d+$/.test(compareToScanId) ? `#${compareToScanId}` : compareToScanId.substring(0, 8)}` : `Scan ${/^\d+$/.test(jobId ?? '') ? `#${jobId}` : (jobId ?? '').substring(0, 8)}`)
-            : undefined}
+          beforeScanLabel={(() => {
+            if (!compareToScanId) return undefined;
+            const id = compareSwapped ? (meta.resolvedWorkflowJobId ?? jobId) : (compareWorkflowJobId ?? compareToScanId);
+            return `Run #${id}`;
+          })()}
+          afterScanLabel={(() => {
+            if (!compareToScanId) return undefined;
+            const id = compareSwapped ? (compareWorkflowJobId ?? compareToScanId) : (meta.resolvedWorkflowJobId ?? jobId);
+            return `Run #${id}`;
+          })()}
+          onBeforeScanClick={compareToScanId ? () => {
+            const id = compareSwapped ? (meta.resolvedWorkflowJobId ?? jobId) : (compareWorkflowJobId ?? compareToScanId);
+            navigate(`/compliance/results/${id}`);
+          } : undefined}
+          onAfterScanClick={compareToScanId ? () => {
+            const id = compareSwapped ? (compareWorkflowJobId ?? compareToScanId) : (meta.resolvedWorkflowJobId ?? jobId);
+            navigate(`/compliance/results/${id}`);
+          } : undefined}
           activeComparison={filters.comparison}
           onStatClick={stat => updateFilter('comparison', stat)}
         />

@@ -69,6 +69,8 @@ interface VerificationComparisonProps {
   title?: string;
   beforeScanLabel?: string;
   afterScanLabel?: string;
+  onBeforeScanClick?: () => void;
+  onAfterScanClick?: () => void;
   activeComparison?: string;
   onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
 }
@@ -82,6 +84,8 @@ export const VerificationComparison = ({
   title,
   beforeScanLabel,
   afterScanLabel,
+  onBeforeScanClick,
+  onAfterScanClick,
   activeComparison,
   onStatClick,
 }: VerificationComparisonProps) => {
@@ -91,13 +95,33 @@ export const VerificationComparison = ({
     <InfoCard title={title || 'Verification Results'}>
       <div className={classes.comparisonHeader}>
         <div className={classes.comparisonGauge}>
-          <ComplianceGauge value={previousPassRate} label="Before" subtitle={beforeScanLabel} />
+          <ComplianceGauge value={previousPassRate} label="Before" />
+          {beforeScanLabel && (
+            <Typography
+              variant="caption"
+              color={onBeforeScanClick ? 'primary' : 'textSecondary'}
+              style={onBeforeScanClick ? { cursor: 'pointer', textDecoration: 'underline' } : undefined}
+              onClick={onBeforeScanClick}
+            >
+              {beforeScanLabel}
+            </Typography>
+          )}
         </div>
         <div className={classes.comparisonArrow}>
           <ArrowForwardIcon fontSize="large" />
         </div>
         <div className={classes.comparisonGauge}>
-          <ComplianceGauge value={overallPassRate} label="After" subtitle={afterScanLabel} />
+          <ComplianceGauge value={overallPassRate} label="After" />
+          {afterScanLabel && (
+            <Typography
+              variant="caption"
+              color={onAfterScanClick ? 'primary' : 'textSecondary'}
+              style={onAfterScanClick ? { cursor: 'pointer', textDecoration: 'underline' } : undefined}
+              onClick={onAfterScanClick}
+            >
+              {afterScanLabel}
+            </Typography>
+          )}
         </div>
       </div>
       <div className={classes.deltaStats}>

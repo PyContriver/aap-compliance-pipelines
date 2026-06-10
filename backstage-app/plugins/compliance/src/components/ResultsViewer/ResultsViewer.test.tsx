@@ -87,19 +87,26 @@ describe('ResultsViewer', () => {
     });
   });
 
-  it('shows empty state when there are no findings', async () => {
-    jest.useFakeTimers();
+  it('shows empty state when scan completed with no findings', async () => {
     mockApi.getFindings.mockResolvedValue([]);
+    mockApi.getScan.mockResolvedValue({
+      id: 'scan-1', profileId: 'rhel9-stig', inventoryId: 1,
+      scanner: 'oscap', scanType: 'assessment', workflowJobId: 42,
+      status: 'completed', startedAt: '2026-01-01', completedAt: '2026-01-01', errorDetails: null,
+    });
     await renderResults();
-    // Advance past the polling retries
-    for (let i = 0; i < 31; i++) {
-      jest.advanceTimersByTime(10_000);
-      await Promise.resolve();
-    }
     await waitFor(() => {
       expect(screen.getByText('No scan results yet')).toBeInTheDocument();
     });
-    jest.useRealTimers();
+  });
+
+  it('shows scan not found when scan ID is invalid', async () => {
+    mockApi.getFindings.mockResolvedValue([]);
+    mockApi.getScan.mockResolvedValue(null);
+    await renderResults();
+    await waitFor(() => {
+      expect(screen.getByText(/Scan not found/)).toBeInTheDocument();
+    });
   });
 
   it('shows error state when API fails', async () => {
@@ -111,7 +118,6 @@ describe('ResultsViewer', () => {
   });
 
   it('shows N/A chip when getBatchScanStats returns naCount > 0', async () => {
-    // N/A stats use the resolved scan UUID ('scan-1'), not the URL param ('42')
     mockApi.getBatchScanStats.mockResolvedValue({
       'scan-1': { pass: 10, fail: 5, rules: 15, hosts: 3, naCount: 8 },
     });
