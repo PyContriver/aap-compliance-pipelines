@@ -1,7 +1,8 @@
 # ADR-014: Remediation Lifecycle Architecture
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-05-31  
+**Accepted:** 2026-06-10 (Phase 1 merged, deployed, stable for 9 days)  
 **Deciders:** Massimo Ferrari  
 
 ## Context
