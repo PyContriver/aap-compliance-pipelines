@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogTitle,
@@ -14,6 +15,7 @@ import {
   CircularProgress,
   makeStyles,
 } from '@material-ui/core';
+import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import type { RemediationProfile, BaselineTarget } from '@aap-compliance/common';
@@ -34,6 +36,14 @@ const useStyles = makeStyles(theme => ({
   ruleCount: {
     color: theme.palette.text.secondary,
     fontSize: '0.8rem',
+  },
+  emptyState: {
+    padding: theme.spacing(2),
+    backgroundColor: theme.palette.type === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    borderRadius: theme.shape.borderRadius,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: theme.spacing(1.5),
   },
 }));
 
@@ -61,6 +71,7 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
   preselectedRemediationProfileId,
 }) => {
   const classes = useStyles();
+  const navigate = useNavigate();
   const api = useApi(complianceApiRef);
   const alertApi = useApi(alertApiRef);
   const [profiles, setProfiles] = useState<RemediationProfile[]>([]);
@@ -199,10 +210,27 @@ export const PinBaselineDialog: React.FC<PinBaselineDialogProps> = ({
             <CircularProgress size={32} />
           </Box>
         ) : profiles.length === 0 ? (
-          <Typography color="textSecondary" style={{ textAlign: 'center', padding: 16 }}>
-            No saved remediation profiles found for {complianceProfileName}.
-            Create one from the Remediations tab first.
-          </Typography>
+          <Box className={classes.emptyState}>
+            <InfoOutlinedIcon color="action" style={{ marginTop: 2 }} />
+            <div>
+              <Typography variant="body2">
+                No saved remediation profiles found for <strong>{complianceProfileName}</strong>.
+              </Typography>
+              <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                Create a remediation profile first by scanning your inventory and selecting
+                rules to enforce, then come back here to pin it as your baseline.
+              </Typography>
+              <Button
+                variant="text"
+                color="primary"
+                size="small"
+                style={{ marginTop: 8, padding: '4px 8px' }}
+                onClick={() => { onClose(); navigate('/compliance/remediations'); }}
+              >
+                Go to Remediations
+              </Button>
+            </div>
+          </Box>
         ) : (
           <>
             <FormControl fullWidth variant="outlined" size="small">
