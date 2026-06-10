@@ -71,7 +71,9 @@ interface VerificationComparisonProps {
   afterScanLabel?: string;
   onBeforeScanClick?: () => void;
   onAfterScanClick?: () => void;
-  baselineRate?: number;
+  beforeBaselineRate?: number;
+  afterBaselineRate?: number;
+  isBaselineView?: boolean;
   activeComparison?: string;
   onStatClick?: (stat: 'improved' | 'regressed' | 'unchanged' | 'all') => void;
 }
@@ -87,7 +89,9 @@ export const VerificationComparison = ({
   afterScanLabel,
   onBeforeScanClick,
   onAfterScanClick,
-  baselineRate,
+  beforeBaselineRate,
+  afterBaselineRate,
+  isBaselineView,
   activeComparison,
   onStatClick,
 }: VerificationComparisonProps) => {
@@ -108,6 +112,11 @@ export const VerificationComparison = ({
               {beforeScanLabel}
             </Typography>
           )}
+          {beforeBaselineRate !== undefined && (
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: beforeBaselineRate >= 90 ? '#3E8635' : beforeBaselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>
+              {isBaselineView ? `Standard: ${previousPassRate}%` : `Baseline: ${beforeBaselineRate}%`}
+            </Typography>
+          )}
         </div>
         <div className={classes.comparisonArrow}>
           <ArrowForwardIcon fontSize="large" />
@@ -124,15 +133,13 @@ export const VerificationComparison = ({
               {afterScanLabel}
             </Typography>
           )}
+          {afterBaselineRate !== undefined && (
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: afterBaselineRate >= 90 ? '#3E8635' : afterBaselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>
+              {isBaselineView ? `Standard: ${overallPassRate}%` : `Baseline: ${afterBaselineRate}%`}
+            </Typography>
+          )}
         </div>
       </div>
-      {baselineRate !== undefined && (
-        <Typography variant="caption" style={{ display: 'block', textAlign: 'center', marginBottom: 8 }}>
-          <span style={{ fontWeight: 600, color: overallPassRate >= 90 ? '#3E8635' : overallPassRate >= 70 ? '#F0AB00' : '#C9190B' }}>Standard: {overallPassRate}%</span>
-          {' / '}
-          <span style={{ fontWeight: 600, color: baselineRate >= 90 ? '#3E8635' : baselineRate >= 70 ? '#F0AB00' : '#C9190B' }}>Baseline: {baselineRate}%</span>
-        </Typography>
-      )}
       <div className={classes.deltaStats}>
         <div className={classes.deltaStat}>
           <Typography variant="body2" color="textSecondary">Hosts Scanned:</Typography>

@@ -57,11 +57,9 @@ export const SummaryCards = ({
           <Typography className={classes.summaryLabel}>
             {isBaselineView ? 'Baseline Compliance' : 'Overall Compliance'}
           </Typography>
-          {baselineRate !== undefined && !isBaselineView && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 4 }}>
-              <span style={{ fontWeight: 600, color: getColor(overallPassRate) }}>Standard: {overallPassRate}%</span>
-              {' / '}
-              <span style={{ fontWeight: 600, color: getColor(baselineRate) }}>Baseline: {baselineRate}%</span>
+          {baselineRate !== undefined && (
+            <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: getColor(isBaselineView ? overallPassRate : baselineRate) }}>
+              {isBaselineView ? `Standard: ${overallPassRate}%` : `Baseline: ${baselineRate}%`}
             </Typography>
           )}
         </div>
