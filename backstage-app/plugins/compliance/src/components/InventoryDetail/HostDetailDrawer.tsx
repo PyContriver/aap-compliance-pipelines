@@ -52,7 +52,7 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({ host, allHos
 
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <Card variant="outlined" style={{ flex: 1, padding: 12, textAlign: 'center' }}>
-            <Typography variant="h5" style={{ fontWeight: 700, color: host.compliancePct < 80 ? '#C9190B' : '#3E8635' }}>
+            <Typography variant="h5" style={{ fontWeight: 700, color: host.compliancePct >= 90 ? '#3E8635' : host.compliancePct >= 70 ? '#F0AB00' : '#C9190B' }}>
               {host.compliancePct}%
             </Typography>
             <Typography variant="caption" color="textSecondary">Compliance</Typography>
@@ -66,12 +66,12 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({ host, allHos
         <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
           {host.catIFail > 0 && (
             <Chip size="small" label={`${host.catIFail} CAT I`}
-              style={{ backgroundColor: '#FAEAE5', color: '#C9190B', fontWeight: 600, fontSize: '0.75rem' }} />
+              style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
           )}
           <Chip size="small" label={`${host.catIIFail} CAT II`}
-            style={{ backgroundColor: '#FFF3CD', color: '#795600', fontWeight: 600, fontSize: '0.75rem' }} />
+            style={{ backgroundColor: '#F0AB00', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
           <Chip size="small" label={`${host.catIIIFail} CAT III`}
-            style={{ backgroundColor: '#E7F1FA', color: '#0066CC', fontWeight: 600, fontSize: '0.75rem' }} />
+            style={{ backgroundColor: '#0066CC', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
         </div>
 
         {host.naCount > 0 && (

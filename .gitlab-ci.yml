@@ -205,6 +205,18 @@ deploy-netrunner:
       done
       echo "Tarball format validated (npm-pack, <50MB each)"
 
+    # Restore override YAML from backup if corrupted by previous yaml.dump
+    - |
+      $SSH "
+        if [ -f ${OVERRIDE_YAML}.bak ]; then
+          echo 'Restoring override YAML from backup'
+          sudo cp ${OVERRIDE_YAML}.bak $OVERRIDE_YAML
+        else
+          echo 'Creating backup of override YAML'
+          sudo cp $OVERRIDE_YAML ${OVERRIDE_YAML}.bak
+        fi
+      "
+
     # Upload tarballs from repo to Portal host
     - scp -i ~/.ssh/portal.pem deploy-artifacts/backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
     - scp -i ~/.ssh/portal.pem deploy-artifacts/frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
@@ -220,72 +232,30 @@ deploy-netrunner:
       "
     - echo "Tarballs uploaded, old extractions and lock file cleared"
 
-    # Update Portal config with integrity hashes
+    # Update integrity hashes in-place using sed (preserves YAML structure and anchors)
     - |
-      $SSH "sudo python3 << 'PYEOF'
-      import yaml, subprocess, base64
+      BACKEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/backend.tgz | base64 -w0")
+      FRONTEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/frontend.tgz | base64 -w0")
+      echo "Backend hash: sha512-${BACKEND_HASH:0:20}..."
+      echo "Frontend hash: sha512-${FRONTEND_HASH:0:20}..."
+      $SSH "
+        sudo sed -i '/compliance-backend/{n;s|integrity:.*|integrity: sha512-$BACKEND_HASH|}' $OVERRIDE_YAML
+        sudo sed -i '/compliance.*frontend\|plugin-compliance[^-]/{n;s|integrity:.*|integrity: sha512-$FRONTEND_HASH|}' $OVERRIDE_YAML
+      "
+      echo "Integrity hashes updated in-place"
 
-      with open('$OVERRIDE_YAML') as f:
-          data = yaml.safe_load(f)
-
-      for plugin in data['plugins']:
-          pkg = plugin.get('package', '')
-          if 'compliance-backend' in pkg:
-              new_pkg = '$REMOTE_PLUGIN_DIR/backend.tgz'
-              h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
-              plugin['package'] = new_pkg
-              plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
-              print(f'Updated backend: {new_pkg}')
-          elif 'compliance' in pkg and 'backend' not in pkg:
-              new_pkg = '$REMOTE_PLUGIN_DIR/frontend.tgz'
-              h = subprocess.check_output(['openssl', 'dgst', '-sha512', '-binary', new_pkg])
-              plugin['package'] = new_pkg
-              plugin['integrity'] = 'sha512-' + base64.b64encode(h).decode()
-              print(f'Updated frontend: {new_pkg}')
-
-      with open('$OVERRIDE_YAML', 'w') as f:
-          yaml.dump(data, f, default_flow_style=False, sort_keys=False, width=200)
-      PYEOF"
-
-    # Ensure frontend has both sidebar route (/compliance) and catch-all (/compliance/*).
-    # The menuItem route must NOT have a wildcard or the sidebar icon disappears.
+    # Ensure frontend route: add /compliance/* catch-all if only /compliance exists.
+    # Uses grep+sed to avoid yaml.dump rewriting the entire file (which breaks YAML anchors/auth config).
     - |
-      $SSH "sudo python3 << 'PYEOF'
-      import yaml
-
-      with open('$OVERRIDE_YAML') as f:
-          data = yaml.safe_load(f)
-
-      compliance_routes = [p for p in data.get('plugins', [])
-                           if 'compliance' in p.get('package', '') and 'backend' not in p.get('package', '')]
-      for plugin in compliance_routes:
-          routes = plugin.get('pluginConfig', {}).get('dynamicPlugins', {}).get('frontend', {})
-          for key, cfg in routes.items():
-              if 'compliance' not in key:
-                  continue
-              dr = cfg.get('dynamicRoutes', [])
-              has_base = any(r.get('path') == '/compliance' for r in dr)
-              has_wildcard = any(r.get('path') == '/compliance/*' for r in dr)
-              if has_base and not has_wildcard:
-                  dr.append({'importName': 'CompliancePage', 'path': '/compliance/*'})
-                  print('Added /compliance/* catch-all route')
-              elif has_wildcard and not has_base:
-                  dr.insert(0, {'importName': 'CompliancePage', 'path': '/compliance',
-                                'menuItem': {'icon': 'security', 'text': 'Compliance'}})
-                  print('Added /compliance sidebar route')
-              elif not has_base and not has_wildcard:
-                  dr.extend([
-                      {'importName': 'CompliancePage', 'path': '/compliance',
-                       'menuItem': {'icon': 'security', 'text': 'Compliance'}},
-                      {'importName': 'CompliancePage', 'path': '/compliance/*'},
-                  ])
-                  print('Added both /compliance routes')
-              else:
-                  print('Both routes already present')
-
-      with open('$OVERRIDE_YAML', 'w') as f:
-          yaml.dump(data, f, default_flow_style=False, sort_keys=False, width=200)
-      PYEOF"
+      $SSH "
+        if grep -q 'path: /compliance\$' $OVERRIDE_YAML && ! grep -q 'path: /compliance/\*' $OVERRIDE_YAML; then
+          # Add catch-all route after the existing /compliance menuItem route
+          sudo sed -i '/path: \/compliance$/a\\      - importName: CompliancePage\n        path: /compliance/*' $OVERRIDE_YAML
+          echo 'Added /compliance/* catch-all route'
+        else
+          echo 'Routes already configured'
+        fi
+      "
 
     # Restart Portal
     - $SSH "sudo systemctl restart portal.service"

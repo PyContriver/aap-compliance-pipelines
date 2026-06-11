@@ -15,6 +15,7 @@ import {
   Tooltip,
   makeStyles,
 } from '@material-ui/core';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
@@ -44,7 +45,7 @@ const useStyles = makeStyles(theme => ({
   legendItem: {
     display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: theme.palette.text.secondary,
   },
-  legendDot: { width: 12, height: 12, borderRadius: 3, border: '2px solid' },
+  legendDot: { width: 12, height: 12, borderRadius: '50%', border: '2px solid' },
   controls: {
     display: 'flex', alignItems: 'center', gap: theme.spacing(2), marginBottom: theme.spacing(1),
   },
@@ -88,7 +89,7 @@ export const InventoryDetail: React.FC = () => {
       if (inv?.profileScores.length) {
         setSelectedProfileId(inv.profileScores[0].profileId);
       }
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(err => { console.error('Failed to load dashboard stats:', err); }).finally(() => setLoading(false));
   }, [api, invId]);
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export const InventoryDetail: React.FC = () => {
     setLoading(true);
     api.getHostPosture(invId, selectedProfileId)
       .then(setHostData)
-      .catch(() => setHostData(null))
+      .catch(err => { console.error('Failed to load host posture:', err); setHostData(null); })
       .finally(() => setLoading(false));
   }, [api, invId, selectedProfileId]);
 
@@ -124,12 +125,17 @@ export const InventoryDetail: React.FC = () => {
         hostData ? `Last scanned ${new Date(hostData.scanTimestamp).toLocaleString()}` : undefined
       }
     >
-      {loading && <LinearProgress style={{ marginBottom: 8 }} />}
+      {loading && <LinearProgress />}
 
       {hosts.length === 0 && !loading ? (
         <div className={classes.empty}>
-          <Typography variant="body1" gutterBottom>No host posture data available</Typography>
-          <Typography variant="body2">Run a compliance scan for this inventory to see per-host results.</Typography>
+          <AssessmentIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            No host posture data available
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            Run a compliance scan for this inventory to see per-host results.
+          </Typography>
         </div>
       ) : (
         <>

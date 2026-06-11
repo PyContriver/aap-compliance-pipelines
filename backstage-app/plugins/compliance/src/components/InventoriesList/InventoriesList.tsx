@@ -23,14 +23,14 @@ const useStyles = makeStyles(theme => ({
     '&:hover': { backgroundColor: theme.palette.action.hover },
   },
   profileChip: {
-    fontSize: '0.7rem',
+    fontSize: '0.75rem',
     height: 22,
     marginRight: 4,
   },
   baselineChip: {
     fontSize: '0.65rem',
     height: 18,
-    backgroundColor: '#E7F1FA',
+    backgroundColor: 'rgba(0, 102, 204, 0.08)',
     color: '#0066CC',
   },
   scoreBar: {
@@ -39,6 +39,7 @@ const useStyles = makeStyles(theme => ({
     width: 80,
     display: 'inline-block',
     marginRight: 8,
+    backgroundColor: theme.palette.divider,
   },
   scoreCell: {
     display: 'flex',
@@ -62,7 +63,7 @@ export const InventoriesList: React.FC = () => {
   useEffect(() => {
     api.getDashboardStats()
       .then(setStats)
-      .catch(() => {})
+      .catch(err => { console.error('Failed to load inventories:', err); })
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -84,7 +85,10 @@ export const InventoriesList: React.FC = () => {
   }
 
   return (
-    <InfoCard title="Inventories" subheader={`${inventories.length} inventories with compliance data`}>
+    <InfoCard title="Inventories">
+      <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+        {inventories.length} inventories with compliance data. Click an inventory to see per-host compliance.
+      </Typography>
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -108,7 +112,7 @@ export const InventoriesList: React.FC = () => {
                 onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
               >
                 <TableCell>
-                  <Typography variant="body2" style={{ fontWeight: 600 }}>
+                  <Typography variant="body2" style={{ fontWeight: 500 }}>
                     {inv.inventoryName}
                   </Typography>
                 </TableCell>
@@ -141,9 +145,6 @@ export const InventoriesList: React.FC = () => {
                         variant="determinate"
                         value={ps.rate}
                         className={classes.scoreBar}
-                        style={{
-                          backgroundColor: '#e0e0e0',
-                        }}
                       />
                       <Typography variant="caption" style={{
                         fontWeight: 600,

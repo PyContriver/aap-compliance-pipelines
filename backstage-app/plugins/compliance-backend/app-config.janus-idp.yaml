@@ -1,4 +1,7 @@
 ---
 dynamicPlugins:
   backend:
-    aap-compliance-plugin-compliance-backend: {}
+    aap-compliance-plugin-compliance-backend:
+      pluginConfig:
+        compliance:
+          authMode: development
