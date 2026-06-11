@@ -6,7 +6,7 @@ export function registerInventoryRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, service } = deps;
+  const { logger, service, database } = deps;
 
   router.get('/inventory/:inventoryId/host-posture', async (req, res) => {
     const inventoryId = Number(req.params.inventoryId);
@@ -27,7 +27,26 @@ export function registerInventoryRoutes(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get host posture for inventory ${inventoryId}: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve host posture' });
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  router.get('/inventory/debug', async (_req, res) => {
+    try {
+      const scans = await database.getRecentScans(5);
+      const profiles = await database.listProfiles();
+      const latestPerInv = await database.getLatestScanPerProfileInventory();
+      res.json({
+        scansCount: scans.length,
+        scans: scans.map(s => ({ id: s.id.slice(0, 12), profileId: s.profileId.slice(0, 12), inventoryId: s.inventoryId, status: s.status, scanner: s.scanner, scanType: s.scanType })),
+        profilesCount: profiles.length,
+        profiles: profiles.map(p => ({ id: p.id.slice(0, 12), name: p.displayName })),
+        latestPerInvCount: latestPerInv.length,
+        latestPerInv: latestPerInv.map(s => ({ id: s.id.slice(0, 12), profileId: s.profileId.slice(0, 12), inventoryId: s.inventoryId, status: s.status })),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: msg, stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5) : undefined });
     }
   });
 }
