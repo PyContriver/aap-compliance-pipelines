@@ -434,4 +434,36 @@ export class MockDataProvider {
     mockRemediationProfiles = mockRemediationProfiles.filter(p => p.id !== id);
     return mockRemediationProfiles.length < before;
   }
+
+  static getHostPosture(_inventoryId: number, profileId: string): import('@aap-compliance/common').HostPostureResponse {
+    const rand = (seed: number) => {
+      let s = seed;
+      return () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    };
+    const r = rand(42);
+    const hosts: import('@aap-compliance/common').HostPosture[] = [];
+    const count = 250;
+    for (let i = 0; i < count; i++) {
+      const v = r();
+      let pct = v < 0.06 ? 20 + r() * 35 : v < 0.18 ? 72 + r() * 13 : 89 + r() * 9;
+      pct = Math.round(pct * 10) / 10;
+      const total = 366;
+      const pass = Math.round(total * pct / 100);
+      const fail = total - pass;
+      const catI = pct < 60 ? Math.floor(r() * 8) + 2 : (r() < 0.15 ? 1 : 0);
+      hosts.push({
+        hostname: `prod-rhel-${String(i + 1).padStart(3, '0')}`,
+        os: r() < 0.85 ? 'RHEL 9.4' : r() < 0.5 ? 'RHEL 8.9' : 'RHEL 9.2',
+        compliancePct: pct, passCount: pass, failCount: fail, naCount: 0, catIFail: catI,
+        catIIFail: Math.round(fail * 0.65), catIIIFail: fail - Math.round(fail * 0.65) - catI,
+      });
+    }
+    return {
+      hosts,
+      scanId: 'mock-scan-1',
+      scanTimestamp: new Date().toISOString(),
+      profileId,
+      inventoryId: _inventoryId,
+    };
+  }
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Typography, Tooltip, IconButton, makeStyles } from '@material-ui/core';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
@@ -74,6 +75,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
   onBaselineChanged,
 }) => {
   const classes = useStyles();
+  const navigate = useNavigate();
   const [pinDialog, setPinDialog] = useState<{
     complianceProfileId: string;
     complianceProfileName: string;
@@ -98,7 +100,13 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
       <div className={classes.grid}>
         {byInventory.map(inv => (
           <Card key={inv.inventoryId} variant="outlined" className={classes.card}>
-            <Typography className={classes.inventoryName}>{inv.inventoryName}</Typography>
+            <Typography
+              className={classes.inventoryName}
+              style={{ cursor: 'pointer', color: '#0066CC' }}
+              onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
+            >
+              {inv.inventoryName}
+            </Typography>
             <div className={classes.gaugeRow}>
               {inv.profileScores.map(ps => {
                 const bl = ps.baseline;

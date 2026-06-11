@@ -122,6 +122,28 @@ export interface RemediationEvent {
   status: string;
 }
 
+/** Per-host compliance posture within an inventory (ADR-023 §2). */
+export interface HostPosture {
+  hostname: string;
+  os?: string;
+  passCount: number;
+  failCount: number;
+  naCount: number;
+  catIFail: number;
+  catIIFail: number;
+  catIIIFail: number;
+  compliancePct: number;
+}
+
+/** Response from GET /inventory/:id/host-posture. */
+export interface HostPostureResponse {
+  hosts: HostPosture[];
+  scanId: string;
+  scanTimestamp: string;
+  profileId: string;
+  inventoryId: number;
+}
+
 /** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */
 export interface BaselineTarget {
   id: string;

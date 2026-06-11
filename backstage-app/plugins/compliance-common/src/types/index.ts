@@ -53,4 +53,6 @@ export type {
   BaselineTarget,
   AuthoritativeScanResponse,
   RemediationEvent,
+  HostPosture,
+  HostPostureResponse,
 } from './api';

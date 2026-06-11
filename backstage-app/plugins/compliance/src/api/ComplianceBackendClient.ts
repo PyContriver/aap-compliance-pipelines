@@ -251,6 +251,12 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<import('@aap-compliance/common').RemediationEvent[]>(`/posture/events${q}`);
   }
 
+  getHostPosture(inventoryId: number, profileId: string) {
+    return this.request<import('@aap-compliance/common').HostPostureResponse>(
+      `/inventory/${inventoryId}/host-posture?profileId=${encodeURIComponent(profileId)}`,
+    );
+  }
+
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all') {
     const q = statusFilter ? `?status=${statusFilter}` : '';
     return this.request<RemediationProfile[]>(`/remediation-profiles${q}`);

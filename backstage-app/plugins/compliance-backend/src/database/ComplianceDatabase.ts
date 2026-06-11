@@ -629,6 +629,40 @@ export class ComplianceDatabase {
     };
   }
 
+  // ─── Per-host posture (ADR-023) ─────────────────────────────────────
+
+  async getHostPosture(scanId: string): Promise<import('@aap-compliance/common').HostPosture[]> {
+    const rows = await this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .whereIn('status', ['pass', 'fail', 'not_applicable'])
+      .groupBy('host')
+      .select(
+        'host',
+        this.db.raw("COUNT(CASE WHEN status = 'pass' THEN 1 END) as pass_count"),
+        this.db.raw("COUNT(CASE WHEN status = 'fail' THEN 1 END) as fail_count"),
+        this.db.raw("COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as na_count"),
+        this.db.raw("COUNT(CASE WHEN severity = 'CAT_I' AND status = 'fail' THEN 1 END) as cat_i_fail"),
+        this.db.raw("COUNT(CASE WHEN severity = 'CAT_II' AND status = 'fail' THEN 1 END) as cat_ii_fail"),
+        this.db.raw("COUNT(CASE WHEN severity = 'CAT_III' AND status = 'fail' THEN 1 END) as cat_iii_fail"),
+      );
+
+    return rows.map((row: Record<string, unknown>) => {
+      const pass = Number(row.pass_count) || 0;
+      const fail = Number(row.fail_count) || 0;
+      const total = pass + fail;
+      return {
+        hostname: row.host as string,
+        passCount: pass,
+        failCount: fail,
+        naCount: Number(row.na_count) || 0,
+        catIFail: Number(row.cat_i_fail) || 0,
+        catIIFail: Number(row.cat_ii_fail) || 0,
+        catIIIFail: Number(row.cat_iii_fail) || 0,
+        compliancePct: total > 0 ? Math.round((pass / total) * 1000) / 10 : 0,
+      };
+    });
+  }
+
   // ─── Remediation profiles ──────────────────────────────────────────
 
   async saveRemediationProfile(
