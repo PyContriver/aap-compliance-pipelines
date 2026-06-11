@@ -957,12 +957,24 @@ export class ComplianceService {
   async getPostureHistory(
     profileId?: string,
     days?: number,
+    inventoryId?: number,
   ): Promise<PostureSnapshot[]> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getPostureHistory(profileId, days);
     }
     if (!this.database) return [];
-    return this.database.getPostureHistory(profileId, days);
+    return this.database.getPostureHistory(profileId, days, inventoryId);
+  }
+
+  async getRemediationEventsForTrend(
+    days: number = 90,
+    inventoryId?: number,
+  ): Promise<import('@aap-compliance/common').RemediationEvent[]> {
+    if (this.dataSource === 'mock') return [];
+    if (!this.database) return [];
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return this.database.getExecutionsInTimeRange(cutoff.toISOString(), inventoryId);
   }
 
   // ─── Remediations (saved rule selections) ──────────────────────────

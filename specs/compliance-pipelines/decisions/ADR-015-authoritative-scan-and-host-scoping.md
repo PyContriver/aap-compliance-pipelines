@@ -1,6 +1,6 @@
 # ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping
 
-**Status:** Accepted (Implemented 2026-06-02)  
+**Status:** Accepted (Implemented 2026-06-02, updated 2026-06-11)  
 **Date:** 2026-06-01  
 **Deciders:** Massimo Ferrari  
 
@@ -109,18 +109,18 @@ When viewing scan results for a specific compliance profile (e.g., DISA STIG), o
 - Cross-profile filtering prevents accidental misapplication of remediation profiles
 - The `informing_scan_id` on execution records provides full traceability: which scan informed which remediation
 
-## Implementation Notes (2026-06-02)
+## Implementation Notes (2026-06-02, updated 2026-06-11)
 
-Decisions 1, 2, and 5 are fully implemented:
+Decisions 1, 2, 3, and 5 are fully implemented:
 
-- **GET /scans/authoritative** endpoint resolves the latest completed oscap scan for a `(profileId, inventoryId)` pair, returning the scan record with aggregate pass/fail statistics.
-- **POST /remediate** auto-resolves the authoritative scan when `scanId` is not provided in the request body. Returns 400 if no qualifying scan exists.
-- **AuthoritativeScanResponse** type added to `compliance-common` (scan, passRate, passCount, failCount).
-- **Remediation launch dialog** with inventory dropdown checks the authoritative scan endpoint before allowing launch. If no scan exists, the dialog blocks launch and links to the scan launcher with profile + inventory pre-selected.
-- **Cross-profile filtering**: "Use Existing Remediation" from scan results filters the list to remediations matching the current `complianceProfileId`.
+- **GET /scans/authoritative** endpoint resolves the latest completed oscap scan for a `(profileId, inventoryId)` pair, returning the scan record with aggregate pass/fail statistics. (Decision 2)
+- **POST /remediate** auto-resolves the authoritative scan when `scanId` is not provided in the request body. Returns 400 if no qualifying scan exists. (Decision 1 + 2)
+- **AuthoritativeScanResponse** type added to `compliance-common` (scan, passRate, passCount, failCount). (Decision 2)
+- **Remediation launch dialog** with inventory dropdown checks the authoritative scan endpoint before allowing launch. If no scan exists, the dialog blocks launch and links to the scan launcher with profile + inventory pre-selected. Reactive scan validation shows green checkmark with pass rate (scan exists) or red warning with "Run a Scan First" button (no scan). (Decision 1 + 3)
+- **Cross-profile filtering**: "Use Existing Remediation" from scan results filters the list to remediations matching the current `complianceProfileId`. Standalone Remediations tab shows all profiles with profile dropdown filter. (Decision 5)
 - **Migration 012** adds `rule_count` column to the profile registry, populated from YAML metadata at profile registration time.
 
-Decisions 3 (host scope selector) and 4 (N/A denominator adjustment) are deferred to a future iteration.
+Decision 4 (N/A denominator adjustment for baseline scoring) is deferred to a future iteration.
 
 **Remediation host scoping fix (2026-06-05):** A critical bug was found where `getFindings()` for remediation launch used only `profileId` to find the latest scan, ignoring `inventoryId`. When two inventories share a compliance profile, the remediation would use hosts from whichever inventory was scanned most recently. Fixed: `getLatestFindings()` now accepts optional `inventoryId`, and the remediation launch route passes `remediateRequest.inventoryId` to scope findings correctly.
 

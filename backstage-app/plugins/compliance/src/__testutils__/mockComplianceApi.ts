@@ -348,6 +348,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getDashboardStats: jest.fn().mockResolvedValue(MOCK_DASHBOARD_STATS),
     getContributingScans: jest.fn().mockResolvedValue([]),
     getPostureHistory: jest.fn().mockResolvedValue([] as PostureSnapshot[]),
+    getRemediationEventsForTrend: jest.fn().mockResolvedValue([]),
     getRemediationProfiles: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES),
     getRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),
     saveRemediationProfile: jest.fn().mockResolvedValue(MOCK_REMEDIATION_PROFILES[0]),

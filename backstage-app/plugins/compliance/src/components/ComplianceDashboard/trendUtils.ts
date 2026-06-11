@@ -1,0 +1,125 @@
+import type { PostureSnapshot } from '@aap-compliance/common';
+
+export type EventType = 'normal' | 'regression' | 'improvement';
+
+export interface TrendDataPoint {
+  timestamp: number;
+  compliancePct: number;
+  profileId: string;
+  scanId?: string;
+  eventType: EventType;
+  delta: number;
+  passCount: number;
+  failCount: number;
+}
+
+export const TREND_COLORS = {
+  line: '#0066CC',
+  fill: 'rgba(0, 102, 204, 0.08)',
+  dot: '#0066CC',
+  grid: '#e0e0e0',
+  axis: '#6a6e73',
+  regression: '#C9190B',
+  improvement: '#3E8635',
+  remediationLine: '#6A6E73',
+};
+
+export const PROFILE_PALETTE = [
+  '#0066CC',
+  '#C9190B',
+  '#3E8635',
+  '#F0AB00',
+  '#6753AC',
+  '#009596',
+];
+
+const REGRESSION_THRESHOLD = -3;
+const IMPROVEMENT_THRESHOLD = 5;
+
+export function detectEvents(snapshots: PostureSnapshot[]): TrendDataPoint[] {
+  if (snapshots.length === 0) return [];
+  const result: TrendDataPoint[] = new Array(snapshots.length);
+  let prevPct = snapshots[0].compliancePct;
+  for (let i = 0; i < snapshots.length; i++) {
+    const snap = snapshots[i];
+    const delta = i > 0 ? snap.compliancePct - prevPct : 0;
+    let eventType: EventType = 'normal';
+    if (i > 0) {
+      if (delta <= REGRESSION_THRESHOLD) eventType = 'regression';
+      else if (delta >= IMPROVEMENT_THRESHOLD) eventType = 'improvement';
+    }
+    result[i] = {
+      timestamp: new Date(snap.timestamp).getTime(),
+      compliancePct: snap.compliancePct,
+      profileId: snap.profileId,
+      scanId: snap.scanId,
+      eventType,
+      delta,
+      passCount: snap.passCount,
+      failCount: snap.failCount,
+    };
+    prevPct = snap.compliancePct;
+  }
+  return result;
+}
+
+export interface MultiProfileRow {
+  timestamp: number;
+  [profileKey: string]: number;
+}
+
+export function buildMultiProfileSeries(
+  snapshots: PostureSnapshot[],
+  profileMap: Map<string, string>,
+): { data: MultiProfileRow[]; profileIds: string[] } {
+  const byProfile = new Map<string, PostureSnapshot[]>();
+  for (const snap of snapshots) {
+    const existing = byProfile.get(snap.profileId) ?? [];
+    existing.push(snap);
+    byProfile.set(snap.profileId, existing);
+  }
+
+  const profileIds = [...byProfile.keys()].filter(id => profileMap.has(id));
+  if (profileIds.length === 0) return { data: [], profileIds: [] };
+
+  const allTimestamps = new Set<number>();
+  for (const snaps of byProfile.values()) {
+    for (const s of snaps) allTimestamps.add(new Date(s.timestamp).getTime());
+  }
+  const sortedTimestamps = [...allTimestamps].sort((a, b) => a - b);
+
+  const lastKnown = new Map<string, number>();
+  const indexByProfile = new Map<string, number>();
+  for (const pid of profileIds) indexByProfile.set(pid, 0);
+
+  const data: MultiProfileRow[] = sortedTimestamps.map(ts => {
+    const row: MultiProfileRow = { timestamp: ts };
+    for (const pid of profileIds) {
+      const snaps = byProfile.get(pid)!;
+      let idx = indexByProfile.get(pid)!;
+      while (idx < snaps.length && new Date(snaps[idx].timestamp).getTime() <= ts) {
+        lastKnown.set(pid, snaps[idx].compliancePct);
+        idx++;
+      }
+      indexByProfile.set(pid, idx);
+      const val = lastKnown.get(pid);
+      if (val !== undefined) row[pid] = val;
+    }
+    return row;
+  });
+
+  return { data, profileIds };
+}
+
+export function formatTrendDate(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+export function formatTrendDateFull(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}

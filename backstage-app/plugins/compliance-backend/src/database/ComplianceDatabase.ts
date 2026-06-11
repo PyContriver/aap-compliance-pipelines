@@ -563,6 +563,7 @@ export class ComplianceDatabase {
   async getPostureHistory(
     profileId?: string,
     days: number = 30,
+    inventoryId?: number,
   ): Promise<PostureSnapshot[]> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
@@ -574,10 +575,37 @@ export class ComplianceDatabase {
     if (profileId) {
       query = query.where('profile_id', profileId);
     }
+    if (inventoryId !== undefined) {
+      query = query.where('inventory_id', inventoryId);
+    }
 
     const rows = await query;
 
     return rows.map(this.mapPostureRow);
+  }
+
+  async getExecutionsInTimeRange(
+    since: string,
+    inventoryId?: number,
+  ): Promise<import('@aap-compliance/common').RemediationEvent[]> {
+    let query = this.db('compliance_remediation_executions')
+      .where('completed_at', '>=', since)
+      .where('status', 'succeeded')
+      .orderBy('completed_at', 'asc')
+      .select('id', 'completed_at', 'inventory_id', 'rules_applied', 'status');
+
+    if (inventoryId !== undefined) {
+      query = query.where('inventory_id', inventoryId);
+    }
+
+    const rows = await query;
+    return rows.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      completedAt: toISOString(row.completed_at),
+      inventoryId: row.inventory_id as number,
+      rulesApplied: (row.rules_applied as number) ?? null,
+      status: row.status as string,
+    }));
   }
 
   private mapPostureRow(row: Record<string, unknown>): PostureSnapshot {

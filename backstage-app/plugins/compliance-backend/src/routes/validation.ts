@@ -23,3 +23,10 @@ export function isValidProfileId(profileId: string): boolean {
   return typeof profileId === 'string' && profileId.length > 0 && profileId.length <= 128
     && /^[a-zA-Z0-9_-]+$/.test(profileId);
 }
+
+export function parseInventoryId(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw === '') return undefined;
+  const n = Number(raw);
+  if (isNaN(n) || !Number.isInteger(n) || n < 1) return undefined;
+  return n;
+}
