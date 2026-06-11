@@ -82,6 +82,13 @@ jobs:
       - name: Build all packages
         run: yarn build
 
+      - name: Bump plugin patch versions
+        run: |
+          cd plugins/compliance-backend && npm version patch --no-git-tag-version && cd ../..
+          cd plugins/compliance && npm version patch --no-git-tag-version && cd ../..
+          echo "Backend: $(node -p "require('./plugins/compliance-backend/package.json').version")"
+          echo "Frontend: $(node -p "require('./plugins/compliance/package.json').version")"
+
       - name: Export backend plugin
         run: npx --yes @red-hat-developer-hub/cli plugin export --embed-package @aap-compliance/common
         working-directory: backstage-app/plugins/compliance-backend
@@ -162,7 +169,15 @@ jobs:
           done
           echo "Tarball format validated"
 
-      - name: Commit and push tarballs
+      - name: Bump plugin versions for next deploy
+        working-directory: .
+        run: |
+          cd backstage-app/plugins/compliance-backend && npm version patch --no-git-tag-version && cd ../../..
+          cd backstage-app/plugins/compliance && npm version patch --no-git-tag-version && cd ../../..
+          echo "Next backend: $(node -p "require('./backstage-app/plugins/compliance-backend/package.json').version")"
+          echo "Next frontend: $(node -p "require('./backstage-app/plugins/compliance/package.json').version")"
+
+      - name: Commit and push tarballs + version bump
         working-directory: .
         env:
           GITLAB_PUSH_TOKEN: ${{ secrets.GITLAB_PUSH_TOKEN }}
@@ -170,10 +185,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f deploy-artifacts/backend.tgz deploy-artifacts/frontend.tgz
+          git add backstage-app/plugins/compliance-backend/package.json backstage-app/plugins/compliance/package.json
           if git diff --cached --quiet; then
-            echo "No tarball changes to commit"
+            echo "No changes to commit"
           else
-            git commit -m "deploy: update tarballs from CI build"
+            git commit -m "deploy: update tarballs + bump versions for next deploy"
             git push origin main
             if [ -n "$GITLAB_PUSH_TOKEN" ]; then
               git push "https://oauth2:${GITLAB_PUSH_TOKEN}@gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git" main || echo "GitLab push failed (non-fatal)"
