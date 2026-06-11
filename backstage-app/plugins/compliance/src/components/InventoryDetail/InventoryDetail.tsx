@@ -1,19 +1,68 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
-import { Typography, LinearProgress } from '@material-ui/core';
-import { complianceApiRef } from '../../api';
+import {
+  Typography,
+  LinearProgress,
+  Card,
+  Chip,
+  Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Tooltip,
+  makeStyles,
+} from '@material-ui/core';
 import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
+import { complianceApiRef } from '../../api';
+import { HostPostureView } from './HostPostureView';
+import { isOutlier } from './hostUtils';
+
+const useStyles = makeStyles(theme => ({
+  summaryRow: {
+    display: 'flex', gap: theme.spacing(2), marginBottom: theme.spacing(2), flexWrap: 'wrap' as const,
+  },
+  summaryCard: {
+    padding: theme.spacing(1.5, 2), textAlign: 'center' as const, minWidth: 90, flex: '1 1 90px',
+  },
+  summaryValue: { fontSize: '1.5rem', fontWeight: 700 },
+  summaryLabel: { fontSize: '0.75rem', color: theme.palette.text.secondary },
+  osChip: {
+    cursor: 'pointer', marginTop: 4,
+    transition: 'box-shadow 0.15s ease',
+    '&:hover': { boxShadow: '0 1px 4px rgba(0,0,0,0.15)' },
+  },
+  osChipActive: {
+    backgroundColor: `${theme.palette.primary.main} !important`,
+    color: '#fff !important',
+  },
+  legend: {
+    display: 'flex', gap: theme.spacing(2), marginBottom: theme.spacing(1.5), flexWrap: 'wrap' as const,
+  },
+  legendItem: {
+    display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: theme.palette.text.secondary,
+  },
+  legendDot: { width: 12, height: 12, borderRadius: 3, border: '2px solid' },
+  controls: {
+    display: 'flex', alignItems: 'center', gap: theme.spacing(2), marginBottom: theme.spacing(1),
+  },
+  profileSelect: { minWidth: 200 },
+  empty: {
+    textAlign: 'center' as const, padding: theme.spacing(6), color: theme.palette.text.secondary,
+  },
+}));
 
 export const InventoryDetail: React.FC = () => {
+  const classes = useStyles();
   const { inventoryId } = useParams<{ inventoryId: string }>();
   const api = useApi(complianceApiRef);
-  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [hostData, setHostData] = useState<HostPostureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [osFilter, setOsFilter] = useState<string | null>(null);
 
   const invId = Number(inventoryId);
 
@@ -25,6 +74,11 @@ export const InventoryDetail: React.FC = () => {
   const profileOptions = useMemo(
     () => inventory?.profileScores.map(ps => ({ value: ps.profileId, label: ps.name })) ?? [],
     [inventory],
+  );
+
+  const selectedProfileName = useMemo(
+    () => profileOptions.find(p => p.value === selectedProfileId)?.label ?? '',
+    [profileOptions, selectedProfileId],
   );
 
   useEffect(() => {
@@ -42,26 +96,129 @@ export const InventoryDetail: React.FC = () => {
     setLoading(true);
     api.getHostPosture(invId, selectedProfileId)
       .then(setHostData)
-      .catch(() => {})
+      .catch(() => setHostData(null))
       .finally(() => setLoading(false));
   }, [api, invId, selectedProfileId]);
+
+  const hosts = hostData?.hosts ?? [];
+  const filteredHosts = useMemo(
+    () => osFilter ? hosts.filter(h => h.os === osFilter) : hosts,
+    [hosts, osFilter],
+  );
+
+  const outlierCount = filteredHosts.filter(h => isOutlier(h, filteredHosts)).length;
+  const totalPass = filteredHosts.reduce((a, h) => a + h.passCount, 0);
+  const totalApplicable = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
+  const overallCompliance = totalApplicable > 0 ? Math.round(totalPass / totalApplicable * 1000) / 10 : 0;
+
+  const osCounts = new Map<string, number>();
+  for (const h of hosts) if (h.os) osCounts.set(h.os, (osCounts.get(h.os) || 0) + 1);
+  const osEntries = [...osCounts.entries()].sort((a, b) => b[1] - a[1]);
 
   if (loading && !stats) return <LinearProgress />;
 
   return (
-    <InfoCard title={inventory?.inventoryName ?? `Inventory ${inventoryId}`}>
-      {loading ? (
-        <LinearProgress />
-      ) : hostData && hostData.hosts.length > 0 ? (
-        <Typography variant="body2">
-          {hostData.hosts.length} hosts loaded for profile {selectedProfileId}.
-          Full visualization coming in Phase 4 — the HostPostureView, StripPlot, ChipMatrix, and HostDetailDrawer
-          components will be built here using the patterns from the mockup.
-        </Typography>
+    <InfoCard
+      title={inventory?.inventoryName ?? `Inventory ${inventoryId}`}
+      subheader={
+        hostData ? `Last scanned ${new Date(hostData.scanTimestamp).toLocaleString()}` : undefined
+      }
+    >
+      {loading && <LinearProgress style={{ marginBottom: 8 }} />}
+
+      {hosts.length === 0 && !loading ? (
+        <div className={classes.empty}>
+          <Typography variant="body1" gutterBottom>No host posture data available</Typography>
+          <Typography variant="body2">Run a compliance scan for this inventory to see per-host results.</Typography>
+        </div>
       ) : (
-        <Typography variant="body2" color="textSecondary">
-          No host posture data available. Run a scan for this inventory first.
-        </Typography>
+        <>
+          {/* Profile selector */}
+          {profileOptions.length > 1 && (
+            <div className={classes.controls}>
+              <FormControl variant="outlined" size="small" className={classes.profileSelect}>
+                <InputLabel id="inv-profile-label">Compliance Profile</InputLabel>
+                <Select labelId="inv-profile-label" value={selectedProfileId}
+                  onChange={e => { setSelectedProfileId(e.target.value as string); setOsFilter(null); }}
+                  label="Compliance Profile"
+                >
+                  {profileOptions.map(opt => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </div>
+          )}
+
+          {/* Summary row */}
+          <div className={classes.summaryRow}>
+            <Card variant="outlined" className={classes.summaryCard}>
+              <Typography className={classes.summaryValue}>
+                {osFilter ? `${filteredHosts.length}/${hosts.length}` : hosts.length}
+              </Typography>
+              <Typography className={classes.summaryLabel}>
+                {osFilter ? 'Filtered / Total' : 'Total Hosts'}
+              </Typography>
+            </Card>
+            {osEntries.length > 0 && (
+              <Card variant="outlined" className={classes.summaryCard}>
+                <Typography className={classes.summaryLabel} style={{ marginBottom: 4 }}>Operating Systems</Typography>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+                  {osEntries.map(([os, count]) => (
+                    <Tooltip key={os} title={osFilter === os ? 'Click to clear filter' : `Filter to ${os} only`} arrow>
+                      <Chip size="small" label={`${os} (${count})`}
+                        className={`${classes.osChip} ${osFilter === os ? classes.osChipActive : ''}`}
+                        variant={osFilter === os ? 'default' : 'outlined'}
+                        onClick={() => setOsFilter(prev => prev === os ? null : os)}
+                      />
+                    </Tooltip>
+                  ))}
+                </div>
+              </Card>
+            )}
+            <Card variant="outlined" className={classes.summaryCard}>
+              <Typography className={classes.summaryValue} style={{ color: '#3E8635' }}>
+                {filteredHosts.length - outlierCount}
+              </Typography>
+              <Typography className={classes.summaryLabel}>Compliant</Typography>
+            </Card>
+            <Card variant="outlined" className={classes.summaryCard}>
+              <Typography className={classes.summaryValue} style={{ color: '#C9190B' }}>
+                {outlierCount}
+              </Typography>
+              <Typography className={classes.summaryLabel}>Outliers</Typography>
+            </Card>
+            <Card variant="outlined" className={classes.summaryCard}>
+              <Typography className={classes.summaryValue}>{overallCompliance}%</Typography>
+              <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
+            </Card>
+          </div>
+
+          {/* Legend */}
+          <div className={classes.legend}>
+            <div className={classes.legendItem}>
+              <div className={classes.legendDot} style={{ borderColor: '#3E8635', backgroundColor: 'rgba(62,134,53,0.08)' }} />
+              Compliant
+            </div>
+            <div className={classes.legendItem}>
+              <div className={classes.legendDot} style={{ borderColor: '#F0AB00', backgroundColor: 'rgba(240,171,0,0.08)' }} />
+              CAT I findings
+            </div>
+            <div className={classes.legendItem}>
+              <div className={classes.legendDot} style={{ borderColor: '#C9190B', backgroundColor: 'rgba(201,25,11,0.08)' }} />
+              Outlier
+            </div>
+          </div>
+
+          <Divider style={{ margin: '12px 0 16px' }} />
+
+          {/* Host posture visualization */}
+          <HostPostureView
+            hosts={hosts}
+            osFilter={osFilter}
+            profileLabel={selectedProfileName}
+          />
+        </>
       )}
     </InfoCard>
   );
