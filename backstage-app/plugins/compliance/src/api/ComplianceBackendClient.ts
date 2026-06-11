@@ -234,12 +234,21 @@ export class ComplianceBackendClient implements ComplianceApi {
     );
   }
 
-  getPostureHistory(profileId?: string, days?: number) {
+  getPostureHistory(profileId?: string, days?: number, inventoryId?: number) {
     const params = new URLSearchParams();
     if (profileId) params.set('profileId', profileId);
     if (days) params.set('days', String(days));
+    if (inventoryId !== undefined) params.set('inventoryId', String(inventoryId));
     const q = params.toString() ? `?${params}` : '';
     return this.request<PostureSnapshot[]>(`/posture${q}`);
+  }
+
+  getRemediationEventsForTrend(days?: number, inventoryId?: number) {
+    const params = new URLSearchParams();
+    if (days) params.set('days', String(days));
+    if (inventoryId !== undefined) params.set('inventoryId', String(inventoryId));
+    const q = params.toString() ? `?${params}` : '';
+    return this.request<import('@aap-compliance/common').RemediationEvent[]>(`/posture/events${q}`);
   }
 
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all') {

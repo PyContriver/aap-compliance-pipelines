@@ -2,7 +2,7 @@
 
 **Feature Branch**: `compliance-pipelines`
 **Created**: 2026-04-23
-**Status**: Active (oscap migration complete, PRs #4-#13 merged; JT/WJT transparent handling, settings redesign, certification badges — PRs #21-#29)
+**Status**: Active — Production MVP (all P1 complete, remediation lifecycle shipped with baseline scoring + chain view, 467 tests, 23 ADRs, deployed to Netrunner)
 **Input**: User description: "End-to-end compliance pipeline experience (scan, review, remediate, verify) for regulated infrastructure within the Ansible Automation Platform Portal"
 **Related**: ANSTRAT-1670 (Evolve Ansible Content — Initiative 3: Strategic Domain Content), ANSTRAT-1285 (Pattern Loading Service), ANSTRAT-1534 (Content Discovery), ANSTRAT-2122 (Skill Content Type)
 **Research**: Competitor Analysis, Content Delivery Strategy, Jira Feature Template Analysis <!-- Original links removed: prototypes/compliance-pipelines/context/ directory no longer exists -->

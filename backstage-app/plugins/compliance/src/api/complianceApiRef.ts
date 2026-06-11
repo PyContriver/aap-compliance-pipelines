@@ -29,6 +29,7 @@ import type {
   PlatformValidationResult,
   AuthoritativeScanResponse,
   BaselineTarget,
+  RemediationEvent,
 } from '@aap-compliance/common';
 
 /** Interface for the compliance backend API. */
@@ -51,7 +52,8 @@ export interface ComplianceApi {
   launchRemediation(body: LaunchRemediationRequest): Promise<LaunchRemediationResponse>;
   getDashboardStats(): Promise<DashboardStats>;
   getContributingScans(profileId: string): Promise<ContributingScan[]>;
-  getPostureHistory(profileId?: string, days?: number): Promise<PostureSnapshot[]>;
+  getPostureHistory(profileId?: string, days?: number, inventoryId?: number): Promise<PostureSnapshot[]>;
+  getRemediationEventsForTrend(days?: number, inventoryId?: number): Promise<RemediationEvent[]>;
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;

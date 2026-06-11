@@ -52,4 +52,5 @@ export type {
   ChainResponse,
   BaselineTarget,
   AuthoritativeScanResponse,
+  RemediationEvent,
 } from './api';

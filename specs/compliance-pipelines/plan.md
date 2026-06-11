@@ -1,6 +1,6 @@
 # Implementation Plan: Compliance Pipelines
 
-**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-05-29) | **Spec**: [spec.md](./spec.md)
+**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-11) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`
 **Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Ansible Content Ecosystem](../../prototypes/compliance-pipelines/context/ansible-content-ecosystem.md)
 
@@ -588,9 +588,11 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.13.24, Frontend v0.10.26, 311 tests across 13 suites, 21 ADRs
+**Current versions**: Backend v0.13.30, Frontend v0.10.34, 467 tests across 16 suites, 23 ADRs
 
 **P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
+
+**Post-hardening completions (2026-06-08 through 2026-06-10)**: Phase 3a cleanup (remediation scan dual-write removed, draft upsert with migration 017, Active/All/Drafts/Archived filter), chain view (ADR-016 Layer 3 — ChainView component, `/chain/:executionId` endpoint, delta calculation, "Verified" badge), baseline feature (API endpoints, pin/unpin dialogs, dual-layer dashboard with standard/baseline toggle), ADR-015 prerequisites (mandatory scan check, authoritative scan resolution, inventory selector with reactive scan validation, cross-profile filtering), test coverage sprint (318→467 tests), P2 quick wins (baseline toggle, verification labels, builder context, scan ID consistency).
 
 **Terminology alignment (2026-05-30)**: Renamed all internal "cartridge" references to "compliance profile" — types (`ComplianceProfile`, `SaveProfileRequest`), DB table (`compliance_profile_registry` via migration 008), API routes (`/compliance-profiles`), component directory (`ProfileSettings/`), and 35+ source files. API methods for registered profiles use `getRegisteredProfiles`/`saveRegisteredProfile` to disambiguate from the display profile endpoint (`getProfiles`). Old migrations preserved with historical table name. No external API contract existed — clean rename with zero backwards-compatibility concerns.
 

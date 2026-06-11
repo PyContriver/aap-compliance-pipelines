@@ -113,6 +113,15 @@ export interface ChainResponse {
   delta: { fixed: number; regressed: number; unchanged: number } | null;
 }
 
+/** Lightweight remediation event for trend chart annotations. */
+export interface RemediationEvent {
+  id: string;
+  completedAt: string;
+  inventoryId: number;
+  rulesApplied: number | null;
+  status: string;
+}
+
 /** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */
 export interface BaselineTarget {
   id: string;
