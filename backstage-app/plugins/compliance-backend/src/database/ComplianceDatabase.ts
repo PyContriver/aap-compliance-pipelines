@@ -569,14 +569,19 @@ export class ComplianceDatabase {
     cutoff.setDate(cutoff.getDate() - days);
 
     let query = this.db('compliance_posture_snapshots')
-      .where('timestamp', '>=', cutoff.toISOString())
-      .orderBy('timestamp', 'asc');
+      .leftJoin('compliance_scans', 'compliance_posture_snapshots.scan_id', 'compliance_scans.id')
+      .select(
+        'compliance_posture_snapshots.*',
+        'compliance_scans.workflow_job_id as scan_workflow_job_id',
+      )
+      .where('compliance_posture_snapshots.timestamp', '>=', cutoff.toISOString())
+      .orderBy('compliance_posture_snapshots.timestamp', 'asc');
 
     if (profileId) {
-      query = query.where('profile_id', profileId);
+      query = query.where('compliance_posture_snapshots.profile_id', profileId);
     }
     if (inventoryId !== undefined) {
-      query = query.where('inventory_id', inventoryId);
+      query = query.where('compliance_posture_snapshots.inventory_id', inventoryId);
     }
 
     const rows = await query;
@@ -614,6 +619,7 @@ export class ComplianceDatabase {
       profileId: row.profile_id as string,
       inventoryId: (row.inventory_id as number) ?? undefined,
       scanId: (row.scan_id as string) ?? undefined,
+      workflowJobId: (row.scan_workflow_job_id as number) ?? undefined,
       timestamp: toISOString(row.timestamp),
       totalHosts: row.total_hosts as number,
       totalRules: row.total_rules as number,

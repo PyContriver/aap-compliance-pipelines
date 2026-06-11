@@ -509,7 +509,10 @@ export const ComplianceDashboard = () => {
             initialData={postureHistory}
             stats={stats}
             api={api}
-            onPointClick={snap => snap.scanId && navigate(`/compliance/results/${snap.scanId}`)}
+            onPointClick={snap => {
+              const navId = snap.workflowJobId ?? snap.scanId;
+              if (navId) navigate(`/compliance/results/${navId}`);
+            }}
           />
         </InfoCard>
       </div>

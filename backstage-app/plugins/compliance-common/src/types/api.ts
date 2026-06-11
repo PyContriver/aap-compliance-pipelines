@@ -138,6 +138,7 @@ export interface PostureSnapshot {
   profileId: string;
   inventoryId?: number;
   scanId?: string;
+  workflowJobId?: number;
   timestamp: string;
   totalHosts: number;
   totalRules: number;

@@ -7,6 +7,7 @@ export interface TrendDataPoint {
   compliancePct: number;
   profileId: string;
   scanId?: string;
+  workflowJobId?: number;
   eventType: EventType;
   delta: number;
   passCount: number;
@@ -53,6 +54,7 @@ export function detectEvents(snapshots: PostureSnapshot[]): TrendDataPoint[] {
       compliancePct: snap.compliancePct,
       profileId: snap.profileId,
       scanId: snap.scanId,
+      workflowJobId: snap.workflowJobId,
       eventType,
       delta,
       passCount: snap.passCount,

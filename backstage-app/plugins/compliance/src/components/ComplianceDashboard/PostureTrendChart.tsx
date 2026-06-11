@@ -147,6 +147,9 @@ function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) 
   return (
     <div className={classes.tooltipBox}>
       <div className={classes.tooltipLabel}>{dateStr}</div>
+      {point.workflowJobId && (
+        <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>Scan #{point.workflowJobId}</div>
+      )}
       <div>Compliance: {point.compliancePct ?? 0}%</div>
       <div>
         {point.passCount ?? 0} pass / {point.failCount ?? 0} fail
@@ -273,7 +276,8 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 
   const handleDotClick = useCallback(
     (point: TrendDataPoint) => {
-      if (!onPointClick || !point.scanId) return;
+      if (!onPointClick) return;
+      if (!point.scanId && !point.workflowJobId) return;
       const snap = data.find(s => s.scanId === point.scanId);
       if (snap) onPointClick(snap);
     },
