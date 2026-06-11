@@ -639,6 +639,43 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - All API calls via Gateway, zero direct Controller calls (spec SC-009)
 - Clean Knex migrations with up/down for all tables (spec SC-010)
 
+## Handoff Readiness — Next Actions (2026-06-11 architect review)
+
+**Current score: 7.5/10.** All code changes pushed to GitHub, deployed on Netrunner (v0.13.40/v0.10.44). Color migration 96% complete, visual consistency confirmed across all tabs. ADR-025 and handover guide written.
+
+### Must-do before handoff (~7 hours)
+
+| # | Action | Effort | Why |
+|---|--------|--------|-----|
+| 1 | Tests for `ChainView.tsx` (332 lines, complex workflow viz, zero tests) | 2h | Core feature with no coverage |
+| 2 | Tests for `InventoriesList.tsx` (320 lines, just overhauled, zero tests) | 2h | Recently rewritten, needs validation |
+| 3 | Tests for `FindingsParser.ts` (347 lines, core parsing logic, zero tests) | 2h | Backend critical path untested |
+| 4 | Align CLI export command (`rhdh-cli plugin export` → `janus-cli package export-dynamic-plugin`) | 30m | Downstream uses `janus-cli` |
+
+### Should-do (~8 hours)
+
+| # | Action | Effort | Why |
+|---|--------|--------|-----|
+| 5 | Add memoization to `RemediationsList.tsx` and `ComplianceDashboard.tsx` | 1h | Low hook density for component size |
+| 6 | Tests for `ScanProgress.tsx` and `RemediationPlanBuilder.ts` | 2h | Visible UI + core backend logic |
+| 7 | Split `RemediationExecution.tsx` (1431 lines) into sub-components | 3h | Largest file, hard to review |
+| 8 | Add `SURFACE_COLORS` to colors.ts for remaining structural grays | 2h | Complete the color centralization |
+
+### Nice-to-have (~6 hours)
+
+| # | Action | Effort | Why |
+|---|--------|--------|-----|
+| 9 | Fix 3 `any` types in chart components | 1h | Type safety |
+| 10 | Add Zod validation on `/findings/ingest` body | 2h | Runtime schema validation |
+| 11 | Pin Backstage package versions to match downstream | 1h | Version alignment |
+| 12 | Migrate `console.error` to Backstage `errorApiRef` | 2h | Standard error reporting |
+
+### Downstream alignment notes
+- `backstage-rhaap-common` has NO shared colors/themes — our `colors.ts` is a clean extension
+- `recharts` is an additional dependency (downstream has zero charting deps) — needs explicit approval
+- Backstage package versions are slightly ahead of downstream (may need pinning)
+- Our error boundary in `ComplianceRouter.tsx` is strictly additive (downstream has none)
+
 ## Open Questions
 
 1. Should compliance profile registration validate EE contents (verify `scap-security-guide` RPM is installed) or only validate EE existence via Gateway API?
