@@ -27,6 +27,7 @@ import PolicyIcon from '@material-ui/icons/Policy';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import type { ComplianceProfile } from '@aap-compliance/common';
+import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   frameworkChip: {
@@ -320,7 +321,7 @@ export const ProfileBrowser = () => {
                     </Typography>
                   </div>
                   <div className={classes.ruleCategory}>
-                    <Chip label="CAT II — Medium" size="small" style={{ backgroundColor: '#ff9800', color: '#fff' }} />
+                    <Chip label="CAT II — Medium" size="small" style={{ backgroundColor: SEVERITY_COLORS.CAT_II, color: '#fff' }} />
                     <Typography variant="subtitle2">
                       {selectedProfile.severity.catII}
                     </Typography>
@@ -379,7 +380,7 @@ export const ProfileBrowser = () => {
 
         {profiles.length === 0 ? (
           <Box textAlign="center" py={6}>
-            <SecurityIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+            <SecurityIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
               No compliance profiles registered
             </Typography>

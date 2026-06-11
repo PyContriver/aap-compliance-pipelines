@@ -35,6 +35,7 @@ import {
   type TrendDataPoint,
   type MultiProfileRow,
 } from './trendUtils';
+import { STATUS_COLORS } from '../shared/colors';
 
 type TrendScope = 'all-profiles' | 'per-profile' | 'per-inventory';
 
@@ -148,7 +149,7 @@ function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) 
     <div className={classes.tooltipBox}>
       <div className={classes.tooltipLabel}>{dateStr}</div>
       {point.workflowJobId && (
-        <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>Scan #{point.workflowJobId}</div>
+        <div style={{ fontSize: '0.75rem', color: STATUS_COLORS.neutral }}>Scan #{point.workflowJobId}</div>
       )}
       <div>Compliance: {point.compliancePct ?? 0}%</div>
       <div>
@@ -224,13 +225,11 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 
     if (scope === 'per-profile' && selectedProfileId) {
       setLoading(true);
-      Promise.all([
-        api.getPostureHistory(selectedProfileId, 90),
-        api.getRemediationEventsForTrend(90),
-      ]).then(([history, events]) => {
-        setData(history);
-        setRemediationEvents(events);
-      }).catch(() => {}).finally(() => setLoading(false));
+      setRemediationEvents([]);
+      api.getPostureHistory(selectedProfileId, 90)
+        .then(setData)
+        .catch(() => {})
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -387,7 +386,7 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
       ) : (
         <SingleLineChart
           data={singleLineData}
-          remediationEvents={remediationEvents}
+          remediationEvents={scope === 'per-inventory' ? remediationEvents : []}
           onDotClick={handleDotClick}
           classes={classes}
         />

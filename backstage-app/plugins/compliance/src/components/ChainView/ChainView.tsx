@@ -31,6 +31,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import { complianceApiRef } from '../../api';
 import { formatDuration } from '../shared/formatTime';
+import { STATUS_COLORS } from '../shared/colors';
 import type { ChainResponse } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -50,11 +51,11 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 700,
   },
   deltaPositive: {
-    color: '#3E8635',
+    color: STATUS_COLORS.success,
     fontWeight: 600,
   },
   deltaNegative: {
-    color: '#C9190B',
+    color: STATUS_COLORS.error,
     fontWeight: 600,
   },
   connector: {
@@ -177,8 +178,8 @@ export const ChainView = () => {
                     </Typography>
                     <Chip label={`${assessmentStats.rules} rules`} size="small" variant="outlined" />
                     <Chip label={`${assessmentStats.hosts} hosts`} size="small" variant="outlined" />
-                    <Chip label={`${assessmentStats.pass} pass`} size="small" style={{ backgroundColor: '#3E8635', color: '#fff' }} />
-                    <Chip label={`${assessmentStats.fail} fail`} size="small" style={{ backgroundColor: '#C9190B', color: '#fff' }} />
+                    <Chip label={`${assessmentStats.pass} pass`} size="small" style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }} />
+                    <Chip label={`${assessmentStats.fail} fail`} size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff' }} />
                   </div>
                   <Box mt={1}>
                     <Button
@@ -223,7 +224,7 @@ export const ChainView = () => {
                 <div className={classes.statsRow}>
                   {execution.hostsSucceeded !== null && (
                     <Chip
-                      icon={<CheckCircleIcon style={{ color: '#3E8635' }} />}
+                      icon={<CheckCircleIcon style={{ color: STATUS_COLORS.success }} />}
                       label={`${execution.hostsSucceeded} hosts succeeded`}
                       size="small"
                       variant="outlined"
@@ -231,7 +232,7 @@ export const ChainView = () => {
                   )}
                   {execution.hostsFailed !== null && execution.hostsFailed > 0 && (
                     <Chip
-                      icon={<ErrorIcon style={{ color: '#C9190B' }} />}
+                      icon={<ErrorIcon style={{ color: STATUS_COLORS.error }} />}
                       label={`${execution.hostsFailed} hosts failed`}
                       size="small"
                       variant="outlined"
@@ -283,8 +284,8 @@ export const ChainView = () => {
                     </Typography>
                     <Chip label={`${verificationStats.rules} rules`} size="small" variant="outlined" />
                     <Chip label={`${verificationStats.hosts} hosts`} size="small" variant="outlined" />
-                    <Chip label={`${verificationStats.pass} pass`} size="small" style={{ backgroundColor: '#3E8635', color: '#fff' }} />
-                    <Chip label={`${verificationStats.fail} fail`} size="small" style={{ backgroundColor: '#C9190B', color: '#fff' }} />
+                    <Chip label={`${verificationStats.pass} pass`} size="small" style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }} />
+                    <Chip label={`${verificationStats.fail} fail`} size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff' }} />
                   </div>
                   {delta && (
                     <Box mt={1.5} display="flex" style={{ gap: 16 }}>

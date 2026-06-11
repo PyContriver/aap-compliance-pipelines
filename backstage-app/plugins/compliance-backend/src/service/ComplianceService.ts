@@ -455,7 +455,7 @@ export class ComplianceService {
       workflowJobId: primary.id,
       status: primary.status,
       allJobIds: launches.map(l => l.id),
-      executionId: '', // TODO: wire up execution creation in route handler (Step 5)
+      executionId: '',
     };
   }
 

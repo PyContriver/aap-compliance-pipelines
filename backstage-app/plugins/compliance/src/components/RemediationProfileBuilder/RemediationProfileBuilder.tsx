@@ -24,23 +24,24 @@ import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfil
 import { complianceApiRef } from '../../api';
 import { FilterGroup } from '../ResultsViewer/FilterGroup';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
+import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
 
 // ─── Filter definitions (consistent with ResultsViewer) ─────────────
 const SEVERITY_OPTIONS: FilterOption[] = [
-  { key: 'CAT_I', label: 'CAT I', color: '#C9190B' },
-  { key: 'CAT_II', label: 'CAT II', color: '#F0AB00' },
-  { key: 'CAT_III', label: 'CAT III', color: '#0066CC' },
+  { key: 'CAT_I', label: 'CAT I', color: SEVERITY_COLORS.CAT_I },
+  { key: 'CAT_II', label: 'CAT II', color: SEVERITY_COLORS.CAT_II },
+  { key: 'CAT_III', label: 'CAT III', color: SEVERITY_COLORS.CAT_III },
 ];
 const STATE_OPTIONS: FilterOption[] = [
-  { key: 'new', label: 'New', color: '#0066CC' },
-  { key: 'fixed', label: 'Fixed', color: '#3E8635' },
-  { key: 'resurfaced', label: 'Resurfaced', color: '#C9190B' },
-  { key: 'active', label: 'Active', color: '#6A6E73' },
+  { key: 'new', label: 'New', color: STATUS_COLORS.info },
+  { key: 'fixed', label: 'Fixed', color: STATUS_COLORS.success },
+  { key: 'resurfaced', label: 'Resurfaced', color: STATUS_COLORS.error },
+  { key: 'active', label: 'Active', color: STATUS_COLORS.neutral },
 ];
 const RISK_OPTIONS: FilterOption[] = [
-  { key: 'disruption:high', label: 'High Disruption', color: '#C9190B' },
-  { key: 'aap:caution', label: 'AAP Caution', color: '#F0AB00' },
-  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: '#C9190B' },
+  { key: 'disruption:high', label: 'High Disruption', color: STATUS_COLORS.error },
+  { key: 'aap:caution', label: 'AAP Caution', color: STATUS_COLORS.warning },
+  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: STATUS_COLORS.error },
 ];
 
 const useStyles = makeStyles(theme => ({
@@ -49,9 +50,9 @@ const useStyles = makeStyles(theme => ({
   findingDisabled: { opacity: 0.5, backgroundColor: theme.palette.action.disabledBackground },
   findingEnabled: { backgroundColor: theme.palette.background.paper },
   severityChip: { fontWeight: 600, minWidth: 60 },
-  catI: { backgroundColor: '#C9190B', color: '#fff' },
-  catII: { backgroundColor: '#F0AB00', color: '#fff' },
-  catIII: { backgroundColor: '#0066CC', color: '#fff' },
+  catI: { backgroundColor: SEVERITY_COLORS.CAT_I, color: '#fff' },
+  catII: { backgroundColor: SEVERITY_COLORS.CAT_II, color: '#fff' },
+  catIII: { backgroundColor: SEVERITY_COLORS.CAT_III, color: '#fff' },
   detailPanel: { padding: theme.spacing(2, 3), backgroundColor: theme.palette.background.default, borderTop: `1px solid ${theme.palette.divider}` },
   summaryBar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: theme.spacing(2), backgroundColor: theme.palette.background.default, borderRadius: theme.shape.borderRadius, marginBottom: theme.spacing(2), flexWrap: 'wrap' as const, gap: theme.spacing(1) },
   summaryCount: { display: 'flex', gap: theme.spacing(3), flexWrap: 'wrap' as const },
@@ -64,11 +65,11 @@ const useStyles = makeStyles(theme => ({
   remediationStrategy: { padding: theme.spacing(1.5, 0) },
   profileHeader: { display: 'flex', alignItems: 'flex-start', gap: theme.spacing(2), padding: theme.spacing(2), backgroundColor: theme.palette.background.default, borderRadius: theme.shape.borderRadius, marginBottom: theme.spacing(2), border: `1px solid ${theme.palette.divider}` },
   autoSaveIndicator: { display: 'flex', alignItems: 'center', gap: theme.spacing(0.5), fontSize: '0.75rem', color: theme.palette.text.secondary, minWidth: 80, flexShrink: 0 },
-  savedIcon: { fontSize: 14, color: '#3E8635' },
+  savedIcon: { fontSize: 14, color: STATUS_COLORS.success },
   viewToggle: { marginRight: theme.spacing(2) },
   viewToggleActive: { fontWeight: 600 },
   passingNote: { display: 'flex', alignItems: 'center', gap: theme.spacing(1), padding: theme.spacing(1, 2), marginBottom: theme.spacing(1), color: theme.palette.text.secondary, fontSize: '0.85rem' },
-  passingNoteIcon: { color: '#3E8635', fontSize: 18 },
+  passingNoteIcon: { color: STATUS_COLORS.success, fontSize: 18 },
   filterBar: {
     display: 'flex', gap: theme.spacing(1), alignItems: 'center',
     flexWrap: 'wrap' as const, marginBottom: theme.spacing(1),
@@ -349,9 +350,9 @@ export const RemediationProfileBuilder = () => {
   }, [selections, profileName, profileDescription, performAutoSave]);
 
   const renderAutoSaveStatus = () => {
-    if (autoSaveStatus === 'saving') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><Typography variant="caption" style={{ color: '#6A6E73' }}>Saving...</Typography></div>);
-    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: '#3E8635' }}>{profileSaved ? 'Saved' : 'Draft saved'}</Typography></div>);
-    if (autoSaveStatus === 'error') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><WarningIcon style={{ fontSize: 14, color: '#C9190B' }} /><Typography variant="caption" style={{ color: '#C9190B' }}>Save failed</Typography></div>);
+    if (autoSaveStatus === 'saving') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><Typography variant="caption" style={{ color: STATUS_COLORS.neutral }}>Saving...</Typography></div>);
+    if (autoSaveStatus === 'saved') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><CheckCircleIcon className={classes.savedIcon} /><Typography variant="caption" style={{ color: STATUS_COLORS.success }}>{profileSaved ? 'Saved' : 'Draft saved'}</Typography></div>);
+    if (autoSaveStatus === 'error') return (<div className={classes.autoSaveIndicator} data-testid="auto-save-status"><WarningIcon style={{ fontSize: 14, color: STATUS_COLORS.error }} /><Typography variant="caption" style={{ color: STATUS_COLORS.error }}>Save failed</Typography></div>);
     return null;
   };
 
@@ -362,7 +363,7 @@ export const RemediationProfileBuilder = () => {
       <div key={finding.ruleId} className={`${classes.findingCard} ${sel.enabled ? classes.findingEnabled : classes.findingDisabled}`}>
         <div className={classes.findingHeader}>
           <Switch checked={sel.enabled} onChange={() => toggleFinding(finding.ruleId)} color="primary" size="small" disabled={finding.automationAvailable === false} inputProps={{ 'aria-label': `Toggle rule ${finding.stigId} for remediation` }} />
-          {finding.automationAvailable === false && (<Chip label="Manual" size="small" variant="outlined" style={{ color: '#6A6E73', borderColor: '#6A6E73', fontSize: '0.7rem' }} />)}
+          {finding.automationAvailable === false && (<Chip label="Manual" size="small" variant="outlined" style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral, fontSize: '0.7rem' }} />)}
           {finding.stigId && <Chip label={finding.stigId} size="small" variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />}
           <Chip label={finding.severity === 'CAT_I' ? 'CAT I' : finding.severity === 'CAT_II' ? 'CAT II' : 'CAT III'} size="small" className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`} />
           <div className={classes.titleGroup}>
@@ -370,20 +371,20 @@ export const RemediationProfileBuilder = () => {
             <div className={classes.hostBreakdown}>
               {finding.failCount > 0 ? (
                 <>
-                  <span style={{ color: '#C9190B', fontWeight: 600 }}>{finding.failCount} failed</span><span>/</span><span>{finding.totalCount} hosts</span>
+                  <span style={{ color: STATUS_COLORS.error, fontWeight: 600 }}>{finding.failCount} failed</span><span>/</span><span>{finding.totalCount} hosts</span>
                   {finding.hosts.filter(h => h.status === 'fail').length > 0 && (<span style={{ color: '#666' }}>({finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')})</span>)}
                 </>
               ) : (
-                <span style={{ color: '#3E8635', fontWeight: 600 }}>{finding.passCount}/{finding.totalCount} hosts passing</span>
+                <span style={{ color: STATUS_COLORS.success, fontWeight: 600 }}>{finding.passCount}/{finding.totalCount} hosts passing</span>
               )}
             </div>
           </div>
           {finding.disruption === 'high' && (<Chip label="High disruption" size="small" color="secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }} />)}
           {finding.aapImpact === 'breaks-connectivity' && (
-            <Chip label="Breaks AAP" size="small" style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
+            <Chip label="Breaks AAP" size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
           )}
           {finding.aapImpact === 'caution' && (
-            <Chip label="AAP caution" size="small" style={{ backgroundColor: '#F0AB00', color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
+            <Chip label="AAP caution" size="small" style={{ backgroundColor: STATUS_COLORS.warning, color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
           )}
           <IconButton size="small" onClick={e => { e.stopPropagation(); toggleExpanded(finding.ruleId); }} aria-label={sel.expanded ? `Collapse rule details for ${finding.stigId}` : `Expand rule details for ${finding.stigId}`}>{sel.expanded ? <ExpandLessIcon /> : <SettingsIcon fontSize="small" />}</IconButton>
         </div>
@@ -391,7 +392,7 @@ export const RemediationProfileBuilder = () => {
           <div className={classes.detailPanel}>
             {finding.description && (<Box mb={2}><Typography variant="body2">{finding.description}</Typography></Box>)}
             {(finding.checkText || finding.fixText) && (<Box mb={2} display="flex" flexDirection="column" style={{ gap: 12 }}>{finding.checkText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Check</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.checkText}</Typography></div>)}{finding.fixText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Fix</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.fixText}</Typography></div>)}</Box>)}
-            {finding.disruption && (<Box mb={2} display="flex" style={{ gap: 8 }}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? '#C9190B' : finding.disruption === 'medium' ? '#F0AB00' : '#3E8635', color: '#fff', fontWeight: 600 }} />{finding.aapImpact === 'breaks-connectivity' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="Breaks AAP connectivity" style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600 }} /></Tooltip>)}{finding.aapImpact === 'caution' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="AAP caution" style={{ backgroundColor: '#F0AB00', color: '#fff', fontWeight: 600 }} /></Tooltip>)}</Box>)}
+            {finding.disruption && (<Box mb={2} display="flex" style={{ gap: 8 }}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? STATUS_COLORS.error : finding.disruption === 'medium' ? STATUS_COLORS.warning : STATUS_COLORS.success, color: '#fff', fontWeight: 600 }} />{finding.aapImpact === 'breaks-connectivity' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="Breaks AAP connectivity" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', fontWeight: 600 }} /></Tooltip>)}{finding.aapImpact === 'caution' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="AAP caution" style={{ backgroundColor: STATUS_COLORS.warning, color: '#fff', fontWeight: 600 }} /></Tooltip>)}</Box>)}
             {finding.passCount > 0 && finding.failCount > 0 && (<div className={classes.adviceBanner}><InfoIcon className={classes.adviceIcon} fontSize="small" /><div><Typography variant="body2" style={{ color: '#856404', fontWeight: 600 }}>Only {finding.failCount} of {finding.totalCount} hosts failed this rule.</Typography><Typography variant="caption" style={{ color: '#856404' }}>Consider whether {finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')} should belong to a different inventory with different compliance requirements.</Typography></div></div>)}
             <div className={classes.remediationStrategy}>
               <Typography variant="caption" color="textSecondary" gutterBottom>Remediation Scope</Typography>
@@ -405,7 +406,7 @@ export const RemediationProfileBuilder = () => {
             </div>
             {finding.parameters.length > 0 && (<Box mt={2}><Typography variant="caption" color="textSecondary" gutterBottom>Parameters{sel.scope === 'standardize_all' && (<span style={{ fontStyle: 'italic' }}> {'—'} applied to all {finding.totalCount} hosts</span>)}</Typography><Box display="flex" flexWrap="wrap" style={{ gap: 16, marginTop: 8 }}>{finding.parameters.map(param => (<div key={param.name} style={{ flex: '1 1 200px', maxWidth: 300 }}>{param.type === 'select' ? (<FormControl variant="outlined" size="small" fullWidth><InputLabel>{param.label}</InputLabel><Select value={sel.parameters[param.name] ?? param.default} onChange={e => updateParameter(finding.ruleId, param.name, e.target.value as string)} label={param.label}>{param.options?.map(opt => (<MenuItem key={String(opt.value)} value={opt.value}>{opt.label}</MenuItem>))}</Select></FormControl>) : (<TextField label={param.label} variant="outlined" size="small" fullWidth type={param.type === 'number' ? 'number' : 'text'} value={sel.parameters[param.name] ?? param.default} onChange={e => updateParameter(finding.ruleId, param.name, param.type === 'number' ? Number(e.target.value) : e.target.value)} helperText={param.description} />)}</div>))}</Box></Box>)}
             {finding.hosts.filter(h => h.status === 'fail').length > 0 && (
-              <Box mt={2}><Typography variant="caption" color="textSecondary">Failed Hosts {'—'} Actual Values</Typography><Box mt={1}>{finding.hosts.filter(h => h.status === 'fail').map(h => (<Box key={h.host} display="flex" style={{ gap: 16 }} py={0.5}><Typography variant="body2" style={{ fontFamily: 'monospace', minWidth: 120 }}>{h.host}</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', color: '#C9190B' }}>{h.actualValue}</Typography><Typography variant="caption" color="textSecondary">(expected: {h.expectedValue})</Typography></Box>))}</Box></Box>
+              <Box mt={2}><Typography variant="caption" color="textSecondary">Failed Hosts {'—'} Actual Values</Typography><Box mt={1}>{finding.hosts.filter(h => h.status === 'fail').map(h => (<Box key={h.host} display="flex" style={{ gap: 16 }} py={0.5}><Typography variant="body2" style={{ fontFamily: 'monospace', minWidth: 120 }}>{h.host}</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', color: STATUS_COLORS.error }}>{h.actualValue}</Typography><Typography variant="caption" color="textSecondary">(expected: {h.expectedValue})</Typography></Box>))}</Box></Box>
             )}
           </div>
         </Collapse>
@@ -424,7 +425,7 @@ export const RemediationProfileBuilder = () => {
           <>
             <div className={classes.sectionHeader} role="button" tabIndex={0} data-testid="failed-rules-header">
               <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                <Chip label={`Rules with Failures (${failedFindings.length})`} size="small" style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600 }} />
+                <Chip label={`Rules with Failures (${failedFindings.length})`} size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', fontWeight: 600 }} />
                 <Typography variant="body2" color="textSecondary">{failedGroupEnabled}/{failedFindings.length} selected</Typography>
               </Box>
             </div>
@@ -456,7 +457,7 @@ export const RemediationProfileBuilder = () => {
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPassingRulesExpanded(!passingRulesExpanded); } }}
             >
               <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                <Chip label={`Compliant Rules (${passingFindings.length})`} size="small" style={{ backgroundColor: '#3E8635', color: '#fff', fontWeight: 600 }} />
+                <Chip label={`Compliant Rules (${passingFindings.length})`} size="small" style={{ backgroundColor: STATUS_COLORS.success, color: '#fff', fontWeight: 600 }} />
                 <Typography variant="body2" color="textSecondary">{passingGroupEnabled}/{passingFindings.length} selected</Typography>
               </Box>
               <IconButton size="small" aria-label={passingRulesExpanded ? 'Collapse compliant rules' : 'Expand compliant rules'}>
@@ -584,7 +585,7 @@ export const RemediationProfileBuilder = () => {
         <div className={classes.summaryCount}>
           <Typography variant="body1"><strong>{failedFindings.length}</strong> rules with failures</Typography>
           <Typography variant="body1" color="textSecondary"><strong>{passingFindings.length}</strong> compliant</Typography>
-          <Typography variant="body1" style={{ color: '#3E8635' }}><strong>{enabledCount}</strong> selected</Typography>
+          <Typography variant="body1" style={{ color: STATUS_COLORS.success }}><strong>{enabledCount}</strong> selected</Typography>
           <Typography variant="body1" color="textSecondary"><strong>{disabledCount}</strong> skipped</Typography>
           <Typography variant="body1" color="textSecondary"><strong>{totalAffectedHosts}</strong> hosts affected</Typography>
         </div>
@@ -629,7 +630,7 @@ export const RemediationProfileBuilder = () => {
             <Button size="small" variant="outlined" onClick={selectAllFailed}>Select All Failed</Button>
           </Tooltip>
           <Tooltip title="Enable all failed rules that are safe for AAP — excludes rules tagged 'Breaks AAP connectivity'">
-            <Button size="small" variant="outlined" onClick={selectSafeOnly} style={{ borderColor: '#3E8635', color: '#3E8635' }}>Select Safe Only</Button>
+            <Button size="small" variant="outlined" onClick={selectSafeOnly} style={{ borderColor: STATUS_COLORS.success, color: STATUS_COLORS.success }}>Select Safe Only</Button>
           </Tooltip>
           <Tooltip title="Disable every rule in this remediation">
             <Button size="small" variant="outlined" color="secondary" onClick={clearAll}>Deselect All</Button>

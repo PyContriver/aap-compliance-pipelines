@@ -20,7 +20,7 @@ import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
 import { isOutlier } from './hostUtils';
-import { STATUS_COLORS, SEVERITY_COLORS } from '../shared/colors';
+import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   summaryRow: {

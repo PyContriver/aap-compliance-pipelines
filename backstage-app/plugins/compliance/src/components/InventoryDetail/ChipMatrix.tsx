@@ -2,6 +2,7 @@ import React from 'react';
 import { Typography, Chip, makeStyles } from '@material-ui/core';
 import type { HostPosture } from '@aap-compliance/common';
 import { isOutlier, getChipStyle } from './hostUtils';
+import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   section: { marginBottom: theme.spacing(2) },
@@ -74,9 +75,9 @@ export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostC
         {yellow.length > 0 ? ` · ${yellow.length} with CAT I` : ''}
         {` · ${green.length} compliant`}
       </Typography>
-      {renderSection('Outliers', '#C9190B', red)}
-      {renderSection('CAT I Findings', '#F0AB00', yellow)}
-      {renderSection('Compliant', '#3E8635', green)}
+      {renderSection('Outliers', STATUS_COLORS.error, red)}
+      {renderSection('CAT I Findings', STATUS_COLORS.warning, yellow)}
+      {renderSection('Compliant', STATUS_COLORS.success, green)}
     </div>
   );
 };

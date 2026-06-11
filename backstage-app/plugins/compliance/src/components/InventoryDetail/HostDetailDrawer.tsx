@@ -12,6 +12,7 @@ import CloseIcon from '@material-ui/icons/Close';
 import WarningIcon from '@material-ui/icons/Warning';
 import type { HostPosture } from '@aap-compliance/common';
 import { isOutlier } from './hostUtils';
+import { scoreColor, SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   drawer: { width: 420, padding: theme.spacing(3) },
@@ -52,7 +53,7 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({ host, allHos
 
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <Card variant="outlined" style={{ flex: 1, padding: 12, textAlign: 'center' }}>
-            <Typography variant="h5" style={{ fontWeight: 700, color: host.compliancePct >= 90 ? '#3E8635' : host.compliancePct >= 70 ? '#F0AB00' : '#C9190B' }}>
+            <Typography variant="h5" style={{ fontWeight: 700, color: scoreColor(host.compliancePct) }}>
               {host.compliancePct}%
             </Typography>
             <Typography variant="caption" color="textSecondary">Compliance</Typography>
@@ -66,12 +67,12 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({ host, allHos
         <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
           {host.catIFail > 0 && (
             <Chip size="small" label={`${host.catIFail} CAT I`}
-              style={{ backgroundColor: '#C9190B', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
+              style={{ backgroundColor: SEVERITY_COLORS.CAT_I, color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
           )}
           <Chip size="small" label={`${host.catIIFail} CAT II`}
-            style={{ backgroundColor: '#F0AB00', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
+            style={{ backgroundColor: SEVERITY_COLORS.CAT_II, color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
           <Chip size="small" label={`${host.catIIIFail} CAT III`}
-            style={{ backgroundColor: '#0066CC', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
+            style={{ backgroundColor: SEVERITY_COLORS.CAT_III, color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
         </div>
 
         {host.naCount > 0 && (
@@ -81,11 +82,11 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({ host, allHos
         )}
 
         {isOutlier(host, allHosts) && (
-          <Card variant="outlined" style={{ padding: 12, marginBottom: 16, borderColor: '#C9190B', backgroundColor: 'rgba(201,25,11,0.04)' }}>
+          <Card variant="outlined" style={{ padding: 12, marginBottom: 16, borderColor: STATUS_COLORS.error, backgroundColor: 'rgba(201,25,11,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <WarningIcon style={{ color: '#C9190B', fontSize: 20 }} />
+              <WarningIcon style={{ color: STATUS_COLORS.error, fontSize: 20 }} />
               <div>
-                <Typography variant="body2" style={{ fontWeight: 600, color: '#C9190B' }}>Outlier Host</Typography>
+                <Typography variant="body2" style={{ fontWeight: 600, color: STATUS_COLORS.error }}>Outlier Host</Typography>
                 <Typography variant="caption" color="textSecondary">
                   Deviates significantly from the inventory average ({mean.toFixed(1)}%).
                 </Typography>

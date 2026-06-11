@@ -34,6 +34,7 @@ import EditIcon from '@material-ui/icons/Edit';
 import SettingsIcon from '@material-ui/icons/Settings';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
+import { STATUS_COLORS } from '../shared/colors';
 import { ProfileFormDialog } from './ProfileFormDialog';
 
 import type {
@@ -300,7 +301,7 @@ export const ProfileSettings = () => {
 
         {profiles.length === 0 ? (
           <div className={classes.emptyState}>
-            <SettingsIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+            <SettingsIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
               No compliance profiles configured
             </Typography>

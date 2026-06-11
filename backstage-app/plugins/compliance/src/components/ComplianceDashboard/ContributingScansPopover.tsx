@@ -5,6 +5,7 @@ import {
 } from '@material-ui/core';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import type { ContributingScan } from '@aap-compliance/common';
+import { scoreColor } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   content: {
@@ -32,12 +33,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const getColor = (rate: number): string => {
-  if (rate >= 90) return '#3E8635';
-  if (rate >= 75) return '#F0AB00';
-  if (rate >= 50) return '#EC7A08';
-  return '#C9190B';
-};
+const getColor = scoreColor;
 
 export interface BaselineInfo {
   remediationProfileName: string;

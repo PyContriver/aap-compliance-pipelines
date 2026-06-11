@@ -16,6 +16,7 @@ import {
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import type { BaselineTarget } from '@aap-compliance/common';
+import { EXECUTION_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   helperText: {
@@ -176,13 +177,13 @@ export const ManageBaselinePinsDialog: React.FC<ManageBaselinePinsDialogProps> =
                     }
                   />
                   {wasPinned && isPinned && (
-                    <Chip label="pinned" size="small" className={classes.pinnedChip} style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }} />
+                    <Chip label="pinned" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />
                   )}
                   {!wasPinned && isPinned && (
-                    <Chip label="will pin" size="small" className={classes.pinnedChip} style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }} />
+                    <Chip label="will pin" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg }} />
                   )}
                   {wasPinned && !isPinned && (
-                    <Chip label="will unpin" size="small" className={classes.pinnedChip} style={{ backgroundColor: '#FFF3E0', color: '#E65100' }} />
+                    <Chip label="will unpin" size="small" className={classes.pinnedChip} style={{ backgroundColor: EXECUTION_COLORS.pending.bg, color: EXECUTION_COLORS.pending.fg }} />
                   )}
                 </div>
               );

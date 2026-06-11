@@ -12,6 +12,7 @@ import {
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import type { BaselineTarget } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
+import { scoreColor, EXECUTION_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   inventoryRow: {
@@ -131,11 +132,7 @@ export const InlineBaselinePins = ({
     }
   };
 
-  const getRateColor = (rate: number) => {
-    if (rate >= 90) return { bg: '#E8F5E9', fg: '#2E7D32' };
-    if (rate >= 70) return { bg: '#FFF3E0', fg: '#E65100' };
-    return { bg: '#FFEBEE', fg: '#C62828' };
-  };
+  const getRateColor = (rate: number) => ({ bg: scoreColor(rate), fg: '#fff' });
 
   return (
     <div>
@@ -149,11 +146,11 @@ export const InlineBaselinePins = ({
 
         let statusChip = null;
         if (wasPinned && isPinned) {
-          statusChip = <Chip label="pinned" size="small" className={classes.chip} style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }} />;
+          statusChip = <Chip label="pinned" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />;
         } else if (!wasPinned && isPinned) {
-          statusChip = <Chip label="will pin" size="small" className={classes.chip} style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }} />;
+          statusChip = <Chip label="will pin" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg }} />;
         } else if (wasPinned && !isPinned) {
-          statusChip = <Chip label="will unpin" size="small" className={classes.chip} style={{ backgroundColor: '#FFF3E0', color: '#E65100' }} />;
+          statusChip = <Chip label="will unpin" size="small" className={classes.chip} style={{ backgroundColor: EXECUTION_COLORS.pending.bg, color: EXECUTION_COLORS.pending.fg }} />;
         }
 
         const rateColors = rate !== undefined ? getRateColor(rate) : null;

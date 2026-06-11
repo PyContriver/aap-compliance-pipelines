@@ -36,6 +36,7 @@ import RefreshIcon from '@material-ui/icons/Refresh';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import { formatElapsed } from '../shared/formatTime';
+import { STATUS_COLORS } from '../shared/colors';
 import type { JobEvent, MultiHostFinding, RemediationSelection, RemediationExecutionStatus } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -496,11 +497,11 @@ const HostChips: React.FC<{
             label={h.host}
             variant="outlined"
             style={{
-              borderColor: h.status === 'failed' ? '#C9190B'
-                : h.status === 'completed' ? '#3E8635'
+              borderColor: h.status === 'failed' ? STATUS_COLORS.error
+                : h.status === 'completed' ? STATUS_COLORS.success
                 : undefined,
-              color: h.status === 'failed' ? '#C9190B'
-                : h.status === 'completed' ? '#3E8635'
+              color: h.status === 'failed' ? STATUS_COLORS.error
+                : h.status === 'completed' ? STATUS_COLORS.success
                 : undefined,
             }}
           />
@@ -519,7 +520,7 @@ const HostChips: React.FC<{
         <Typography variant="body2">
           {completedHosts}/{hosts.length} hosts completed
           {failedHosts > 0 && (
-            <span style={{ color: '#C9190B' }}> ({failedHosts} failed)</span>
+            <span style={{ color: STATUS_COLORS.error }}> ({failedHosts} failed)</span>
           )}
         </Typography>
         <span
@@ -541,11 +542,11 @@ const HostChips: React.FC<{
               label={h.host}
               variant="outlined"
               style={{
-                borderColor: h.status === 'failed' ? '#C9190B'
-                  : h.status === 'completed' ? '#3E8635'
+                borderColor: h.status === 'failed' ? STATUS_COLORS.error
+                  : h.status === 'completed' ? STATUS_COLORS.success
                   : undefined,
-                color: h.status === 'failed' ? '#C9190B'
-                  : h.status === 'completed' ? '#3E8635'
+                color: h.status === 'failed' ? STATUS_COLORS.error
+                  : h.status === 'completed' ? STATUS_COLORS.success
                   : undefined,
               }}
             />
@@ -1048,7 +1049,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
               label="Plan snapshot"
               size="small"
               variant="outlined"
-              style={{ color: '#6A6E73', borderColor: '#6A6E73', fontSize: '0.72rem' }}
+              style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral, fontSize: '0.72rem' }}
             />
             <Typography variant="caption" color="textSecondary">
               Rule list shows the plan at launch time, not current findings.
@@ -1202,7 +1203,7 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                       icon={<CheckCircleIcon />}
                       label={failedCount > 0 ? 'Completed with errors' : 'Successful'}
                       style={{
-                        backgroundColor: failedCount > 0 ? '#ff9800' : '#4caf50',
+                        backgroundColor: failedCount > 0 ? STATUS_COLORS.warning : STATUS_COLORS.success,
                         color: '#fff',
                       }}
                     />

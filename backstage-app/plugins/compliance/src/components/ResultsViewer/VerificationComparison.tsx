@@ -160,7 +160,7 @@ export const VerificationComparison = ({
             onClick={() => onStatClick?.(activeComparison === 'improved' ? 'all' : 'improved')}
             style={activeComparison === 'improved' ? { backgroundColor: 'rgba(62,134,53,0.1)' } : undefined}
           >
-            <TrendingUpIcon fontSize="small" style={{ color: '#3E8635' }} />
+            <TrendingUpIcon fontSize="small" style={{ color: STATUS_COLORS.success }} />
             <Typography variant="body2" className={classes.deltaPositive}>
               {comparisonStats.improved} Rules Improved
             </Typography>
@@ -173,7 +173,7 @@ export const VerificationComparison = ({
               onClick={() => onStatClick?.(activeComparison === 'regressed' ? 'all' : 'regressed')}
               style={activeComparison === 'regressed' ? { backgroundColor: 'rgba(201,25,11,0.1)' } : undefined}
             >
-              <TrendingDownIcon fontSize="small" style={{ color: '#C9190B' }} />
+              <TrendingDownIcon fontSize="small" style={{ color: STATUS_COLORS.error }} />
               <Typography variant="body2" className={classes.deltaNegative}>
                 {comparisonStats.regressed} Rules Regressed
               </Typography>
@@ -186,7 +186,7 @@ export const VerificationComparison = ({
             onClick={() => onStatClick?.(activeComparison === 'unchanged' ? 'all' : 'unchanged')}
             style={activeComparison === 'unchanged' ? { backgroundColor: 'rgba(106,110,115,0.1)' } : undefined}
           >
-            <RemoveIcon fontSize="small" style={{ color: '#6A6E73' }} />
+            <RemoveIcon fontSize="small" style={{ color: STATUS_COLORS.neutral }} />
             <Typography variant="body2" className={classes.deltaUnchanged}>
               {comparisonStats.unchanged} Rules Unchanged
             </Typography>

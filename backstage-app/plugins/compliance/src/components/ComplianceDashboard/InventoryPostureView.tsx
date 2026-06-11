@@ -6,6 +6,7 @@ import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
 import type { InventoryPosture, BaselineTarget } from '@aap-compliance/common';
 import { ComplianceGauge, getColor } from './ComplianceGauge';
 import { PinBaselineDialog } from './PinBaselineDialog';
+import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   grid: {
@@ -102,7 +103,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
           <Card key={inv.inventoryId} variant="outlined" className={classes.card}>
             <Typography
               className={classes.inventoryName}
-              style={{ cursor: 'pointer', color: '#0066CC' }}
+              style={{ cursor: 'pointer', color: STATUS_COLORS.info }}
               onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
             >
               {inv.inventoryName}
@@ -141,7 +142,7 @@ export const InventoryPostureView: React.FC<InventoryPostureViewProps> = ({
                           }}
                         >
                           {existing
-                            ? <BookmarkIcon fontSize="small" style={{ color: '#0066CC' }} />
+                            ? <BookmarkIcon fontSize="small" style={{ color: STATUS_COLORS.info }} />
                             : <BookmarkBorderIcon fontSize="small" color="disabled" />}
                         </IconButton>
                       </Tooltip>

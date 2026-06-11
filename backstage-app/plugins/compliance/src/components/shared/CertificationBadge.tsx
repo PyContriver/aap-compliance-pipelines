@@ -1,11 +1,12 @@
 import React from 'react';
 import { Chip, ChipProps } from '@material-ui/core';
 import type { ScanCertification, CertificationStatus } from '@aap-compliance/common';
+import { STATUS_COLORS } from './colors';
 
 const COLORS: Record<CertificationStatus, string> = {
-  certified: '#3E8635',
-  conformant: '#0066CC',
-  uncertified: '#6A6E73',
+  certified: STATUS_COLORS.success,
+  conformant: STATUS_COLORS.info,
+  uncertified: STATUS_COLORS.neutral,
 };
 
 const LABELS: Record<CertificationStatus, string> = {

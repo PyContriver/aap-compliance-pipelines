@@ -29,6 +29,7 @@ import {
   DialogActions,
   CircularProgress,
   IconButton,
+  Paper,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
@@ -44,6 +45,8 @@ import ListIcon from '@material-ui/icons/List';
 import type { MultiHostFinding } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
+import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
+import { TABLE_STYLES } from '../shared/chipStyles';
 import { ExportButton } from './ExportButton';
 import { ScanFailedView } from './ScanFailedView';
 import { SummaryCards } from './SummaryCards';
@@ -56,27 +59,27 @@ import { useScanMetadata, useBaselineState, useFindingsFilter } from './hooks';
 // ─── Filter definitions ──────────────────────────────────────────────
 
 const SEVERITY_OPTIONS: FilterOption[] = [
-  { key: 'CAT_I', label: 'CAT I', color: '#C9190B' },
-  { key: 'CAT_II', label: 'CAT II', color: '#F0AB00' },
-  { key: 'CAT_III', label: 'CAT III', color: '#0066CC' },
+  { key: 'CAT_I', label: 'CAT I', color: SEVERITY_COLORS.CAT_I },
+  { key: 'CAT_II', label: 'CAT II', color: SEVERITY_COLORS.CAT_II },
+  { key: 'CAT_III', label: 'CAT III', color: SEVERITY_COLORS.CAT_III },
 ];
 
 const STATUS_OPTIONS: FilterOption[] = [
-  { key: 'fail', label: 'Failing', color: '#C9190B' },
-  { key: 'pass', label: 'Passing', color: '#3E8635' },
+  { key: 'fail', label: 'Failing', color: STATUS_COLORS.error },
+  { key: 'pass', label: 'Passing', color: STATUS_COLORS.success },
 ];
 
 const STATE_OPTIONS: FilterOption[] = [
-  { key: 'new', label: 'New', color: '#0066CC' },
-  { key: 'fixed', label: 'Fixed', color: '#3E8635' },
-  { key: 'resurfaced', label: 'Resurfaced', color: '#C9190B' },
-  { key: 'active', label: 'Active', color: '#6A6E73' },
+  { key: 'new', label: 'New', color: STATUS_COLORS.info },
+  { key: 'fixed', label: 'Fixed', color: STATUS_COLORS.success },
+  { key: 'resurfaced', label: 'Resurfaced', color: STATUS_COLORS.error },
+  { key: 'active', label: 'Active', color: STATUS_COLORS.neutral },
 ];
 
 const RISK_OPTIONS: FilterOption[] = [
-  { key: 'disruption:high', label: 'High Disruption', color: '#C9190B' },
-  { key: 'aap:caution', label: 'AAP Caution', color: '#F0AB00' },
-  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: '#C9190B' },
+  { key: 'disruption:high', label: 'High Disruption', color: STATUS_COLORS.error },
+  { key: 'aap:caution', label: 'AAP Caution', color: STATUS_COLORS.warning },
+  { key: 'aap:breaks-connectivity', label: 'Breaks AAP', color: STATUS_COLORS.error },
 ];
 
 // ─── Styles ──────────────────────────────────────────────────────────
@@ -241,9 +244,9 @@ export const ResultsViewer = () => {
     }
     if (filters.comparison !== 'all') {
       const compLabels: Record<string, { label: string; color: string }> = {
-        improved: { label: 'Improved', color: '#3E8635' },
-        regressed: { label: 'Regressed', color: '#C9190B' },
-        unchanged: { label: 'Unchanged', color: '#6A6E73' },
+        improved: { label: 'Improved', color: STATUS_COLORS.success },
+        regressed: { label: 'Regressed', color: STATUS_COLORS.error },
+        unchanged: { label: 'Unchanged', color: STATUS_COLORS.neutral },
       };
       const cl = compLabels[filters.comparison];
       if (cl) pills.push({ label: cl.label, key: 'comparison', clearKey: 'comparison', color: cl.color });
@@ -563,7 +566,7 @@ export const ResultsViewer = () => {
         <Box mt={2} />
         <InfoCard title="Scan Results">
           <div className={classes.emptyState}>
-            <AssessmentIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+            <AssessmentIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
               No scan results yet
             </Typography>
@@ -631,7 +634,7 @@ export const ResultsViewer = () => {
               size="small"
               variant="outlined"
               icon={<ListIcon style={{ fontSize: 16 }} />}
-              style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+              style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral }}
             />
           )}
           {meta.scanStartedAt && (
@@ -733,7 +736,7 @@ export const ResultsViewer = () => {
             clickable
             onClick={handleNaChipClick}
             icon={naExpanded ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}
-            style={{ color: '#6A6E73', borderColor: '#6A6E73' }}
+            style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral }}
           />
           <Collapse in={naExpanded} unmountOnExit>
             <Box mt={1} style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #d2d2d2', borderRadius: 4 }}>
@@ -746,17 +749,17 @@ export const ResultsViewer = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Severity</TableCell>
-                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Rule ID</TableCell>
-                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#6A6E73' }}>Title</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: STATUS_COLORS.neutral }}>Severity</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: STATUS_COLORS.neutral }}>Rule ID</TableCell>
+                      <TableCell style={{ fontSize: '0.72rem', padding: '4px 8px', color: STATUS_COLORS.neutral }}>Title</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {naRules.map(r => (
                       <TableRow key={r.ruleId}>
-                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.severity}</TableCell>
-                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', fontFamily: 'monospace', color: '#6A6E73' }}>{r.ruleId}</TableCell>
-                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#6A6E73' }}>{r.ruleTitle}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: STATUS_COLORS.neutral }}>{r.severity}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', fontFamily: 'monospace', color: STATUS_COLORS.neutral }}>{r.ruleId}</TableCell>
+                        <TableCell style={{ fontSize: '0.72rem', padding: '2px 8px', color: STATUS_COLORS.neutral }}>{r.ruleTitle}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -946,16 +949,16 @@ export const ResultsViewer = () => {
           </div>
         )}
 
-        <TableContainer>
+        <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell width={40} />
-                <TableCell>Severity</TableCell>
-                <TableCell>Title</TableCell>
-                <TableCell>Rule ID</TableCell>
-                <TableCell align="center">Hosts</TableCell>
-                <TableCell width={200}>Pass Rate</TableCell>
+                <TableCell width={40} style={TABLE_STYLES.header} />
+                <TableCell style={TABLE_STYLES.header}>Severity</TableCell>
+                <TableCell style={TABLE_STYLES.header}>Title</TableCell>
+                <TableCell style={TABLE_STYLES.header}>Rule ID</TableCell>
+                <TableCell style={TABLE_STYLES.header} align="center">Hosts</TableCell>
+                <TableCell style={TABLE_STYLES.header} width={200}>Pass Rate</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1009,12 +1012,12 @@ export const ResultsViewer = () => {
           )}
 
           {baseline.baselineScanCheck && (
-            <Box display="flex" alignItems="center" style={{ gap: 8, color: '#3E8635' }}>
+            <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.success }}>
               <CheckCircleIcon fontSize="small" />
               <Typography variant="body2">
                 Last scan: {baseline.baselineScanCheck.passRate}% pass rate ({baseline.baselineScanCheck.passCount} pass, {baseline.baselineScanCheck.failCount} fail)
                 {baseline.baselineScanCheck.scan.completedAt && (
-                  <span style={{ color: '#6A6E73' }}>
+                  <span style={{ color: STATUS_COLORS.neutral }}>
                     {' '}&mdash; {new Date(baseline.baselineScanCheck.scan.completedAt).toLocaleDateString()}
                   </span>
                 )}
@@ -1024,7 +1027,7 @@ export const ResultsViewer = () => {
 
           {baseline.baselineScanMissing && (
             <Box>
-              <Box display="flex" alignItems="center" style={{ gap: 8, color: '#C9190B', marginBottom: 8 }}>
+              <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.error, marginBottom: 8 }}>
                 <WarningIcon fontSize="small" />
                 <Typography variant="body2">No completed assessment scan found for this inventory.</Typography>
               </Box>

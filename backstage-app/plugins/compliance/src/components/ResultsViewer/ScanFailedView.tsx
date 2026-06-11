@@ -4,6 +4,7 @@ import { InfoCard, Breadcrumbs } from '@backstage/core-components';
 import { Typography, Button, Box, Paper } from '@material-ui/core';
 import ErrorIcon from '@material-ui/icons/Error';
 import { ScanProgress } from '../ScanProgress';
+import { STATUS_COLORS } from '../shared/colors';
 
 interface ScanFailedViewProps {
   scanFailed: string;
@@ -49,7 +50,7 @@ export const ScanFailedView = ({
 
       <InfoCard title="Scan Failed">
         <Box p={3} textAlign="center">
-          <ErrorIcon style={{ fontSize: 64, color: '#C9190B', marginBottom: 16 }} />
+          <ErrorIcon style={{ fontSize: 64, color: STATUS_COLORS.error, marginBottom: 16 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             The compliance scan did not complete successfully
           </Typography>

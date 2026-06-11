@@ -1,4 +1,5 @@
 import type { HostPosture } from '@aap-compliance/common';
+import { STATUS_COLORS } from '../shared/colors';
 
 export interface Cluster {
   id: string;
@@ -50,9 +51,9 @@ export function isOutlier(host: HostPosture, allHosts: HostPosture[]): boolean {
 }
 
 export function hostColor(host: HostPosture, allHosts: HostPosture[]): string {
-  if (isOutlier(host, allHosts)) return '#C9190B';
-  if (host.catIFail > 0) return '#F0AB00';
-  return '#3E8635';
+  if (isOutlier(host, allHosts)) return STATUS_COLORS.error;
+  if (host.catIFail > 0) return STATUS_COLORS.warning;
+  return STATUS_COLORS.success;
 }
 
 export function getChipStyle(host: HostPosture, allHosts: HostPosture[]) {
@@ -60,6 +61,6 @@ export function getChipStyle(host: HostPosture, allHosts: HostPosture[]) {
   return {
     borderColor: c,
     color: c,
-    backgroundColor: c === '#C9190B' ? 'rgba(201,25,11,0.04)' : c === '#F0AB00' ? 'rgba(240,171,0,0.04)' : 'rgba(62,134,53,0.04)',
+    backgroundColor: c === STATUS_COLORS.error ? 'rgba(201,25,11,0.04)' : c === STATUS_COLORS.warning ? 'rgba(240,171,0,0.04)' : 'rgba(62,134,53,0.04)',
   };
 }

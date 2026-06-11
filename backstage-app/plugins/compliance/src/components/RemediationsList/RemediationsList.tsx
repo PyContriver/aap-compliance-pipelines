@@ -51,6 +51,7 @@ import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
 import { formatDuration } from '../shared/formatTime';
 import { EXECUTION_COLORS, PROFILE_STATUS_COLORS, STATUS_COLORS } from '../shared/colors';
+import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
   RemediationProfile,
@@ -63,8 +64,6 @@ import type {
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
 
-const STATUS_CHIP_COLORS = PROFILE_STATUS_COLORS;
-const EXEC_CHIP_COLORS = EXECUTION_COLORS;
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -103,20 +102,18 @@ const useStyles = makeStyles(theme => ({
     flexWrap: 'wrap',
   },
   statusChip: {
-    height: 22,
-    fontSize: '0.75rem',
+    ...CHIP_SIZES.standard,
   },
   expandedRow: {
     backgroundColor: theme.palette.type === 'dark' ? '#1a1a1a' : '#FAFAFA',
   },
   executionTable: {
     '& th': {
-      fontWeight: 600,
-      fontSize: '0.75rem',
+      ...TABLE_STYLES.header,
       padding: theme.spacing(0.5, 1),
     },
     '& td': {
-      fontSize: '0.8rem',
+      ...TABLE_STYLES.cell,
       padding: theme.spacing(0.5, 1),
     },
   },
@@ -158,7 +155,7 @@ function ExecutionHistoryRow({
 }) {
   const classes = useStyles();
   const navigate = useNavigate();
-  const execColor = EXEC_CHIP_COLORS[execution.status];
+  const execColor = EXECUTION_COLORS[execution.status];
 
   return (
     <TableRow>
@@ -291,7 +288,7 @@ function RowActions({
           <MenuItem
             disabled={!canDelete}
             onClick={() => { setAnchorEl(null); onDelete(); }}
-            style={canDelete ? { color: '#C62828' } : undefined}
+            style={canDelete ? { color: STATUS_COLORS.error } : undefined}
           >
             <DeleteIcon fontSize="small" style={{ marginRight: 8 }} />
             {!canDelete ? ((r.executionCount ?? 0) > 0 ? 'Delete (has history)' : 'Delete (pinned)') : 'Delete'}
@@ -561,21 +558,21 @@ export const RemediationsList = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" />
-                <TableCell>Name</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Profile</TableCell>
-                <TableCell align="right">Rules</TableCell>
-                <TableCell>Last Run</TableCell>
-                <TableCell align="right">Runs</TableCell>
-                <TableCell />
+                <TableCell padding="checkbox" style={TABLE_STYLES.header} />
+                <TableCell style={TABLE_STYLES.header}>Name</TableCell>
+                <TableCell style={TABLE_STYLES.header}>Status</TableCell>
+                <TableCell style={TABLE_STYLES.header}>Profile</TableCell>
+                <TableCell style={TABLE_STYLES.header} align="right">Rules</TableCell>
+                <TableCell style={TABLE_STYLES.header}>Last Run</TableCell>
+                <TableCell style={TABLE_STYLES.header} align="right">Runs</TableCell>
+                <TableCell style={TABLE_STYLES.header} />
               </TableRow>
             </TableHead>
             <TableBody>
               {remediations.map(r => {
                 const isExpanded = expandedProfiles.has(r.id);
                 const hasExecutions = (r.executionCount ?? 0) > 0;
-                const profileColor = STATUS_CHIP_COLORS[r.status || 'saved'];
+                const profileColor = PROFILE_STATUS_COLORS[r.status || 'saved'];
                 const latestExec = r.latestExecution;
                 const isPinned = baselineTargets.some(bt => bt.remediationProfileId === r.id);
                 const canDelete = !hasExecutions && !isPinned;
@@ -631,8 +628,8 @@ export const RemediationsList = () => {
                               size="small"
                               className={classes.statusChip}
                               style={{
-                                backgroundColor: EXEC_CHIP_COLORS[latestExec.status].bg,
-                                color: EXEC_CHIP_COLORS[latestExec.status].fg,
+                                backgroundColor: EXECUTION_COLORS[latestExec.status].bg,
+                                color: EXECUTION_COLORS[latestExec.status].fg,
                               }}
                             />
                           )}

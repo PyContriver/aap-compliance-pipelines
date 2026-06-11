@@ -9,44 +9,63 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TableContainer,
+  Paper,
   Chip,
   LinearProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   makeStyles,
 } from '@material-ui/core';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
+import StorageIcon from '@material-ui/icons/Storage';
 
 import { complianceApiRef } from '../../api';
 import { scoreColor, STATUS_COLORS } from '../shared/colors';
+import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
 import type { DashboardStats } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+    gap: theme.spacing(2),
+  },
+  filterRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+  },
+  profileFilter: {
+    minWidth: 180,
+  },
   row: {
     cursor: 'pointer',
     '&:hover': { backgroundColor: theme.palette.action.hover },
   },
   profileChip: {
-    fontSize: '0.75rem',
-    height: 22,
+    ...CHIP_SIZES.standard,
     marginRight: 4,
   },
   baselineChip: {
-    fontSize: '0.65rem',
-    height: 18,
+    ...CHIP_SIZES.micro,
     backgroundColor: 'rgba(0, 102, 204, 0.08)',
     color: STATUS_COLORS.info,
   },
-  scoreBar: {
-    height: 6,
-    borderRadius: 3,
-    width: 80,
-    display: 'inline-block',
-    marginRight: 8,
-    backgroundColor: theme.palette.divider,
+  scoreChip: {
+    ...CHIP_SIZES.standard,
+    fontWeight: 600,
   },
-  scoreCell: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
+  nameCell: {
+    fontWeight: 500,
+  },
+  muted: {
+    color: theme.palette.text.secondary,
   },
   empty: {
     textAlign: 'center',
@@ -61,6 +80,7 @@ export const InventoriesList: React.FC = () => {
   const api = useApi(complianceApiRef);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileFilter, setProfileFilter] = useState<string>('');
 
   useEffect(() => {
     api.getDashboardStats()
@@ -69,16 +89,36 @@ export const InventoriesList: React.FC = () => {
       .finally(() => setLoading(false));
   }, [api]);
 
+  const allInventories = useMemo(() => stats?.byInventory ?? [], [stats]);
+
+  const profileNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const inv of allInventories) {
+      for (const ps of inv.profileScores) {
+        names.set(ps.profileId, ps.name);
+      }
+    }
+    return names;
+  }, [allInventories]);
+
+  const inventories = useMemo(() => {
+    if (!profileFilter) return allInventories;
+    return allInventories.filter(inv =>
+      inv.profileScores.some(ps => ps.profileId === profileFilter),
+    );
+  }, [allInventories, profileFilter]);
+
   if (loading) return <LinearProgress />;
 
-  const inventories = useMemo(() => stats?.byInventory ?? [], [stats]);
-
-  if (inventories.length === 0) {
+  if (allInventories.length === 0) {
     return (
       <InfoCard title="Inventories">
         <div className={classes.empty}>
-          <Typography variant="body1" gutterBottom>No inventories with scan data</Typography>
-          <Typography variant="body2">
+          <StorageIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            No inventories with scan data
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
             Run a compliance scan against an inventory to see it here.
           </Typography>
         </div>
@@ -88,86 +128,106 @@ export const InventoriesList: React.FC = () => {
 
   return (
     <InfoCard title="Inventories">
-      <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
-        {inventories.length} inventories with compliance data. Click an inventory to see per-host compliance.
-      </Typography>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Inventory</TableCell>
-            <TableCell>Scanned Against</TableCell>
-            <TableCell>Baseline</TableCell>
-            <TableCell>Compliance</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {inventories.map(inv => {
-            const worstScore = inv.profileScores.length > 0
-              ? Math.min(...inv.profileScores.map(ps => ps.rate))
-              : null;
-            const hasBaseline = inv.profileScores.some(ps => ps.baseline);
+      <div className={classes.headerRow}>
+        <Typography variant="body2" color="textSecondary">
+          Inventories with compliance scan data. Click to see per-host compliance.
+        </Typography>
+      </div>
 
-            return (
-              <TableRow
-                key={inv.inventoryId}
-                className={classes.row}
-                onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
-              >
-                <TableCell>
-                  <Typography variant="body2" style={{ fontWeight: 500 }}>
-                    {inv.inventoryName}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  {inv.profileScores.map(ps => (
-                    <Chip key={ps.profileId} label={ps.name} size="small" variant="outlined" className={classes.profileChip} />
-                  ))}
-                </TableCell>
-                <TableCell>
-                  {hasBaseline ? (
-                    inv.profileScores
-                      .filter(ps => ps.baseline)
-                      .map(ps => (
-                        <Chip
-                          key={ps.profileId}
-                          icon={<BookmarkIcon style={{ fontSize: 14 }} />}
-                          label={ps.baseline!.remediationProfileName}
-                          size="small"
-                          className={classes.baselineChip}
-                        />
-                      ))
-                  ) : (
-                    <Typography variant="caption" color="textSecondary">—</Typography>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {inv.profileScores.map(ps => (
-                    <div key={ps.profileId} className={classes.scoreCell} style={{ marginBottom: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={ps.rate}
-                        className={classes.scoreBar}
+      <div className={classes.filterRow}>
+        <FormControl variant="outlined" size="small" className={classes.profileFilter}>
+          <InputLabel id="inv-profile-filter">Profile</InputLabel>
+          <Select
+            labelId="inv-profile-filter"
+            value={profileFilter}
+            onChange={e => setProfileFilter(e.target.value as string)}
+            label="Profile"
+          >
+            <MenuItem value="">All Profiles</MenuItem>
+            {Array.from(profileNames.entries()).map(([id, name]) => (
+              <MenuItem key={id} value={id}>{name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Typography variant="caption" className={classes.muted}>
+          {inventories.length} inventor{inventories.length !== 1 ? 'ies' : 'y'}
+        </Typography>
+      </div>
+
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell style={TABLE_STYLES.header}>Inventory</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Scanned Against</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Baseline</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Compliance</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {inventories.map(inv => {
+              const hasBaseline = inv.profileScores.some(ps => ps.baseline);
+
+              return (
+                <TableRow
+                  key={inv.inventoryId}
+                  className={classes.row}
+                  hover
+                  onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
+                >
+                  <TableCell>
+                    <Typography variant="body2" className={classes.nameCell}>
+                      {inv.inventoryName}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    {inv.profileScores.map(ps => (
+                      <Chip
+                        key={ps.profileId}
+                        label={ps.name}
+                        size="small"
+                        variant="outlined"
+                        className={classes.profileChip}
                       />
-                      <Typography variant="caption" style={{
-                        fontWeight: 600,
-                        color: scoreColor(ps.rate),
-                      }}>
-                        {ps.rate}%
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary" style={{ fontSize: '0.65rem' }}>
-                        {ps.name}
-                      </Typography>
-                    </div>
-                  ))}
-                  {inv.profileScores.length === 0 && (
-                    <Typography variant="caption" color="textSecondary">No scans</Typography>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                    ))}
+                  </TableCell>
+                  <TableCell>
+                    {hasBaseline ? (
+                      inv.profileScores
+                        .filter(ps => ps.baseline)
+                        .map(ps => (
+                          <Chip
+                            key={ps.profileId}
+                            icon={<BookmarkIcon style={{ fontSize: 14 }} />}
+                            label={ps.baseline!.remediationProfileName}
+                            size="small"
+                            className={classes.baselineChip}
+                          />
+                        ))
+                    ) : (
+                      <Typography variant="caption" className={classes.muted}>—</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {inv.profileScores.map(ps => (
+                      <Chip
+                        key={ps.profileId}
+                        label={`${ps.rate}%`}
+                        size="small"
+                        className={classes.scoreChip}
+                        style={{ backgroundColor: scoreColor(ps.rate), color: '#fff' }}
+                      />
+                    ))}
+                    {inv.profileScores.length === 0 && (
+                      <Typography variant="caption" className={classes.muted}>No scans</Typography>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </InfoCard>
   );
 };

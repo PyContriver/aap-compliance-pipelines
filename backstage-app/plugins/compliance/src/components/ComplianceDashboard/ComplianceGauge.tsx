@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, ButtonBase, makeStyles } from '@material-ui/core';
-import { scoreColor } from '../shared/colors';
+import { scoreColor, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   container: {
@@ -99,7 +99,7 @@ export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
         {clampedValue > 0.5 && (
           <path d={makeSvgArc(arcStartDeg, valueEndDeg)} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
         )}
-        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="central" fill={dimmed ? '#6a6e73' : color} fontSize="28" fontWeight={700} fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'>
+        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="central" fill={dimmed ? STATUS_COLORS.neutral : color} fontSize="28" fontWeight={700} fontFamily='"Red Hat Text", "Red Hat Display", sans-serif'>
           {dimmed ? '--' : `${Math.round(value)}%`}
         </text>
       </svg>

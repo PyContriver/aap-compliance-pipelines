@@ -45,6 +45,7 @@ import CompareArrowsIcon from '@material-ui/icons/CompareArrows';
 import StarIcon from '@material-ui/icons/Star';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
+import { STATUS_COLORS, EXECUTION_COLORS } from '../shared/colors';
 import type {
   ComplianceScan,
   ScanCertification,
@@ -132,11 +133,11 @@ const statusColor: Record<string, 'primary' | 'secondary' | 'default'> = {
 };
 
 const execStatusColor: Record<string, string> = {
-  succeeded: '#3E8635',
-  failed: '#C9190B',
-  running: '#0066CC',
-  pending: '#6A6E73',
-  cancelled: '#6A6E73',
+  succeeded: EXECUTION_COLORS.succeeded.bg,
+  failed: EXECUTION_COLORS.failed.bg,
+  running: EXECUTION_COLORS.running.bg,
+  pending: EXECUTION_COLORS.pending.bg,
+  cancelled: EXECUTION_COLORS.cancelled.bg,
 };
 
 function StatusIcon({ status }: { status: string }) {
@@ -240,17 +241,7 @@ export const ScanHistory = () => {
     api.getBatchScanStats(completedIds).then(stats => setScanStats(stats)).catch(e => console.warn('ScanHistory data load:', e));
   }, [api, scans]);
 
-  // Auto-expand first group on initial load
-  const autoExpandedRef = React.useRef(false);
-  useEffect(() => {
-    if (!autoExpandedRef.current && scans.length > 0) {
-      autoExpandedRef.current = true;
-      const firstScan = scans[0];
-      if (firstScan) {
-        setExpandedGroups(new Set([`${firstScan.profileId}::${firstScan.inventoryId}`]));
-      }
-    }
-  }, [scans]);
+  // All groups start collapsed — user clicks to expand
 
   // Compute authoritative scan IDs (latest completed assessment per profile×inventory)
   const authoritativeScanIds = useMemo(() => {
@@ -537,7 +528,7 @@ export const ScanHistory = () => {
 
       {scans.length === 0 ? (
         <div className={classes.emptyState}>
-          <SearchIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+          <SearchIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             No scans yet
           </Typography>
@@ -597,8 +588,8 @@ export const ScanHistory = () => {
                           size="small"
                           variant="outlined"
                           style={{
-                            borderColor: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? '#3E8635' : '#C9190B',
-                            color: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? '#3E8635' : '#C9190B',
+                            borderColor: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? STATUS_COLORS.success : STATUS_COLORS.error,
+                            color: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? STATUS_COLORS.success : STATUS_COLORS.error,
                           }}
                         />
                       )}
@@ -635,14 +626,14 @@ export const ScanHistory = () => {
                                     label={scan.scanType === 'verification' ? 'Verification' : 'Assessment'}
                                     size="small"
                                     variant="outlined"
-                                    style={scan.scanType === 'verification' ? { borderColor: '#0066CC', color: '#0066CC' } : undefined}
+                                    style={scan.scanType === 'verification' ? { borderColor: STATUS_COLORS.info, color: STATUS_COLORS.info } : undefined}
                                   />
                                 </TableCell>
                                 <TableCell>
                                   <Box display="flex" alignItems="center" style={{ gap: 4 }}>
                                     {isAuthoritative && (
                                       <Tooltip title="Authoritative scan (latest completed)">
-                                        <StarIcon style={{ fontSize: 16, color: '#F0AB00' }} />
+                                        <StarIcon style={{ fontSize: 16, color: STATUS_COLORS.warning }} />
                                       </Tooltip>
                                     )}
                                     <Typography
@@ -663,17 +654,17 @@ export const ScanHistory = () => {
                                         <Box display="flex" style={{ gap: 4, marginTop: 2 }}>
                                           {!!stats.stateNew && (
                                             <Tooltip title={`${stats.stateNew} host-level findings failing for the first time`} arrow>
-                                              <Chip label={`${stats.stateNew} new`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#0066CC', borderColor: '#0066CC' }} />
+                                              <Chip label={`${stats.stateNew} new`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: STATUS_COLORS.info, borderColor: STATUS_COLORS.info }} />
                                             </Tooltip>
                                           )}
                                           {!!stats.stateFixed && (
                                             <Tooltip title={`${stats.stateFixed} host-level findings changed from failing to passing`} arrow>
-                                              <Chip label={`${stats.stateFixed} fixed`} size="small" style={{ fontSize: '0.65rem', height: 18, color: '#fff', backgroundColor: '#3E8635' }} />
+                                              <Chip label={`${stats.stateFixed} fixed`} size="small" style={{ fontSize: '0.65rem', height: 18, color: '#fff', backgroundColor: STATUS_COLORS.success }} />
                                             </Tooltip>
                                           )}
                                           {!!stats.stateResurfaced && (
                                             <Tooltip title={`${stats.stateResurfaced} host-level findings that were fixed but are now failing again`} arrow>
-                                              <Chip label={`${stats.stateResurfaced} resurfaced`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: '#C9190B', borderColor: '#C9190B' }} />
+                                              <Chip label={`${stats.stateResurfaced} resurfaced`} size="small" variant="outlined" style={{ fontSize: '0.65rem', height: 18, color: STATUS_COLORS.error, borderColor: STATUS_COLORS.error }} />
                                             </Tooltip>
                                           )}
                                         </Box>
@@ -727,7 +718,7 @@ export const ScanHistory = () => {
                                   label="Remediation"
                                   size="small"
                                   variant="outlined"
-                                  style={{ borderColor: execStatusColor[execution.status] || '#6A6E73', color: execStatusColor[execution.status] || '#6A6E73' }}
+                                  style={{ borderColor: execStatusColor[execution.status] || STATUS_COLORS.neutral, color: execStatusColor[execution.status] || STATUS_COLORS.neutral }}
                                 />
                               </TableCell>
                               <TableCell>
@@ -833,8 +824,8 @@ export const ScanHistory = () => {
                       size="small"
                       variant="outlined"
                       style={{
-                        borderColor: scan.scanner === 'remediation' ? '#3E8635' : scan.scanType === 'verification' ? '#0066CC' : undefined,
-                        color: scan.scanner === 'remediation' ? '#3E8635' : scan.scanType === 'verification' ? '#0066CC' : undefined,
+                        borderColor: scan.scanner === 'remediation' ? STATUS_COLORS.success : scan.scanType === 'verification' ? STATUS_COLORS.info : undefined,
+                        color: scan.scanner === 'remediation' ? STATUS_COLORS.success : scan.scanType === 'verification' ? STATUS_COLORS.info : undefined,
                       }}
                     />
                   </TableCell>
@@ -866,7 +857,7 @@ export const ScanHistory = () => {
                           label={`${pct}%`}
                           size="small"
                           style={{
-                            backgroundColor: pct >= 80 ? '#3E8635' : pct >= 50 ? '#F0AB00' : '#C9190B',
+                            backgroundColor: pct >= 80 ? STATUS_COLORS.success : pct >= 50 ? STATUS_COLORS.warning : STATUS_COLORS.error,
                             color: '#fff',
                             fontWeight: 600,
                             fontSize: '0.75rem',
@@ -879,7 +870,7 @@ export const ScanHistory = () => {
                     <Box display="flex" alignItems="center" style={{ gap: 4 }}>
                       {authoritativeScanIds.has(scan.id) && (
                         <Tooltip title="Authoritative scan (latest completed assessment)">
-                          <StarIcon style={{ fontSize: 16, color: '#F0AB00' }} />
+                          <StarIcon style={{ fontSize: 16, color: STATUS_COLORS.warning }} />
                         </Tooltip>
                       )}
                       {scan.workflowJobId ? `#${scan.workflowJobId}` : '--'}

@@ -22,7 +22,7 @@ import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
 import { SEVERITY_COLORS, STATUS_COLORS, FINDING_STATE_COLORS } from '../shared/colors';
-import { CHIP_SIZES } from '../shared/chipStyles';
+import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
 
 const useStyles = makeStyles(theme => ({
   severityChip: {
@@ -64,7 +64,7 @@ const useStyles = makeStyles(theme => ({
   },
   hostCountChip: {
     fontWeight: 600,
-    fontSize: '0.8rem',
+    ...CHIP_SIZES.standard,
   },
   expandedSection: {
     borderTop: `1px solid ${theme.palette.divider}`,
@@ -192,8 +192,8 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
             <Chip
               label={`${finding.passCount}/${finding.totalCount}`}
               size="small"
-              style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }}
               className={classes.hostCountChip}
+              style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }}
             />
           ) : finding.failCount === 0 && finding.passCount === 0 ? (
             <Chip
@@ -201,6 +201,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               size="small"
               variant="outlined"
               className={classes.hostCountChip}
+              style={{ color: STATUS_COLORS.neutral }}
             />
           ) : (
             <Box display="flex" justifyContent="center" style={{ gap: 4 }}>
@@ -208,13 +209,13 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                 <Chip
                   label={`${finding.passCount} pass`}
                   size="small"
-                  style={{ backgroundColor: STATUS_COLORS.success, color: '#fff', ...CHIP_SIZES.micro }}
+                  style={{ ...CHIP_SIZES.micro, backgroundColor: STATUS_COLORS.success, color: '#fff' }}
                 />
               )}
               <Chip
                 label={`${finding.failCount} fail`}
                 size="small"
-                style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', ...CHIP_SIZES.micro }}
+                style={{ ...CHIP_SIZES.micro, backgroundColor: STATUS_COLORS.error, color: '#fff' }}
               />
               {finding.naCount > 0 && (
                 <Chip
@@ -286,11 +287,11 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Host</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>State</TableCell>
-                    <TableCell>Actual Value</TableCell>
-                    <TableCell>Expected Value</TableCell>
+                    <TableCell style={TABLE_STYLES.header}>Host</TableCell>
+                    <TableCell style={TABLE_STYLES.header}>Status</TableCell>
+                    <TableCell style={TABLE_STYLES.header}>State</TableCell>
+                    <TableCell style={TABLE_STYLES.header}>Actual Value</TableCell>
+                    <TableCell style={TABLE_STYLES.header}>Expected Value</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

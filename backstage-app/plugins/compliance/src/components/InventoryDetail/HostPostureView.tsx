@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Typography, makeStyles } from '@material-ui/core';
-import ArrowBackIcon from '@material-ui/icons/ArrowBack';
 import type { HostPosture } from '@aap-compliance/common';
 import { computeClusters, CHIP_THRESHOLD, type Cluster } from './hostUtils';
 import { StripPlot } from './StripPlot';
@@ -88,9 +87,13 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilte
         </div>
       )}
 
-      {!currentZoom && (
+      {!currentZoom && filteredHosts.length > CHIP_THRESHOLD && (
         <StripPlot hosts={filteredHosts} allHosts={filteredHosts} clusters={topClusters}
           onClusterClick={pushZoom} onDotClick={setDrawerHost} height={180} />
+      )}
+
+      {!currentZoom && filteredHosts.length <= CHIP_THRESHOLD && filteredHosts.length > 0 && (
+        <ChipMatrix hosts={filteredHosts} allHosts={filteredHosts} onHostClick={setDrawerHost} />
       )}
 
       {currentZoom?.level === 'zoomed-strip' && (

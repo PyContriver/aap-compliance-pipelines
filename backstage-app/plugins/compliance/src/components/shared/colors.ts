@@ -13,17 +13,17 @@ export const STATUS_COLORS = {
 } as const;
 
 export const EXECUTION_COLORS = {
-  pending:   { bg: '#FFF3E0', fg: '#E65100' },
-  running:   { bg: '#E3F2FD', fg: '#1565C0' },
-  succeeded: { bg: '#E8F5E9', fg: STATUS_COLORS.success },
-  failed:    { bg: '#FFEBEE', fg: STATUS_COLORS.error },
-  cancelled: { bg: '#ECEFF1', fg: '#546E7A' },
+  pending:   { bg: STATUS_COLORS.warning, fg: '#fff' },
+  running:   { bg: STATUS_COLORS.info, fg: '#fff' },
+  succeeded: { bg: STATUS_COLORS.success, fg: '#fff' },
+  failed:    { bg: STATUS_COLORS.error, fg: '#fff' },
+  cancelled: { bg: STATUS_COLORS.neutral, fg: '#fff' },
 } as const;
 
 export const PROFILE_STATUS_COLORS = {
-  draft:    { bg: '#FFF3E0', fg: '#E65100' },
-  saved:    { bg: '#E8F5E9', fg: STATUS_COLORS.success },
-  archived: { bg: '#ECEFF1', fg: '#546E7A' },
+  draft:    { bg: STATUS_COLORS.warning, fg: '#fff' },
+  saved:    { bg: STATUS_COLORS.success, fg: '#fff' },
+  archived: { bg: STATUS_COLORS.neutral, fg: '#fff' },
 } as const;
 
 export const FINDING_STATE_COLORS = {

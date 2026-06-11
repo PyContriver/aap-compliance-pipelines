@@ -33,6 +33,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { complianceApiRef } from '../../api';
+import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   stepContent: {
@@ -322,8 +323,8 @@ export const ScanLauncher = () => {
             </InfoCard>
 
             {launchError && (
-              <Box mt={2} p={2} bgcolor="#FAEAE5" borderRadius={4} border="1px solid #C9190B">
-                <Typography variant="body2" style={{ color: '#C9190B' }}>
+              <Box mt={2} p={2} bgcolor="#FAEAE5" borderRadius={4} border={`1px solid ${STATUS_COLORS.error}`}>
+                <Typography variant="body2" style={{ color: STATUS_COLORS.error }}>
                   Scan launch failed: {launchError}
                 </Typography>
               </Box>
@@ -430,7 +431,7 @@ export const ScanLauncher = () => {
         >
           <DialogTitle>
             <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-              <WarningIcon style={{ color: '#F0AB00' }} />
+              <WarningIcon style={{ color: STATUS_COLORS.warning }} />
               Platform Compatibility Warning
             </Box>
           </DialogTitle>

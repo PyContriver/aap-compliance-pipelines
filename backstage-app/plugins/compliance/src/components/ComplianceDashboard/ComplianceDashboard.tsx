@@ -37,6 +37,7 @@ import { PinBaselineDialog } from './PinBaselineDialog';
 import { PostureTrendChart } from './PostureTrendChart';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
+import { scoreColor, STATUS_COLORS } from '../shared/colors';
 import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -82,9 +83,9 @@ const useStyles = makeStyles(theme => ({
     fontSize: '0.8rem',
     marginTop: theme.spacing(0.5),
   },
-  critical: { color: '#C9190B' },
-  warning: { color: '#F0AB00' },
-  success: { color: '#3E8635' },
+  critical: { color: STATUS_COLORS.error },
+  warning: { color: STATUS_COLORS.warning },
+  success: { color: STATUS_COLORS.success },
   statDelta: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -230,7 +231,7 @@ export const ComplianceDashboard = () => {
         <div className={classes.section}>
           <InfoCard title="Welcome to AAP Compliance">
             <div className={classes.welcomeCard}>
-              <SecurityIcon style={{ fontSize: 64, color: '#0066CC', marginBottom: 16 }} />
+              <SecurityIcon style={{ fontSize: 64, color: STATUS_COLORS.info, marginBottom: 16 }} />
               <Typography variant="h5" gutterBottom>
                 Get Started with Compliance Scanning
               </Typography>
@@ -363,19 +364,19 @@ export const ComplianceDashboard = () => {
                       dimmed={postureMode === 'baseline' && !fw.baseline}
                     />
                     {postureMode === 'standard' && fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: fw.baseline.rate >= 90 ? '#3E8635' : fw.baseline.rate >= 70 ? '#F0AB00' : '#C9190B' }}>
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: scoreColor(fw.baseline.rate) }}>
                         Baseline: {fw.baseline.rate}%
-                        <span style={{ fontWeight: 400, color: '#6a6e73' }}> ({fw.baseline.inventoryCount} inv.)</span>
+                        <span style={{ fontWeight: 400, color: STATUS_COLORS.neutral }}> ({fw.baseline.inventoryCount} inv.)</span>
                       </Typography>
                     )}
                     {postureMode === 'baseline' && fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: fw.rate >= 90 ? '#3E8635' : fw.rate >= 70 ? '#F0AB00' : fw.rate >= 50 ? '#EC7A08' : '#C9190B' }}>
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: scoreColor(fw.rate) }}>
                         Standard: {fw.rate}%
-                        <span style={{ fontWeight: 400, color: '#6a6e73' }}> ({fw.passCount}/{fw.passCount + fw.failCount})</span>
+                        <span style={{ fontWeight: 400, color: STATUS_COLORS.neutral }}> ({fw.passCount}/{fw.passCount + fw.failCount})</span>
                       </Typography>
                     )}
                     {postureMode === 'baseline' && !fw.baseline && (
-                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, color: '#6a6e73' }}>
+                      <Typography variant="caption" style={{ display: 'block', marginTop: 4, color: STATUS_COLORS.neutral }}>
                         No baseline pinned
                       </Typography>
                     )}
@@ -455,7 +456,7 @@ export const ComplianceDashboard = () => {
                 <Typography className={`${classes.statValue} ${classes.critical}`}>{stats.criticalFindings}</Typography>
                 <Typography className={classes.statLabel}>Critical (CAT I)</Typography>
                 {stats.criticalFindingsDelta != null && stats.criticalFindingsDelta !== 0 && (
-                  <Typography className={classes.statDelta} style={{ color: stats.criticalFindingsDelta > 0 ? '#C9190B' : '#3E8635' }}>
+                  <Typography className={classes.statDelta} style={{ color: stats.criticalFindingsDelta > 0 ? STATUS_COLORS.error : STATUS_COLORS.success }}>
                     {stats.criticalFindingsDelta > 0
                       ? <><ArrowUpwardIcon />{stats.criticalFindingsDelta}</>
                       : <><ArrowDownwardIcon />{Math.abs(stats.criticalFindingsDelta)}</>
@@ -471,7 +472,7 @@ export const ComplianceDashboard = () => {
                 <Typography className={`${classes.statValue} ${classes.warning}`}>{stats.pendingRemediation}</Typography>
                 <Typography className={classes.statLabel}>Pending Remediation</Typography>
                 {stats.pendingRemediationDelta != null && stats.pendingRemediationDelta !== 0 && (
-                  <Typography className={classes.statDelta} style={{ color: stats.pendingRemediationDelta > 0 ? '#C9190B' : '#3E8635' }}>
+                  <Typography className={classes.statDelta} style={{ color: stats.pendingRemediationDelta > 0 ? STATUS_COLORS.error : STATUS_COLORS.success }}>
                     {stats.pendingRemediationDelta > 0
                       ? <><ArrowUpwardIcon />{stats.pendingRemediationDelta}</>
                       : <><ArrowDownwardIcon />{Math.abs(stats.pendingRemediationDelta)}</>
@@ -620,7 +621,7 @@ export const ComplianceDashboard = () => {
                           variant="outlined"
                           color={activityColor as 'primary' | 'secondary' | 'default'}
                           style={isRemediation
-                            ? { height: 18, fontSize: '0.65rem', borderColor: '#3E8635', color: '#3E8635' }
+                            ? { height: 18, fontSize: '0.65rem', borderColor: STATUS_COLORS.success, color: STATUS_COLORS.success }
                             : { height: 18, fontSize: '0.65rem' }}
                         />
                       </Box>
