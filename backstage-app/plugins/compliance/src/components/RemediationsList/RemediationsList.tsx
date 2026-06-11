@@ -50,6 +50,7 @@ import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { Menu } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
 import { formatDuration } from '../shared/formatTime';
+import { EXECUTION_COLORS, PROFILE_STATUS_COLORS, STATUS_COLORS } from '../shared/colors';
 import { InlineBaselinePins } from './InlineBaselinePins';
 import type {
   RemediationProfile,
@@ -62,19 +63,8 @@ import type {
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
 
-const STATUS_CHIP_COLORS: Record<RemediationProfileStatus, { bg: string; fg: string }> = {
-  draft: { bg: '#FFF3E0', fg: '#E65100' },
-  saved: { bg: '#E8F5E9', fg: '#2E7D32' },
-  archived: { bg: '#ECEFF1', fg: '#546E7A' },
-};
-
-const EXEC_CHIP_COLORS: Record<RemediationExecutionStatus, { bg: string; fg: string }> = {
-  pending: { bg: '#FFF3E0', fg: '#E65100' },
-  running: { bg: '#E3F2FD', fg: '#1565C0' },
-  succeeded: { bg: '#E8F5E9', fg: '#2E7D32' },
-  failed: { bg: '#FFEBEE', fg: '#C62828' },
-  cancelled: { bg: '#ECEFF1', fg: '#546E7A' },
-};
+const STATUS_CHIP_COLORS = PROFILE_STATUS_COLORS;
+const EXEC_CHIP_COLORS = EXECUTION_COLORS;
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -191,7 +181,7 @@ function ExecutionHistoryRow({
           <>
             {execution.rulesApplied}
             {execution.rulesFailed ? (
-              <span style={{ color: '#C62828' }}> ({execution.rulesFailed} failed)</span>
+              <span style={{ color: STATUS_COLORS.error }}> ({execution.rulesFailed} failed)</span>
             ) : null}
           </>
         ) : '—'}
@@ -201,7 +191,7 @@ function ExecutionHistoryRow({
           <>
             {execution.hostsTargeted}
             {execution.hostsFailed ? (
-              <span style={{ color: '#C62828' }}> ({execution.hostsFailed} failed)</span>
+              <span style={{ color: STATUS_COLORS.error }}> ({execution.hostsFailed} failed)</span>
             ) : null}
           </>
         ) : '—'}
@@ -210,7 +200,7 @@ function ExecutionHistoryRow({
       <TableCell>
         <div className={classes.actions}>
           {execution.verificationScanId && (
-            <Chip label="Verified" size="small" className={classes.statusChip} style={{ backgroundColor: '#E8F5E9', color: '#2E7D32' }} />
+            <Chip label="Verified" size="small" className={classes.statusChip} style={{ backgroundColor: EXECUTION_COLORS.succeeded.bg, color: EXECUTION_COLORS.succeeded.fg }} />
           )}
           {execution.primaryJobId && (
             <Tooltip title="View execution details">
@@ -285,7 +275,7 @@ function RowActions({
         {r.status === 'saved' && (
           <MenuItem onClick={() => { setAnchorEl(null); onBookmark(); }}>
             {baselineTargets.some(bt => bt.remediationProfileId === r.id)
-              ? <BookmarkIcon fontSize="small" style={{ marginRight: 8, color: '#0066CC' }} />
+              ? <BookmarkIcon fontSize="small" style={{ marginRight: 8, color: STATUS_COLORS.info }} />
               : <BookmarkBorderIcon fontSize="small" style={{ marginRight: 8 }} />}
             {baselineTargets.some(bt => bt.remediationProfileId === r.id) ? 'Manage Baseline' : 'Pin as Baseline'}
           </MenuItem>
@@ -545,7 +535,7 @@ export const RemediationsList = () => {
 
       {remediations.length === 0 ? (
         <div className={classes.emptyState}>
-          <SettingsIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+          <SettingsIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             {statusFilter === 'active' ? 'No active remediations' :
              statusFilter === 'draft' ? 'No drafts' :
@@ -620,7 +610,7 @@ export const RemediationsList = () => {
                                 label={`${pins.length} pinned`}
                                 size="small"
                                 className={classes.statusChip}
-                                style={{ backgroundColor: '#E3F2FD', color: '#1565C0', cursor: 'pointer' }}
+                                style={{ backgroundColor: EXECUTION_COLORS.running.bg, color: EXECUTION_COLORS.running.fg, cursor: 'pointer' }}
                                 onClick={(e) => { e.stopPropagation(); handleBookmarkClick(r.id); }}
                               />
                             </Box>
@@ -808,12 +798,12 @@ export const RemediationsList = () => {
           )}
 
           {launchScanCheck && (
-            <Box display="flex" alignItems="center" style={{ gap: 8, color: '#3E8635' }}>
+            <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.success }}>
               <CheckCircleIcon fontSize="small" />
               <Typography variant="body2">
                 Last scan: {launchScanCheck.passRate}% pass rate ({launchScanCheck.passCount} pass, {launchScanCheck.failCount} fail)
                 {launchScanCheck.scan.completedAt && (
-                  <span style={{ color: '#6A6E73' }}>
+                  <span style={{ color: STATUS_COLORS.neutral }}>
                     {' '}— {new Date(launchScanCheck.scan.completedAt).toLocaleDateString()}
                   </span>
                 )}
@@ -823,7 +813,7 @@ export const RemediationsList = () => {
 
           {launchScanMissing && (
             <Box>
-              <Box display="flex" alignItems="center" style={{ gap: 8, color: '#C9190B', marginBottom: 8 }}>
+              <Box display="flex" alignItems="center" style={{ gap: 8, color: STATUS_COLORS.error, marginBottom: 8 }}>
                 <WarningIcon fontSize="small" />
                 <Typography variant="body2">
                   No completed assessment scan found for this inventory.

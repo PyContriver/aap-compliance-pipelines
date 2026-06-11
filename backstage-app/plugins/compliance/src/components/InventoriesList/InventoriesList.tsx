@@ -16,7 +16,7 @@ import {
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 
 import { complianceApiRef } from '../../api';
-import { scoreColor } from '../shared/colors';
+import { scoreColor, STATUS_COLORS } from '../shared/colors';
 import type { DashboardStats } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -33,7 +33,7 @@ const useStyles = makeStyles(theme => ({
     fontSize: '0.65rem',
     height: 18,
     backgroundColor: 'rgba(0, 102, 204, 0.08)',
-    color: '#0066CC',
+    color: STATUS_COLORS.info,
   },
   scoreBar: {
     height: 6,

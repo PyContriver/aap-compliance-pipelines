@@ -6,6 +6,7 @@ import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import TrendingDownIcon from '@material-ui/icons/TrendingDown';
 import RemoveIcon from '@material-ui/icons/Remove';
 import { ComplianceGauge } from '../ComplianceDashboard/ComplianceGauge';
+import { scoreColor, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   comparisonHeader: {
@@ -47,11 +48,11 @@ const useStyles = makeStyles(theme => ({
     '&:hover': { backgroundColor: theme.palette.action.hover },
   },
   deltaPositive: {
-    color: '#3E8635',
+    color: STATUS_COLORS.success,
     fontWeight: 600,
   },
   deltaNegative: {
-    color: '#C9190B',
+    color: STATUS_COLORS.error,
     fontWeight: 600,
   },
   deltaUnchanged: {
@@ -117,7 +118,7 @@ export const VerificationComparison = ({
             </Typography>
           )}
           {beforeBaselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: (isBaselineView ? (beforeStandardRate ?? previousPassRate) : beforeBaselineRate) >= 90 ? '#3E8635' : (isBaselineView ? (beforeStandardRate ?? previousPassRate) : beforeBaselineRate) >= 70 ? '#F0AB00' : '#C9190B' }}>
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: scoreColor(isBaselineView ? (beforeStandardRate ?? previousPassRate) : beforeBaselineRate) }}>
               {isBaselineView ? `Standard: ${beforeStandardRate ?? previousPassRate}%` : `Baseline: ${beforeBaselineRate}%`}
             </Typography>
           )}
@@ -138,7 +139,7 @@ export const VerificationComparison = ({
             </Typography>
           )}
           {afterBaselineRate !== undefined && (
-            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: (isBaselineView ? (afterStandardRate ?? overallPassRate) : afterBaselineRate) >= 90 ? '#3E8635' : (isBaselineView ? (afterStandardRate ?? overallPassRate) : afterBaselineRate) >= 70 ? '#F0AB00' : '#C9190B' }}>
+            <Typography variant="caption" style={{ display: 'block', marginTop: 2, fontWeight: 600, color: scoreColor(isBaselineView ? (afterStandardRate ?? overallPassRate) : afterBaselineRate) }}>
               {isBaselineView ? `Standard: ${afterStandardRate ?? overallPassRate}%` : `Baseline: ${afterBaselineRate}%`}
             </Typography>
           )}

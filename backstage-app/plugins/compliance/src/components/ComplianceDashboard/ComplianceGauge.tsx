@@ -1,5 +1,6 @@
 import React from 'react';
 import { Typography, ButtonBase, makeStyles } from '@material-ui/core';
+import { scoreColor } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   container: {
@@ -44,12 +45,7 @@ interface ComplianceGaugeProps {
   dimmed?: boolean;
 }
 
-export const getColor = (value: number): string => {
-  if (value >= 90) return '#3E8635';
-  if (value >= 75) return '#F0AB00';
-  if (value >= 50) return '#EC7A08';
-  return '#C9190B';
-};
+export const getColor = scoreColor;
 
 export const ComplianceGauge: React.FC<ComplianceGaugeProps> = ({
   value,

@@ -20,6 +20,7 @@ import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
 import { isOutlier } from './hostUtils';
+import { STATUS_COLORS, SEVERITY_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   summaryRow: {
@@ -129,12 +130,14 @@ export const InventoryDetail: React.FC = () => {
 
       {hosts.length === 0 && !loading ? (
         <div className={classes.empty}>
-          <AssessmentIcon style={{ fontSize: 64, color: '#6A6E73', marginBottom: 16 }} />
+          <AssessmentIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
-            No host posture data available
+            {hostData?.scanTimestamp ? 'Scan completed but no findings recorded' : 'No scan data for this profile'}
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Run a compliance scan for this inventory to see per-host results.
+            {hostData?.scanTimestamp
+              ? 'The scan completed but produced no host-level findings. This may indicate a scanner configuration issue.'
+              : `Run a compliance scan against this inventory with the "${selectedProfileName || 'selected'}" profile to see per-host results.`}
           </Typography>
         </div>
       ) : (
@@ -183,13 +186,13 @@ export const InventoryDetail: React.FC = () => {
               </Card>
             )}
             <Card variant="outlined" className={classes.summaryCard}>
-              <Typography className={classes.summaryValue} style={{ color: '#3E8635' }}>
+              <Typography className={classes.summaryValue} style={{ color: STATUS_COLORS.success }}>
                 {filteredHosts.length - outlierCount}
               </Typography>
               <Typography className={classes.summaryLabel}>Compliant</Typography>
             </Card>
             <Card variant="outlined" className={classes.summaryCard}>
-              <Typography className={classes.summaryValue} style={{ color: '#C9190B' }}>
+              <Typography className={classes.summaryValue} style={{ color: STATUS_COLORS.error }}>
                 {outlierCount}
               </Typography>
               <Typography className={classes.summaryLabel}>Outliers</Typography>
@@ -203,15 +206,15 @@ export const InventoryDetail: React.FC = () => {
           {/* Legend */}
           <div className={classes.legend}>
             <div className={classes.legendItem}>
-              <div className={classes.legendDot} style={{ borderColor: '#3E8635', backgroundColor: 'rgba(62,134,53,0.08)' }} />
+              <div className={classes.legendDot} style={{ borderColor: STATUS_COLORS.success, backgroundColor: 'rgba(62,134,53,0.08)' }} />
               Compliant
             </div>
             <div className={classes.legendItem}>
-              <div className={classes.legendDot} style={{ borderColor: '#F0AB00', backgroundColor: 'rgba(240,171,0,0.08)' }} />
+              <div className={classes.legendDot} style={{ borderColor: STATUS_COLORS.warning, backgroundColor: 'rgba(240,171,0,0.08)' }} />
               CAT I findings
             </div>
             <div className={classes.legendItem}>
-              <div className={classes.legendDot} style={{ borderColor: '#C9190B', backgroundColor: 'rgba(201,25,11,0.08)' }} />
+              <div className={classes.legendDot} style={{ borderColor: STATUS_COLORS.error, backgroundColor: 'rgba(201,25,11,0.08)' }} />
               Outlier
             </div>
           </div>

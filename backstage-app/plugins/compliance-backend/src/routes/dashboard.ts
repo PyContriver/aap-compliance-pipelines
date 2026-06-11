@@ -6,37 +6,11 @@ export function registerDashboardRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, service, database } = deps;
+  const { logger, service } = deps;
 
   router.get('/dashboard', async (_req, res) => {
     const stats = await service.getDashboardStats();
     res.json(stats);
-  });
-
-  // Temporary diagnostic — no auth required, same as /dashboard
-  router.get('/dashboard/debug', async (_req, res) => {
-    try {
-      const scans = await database.getRecentScans(5);
-      const profiles = await database.listProfiles();
-      let latestPerInv: any[] = [];
-      let latestError: string | null = null;
-      try {
-        latestPerInv = await database.getLatestScanPerProfileInventory();
-      } catch (e) {
-        latestError = e instanceof Error ? e.message : String(e);
-      }
-      res.json({
-        scansCount: scans.length,
-        scans: scans.map(s => ({ id: s.id.slice(0, 12), profileId: s.profileId.slice(0, 12), inventoryId: s.inventoryId, status: s.status, scanner: s.scanner, scanType: s.scanType })),
-        profilesCount: profiles.length,
-        profiles: profiles.map(p => ({ id: p.id.slice(0, 12), name: p.displayName })),
-        latestPerInvCount: latestPerInv.length,
-        latestPerInv: latestPerInv.map((s: any) => ({ id: s.id?.slice(0, 12), profileId: s.profileId?.slice(0, 12), inventoryId: s.inventoryId, status: s.status })),
-        latestPerInvError: latestError,
-      });
-    } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
-    }
   });
 
   router.get('/dashboard/scans-for-profile/:profileId', async (req, res) => {

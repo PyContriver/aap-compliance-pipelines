@@ -979,7 +979,9 @@ export class ComplianceService {
     let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
     if (!scan) {
       const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
-      if (!fallback) throw new Error(`No completed scan found for profile ${profileId} and inventory ${inventoryId}`);
+      if (!fallback) {
+        return { hosts: [], scanId: '', scanTimestamp: '', profileId, inventoryId };
+      }
       scan = fallback;
     }
 

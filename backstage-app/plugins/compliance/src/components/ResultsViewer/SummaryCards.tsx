@@ -1,6 +1,7 @@
 import React from 'react';
 import { InfoCard } from '@backstage/core-components';
 import { Typography, makeStyles } from '@material-ui/core';
+import { scoreColor, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   summarySection: {
@@ -34,7 +35,7 @@ interface SummaryCardsProps {
   isBaselineView?: boolean;
 }
 
-const getColor = (rate: number) => rate >= 90 ? '#3E8635' : rate >= 70 ? '#F0AB00' : '#C9190B';
+const getColor = scoreColor;
 
 export const SummaryCards = ({
   overallPassRate,
@@ -80,7 +81,7 @@ export const SummaryCards = ({
       </InfoCard>
       <InfoCard>
         <div className={classes.summaryCard}>
-          <Typography className={classes.summaryValue} style={{ color: '#C9190B' }}>
+          <Typography className={classes.summaryValue} style={{ color: STATUS_COLORS.error }}>
             {rulesWithFailures}
           </Typography>
           <Typography className={classes.summaryLabel}>Rules with Failures</Typography>

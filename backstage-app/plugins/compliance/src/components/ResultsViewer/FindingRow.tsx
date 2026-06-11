@@ -21,15 +21,17 @@ import ErrorIcon from '@material-ui/icons/Error';
 import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
+import { SEVERITY_COLORS, STATUS_COLORS, FINDING_STATE_COLORS } from '../shared/colors';
+import { CHIP_SIZES } from '../shared/chipStyles';
 
 const useStyles = makeStyles(theme => ({
   severityChip: {
     fontWeight: 600,
     minWidth: 60,
   },
-  catI: { backgroundColor: '#C9190B', color: '#fff' },
-  catII: { backgroundColor: '#F0AB00', color: '#fff' },
-  catIII: { backgroundColor: '#0066CC', color: '#fff' },
+  catI: { backgroundColor: SEVERITY_COLORS.CAT_I, color: '#fff' },
+  catII: { backgroundColor: SEVERITY_COLORS.CAT_II, color: '#fff' },
+  catIII: { backgroundColor: SEVERITY_COLORS.CAT_III, color: '#fff' },
   passBar: {
     height: 8,
     borderRadius: 4,
@@ -43,19 +45,19 @@ const useStyles = makeStyles(theme => ({
     backgroundColor: theme.palette.background.default,
   },
   hostStatusPass: {
-    color: '#3E8635',
+    color: STATUS_COLORS.success,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
   },
   hostStatusFail: {
-    color: '#C9190B',
+    color: STATUS_COLORS.error,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
   },
   hostStatusNA: {
-    color: '#6A6E73',
+    color: STATUS_COLORS.neutral,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
@@ -81,10 +83,10 @@ const severityLabel: Record<FindingSeverity, string> = {
 };
 
 const stateConfig: Record<FindingState, { label: string; tooltip: string; color: string; bgColor: string; variant: 'default' | 'outlined' }> = {
-  new: { label: 'New', tooltip: 'First time this rule is failing on this host', color: '#0066CC', bgColor: 'transparent', variant: 'outlined' },
-  active: { label: 'Active', tooltip: 'Still failing from a previous scan', color: '#6A6E73', bgColor: 'transparent', variant: 'outlined' },
-  fixed: { label: 'Fixed', tooltip: 'Was failing, now passing after remediation', color: '#fff', bgColor: '#3E8635', variant: 'default' },
-  resurfaced: { label: 'Resurfaced', tooltip: 'Regression after remediation — was fixed, now failing again', color: '#C9190B', bgColor: 'transparent', variant: 'outlined' },
+  new: { label: 'New', tooltip: 'First time this rule is failing on this host', color: FINDING_STATE_COLORS.new.color, bgColor: FINDING_STATE_COLORS.new.bgColor, variant: FINDING_STATE_COLORS.new.variant },
+  active: { label: 'Active', tooltip: 'Still failing from a previous scan', color: FINDING_STATE_COLORS.active.color, bgColor: FINDING_STATE_COLORS.active.bgColor, variant: FINDING_STATE_COLORS.active.variant },
+  fixed: { label: 'Fixed', tooltip: 'Was failing, now passing after remediation', color: FINDING_STATE_COLORS.fixed.color, bgColor: FINDING_STATE_COLORS.fixed.bgColor, variant: FINDING_STATE_COLORS.fixed.variant },
+  resurfaced: { label: 'Resurfaced', tooltip: 'Regression after remediation — was fixed, now failing again', color: FINDING_STATE_COLORS.resurfaced.color, bgColor: FINDING_STATE_COLORS.resurfaced.bgColor, variant: FINDING_STATE_COLORS.resurfaced.variant },
 };
 
 interface FindingRowProps {
@@ -147,7 +149,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                     backgroundColor: stateConfig[dominantState].bgColor,
                     borderColor: stateConfig[dominantState].variant === 'outlined' ? stateConfig[dominantState].color : undefined,
                     fontWeight: 600,
-                    fontSize: '0.7rem',
+                    fontSize: CHIP_SIZES.standard.fontSize,
                   }}
                 />
               </Tooltip>
@@ -161,17 +163,17 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
           )}
           {finding.aapImpact === 'breaks-connectivity' && (
             <Tooltip title={finding.aapImpactReason || 'May break AAP connectivity to this host'}>
-              <Chip label="Breaks AAP connectivity" size="small" style={{ marginTop: 4, backgroundColor: '#C9190B', color: '#fff' }} />
+              <Chip label="Breaks AAP connectivity" size="small" style={{ marginTop: 4, backgroundColor: STATUS_COLORS.error, color: '#fff' }} />
             </Tooltip>
           )}
           {finding.aapImpact === 'caution' && (
             <Tooltip title={finding.aapImpactReason || 'Review before remediating — affects AAP connectivity subsystem'}>
-              <Chip label="AAP caution" size="small" style={{ marginTop: 4, backgroundColor: '#F0AB00', color: '#fff' }} />
+              <Chip label="AAP caution" size="small" style={{ marginTop: 4, backgroundColor: STATUS_COLORS.warning, color: '#fff' }} />
             </Tooltip>
           )}
           {finding.automationAvailable === false && (
             <Tooltip title="No automated remediation available — manual fix required">
-              <Chip label="Manual only" size="small" variant="outlined" style={{ marginTop: 4, color: '#6A6E73', borderColor: '#6A6E73' }} />
+              <Chip label="Manual only" size="small" variant="outlined" style={{ marginTop: 4, color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral }} />
             </Tooltip>
           )}
         </TableCell>
@@ -190,7 +192,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
             <Chip
               label={`${finding.passCount}/${finding.totalCount}`}
               size="small"
-              style={{ backgroundColor: '#3E8635', color: '#fff' }}
+              style={{ backgroundColor: STATUS_COLORS.success, color: '#fff' }}
               className={classes.hostCountChip}
             />
           ) : finding.failCount === 0 && finding.passCount === 0 ? (
@@ -206,20 +208,20 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                 <Chip
                   label={`${finding.passCount} pass`}
                   size="small"
-                  style={{ backgroundColor: '#3E8635', color: '#fff', fontSize: '0.7rem' }}
+                  style={{ backgroundColor: STATUS_COLORS.success, color: '#fff', ...CHIP_SIZES.micro }}
                 />
               )}
               <Chip
                 label={`${finding.failCount} fail`}
                 size="small"
-                style={{ backgroundColor: '#C9190B', color: '#fff', fontSize: '0.7rem' }}
+                style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', ...CHIP_SIZES.micro }}
               />
               {finding.naCount > 0 && (
                 <Chip
                   label={`${finding.naCount} N/A`}
                   size="small"
                   variant="outlined"
-                  style={{ fontSize: '0.7rem', color: '#6A6E73' }}
+                  style={{ ...CHIP_SIZES.micro, color: STATUS_COLORS.neutral }}
                 />
               )}
             </Box>
@@ -259,8 +261,8 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               {finding.automationAvailable === false && (
                 <Box mt={1.5} p={1.5} style={{ backgroundColor: '#F5F5F5', borderRadius: 4, border: '1px solid #D2D2D2' }}>
                   <Box display="flex" alignItems="center" style={{ gap: 6 }}>
-                    <HelpOutlineIcon style={{ fontSize: 16, color: '#6A6E73' }} />
-                    <Typography variant="caption" style={{ fontWeight: 600, color: '#6A6E73' }}>Manual remediation required</Typography>
+                    <HelpOutlineIcon style={{ fontSize: 16, color: STATUS_COLORS.neutral }} />
+                    <Typography variant="caption" style={{ fontWeight: 600, color: STATUS_COLORS.neutral }}>Manual remediation required</Typography>
                   </Box>
                   <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 4 }}>
                     This rule has no automated remediation playbook available. It must be resolved through manual configuration changes — review the Check and Fix guidance above.
@@ -270,8 +272,8 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
               {finding.naCount > 0 && finding.failCount === 0 && finding.passCount === 0 && (
                 <Box mt={1.5} p={1.5} style={{ backgroundColor: '#F5F5F5', borderRadius: 4, border: '1px solid #D2D2D2' }}>
                   <Box display="flex" alignItems="center" style={{ gap: 6 }}>
-                    <RemoveCircleOutlineIcon style={{ fontSize: 16, color: '#6A6E73' }} />
-                    <Typography variant="caption" style={{ fontWeight: 600, color: '#6A6E73' }}>Not Applicable</Typography>
+                    <RemoveCircleOutlineIcon style={{ fontSize: 16, color: STATUS_COLORS.neutral }} />
+                    <Typography variant="caption" style={{ fontWeight: 600, color: STATUS_COLORS.neutral }}>Not Applicable</Typography>
                   </Box>
                   <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 4 }}>
                     This check was not evaluated because the preconditions are not met on any scanned host — the relevant software, service, or configuration is not present.
@@ -326,7 +328,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                                   backgroundColor: stateConfig[hostFinding.findingState].bgColor,
                                   borderColor: stateConfig[hostFinding.findingState].variant === 'outlined' ? stateConfig[hostFinding.findingState].color : undefined,
                                   fontWeight: 600,
-                                  fontSize: '0.7rem',
+                                  fontSize: CHIP_SIZES.standard.fontSize,
                                 }}
                               />
                             </Tooltip>
@@ -337,7 +339,7 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                             variant="body2"
                             style={{
                               fontFamily: 'monospace',
-                              color: hostFinding.status === 'fail' ? '#C9190B' : hostFinding.status === 'not_applicable' ? '#6A6E73' : 'inherit',
+                              color: hostFinding.status === 'fail' ? STATUS_COLORS.error : hostFinding.status === 'not_applicable' ? STATUS_COLORS.neutral : 'inherit',
                               fontWeight: hostFinding.status === 'fail' ? 600 : 400,
                               fontStyle: hostFinding.status === 'not_applicable' ? 'italic' : 'normal',
                               wordBreak: 'break-all',
