@@ -11,8 +11,7 @@
 #   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 
-# Always create the pipeline — GitHub CI commits tarballs with [skip ci]
-# which would suppress the deploy job if we relied on the default behaviour.
+# GitHub CI commits tarballs to deploy-artifacts/ on main pushes.
 # Individual jobs use their own rules: sections to decide what runs.
 workflow:
   rules:
