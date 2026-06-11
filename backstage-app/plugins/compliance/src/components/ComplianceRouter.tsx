@@ -18,6 +18,8 @@ import { ProfileSettings } from './ProfileSettings';
 import { RemediationsList } from './RemediationsList';
 import { ScanHistory } from './ScanHistory';
 import { ChainView } from './ChainView';
+import { InventoriesList } from './InventoriesList';
+import { InventoryDetail } from './InventoryDetail';
 import { ActiveJobsBanner } from './ActiveJobsBanner';
 
 /**
@@ -69,6 +71,7 @@ const TABS = [
   { id: 'scan', label: 'New Scan' },
   { id: 'results', label: 'Results' },
   { id: 'remediations', label: 'Remediations' },
+  { id: 'inventories', label: 'Inventories' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -77,6 +80,7 @@ const tabRouteMap: Record<string, string> = {
   scan: 'scan',
   results: 'results',
   remediations: 'remediations',
+  inventories: 'inventories',
   settings: 'settings',
 };
 
@@ -90,7 +94,8 @@ const ComplianceRouter = () => {
     if (path.startsWith('scan')) return 1;
     if (path.startsWith('results') || path.startsWith('chain/') || path.startsWith('remediation/') || path.startsWith('execute') || path.startsWith('remediation-result')) return 2;
     if (path === 'remediations' || path.startsWith('remediation-edit/')) return 3;
-    if (path.startsWith('settings')) return 4;
+    if (path.startsWith('inventories')) return 4;
+    if (path.startsWith('settings')) return 5;
     return 0;
   };
 
@@ -130,6 +135,8 @@ const ComplianceRouter = () => {
               <Route path="/execute/:jobId" element={<RemediationExecution />} />
               <Route path="/remediation-result/:jobId" element={<RemediationExecution viewMode={true} />} />
               <Route path="/remediations" element={<RemediationsList />} />
+              <Route path="/inventories" element={<InventoriesList />} />
+              <Route path="/inventories/:inventoryId" element={<InventoryDetail />} />
               <Route path="/settings" element={<ProfileSettings />} />
             </Routes>
           </ComplianceErrorBoundary>

@@ -966,6 +966,44 @@ export class ComplianceService {
     return this.database.getPostureHistory(profileId, days, inventoryId);
   }
 
+  async getHostPosture(
+    inventoryId: number,
+    profileId: string,
+    req?: any,
+  ): Promise<import('@aap-compliance/common').HostPostureResponse> {
+    if (this.dataSource === 'mock') {
+      return MockDataProvider.getHostPosture(inventoryId, profileId);
+    }
+    if (!this.database) throw new Error('Database not available');
+
+    const scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
+    if (!scan) throw new Error(`No completed scan found for profile ${profileId} and inventory ${inventoryId}`);
+
+    const hosts = await this.database.getHostPosture(scan.id);
+
+    let hostFacts: Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string }> = [];
+    try {
+      const token = req?.headers?.['x-aap-token'] as string | undefined;
+      hostFacts = await this.getInventoryHostFacts(inventoryId, token);
+    } catch { /* Controller unavailable — proceed without OS data */ }
+
+    const factsMap = new Map(hostFacts.map(f => [f.hostname, f]));
+    for (const host of hosts) {
+      const facts = factsMap.get(host.hostname);
+      if (facts) {
+        host.os = [facts.ansible_os_family, facts.ansible_distribution_major_version].filter(Boolean).join(' ') || undefined;
+      }
+    }
+
+    return {
+      hosts,
+      scanId: scan.id,
+      scanTimestamp: scan.completedAt || scan.startedAt,
+      profileId,
+      inventoryId,
+    };
+  }
+
   async getRemediationEventsForTrend(
     days: number = 90,
     inventoryId?: number,
