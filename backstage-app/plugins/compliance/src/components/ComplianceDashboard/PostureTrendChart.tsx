@@ -190,12 +190,18 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   onPointClick,
 }) => {
   const classes = useStyles();
+
+  // UI state
   const [scope, setScope] = useState<TrendScope>('all-profiles');
+  const [loading, setLoading] = useState(false);
+
+  // Filter state
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
+
+  // Data state
   const [data, setData] = useState<PostureSnapshot[]>(initialData);
   const [remediationEvents, setRemediationEvents] = useState<RemediationEvent[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const profileOptions = useMemo(
     () => stats.frameworkScores.map(fw => ({ value: fw.profileId, label: fw.name })),

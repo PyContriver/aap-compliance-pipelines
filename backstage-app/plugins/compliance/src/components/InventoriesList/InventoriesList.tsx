@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
@@ -14,7 +14,9 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
+
 import { complianceApiRef } from '../../api';
+import { scoreColor } from '../shared/colors';
 import type { DashboardStats } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -69,7 +71,7 @@ export const InventoriesList: React.FC = () => {
 
   if (loading) return <LinearProgress />;
 
-  const inventories = stats?.byInventory ?? [];
+  const inventories = useMemo(() => stats?.byInventory ?? [], [stats]);
 
   if (inventories.length === 0) {
     return (
@@ -148,7 +150,7 @@ export const InventoriesList: React.FC = () => {
                       />
                       <Typography variant="caption" style={{
                         fontWeight: 600,
-                        color: ps.rate >= 90 ? '#3E8635' : ps.rate >= 70 ? '#F0AB00' : '#C9190B',
+                        color: scoreColor(ps.rate),
                       }}>
                         {ps.rate}%
                       </Typography>

@@ -55,7 +55,7 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilte
     } else {
       setZoomStack(prev => [...prev, { level: 'zoomed-strip', hosts: cluster.hosts, label }]);
     }
-  }, []);
+  }, []); // cluster arg is always fresh from caller — no external deps
 
   const goHome = useCallback(() => setZoomStack([]), []);
 

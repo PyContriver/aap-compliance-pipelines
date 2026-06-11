@@ -8,6 +8,7 @@ export interface Cluster {
   isOutlier: boolean;
 }
 
+// Switch from strip plot to chip matrix when cluster has ≤ this many hosts
 export const CHIP_THRESHOLD = 50;
 
 export function computeClusters(hosts: HostPosture[]): Cluster[] {
