@@ -976,8 +976,12 @@ export class ComplianceService {
     }
     if (!this.database) throw new Error('Database not available');
 
-    const scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
-    if (!scan) throw new Error(`No completed scan found for profile ${profileId} and inventory ${inventoryId}`);
+    let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
+    if (!scan) {
+      const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
+      if (!fallback) throw new Error(`No completed scan found for profile ${profileId} and inventory ${inventoryId}`);
+      scan = fallback;
+    }
 
     const hosts = await this.database.getHostPosture(scan.id);
 

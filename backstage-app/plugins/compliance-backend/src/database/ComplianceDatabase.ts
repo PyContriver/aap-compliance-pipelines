@@ -629,6 +629,18 @@ export class ComplianceDatabase {
     };
   }
 
+  async getLatestCompletedScan(profileId: string, inventoryId: number): Promise<ComplianceScan | null> {
+    const row = await this.db('compliance_scans')
+      .where('profile_id', profileId)
+      .where('inventory_id', inventoryId)
+      .where('status', 'completed')
+      .whereNot('scanner', 'remediation')
+      .orderBy('completed_at', 'desc')
+      .first();
+    if (!row) return null;
+    return this.mapScanRow(row);
+  }
+
   // ─── Per-host posture (ADR-023) ─────────────────────────────────────
 
   async getHostPosture(scanId: string): Promise<import('@aap-compliance/common').HostPosture[]> {

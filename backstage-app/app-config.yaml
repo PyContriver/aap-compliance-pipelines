@@ -46,7 +46,7 @@ backend:
 
 # Compliance plugin settings
 compliance:
-  dataSource: mock
+  dataSource: live
   # Number of days to retain scan findings before cleanup (default: 90)
   retentionDays: 90
   # Auth mode: 'development' = all routes unauthenticated (standalone dev),
