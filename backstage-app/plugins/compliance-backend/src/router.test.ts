@@ -110,6 +110,7 @@ function createMockService() {
     }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationEventsForTrend: jest.fn().mockResolvedValue([]),
+    getHostPosture: jest.fn().mockResolvedValue({ hosts: [], scanId: 'scan-1', scanTimestamp: '2026-06-11T00:00:00Z', profileId: 'prof-1', inventoryId: 1 }),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
@@ -942,6 +943,29 @@ describe('compliance backend router', () => {
 
       expect(res.status).toBe(200);
       expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30, undefined);
+    });
+  });
+
+  // ─── GET /inventory/:id/host-posture ────────────────────────────
+
+  describe('GET /inventory/:id/host-posture', () => {
+    it('returns 400 without profileId', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, { path: '/inventory/1/host-posture' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 with invalid inventoryId', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, { path: '/inventory/abc/host-posture?profileId=p1' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 200 with valid params', async () => {
+      const { app, service } = await createApp();
+      const res = await testRequest(app, { path: '/inventory/5/host-posture?profileId=rhel9-stig' });
+      expect(res.status).toBe(200);
+      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'rhel9-stig', expect.anything());
     });
   });
 
