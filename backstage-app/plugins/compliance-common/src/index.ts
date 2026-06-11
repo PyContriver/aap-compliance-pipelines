@@ -44,5 +44,6 @@ export type {
   FindingState,
   FindingStateSummary,
   ChainResponse,
+  RemediationEvent,
 } from './types';
 

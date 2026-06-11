@@ -1,5 +1,6 @@
 import type express from 'express';
 import type { RouterDependencies } from './types';
+import { parseInventoryId } from './validation';
 
 export function registerDashboardRoutes(
   router: express.Router,
@@ -27,8 +28,24 @@ export function registerDashboardRoutes(
 
   router.get('/posture', async (req, res) => {
     const profileId = req.query.profileId as string | undefined;
+    const inventoryId = parseInventoryId(req.query.inventoryId as string | undefined);
+    if (req.query.inventoryId && inventoryId === undefined) {
+      res.status(400).json({ error: 'inventoryId must be a positive integer' });
+      return;
+    }
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
-    const history = await service.getPostureHistory(profileId, days);
+    const history = await service.getPostureHistory(profileId, days, inventoryId);
     res.json(history);
+  });
+
+  router.get('/posture/events', async (req, res) => {
+    const inventoryId = parseInventoryId(req.query.inventoryId as string | undefined);
+    if (req.query.inventoryId && inventoryId === undefined) {
+      res.status(400).json({ error: 'inventoryId must be a positive integer' });
+      return;
+    }
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 90));
+    const events = await service.getRemediationEventsForTrend(days, inventoryId);
+    res.json(events);
   });
 }

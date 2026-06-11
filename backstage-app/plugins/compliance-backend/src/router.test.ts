@@ -109,6 +109,7 @@ function createMockService() {
       frameworkScores: [],
     }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
+    getRemediationEventsForTrend: jest.fn().mockResolvedValue([]),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
@@ -879,6 +880,7 @@ describe('compliance backend router', () => {
       expect(service.getPostureHistory).toHaveBeenCalledWith(
         undefined,
         30, // default days
+        undefined,
       );
     });
 
@@ -892,17 +894,30 @@ describe('compliance backend router', () => {
       expect(service.getPostureHistory).toHaveBeenCalledWith(
         'rhel9-stig',
         30,
+        undefined,
+      );
+    });
+
+    it('passes inventoryId query parameter', async () => {
+      const { app, service } = await createApp();
+      const res = await testRequest(app, {
+        path: '/posture?profileId=rhel9-stig&inventoryId=5',
+      });
+
+      expect(res.status).toBe(200);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(
+        'rhel9-stig',
+        30,
+        5,
       );
     });
 
     it('clamps days parameter to minimum of 1', async () => {
       const { app, service } = await createApp();
-      // Number('0.5') is 0.5, which is truthy, so || 30 does not trigger.
-      // Math.max(1, 0.5) = 1
       const res = await testRequest(app, { path: '/posture?days=0.5' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 1);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 1, undefined);
     });
 
     it('treats days=0 as default (30) because 0 is falsy', async () => {
@@ -910,7 +925,7 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=0' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30, undefined);
     });
 
     it('clamps days parameter to maximum of 365', async () => {
@@ -918,7 +933,7 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=999' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 365);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 365, undefined);
     });
 
     it('defaults days to 30 when not a valid number', async () => {
@@ -926,7 +941,7 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=abc' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30, undefined);
     });
   });
 

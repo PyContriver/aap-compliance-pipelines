@@ -1,7 +1,7 @@
 # Feature: Remediation Lifecycle
 
-**Status:** Proposed  
-**Date:** 2026-05-31  
+**Status:** Accepted  
+**Date:** 2026-05-31 (Accepted: 2026-06-10, all phases complete as of 2026-06-11)  
 **ADR:** ADR-014 (remediation lifecycle architecture)  
 **Depends on:** ADR-009, ADR-013
 
@@ -262,9 +262,9 @@ Existing profiles get `status='saved'` (all were explicitly saved). Backfill mat
 
 | Phase | Scope | Effort |
 |-------|-------|--------|
-| **1: Foundation** | Migration 011 (incl. `scan_id` rename, `compliance_baseline_targets`), execution CRUD, create on launch, update on completion, concurrent execution guard, list/detail endpoints, RemediationsList with MUI table | 3-4 days |
-| **2: Verification** | Pass executionId to verification scan, verification linkage, RemediationDetail component | 1-2 days |
-| **3: Cleanup** | Stop creating remediation scan records, auto-save drafts + upsert, name uniqueness, "Save" button | 1-2 days |
+| **1: Foundation** | Migration 011 (incl. `scan_id` rename, `compliance_baseline_targets`), execution CRUD, create on launch, update on completion, concurrent execution guard, list/detail endpoints, RemediationsList with MUI table | **COMPLETE** (2026-06-01) |
+| **2: Verification** | Verification linkage via `informing_scan_id` + `verification_scan_id`, chain view component, "Verified" badge on executions | **COMPLETE** (2026-06-08) |
+| **3: Cleanup** | Stop creating remediation scan records, auto-save drafts + upsert, name uniqueness (migration 017), "Save" button, Active/All/Drafts/Archived filter | **COMPLETE** (2026-06-08) |
 | **4: Data Management** | Settings > Data Management UI (two retention dropdowns + help popover), background purge job, cascade-safe deletes | P2b |
 | **5: Audit Export** | Export compliance report (date range, profile/inventory filters, local + Controller data sources, CSV/JSON bundle) | P3 |
 | **6: Future** | SLA, auto-close, ITSM integration, execution comparison | Deferred |
