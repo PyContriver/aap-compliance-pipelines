@@ -274,9 +274,8 @@ deploy-netrunner:
         - deploy-artifacts/**/*
         - .gitlab-ci.yml
       when: on_success
-    - if: $CI_PIPELINE_SOURCE == "web"
-      when: manual
-      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
+      when: on_success
   environment:
     name: netrunner-staging
     url: https://dev-portal-netrunner.demoredhat.com/compliance
