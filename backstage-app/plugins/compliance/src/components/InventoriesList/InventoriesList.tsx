@@ -50,16 +50,30 @@ const useStyles = makeStyles(theme => ({
   },
   profileChip: {
     ...CHIP_SIZES.standard,
-    marginRight: 4,
+    display: 'block',
+    marginBottom: 4,
   },
   baselineChip: {
     ...CHIP_SIZES.micro,
     backgroundColor: 'rgba(0, 102, 204, 0.08)',
     color: STATUS_COLORS.info,
+    display: 'block',
+    marginBottom: 4,
   },
   scoreChip: {
     ...CHIP_SIZES.standard,
     fontWeight: 600,
+    display: 'block',
+    marginBottom: 4,
+  },
+  stackedCell: {
+    verticalAlign: 'top',
+  },
+  stackedSlot: {
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   nameCell: {
     fontWeight: 500,
@@ -159,79 +173,78 @@ export const InventoriesList: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell style={TABLE_STYLES.header}>Inventory</TableCell>
-              <TableCell style={TABLE_STYLES.header}>Scanned Against</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Active Scans</TableCell>
               <TableCell style={TABLE_STYLES.header}>Baseline</TableCell>
-              <TableCell style={TABLE_STYLES.header}>Compliance</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Baseline Compliance</TableCell>
+              <TableCell style={TABLE_STYLES.header}>Standard Compliance</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {inventories.map(inv => {
-              const hasBaseline = inv.profileScores.some(ps => ps.baseline);
-
-              return (
-                <TableRow
-                  key={inv.inventoryId}
-                  className={classes.row}
-                  hover
-                  onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" className={classes.nameCell}>
-                      {inv.inventoryName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {inv.profileScores.map(ps => (
+            {inventories.map(inv => (
+              <TableRow
+                key={inv.inventoryId}
+                className={classes.row}
+                hover
+                onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
+              >
+                <TableCell>
+                  <Typography variant="body2" className={classes.nameCell}>
+                    {inv.inventoryName}
+                  </Typography>
+                </TableCell>
+                <TableCell className={classes.stackedCell}>
+                  {inv.profileScores.map(ps => (
+                    <div key={ps.profileId} className={classes.stackedSlot}>
+                      <Chip label={ps.name} size="small" variant="outlined" className={classes.profileChip} />
+                    </div>
+                  ))}
+                </TableCell>
+                <TableCell className={classes.stackedCell}>
+                  {inv.profileScores.map(ps => (
+                    <div key={ps.profileId} className={classes.stackedSlot}>
+                      {ps.baseline ? (
+                        <Chip
+                          icon={<BookmarkIcon style={{ fontSize: 14 }} />}
+                          label={ps.baseline.remediationProfileName}
+                          size="small"
+                          className={classes.baselineChip}
+                        />
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  ))}
+                </TableCell>
+                <TableCell className={classes.stackedCell}>
+                  {inv.profileScores.map(ps => (
+                    <div key={ps.profileId} className={classes.stackedSlot}>
+                      {ps.baseline ? (
+                        <Chip
+                          label={`${ps.baseline.rate}%`}
+                          size="small"
+                          className={classes.scoreChip}
+                          style={{ backgroundColor: scoreColor(ps.baseline.rate), color: '#fff' }}
+                        />
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  ))}
+                </TableCell>
+                <TableCell className={classes.stackedCell}>
+                  {inv.profileScores.map(ps => (
+                    <div key={ps.profileId} className={classes.stackedSlot}>
                       <Chip
-                        key={ps.profileId}
-                        label={ps.name}
-                        size="small"
-                        variant="outlined"
-                        className={classes.profileChip}
-                      />
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    {hasBaseline ? (
-                      inv.profileScores
-                        .filter(ps => ps.baseline)
-                        .map(ps => (
-                          <span key={ps.profileId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 8 }}>
-                            <Chip
-                              icon={<BookmarkIcon style={{ fontSize: 14 }} />}
-                              label={ps.baseline!.remediationProfileName}
-                              size="small"
-                              className={classes.baselineChip}
-                            />
-                            <Chip
-                              label={`${ps.baseline!.rate}%`}
-                              size="small"
-                              className={classes.scoreChip}
-                              style={{ backgroundColor: scoreColor(ps.baseline!.rate), color: '#fff' }}
-                            />
-                          </span>
-                        ))
-                    ) : (
-                      <Typography variant="caption" className={classes.muted}>—</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {inv.profileScores.map(ps => (
-                      <Chip
-                        key={ps.profileId}
                         label={`${ps.rate}%`}
                         size="small"
                         className={classes.scoreChip}
                         style={{ backgroundColor: scoreColor(ps.rate), color: '#fff' }}
                       />
-                    ))}
-                    {inv.profileScores.length === 0 && (
-                      <Typography variant="caption" className={classes.muted}>No scans</Typography>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    </div>
+                  ))}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </TableContainer>

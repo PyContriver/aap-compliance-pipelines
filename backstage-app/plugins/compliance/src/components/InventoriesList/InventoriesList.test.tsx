@@ -113,7 +113,7 @@ describe('InventoriesList', () => {
     });
   });
 
-  it('renders profile chips in "Scanned Against" column', async () => {
+  it('renders profile chips in "Active Scans" column', async () => {
     mockApi.getDashboardStats.mockResolvedValue(makeStats());
     await renderInventoriesList(mockApi);
     await waitFor(() => {
@@ -142,17 +142,13 @@ describe('InventoriesList', () => {
     expect(screen.getByText('85%')).toBeInTheDocument();
   });
 
-  it('renders dash when no baseline is pinned', async () => {
+  it('renders empty slots when no baseline is pinned', async () => {
     mockApi.getDashboardStats.mockResolvedValue(makeStats());
     await renderInventoriesList(mockApi);
     await waitFor(() => {
       expect(screen.getByText('prod-servers')).toBeInTheDocument();
     });
-    const rows = screen.getAllByRole('row');
-    const stagingRow = rows.find(r => within(r).queryByText('staging-servers'));
-    if (stagingRow) {
-      expect(within(stagingRow).getByText('—')).toBeInTheDocument();
-    }
+    expect(screen.queryByText('Prod STIG Baseline')).not.toBeInTheDocument();
   });
 
   it('renders table headers', async () => {
@@ -161,9 +157,10 @@ describe('InventoriesList', () => {
     await waitFor(() => {
       expect(screen.getByText('Inventory')).toBeInTheDocument();
     });
-    expect(screen.getByText('Scanned Against')).toBeInTheDocument();
+    expect(screen.getByText('Active Scans')).toBeInTheDocument();
     expect(screen.getByText('Baseline')).toBeInTheDocument();
-    expect(screen.getByText('Compliance')).toBeInTheDocument();
+    expect(screen.getByText('Baseline Compliance')).toBeInTheDocument();
+    expect(screen.getByText('Standard Compliance')).toBeInTheDocument();
   });
 
   it('navigates to inventory detail on row click', async () => {
