@@ -639,8 +639,16 @@ export const ResultsViewer = () => {
               label={meta.scanInventoryName}
               size="small"
               variant="outlined"
+              clickable
               icon={<ListIcon style={{ fontSize: 16 }} />}
               style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral }}
+              onClick={e => {
+                e.stopPropagation();
+                if (meta.scanInventoryId) {
+                  const path = `/compliance/inventories/${meta.scanInventoryId}`;
+                  navigate(meta.scanComplianceProfileId ? `${path}?profileId=${meta.scanComplianceProfileId}` : path);
+                }
+              }}
             />
           )}
           {meta.scanStartedAt && (

@@ -149,9 +149,11 @@ function formatHybridDate(iso: string): { absolute: string; relative: string } {
 function ExecutionHistoryRow({
   execution,
   inventoryNames,
+  complianceProfileId,
 }: {
   execution: RemediationExecution;
   inventoryNames: Map<number, string>;
+  complianceProfileId?: string;
 }) {
   const classes = useStyles();
   const navigate = useNavigate();
@@ -172,7 +174,20 @@ function ExecutionHistoryRow({
           style={{ backgroundColor: execColor.bg, color: execColor.fg }}
         />
       </TableCell>
-      <TableCell>{inventoryNames.get(execution.inventoryId) || `Inventory #${execution.inventoryId}`}</TableCell>
+      <TableCell>
+        <Chip
+          label={inventoryNames.get(execution.inventoryId) || `Inventory #${execution.inventoryId}`}
+          size="small"
+          variant="outlined"
+          clickable
+          onClick={e => {
+            e.stopPropagation();
+            const path = `/compliance/inventories/${execution.inventoryId}`;
+            navigate(complianceProfileId ? `${path}?profileId=${complianceProfileId}` : path);
+          }}
+          style={{ cursor: 'pointer' }}
+        />
+      </TableCell>
       <TableCell>
         {execution.rulesApplied != null ? (
           <>
@@ -708,6 +723,7 @@ export const RemediationsList = () => {
                                           key={exec.id}
                                           execution={exec}
                                           inventoryNames={inventoryNames}
+                                          complianceProfileId={r.complianceProfileId}
                                         />
                                       ))}
                                       {!executionHistory.has(r.id) && (
