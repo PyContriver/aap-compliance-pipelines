@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -60,6 +60,7 @@ const useStyles = makeStyles(theme => ({
 export const InventoryDetail: React.FC = () => {
   const classes = useStyles();
   const { inventoryId } = useParams<{ inventoryId: string }>();
+  const [searchParams] = useSearchParams();
   const api = useApi(complianceApiRef);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [hostData, setHostData] = useState<HostPostureResponse | null>(null);
@@ -89,10 +90,12 @@ export const InventoryDetail: React.FC = () => {
       setStats(s);
       const inv = s.byInventory.find(i => i.inventoryId === invId);
       if (inv?.profileScores.length) {
-        setSelectedProfileId(inv.profileScores[0].profileId);
+        const urlProfileId = searchParams.get('profileId');
+        const match = urlProfileId && inv.profileScores.some(ps => ps.profileId === urlProfileId);
+        setSelectedProfileId(match ? urlProfileId! : inv.profileScores[0].profileId);
       }
     }).catch(err => { console.error('Failed to load dashboard stats:', err); }).finally(() => setLoading(false));
-  }, [api, invId]);
+  }, [api, invId, searchParams]);
 
   useEffect(() => {
     if (!selectedProfileId || !invId) return;

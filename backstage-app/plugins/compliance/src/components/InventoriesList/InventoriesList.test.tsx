@@ -170,7 +170,7 @@ describe('InventoriesList', () => {
       expect(screen.getByText('prod-servers')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText('prod-servers'));
-    expect(mockNavigate).toHaveBeenCalledWith('/compliance/inventories/1');
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/compliance/inventories/1'));
   });
 
   it('handles API error gracefully (renders empty)', async () => {
