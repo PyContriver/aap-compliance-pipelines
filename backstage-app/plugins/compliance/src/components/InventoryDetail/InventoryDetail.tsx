@@ -128,19 +128,24 @@ export const InventoryDetail: React.FC = () => {
     [hosts, osFilter],
   );
 
-  const outlierCount = filteredHosts.filter(h => isOutlier(h, filteredHosts)).length;
-  const totalPass = filteredHosts.reduce((a, h) => a + h.passCount, 0);
-  const totalApplicable = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
-  const overallCompliance = totalApplicable > 0 ? Math.round(totalPass / totalApplicable * 1000) / 10 : 0;
+  const { outlierCount, totalPass, totalApplicable, overallCompliance } = useMemo(() => {
+    const outliers = filteredHosts.filter(h => isOutlier(h, filteredHosts)).length;
+    const pass = filteredHosts.reduce((a, h) => a + h.passCount, 0);
+    const applicable = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
+    const compliance = applicable > 0 ? Math.round(pass / applicable * 1000) / 10 : 0;
+    return { outlierCount: outliers, totalPass: pass, totalApplicable: applicable, overallCompliance: compliance };
+  }, [filteredHosts]);
 
   const selectedBaseline = useMemo(
     () => inventory?.profileScores.find(ps => ps.profileId === selectedProfileId)?.baseline ?? null,
     [inventory, selectedProfileId],
   );
 
-  const osCounts = new Map<string, number>();
-  for (const h of hosts) if (h.os) osCounts.set(h.os, (osCounts.get(h.os) || 0) + 1);
-  const osEntries = [...osCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const osEntries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const h of hosts) if (h.os) counts.set(h.os, (counts.get(h.os) || 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [hosts]);
 
   const navigateToScanResults = useCallback(async (baselineView = false) => {
     if (!selectedProfileId || !invId) return;

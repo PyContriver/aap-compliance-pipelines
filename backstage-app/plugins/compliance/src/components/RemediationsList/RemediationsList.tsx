@@ -185,7 +185,6 @@ function ExecutionHistoryRow({
             const path = `/compliance/inventories/${execution.inventoryId}`;
             navigate(complianceProfileId ? `${path}?profileId=${complianceProfileId}` : path);
           }}
-          style={{ cursor: 'pointer' }}
         />
       </TableCell>
       <TableCell>

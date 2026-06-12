@@ -95,7 +95,7 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
           });
         }
       })
-      .catch(() => {})
+      .catch(() => { /* Expected: no previous scan for this profile/inventory pair */ })
       .finally(() => setChecking(false));
   }, [api, open, profileId, inventoryId]);
 
