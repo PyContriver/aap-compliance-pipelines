@@ -44,9 +44,22 @@ const useStyles = makeStyles(theme => ({
   profileFilter: {
     minWidth: 180,
   },
-  row: {
+  profileRow: {
     cursor: 'pointer',
     '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
+  inventoryCell: {
+    verticalAlign: 'middle',
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  profileCell: {
+    verticalAlign: 'middle',
+    borderBottom: 'none',
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  groupBorder: {
+    borderBottom: `1px solid ${theme.palette.divider}`,
   },
   profileChip: {
     ...CHIP_SIZES.standard,
@@ -59,21 +72,6 @@ const useStyles = makeStyles(theme => ({
   scoreChip: {
     ...CHIP_SIZES.standard,
     fontWeight: 600,
-  },
-  stackedCell: {
-    verticalAlign: 'top',
-    padding: '8px 16px',
-  },
-  stackedSlot: {
-    minHeight: 32,
-    display: 'flex',
-    alignItems: 'center',
-    padding: '2px 4px',
-    borderRadius: 4,
-    transition: 'background-color 0.1s ease',
-  },
-  stackedSlotHighlight: {
-    backgroundColor: 'rgba(0, 102, 204, 0.06)',
   },
   nameCell: {
     fontWeight: 500,
@@ -95,8 +93,6 @@ export const InventoriesList: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileFilter, setProfileFilter] = useState<string>('');
-  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
-
   useEffect(() => {
     api.getDashboardStats()
       .then(setStats)
@@ -181,69 +177,61 @@ export const InventoriesList: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {inventories.map(inv => (
-              <TableRow
-                key={inv.inventoryId}
-                className={classes.row}
-                hover
-                onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
-              >
-                <TableCell>
-                  <Typography variant="body2" className={classes.nameCell}>
-                    {inv.inventoryName}
-                  </Typography>
-                </TableCell>
-                {[
-                  (ps: typeof inv.profileScores[0], slotKey: string) => (
-                    <Chip label={ps.name} size="small" variant="outlined" className={classes.profileChip} />
-                  ),
-                  (ps: typeof inv.profileScores[0], slotKey: string) => (
-                    ps.baseline ? (
+            {inventories.map(inv => {
+              const count = inv.profileScores.length;
+              return inv.profileScores.map((ps, idx) => {
+                const isFirst = idx === 0;
+                const isLast = idx === count - 1;
+                const cellClass = `${classes.profileCell} ${isLast ? classes.groupBorder : ''}`;
+                return (
+                  <TableRow
+                    key={`${inv.inventoryId}-${ps.profileId}`}
+                    className={classes.profileRow}
+                    hover
+                    onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}`)}
+                  >
+                    {isFirst && (
+                      <TableCell rowSpan={count} className={classes.inventoryCell}>
+                        <Typography variant="body2" className={classes.nameCell}>
+                          {inv.inventoryName}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell className={cellClass}>
+                      <Chip label={ps.name} size="small" variant="outlined" className={classes.profileChip} />
+                    </TableCell>
+                    <TableCell className={cellClass}>
+                      {ps.baseline ? (
+                        <Chip
+                          icon={<BookmarkIcon style={{ fontSize: 14 }} />}
+                          label={ps.baseline.remediationProfileName}
+                          size="small"
+                          className={classes.baselineChip}
+                        />
+                      ) : null}
+                    </TableCell>
+                    <TableCell className={cellClass}>
+                      {ps.baseline ? (
+                        <Chip
+                          label={`${ps.baseline.rate}%`}
+                          size="small"
+                          className={classes.scoreChip}
+                          style={{ backgroundColor: scoreColor(ps.baseline.rate), color: '#fff' }}
+                        />
+                      ) : null}
+                    </TableCell>
+                    <TableCell className={cellClass}>
                       <Chip
-                        icon={<BookmarkIcon style={{ fontSize: 14 }} />}
-                        label={ps.baseline.remediationProfileName}
-                        size="small"
-                        className={classes.baselineChip}
-                      />
-                    ) : <span />
-                  ),
-                  (ps: typeof inv.profileScores[0], slotKey: string) => (
-                    ps.baseline ? (
-                      <Chip
-                        label={`${ps.baseline.rate}%`}
+                        label={`${ps.rate}%`}
                         size="small"
                         className={classes.scoreChip}
-                        style={{ backgroundColor: scoreColor(ps.baseline.rate), color: '#fff' }}
+                        style={{ backgroundColor: scoreColor(ps.rate), color: '#fff' }}
                       />
-                    ) : <span />
-                  ),
-                  (ps: typeof inv.profileScores[0], slotKey: string) => (
-                    <Chip
-                      label={`${ps.rate}%`}
-                      size="small"
-                      className={classes.scoreChip}
-                      style={{ backgroundColor: scoreColor(ps.rate), color: '#fff' }}
-                    />
-                  ),
-                ].map((renderCell, colIdx) => (
-                  <TableCell key={colIdx} className={classes.stackedCell}>
-                    {inv.profileScores.map((ps, rowIdx) => {
-                      const slotKey = `${inv.inventoryId}-${rowIdx}`;
-                      return (
-                        <div
-                          key={ps.profileId}
-                          className={`${classes.stackedSlot} ${hoveredSlot === slotKey ? classes.stackedSlotHighlight : ''}`}
-                          onMouseEnter={() => setHoveredSlot(slotKey)}
-                          onMouseLeave={() => setHoveredSlot(null)}
-                        >
-                          {renderCell(ps, slotKey)}
-                        </div>
-                      );
-                    })}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              });
+            })}
           </TableBody>
         </Table>
       </TableContainer>
