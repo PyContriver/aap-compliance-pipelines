@@ -51,6 +51,7 @@ const useStyles = makeStyles(theme => ({
   inventoryCell: {
     verticalAlign: 'middle',
     borderBottom: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
   },
   profileCell: {
     verticalAlign: 'middle',
