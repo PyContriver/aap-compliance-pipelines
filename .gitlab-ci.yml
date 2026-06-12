@@ -205,16 +205,11 @@ deploy-netrunner:
       done
       echo "Tarball format validated (npm-pack, <50MB each)"
 
-    # Restore override YAML from backup if corrupted by previous yaml.dump
+    # Backup current override YAML before deploying (rollback point, not restore)
     - |
       $SSH "
-        if [ -f ${OVERRIDE_YAML}.bak ]; then
-          echo 'Restoring override YAML from backup'
-          sudo cp ${OVERRIDE_YAML}.bak $OVERRIDE_YAML
-        else
-          echo 'Creating backup of override YAML'
-          sudo cp $OVERRIDE_YAML ${OVERRIDE_YAML}.bak
-        fi
+        sudo cp $OVERRIDE_YAML ${OVERRIDE_YAML}.bak
+        echo 'Backed up override YAML'
       "
 
     # Upload tarballs from repo to Portal host
@@ -232,17 +227,20 @@ deploy-netrunner:
       "
     - echo "Tarballs uploaded, old extractions and lock file cleared"
 
-    # Update integrity hashes in-place using sed (preserves YAML structure and anchors)
+    # Update integrity hashes using sed address ranges (package line to next integrity line)
     - |
       BACKEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/backend.tgz | base64 -w0")
       FRONTEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/frontend.tgz | base64 -w0")
       echo "Backend hash: sha512-${BACKEND_HASH:0:20}..."
       echo "Frontend hash: sha512-${FRONTEND_HASH:0:20}..."
       $SSH "
-        sudo sed -i '/compliance-backend/{n;s|integrity:.*|integrity: sha512-$BACKEND_HASH|}' $OVERRIDE_YAML
-        sudo sed -i '/compliance.*frontend\|plugin-compliance[^-]/{n;s|integrity:.*|integrity: sha512-$FRONTEND_HASH|}' $OVERRIDE_YAML
+        sudo sed -i '/backend\.tgz/,/integrity:/ s|integrity:.*|integrity: sha512-$BACKEND_HASH|' $OVERRIDE_YAML
+        sudo sed -i '/frontend\.tgz/,/integrity:/ s|integrity:.*|integrity: sha512-$FRONTEND_HASH|' $OVERRIDE_YAML
       "
-      echo "Integrity hashes updated in-place"
+      # Verify hashes were actually updated
+      $SSH "grep -A2 'backend\.tgz' $OVERRIDE_YAML | grep integrity"
+      $SSH "grep -A2 'frontend\.tgz' $OVERRIDE_YAML | grep integrity"
+      echo "Integrity hashes updated and verified"
 
     # Ensure frontend route: add /compliance/* catch-all if only /compliance exists.
     # Uses grep+sed to avoid yaml.dump rewriting the entire file (which breaks YAML anchors/auth config).
