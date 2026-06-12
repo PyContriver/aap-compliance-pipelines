@@ -161,6 +161,12 @@ export const ResultsViewer = () => {
 
   const [baselineFilterActive, setBaselineFilterActive] = useState(false);
 
+  useEffect(() => {
+    if (searchParams.get('baselineView') === 'true' && baseline.baselineRuleIds.size > 0) {
+      setBaselineFilterActive(true);
+    }
+  }, [searchParams, baseline.baselineRuleIds.size]);
+
   const displayFindings = useMemo(() => {
     if (!baselineFilterActive || baseline.baselineRuleIds.size === 0) return findings;
     return findings.filter(f => baseline.baselineRuleIds.has(f.ruleId));

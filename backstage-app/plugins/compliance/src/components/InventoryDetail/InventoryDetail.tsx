@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -13,13 +13,16 @@ import {
   FormControl,
   InputLabel,
   Tooltip,
+  Button,
   makeStyles,
 } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
+import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
+import { LaunchScanDialog } from './LaunchScanDialog';
 import { isOutlier } from './hostUtils';
 import { STATUS_COLORS, scoreColor } from '../shared/colors';
 
@@ -55,10 +58,22 @@ const useStyles = makeStyles(theme => ({
   empty: {
     textAlign: 'center' as const, padding: theme.spacing(6), color: theme.palette.text.secondary,
   },
+  subheaderRow: {
+    display: 'flex', alignItems: 'center', gap: theme.spacing(1.5),
+  },
+  clickableCard: {
+    cursor: 'pointer',
+    transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+    '&:hover': {
+      boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
+      borderColor: theme.palette.primary.main,
+    },
+  },
 }));
 
 export const InventoryDetail: React.FC = () => {
   const classes = useStyles();
+  const navigate = useNavigate();
   const { inventoryId } = useParams<{ inventoryId: string }>();
   const [searchParams] = useSearchParams();
   const api = useApi(complianceApiRef);
@@ -67,6 +82,7 @@ export const InventoryDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [osFilter, setOsFilter] = useState<string | null>(null);
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
 
   const invId = Number(inventoryId);
 
@@ -126,13 +142,39 @@ export const InventoryDetail: React.FC = () => {
   for (const h of hosts) if (h.os) osCounts.set(h.os, (osCounts.get(h.os) || 0) + 1);
   const osEntries = [...osCounts.entries()].sort((a, b) => b[1] - a[1]);
 
+  const navigateToScanResults = useCallback(async (baselineView = false) => {
+    if (!selectedProfileId || !invId) return;
+    try {
+      const result = await api.getAuthoritativeScan(selectedProfileId, invId);
+      if (result?.scan.workflowJobId) {
+        const path = `/compliance/results/${result.scan.workflowJobId}`;
+        navigate(baselineView ? `${path}?baselineView=true` : path);
+      }
+    } catch { /* no scan available */ }
+  }, [api, selectedProfileId, invId, navigate]);
+
   if (loading && !stats) return <LinearProgress />;
 
   return (
     <InfoCard
       title={inventory?.inventoryName ?? `Inventory ${inventoryId}`}
       subheader={
-        hostData ? `Last scanned ${new Date(hostData.scanTimestamp).toLocaleString()}` : undefined
+        hostData ? (
+          <div className={classes.subheaderRow}>
+            <Typography variant="body2" color="textSecondary">
+              Last scanned {new Date(hostData.scanTimestamp).toLocaleString()}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PlayArrowIcon />}
+              onClick={e => { e.stopPropagation(); setScanDialogOpen(true); }}
+              style={{ textTransform: 'none', fontSize: '0.8rem' }}
+            >
+              Scan Now
+            </Button>
+          </div>
+        ) : undefined
       }
     >
       {loading && <LinearProgress />}
@@ -206,20 +248,26 @@ export const InventoryDetail: React.FC = () => {
               </Typography>
               <Typography className={classes.summaryLabel}>Outliers</Typography>
             </Card>
-            <Card variant="outlined" className={classes.summaryCard}>
-              <Typography className={classes.summaryValue}>{overallCompliance}%</Typography>
-              <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
-            </Card>
-            {selectedBaseline && (
-              <Card variant="outlined" className={classes.summaryCard}>
-                <Typography className={classes.summaryValue} style={{ color: scoreColor(selectedBaseline.rate) }}>
-                  {selectedBaseline.rate}%
-                </Typography>
-                <Typography className={classes.summaryLabel}>
-                  <BookmarkIcon style={{ fontSize: 12, verticalAlign: 'middle', marginRight: 2, color: STATUS_COLORS.info }} />
-                  Baseline ({selectedBaseline.passCount}/{selectedBaseline.ruleCount} rules)
-                </Typography>
+            <Tooltip title="View scan results" arrow>
+              <Card variant="outlined" className={`${classes.summaryCard} ${classes.clickableCard}`}
+                onClick={e => { e.stopPropagation(); navigateToScanResults(false); }}>
+                <Typography className={classes.summaryValue}>{overallCompliance}%</Typography>
+                <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
               </Card>
+            </Tooltip>
+            {selectedBaseline && (
+              <Tooltip title="View baseline scan results" arrow>
+                <Card variant="outlined" className={`${classes.summaryCard} ${classes.clickableCard}`}
+                  onClick={e => { e.stopPropagation(); navigateToScanResults(true); }}>
+                  <Typography className={classes.summaryValue} style={{ color: scoreColor(selectedBaseline.rate) }}>
+                    {selectedBaseline.rate}%
+                  </Typography>
+                  <Typography className={classes.summaryLabel}>
+                    <BookmarkIcon style={{ fontSize: 12, verticalAlign: 'middle', marginRight: 2, color: STATUS_COLORS.info }} />
+                    Baseline ({selectedBaseline.passCount}/{selectedBaseline.ruleCount} rules)
+                  </Typography>
+                </Card>
+              </Tooltip>
             )}
           </div>
 
@@ -249,6 +297,14 @@ export const InventoryDetail: React.FC = () => {
           />
         </>
       )}
+      <LaunchScanDialog
+        open={scanDialogOpen}
+        onClose={() => setScanDialogOpen(false)}
+        inventoryId={invId}
+        inventoryName={inventory?.inventoryName ?? ''}
+        profileOptions={profileOptions}
+        initialProfileId={selectedProfileId}
+      />
     </InfoCard>
   );
 };
