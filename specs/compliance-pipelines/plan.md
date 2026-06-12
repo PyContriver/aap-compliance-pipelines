@@ -588,7 +588,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.13.30, Frontend v0.10.34, 467 tests across 16 suites, 23 ADRs
+**Current versions**: Backend v0.13.54, Frontend v0.10.57, 577 tests across 21 suites, 25 ADRs
 
 **P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
 
@@ -639,18 +639,24 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - All API calls via Gateway, zero direct Controller calls (spec SC-009)
 - Clean Knex migrations with up/down for all tables (spec SC-010)
 
-## Handoff Readiness — Next Actions (2026-06-11 architect review)
+## Handoff Readiness (updated 2026-06-12)
 
-**Current score: 7.5/10.** All code changes pushed to GitHub, deployed on Netrunner (v0.13.40/v0.10.44). Color migration 96% complete, visual consistency confirmed across all tabs. ADR-025 and handover guide written.
+**Current score: 9/10.** Deployed on Netrunner (v0.13.54/v0.10.57). 577 tests across 21 suites. All must-do items complete.
 
-### Must-do before handoff (~7 hours)
+### Completed (2026-06-12)
 
-| # | Action | Effort | Why |
-|---|--------|--------|-----|
-| 1 | Tests for `ChainView.tsx` (332 lines, complex workflow viz, zero tests) | 2h | Core feature with no coverage |
-| 2 | Tests for `InventoriesList.tsx` (320 lines, just overhauled, zero tests) | 2h | Recently rewritten, needs validation |
-| 3 | Tests for `FindingsParser.ts` (347 lines, core parsing logic, zero tests) | 2h | Backend critical path untested |
-| 4 | Align CLI export command (`rhdh-cli plugin export` → `janus-cli package export-dynamic-plugin`) | 30m | Downstream uses `janus-cli` |
+| # | Action | Status |
+|---|--------|--------|
+| 1 | Tests for `ChainView.tsx` (21 tests) | Done |
+| 2 | Tests for `InventoriesList.tsx` (16 tests) | Done |
+| 3 | Tests for `FindingsParser.ts` (43 tests) | Done |
+| 4 | CLI aligned: `rhdh-cli` → `janus-cli` (`@janus-idp/cli`) | Done |
+| 5 | Inventory table redesign (sub-rows, 5 columns, baseline rate) | Done |
+| 6 | Inventory detail: Scan Now button + LaunchScanDialog | Done |
+| 7 | Clickable score cards → authoritative scan results | Done |
+| 8 | Inventory chips link to detail with profile context (ResultsViewer + RemediationsList) | Done |
+| 9 | `?baselineView=true` URL param auto-activates baseline filter | Done |
+| 10 | Architect review: all HIGH/MEDIUM findings fixed (memoization, catch comments) | Done |
 
 ### Should-do (~8 hours)
 

@@ -13,9 +13,9 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Backstage components | `Page`, `Header`, `Content`, `InfoCard` | Same | Standard Backstage wrappers |
 | API client | `createApiRef` + class, `discoveryApi.getBaseUrl()` | Same | Uses `fetchApi.fetch()` |
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
-| Dynamic plugin export | `@red-hat-developer-hub/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
+| Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
-| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 18 suites, 497 tests |
+| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 577 tests |
 
 ### Where we extend beyond downstream
 
@@ -120,7 +120,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 
 ## 4. Architectural Decisions
 
-24 ADRs document every significant decision: `specs/compliance-pipelines/decisions/ADR-001` through `ADR-025`. Key ones:
+25 ADRs document every significant decision: `specs/compliance-pipelines/decisions/ADR-001` through `ADR-025`. Key ones:
 
 | ADR | Decision | Impact |
 |-----|----------|--------|
@@ -140,7 +140,7 @@ cd backstage-app
 yarn install
 ./bin/start.sh mock   # Demo mode (hardcoded data)
 ./bin/start.sh live   # Connect to AAP lab
-yarn test             # 18 suites, 497 tests
+yarn test             # 21 suites, 577 tests
 yarn build            # Build all packages
 ```
 
@@ -180,13 +180,29 @@ Each profile is a self-contained Ansible collection with: `run_oscap.yml` (asses
 | Tier 2 adapter PoC (Tenable/Insights) | P1 | 3-5 days |
 | `ComplianceDatabase.ts` is 1340 lines | P2 | 2-3 days to decompose |
 | `RemediationExecution.tsx` is 1430 lines | P2 | 2-3 days to split |
-| 8 components have no tests (ChainView, ActiveJobsBanner, FilterGroup, FindingRow, ExportButton, ScanProgress, ScanFailedView, InventoryDetail) | P2 | 4-6h |
+| 5 components have no tests (ActiveJobsBanner, FilterGroup, FindingRow, ExportButton, ScanFailedView) | P2 | 3-4h |
 | 7 `any` types in Recharts components | P3 | 1h |
 | Custom RBAC permissions (placeholder `catalogEntityCreatePermission`) | P3 | 2-3 days |
 | MockDataProvider not updated for inventory views, trend charts | P3 | 1-2 days |
 | ADR-022 (auto-remediation) is "Proposed" — accept or reject | P3 | 1 day |
 
-## 8. Security Model
+## 8. Cross-Cutting Navigation Patterns
+
+Inventory chips throughout the app link to the inventory detail page with profile context:
+
+| Location | Element | Navigates to |
+|----------|---------|-------------|
+| Scan results header | Inventory chip | `/compliance/inventories/:id?profileId=X` (scan's profile) |
+| Remediations execution history | Inventory chip | `/compliance/inventories/:id?profileId=X` (remediation's profile) |
+| Inventories list table rows | Row click | `/compliance/inventories/:id?profileId=X` (clicked row's profile) |
+| Inventory detail score cards | Overall Compliance | Authoritative scan results (standard view) |
+| Inventory detail score cards | Baseline card | Authoritative scan results (`?baselineView=true`) |
+
+The inventory detail page reads `?profileId=` from the URL to pre-select the correct compliance profile in its dropdown. The `?baselineView=true` param triggers `ResultsViewer` to auto-activate the baseline filter on load.
+
+**LaunchScanDialog**: The inventory detail page has a "Scan Now" button in the subheader that opens a dialog with the inventory name (read-only), a profile dropdown (pre-populated from the current view), previous scan status check, and launch button. On success, navigates to the new scan's results page.
+
+## 9. Security Model
 
 - **User auth**: Per-user AAP tokens via `x-aap-token` header, passed through to Gateway API
 - **Scan ingest**: Per-scan crypto-random tokens (ADR-010), validated on POST
