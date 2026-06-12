@@ -45,7 +45,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "rhdh-cli plugin export"
+    "export-dynamic": "janus-cli package export-dynamic-plugin"
   },
   "devDependencies": {
     "@backstage/cli": "^0.34.6",

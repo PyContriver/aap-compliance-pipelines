@@ -32,7 +32,7 @@ yarn build            # Build all packages
 
 ## Dynamic Plugin Packaging
 
-Plugins are packaged for Portal/RHDH via `@red-hat-developer-hub/cli` (`rhdh-cli`).
+Plugins are packaged for Portal/RHDH via `@janus-idp/cli` (`janus-cli`).
 Matches the `ansible-rhdh-plugins` downstream patterns exactly.
 
 ```bash

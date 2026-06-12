@@ -195,7 +195,7 @@ The dev shell at `backstage-app/packages/` provides:
 
 ### 2. Portal / RHDH (Production)
 
-Plugins are exported as dynamic plugins using `rhdh-cli`:
+Plugins are exported as dynamic plugins using `janus-cli`:
 
 ```bash
 # Build dynamic plugin packages

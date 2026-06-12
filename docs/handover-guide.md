@@ -13,7 +13,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Backstage components | `Page`, `Header`, `Content`, `InfoCard` | Same | Standard Backstage wrappers |
 | API client | `createApiRef` + class, `discoveryApi.getBaseUrl()` | Same | Uses `fetchApi.fetch()` |
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
-| Dynamic plugin export | `@red-hat-developer-hub/cli` (`rhdh-cli`) | Same | `app-config.janus-idp.yaml` for registration |
+| Dynamic plugin export | `@red-hat-developer-hub/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
 | Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 18 suites, 497 tests |
 

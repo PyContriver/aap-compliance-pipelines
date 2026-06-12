@@ -42,7 +42,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "rhdh-cli plugin export --embed-package @aap-compliance/common"
+    "export-dynamic": "janus-cli package export-dynamic-plugin --embed-package @aap-compliance/common"
   },
   "files": [
     "dist",

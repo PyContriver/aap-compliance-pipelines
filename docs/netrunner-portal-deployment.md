@@ -135,7 +135,7 @@ compliance:
 
 ## Step 6: Create Knex migration files
 
-`rhdh-cli export-dynamic` does not package Knex migration TypeScript files into the dist output. The backend plugin crashes on startup with `ENOENT: no such file or directory, scandir '.../dist/database/migrations'`.
+`janus-cli export-dynamic` does not package Knex migration TypeScript files into the dist output. The backend plugin crashes on startup with `ENOENT: no such file or directory, scandir '.../dist/database/migrations'`.
 
 After the first `systemctl restart` (which extracts the tarballs), create the migration JS files manually:
 
@@ -214,7 +214,7 @@ These are documented for future reference — Portal is designed to resist third
 
 | Issue | Symptom | Fix |
 |-------|---------|-----|
-| Missing plugin-manifest.json | `Could not find 'dist-scalprum/plugin-manifest.json'` | `rhdh-cli` generates this correctly in dist-scalprum; earlier manual deployment missed it |
+| Missing plugin-manifest.json | `Could not find 'dist-scalprum/plugin-manifest.json'` | `janus-cli` generates this correctly in dist-scalprum; earlier manual deployment missed it |
 | No integrity hash | `InstallException: No integrity hash provided` | Compute SHA-512 hash and add `integrity:` field to override YAML |
 | Duplicate plugin registration | `Plugin 'compliance' is already registered` | Keep plugin sources OUTSIDE `dynamic-plugins-root/`; use a separate directory |
 | Missing migrations directory | `ENOENT: scandir '.../dist/database/migrations'` | Manually create JS migration files in extracted plugin |
