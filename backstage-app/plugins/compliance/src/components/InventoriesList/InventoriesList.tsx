@@ -196,13 +196,20 @@ export const InventoriesList: React.FC = () => {
                       inv.profileScores
                         .filter(ps => ps.baseline)
                         .map(ps => (
-                          <Chip
-                            key={ps.profileId}
-                            icon={<BookmarkIcon style={{ fontSize: 14 }} />}
-                            label={ps.baseline!.remediationProfileName}
-                            size="small"
-                            className={classes.baselineChip}
-                          />
+                          <span key={ps.profileId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 8 }}>
+                            <Chip
+                              icon={<BookmarkIcon style={{ fontSize: 14 }} />}
+                              label={ps.baseline!.remediationProfileName}
+                              size="small"
+                              className={classes.baselineChip}
+                            />
+                            <Chip
+                              label={`${ps.baseline!.rate}%`}
+                              size="small"
+                              className={classes.scoreChip}
+                              style={{ backgroundColor: scoreColor(ps.baseline!.rate), color: '#fff' }}
+                            />
+                          </span>
                         ))
                     ) : (
                       <Typography variant="caption" className={classes.muted}>—</Typography>

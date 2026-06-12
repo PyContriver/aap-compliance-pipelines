@@ -16,11 +16,12 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+import BookmarkIcon from '@material-ui/icons/Bookmark';
 import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
 import { isOutlier } from './hostUtils';
-import { STATUS_COLORS } from '../shared/colors';
+import { STATUS_COLORS, scoreColor } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   summaryRow: {
@@ -113,6 +114,11 @@ export const InventoryDetail: React.FC = () => {
   const totalApplicable = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
   const overallCompliance = totalApplicable > 0 ? Math.round(totalPass / totalApplicable * 1000) / 10 : 0;
 
+  const selectedBaseline = useMemo(
+    () => inventory?.profileScores.find(ps => ps.profileId === selectedProfileId)?.baseline ?? null,
+    [inventory, selectedProfileId],
+  );
+
   const osCounts = new Map<string, number>();
   for (const h of hosts) if (h.os) osCounts.set(h.os, (osCounts.get(h.os) || 0) + 1);
   const osEntries = [...osCounts.entries()].sort((a, b) => b[1] - a[1]);
@@ -201,6 +207,17 @@ export const InventoryDetail: React.FC = () => {
               <Typography className={classes.summaryValue}>{overallCompliance}%</Typography>
               <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
             </Card>
+            {selectedBaseline && (
+              <Card variant="outlined" className={classes.summaryCard}>
+                <Typography className={classes.summaryValue} style={{ color: scoreColor(selectedBaseline.rate) }}>
+                  {selectedBaseline.rate}%
+                </Typography>
+                <Typography className={classes.summaryLabel}>
+                  <BookmarkIcon style={{ fontSize: 12, verticalAlign: 'middle', marginRight: 2, color: STATUS_COLORS.info }} />
+                  Baseline ({selectedBaseline.passCount}/{selectedBaseline.ruleCount} rules)
+                </Typography>
+              </Card>
+            )}
           </div>
 
           {/* Legend */}

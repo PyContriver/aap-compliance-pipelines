@@ -38,6 +38,9 @@ function makeStatsWithBaseline(): DashboardStats {
             baseline: {
               remediationProfileId: 'rp-1',
               remediationProfileName: 'Prod STIG Baseline',
+              rate: 85,
+              passCount: 61,
+              ruleCount: 72,
               pinnedAt: '2026-06-04T00:00:00Z',
             },
           },
@@ -130,12 +133,13 @@ describe('InventoriesList', () => {
     expect(screen.getByText('85%')).toBeInTheDocument();
   });
 
-  it('renders baseline chip when baseline is pinned', async () => {
+  it('renders baseline chip with name and rate when baseline is pinned', async () => {
     mockApi.getDashboardStats.mockResolvedValue(makeStatsWithBaseline());
     await renderInventoriesList(mockApi);
     await waitFor(() => {
       expect(screen.getByText('Prod STIG Baseline')).toBeInTheDocument();
     });
+    expect(screen.getByText('85%')).toBeInTheDocument();
   });
 
   it('renders dash when no baseline is pinned', async () => {
