@@ -46,7 +46,12 @@ SKIP_STATUSES = {'notselected', 'notchecked'}
 
 
 def load_aap_impact_map(filepath):
-    """Load aap_impact metadata from a rules YAML file, keyed by rule id."""
+    """Load rule metadata from a rules YAML file, keyed by rule id.
+
+    Returns aap_impact, aap_impact_reason, and fix_text (CaC task YAML)
+    when available. The fix_text from the rules YAML contains Ansible task
+    content which replaces the XCCDF prose fix description.
+    """
     if not filepath or not HAS_YAML or not os.path.exists(filepath):
         return {}
     try:
@@ -57,11 +62,16 @@ def load_aap_impact_map(filepath):
         result = {}
         for rule in content.get('rules', []):
             rule_id = rule.get('id', '')
-            if rule_id and rule.get('aap_impact'):
-                result[rule_id] = {
-                    'aap_impact': rule['aap_impact'],
-                    'aap_impact_reason': rule.get('aap_impact_reason', ''),
-                }
+            if not rule_id:
+                continue
+            entry = {}
+            if rule.get('aap_impact'):
+                entry['aap_impact'] = rule['aap_impact']
+                entry['aap_impact_reason'] = rule.get('aap_impact_reason', '')
+            if rule.get('fix_text'):
+                entry['fix_text'] = rule['fix_text']
+            if entry:
+                result[rule_id] = entry
         return result
     except Exception:
         return {}
@@ -260,10 +270,13 @@ def run_normalize(module):
 
     if aap_impact_map:
         for f in all_findings:
-            impact = aap_impact_map.get(f['rule_id'])
-            if impact:
-                f['aap_impact'] = impact['aap_impact']
-                f['aap_impact_reason'] = impact.get('aap_impact_reason', '')
+            meta = aap_impact_map.get(f['rule_id'])
+            if meta:
+                if meta.get('aap_impact'):
+                    f['aap_impact'] = meta['aap_impact']
+                    f['aap_impact_reason'] = meta.get('aap_impact_reason', '')
+                if meta.get('fix_text'):
+                    f['fix_text'] = meta['fix_text']
 
     certification = {
         'status': cert_status,
