@@ -1,3 +1,7 @@
+export const SURFACE_COLORS = {
+  onDark: '#fff',
+} as const;
+
 export const SEVERITY_COLORS = {
   CAT_I: '#C9190B',
   CAT_II: '#F0AB00',

@@ -675,6 +675,37 @@ export class ComplianceDatabase {
     });
   }
 
+  async getHostFindings(
+    scanId: string,
+    hostname: string,
+    limit: number = 50,
+  ): Promise<import('@aap-compliance/common').HostFindingSummary[]> {
+    const rows = await this.db('compliance_findings as f')
+      .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')
+      .where('f.scan_id', scanId)
+      .where('f.host', hostname)
+      .select(
+        'f.rule_id',
+        'f.stig_id',
+        this.db.raw("COALESCE(m.title, f.rule_id) as title"),
+        'f.severity',
+        'f.status',
+        'f.finding_state',
+      )
+      .orderByRaw("CASE f.severity WHEN 'CAT_I' THEN 0 WHEN 'CAT_II' THEN 1 ELSE 2 END")
+      .orderByRaw("CASE f.status WHEN 'fail' THEN 0 WHEN 'error' THEN 1 WHEN 'pass' THEN 2 ELSE 3 END")
+      .limit(limit);
+
+    return rows.map((row: Record<string, unknown>) => ({
+      ruleId: row.rule_id as string,
+      stigId: (row.stig_id as string) || '',
+      title: row.title as string,
+      severity: row.severity as 'CAT_I' | 'CAT_II' | 'CAT_III',
+      status: row.status as 'pass' | 'fail' | 'not_applicable' | 'error',
+      findingState: (row.finding_state as import('@aap-compliance/common').FindingState) || null,
+    }));
+  }
+
   // ─── Remediation profiles ──────────────────────────────────────────
 
   async saveRemediationProfile(
@@ -1241,6 +1272,15 @@ export class ComplianceDatabase {
       scanner: (row.scanner as string) || '',
       updatedAt: toISOString(row.updated_at),
     };
+  }
+
+  async resolveProfileId(idOrTag: string): Promise<string | null> {
+    if (idOrTag.includes('-') && idOrTag.length >= 36) return idOrTag;
+    const row = await this.db('compliance_profile_registry')
+      .where('scan_tags', idOrTag)
+      .select('id')
+      .first();
+    return row ? (row.id as string) : null;
   }
 
   // ─── Profile registry ────────────────────────────────────────────

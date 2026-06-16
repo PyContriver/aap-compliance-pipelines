@@ -144,6 +144,25 @@ export interface HostPostureResponse {
   inventoryId: number;
 }
 
+/** Individual finding for a specific host, used in the host detail drawer. */
+export interface HostFindingSummary {
+  ruleId: string;
+  stigId: string;
+  title: string;
+  severity: 'CAT_I' | 'CAT_II' | 'CAT_III';
+  status: 'pass' | 'fail' | 'not_applicable' | 'error';
+  findingState: FindingState | null;
+}
+
+/** Response from GET /inventory/:id/host/:hostname/findings. */
+export interface HostFindingsResponse {
+  hostname: string;
+  scanId: string;
+  profileId: string;
+  findings: HostFindingSummary[];
+  totalCount: number;
+}
+
 /** Golden standard binding — pins a remediation profile as the baseline for an inventory (ADR-014 §7). */
 export interface BaselineTarget {
   id: string;
@@ -355,6 +374,7 @@ export interface InventoryPosture {
   profileScores: Array<{
     profileId: string;
     name: string;
+    scanTags?: string;
     rate: number;
     passCount: number;
     failCount: number;

@@ -189,7 +189,7 @@ export const InventoriesList: React.FC = () => {
                     key={`${inv.inventoryId}-${ps.profileId}`}
                     className={classes.profileRow}
                     hover
-                    onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}?profileId=${ps.profileId}`)}
+                    onClick={() => navigate(`/compliance/inventories/${inv.inventoryId}?profile=${ps.scanTags || ps.profileId}`)}
                   >
                     {isFirst && (
                       <TableCell rowSpan={count} className={classes.inventoryCell}>

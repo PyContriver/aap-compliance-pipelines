@@ -1010,6 +1010,30 @@ export class ComplianceService {
     };
   }
 
+  async getHostFindings(
+    inventoryId: number,
+    hostname: string,
+    profileId: string,
+    limit: number = 50,
+  ): Promise<import('@aap-compliance/common').HostFindingsResponse> {
+    if (this.dataSource === 'mock') {
+      return MockDataProvider.getHostFindings(inventoryId, hostname, profileId);
+    }
+    if (!this.database) throw new Error('Database not available');
+
+    let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
+    if (!scan) {
+      const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
+      if (!fallback) {
+        return { hostname, scanId: '', profileId, findings: [], totalCount: 0 };
+      }
+      scan = fallback;
+    }
+
+    const findings = await this.database.getHostFindings(scan.id, hostname, limit);
+    return { hostname, scanId: scan.id, profileId, findings, totalCount: findings.length };
+  }
+
   async getRemediationEventsForTrend(
     days: number = 90,
     inventoryId?: number,

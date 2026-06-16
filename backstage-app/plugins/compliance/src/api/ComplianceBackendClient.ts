@@ -257,6 +257,14 @@ export class ComplianceBackendClient implements ComplianceApi {
     );
   }
 
+  getHostFindings(inventoryId: number, hostname: string, profileId: string, limit?: number) {
+    const params = new URLSearchParams({ profileId });
+    if (limit) params.set('limit', String(limit));
+    return this.request<import('@aap-compliance/common').HostFindingsResponse>(
+      `/inventory/${inventoryId}/host/${encodeURIComponent(hostname)}/findings?${params}`,
+    );
+  }
+
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all') {
     const q = statusFilter ? `?status=${statusFilter}` : '';
     return this.request<RemediationProfile[]>(`/remediation-profiles${q}`);

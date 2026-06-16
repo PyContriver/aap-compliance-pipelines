@@ -466,4 +466,22 @@ export class MockDataProvider {
       inventoryId: _inventoryId,
     };
   }
+
+  static getHostFindings(
+    _inventoryId: number,
+    hostname: string,
+    profileId: string,
+  ): import('@aap-compliance/common').HostFindingsResponse {
+    const severities: Array<'CAT_I' | 'CAT_II' | 'CAT_III'> = ['CAT_I', 'CAT_II', 'CAT_III'];
+    const findings: import('@aap-compliance/common').HostFindingSummary[] = [
+      { ruleId: 'xccdf_stig_sshd_idle_timeout', stigId: 'RHEL-09-255040', title: 'RHEL 9 must be configured so that all network connections associated with SSH traffic are terminated at the end of the session', severity: 'CAT_I', status: 'fail', findingState: 'active' },
+      { ruleId: 'xccdf_stig_no_empty_passwords', stigId: 'RHEL-09-611090', title: 'RHEL 9 must not allow accounts configured with blank or null passwords', severity: 'CAT_I', status: 'fail', findingState: 'new' },
+      { ruleId: 'xccdf_stig_audit_rules', stigId: 'RHEL-09-654010', title: 'RHEL 9 audit system must be configured to audit all uses of setuid programs', severity: 'CAT_II', status: 'fail', findingState: 'active' },
+      { ruleId: 'xccdf_stig_firewalld', stigId: 'RHEL-09-251010', title: 'RHEL 9 must have the firewalld package installed', severity: 'CAT_II', status: 'pass', findingState: null },
+      { ruleId: 'xccdf_stig_crypto_policy', stigId: 'RHEL-09-672010', title: 'RHEL 9 must implement DOD-approved encryption in the OpenSSL package', severity: 'CAT_II', status: 'fail', findingState: 'resurfaced' },
+      { ruleId: 'xccdf_stig_banner_motd', stigId: 'RHEL-09-271040', title: 'RHEL 9 must display the Standard Mandatory DOD Notice and Consent Banner before granting local or remote access', severity: 'CAT_III', status: 'fail', findingState: 'active' },
+      { ruleId: 'xccdf_stig_chrony_conf', stigId: 'RHEL-09-252010', title: 'RHEL 9 must securely compare internal information system clocks', severity: 'CAT_III', status: 'pass', findingState: null },
+    ];
+    return { hostname, scanId: 'mock-scan-1', profileId, findings, totalCount: findings.length };
+  }
 }

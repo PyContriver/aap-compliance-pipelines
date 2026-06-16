@@ -201,6 +201,7 @@ export class DashboardAggregator {
             return {
               profileId: p.id,
               name: p.displayName,
+              scanTags: p.scanTags,
               rate: total > 0 ? Math.round((stats.pass / total) * 1000) / 10 : 0,
               passCount: stats.pass,
               failCount: stats.fail,

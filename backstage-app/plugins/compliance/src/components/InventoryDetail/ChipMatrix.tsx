@@ -1,7 +1,7 @@
 import React from 'react';
 import { Typography, Chip, makeStyles } from '@material-ui/core';
 import type { HostPosture } from '@aap-compliance/common';
-import { isOutlier, getChipStyle } from './hostUtils';
+import { isOutlier, getChipStyle, findSectionGaps } from './hostUtils';
 import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
@@ -35,8 +35,51 @@ export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostC
   const yellow = hosts.filter(h => !isOutlier(h, allHosts) && h.catIFail > 0).sort((a, b) => a.compliancePct - b.compliancePct);
   const green = hosts.filter(h => !isOutlier(h, allHosts) && h.catIFail === 0).sort((a, b) => a.compliancePct - b.compliancePct);
 
+  const renderChips = (chipHosts: HostPosture[]) =>
+    chipHosts.map(host => {
+      const style = getChipStyle(host, allHosts);
+      return (
+        <Chip key={host.hostname} className={classes.chip} variant="outlined"
+          onClick={() => onHostClick(host)}
+          style={{ borderColor: style.borderColor, backgroundColor: style.backgroundColor }}
+          label={
+            <div className={classes.chipLabel}>
+              <span className={classes.hostname} style={{ color: style.color }}>{host.hostname}</span>
+              <span className={classes.score} style={{ color: style.color }}>
+                {host.compliancePct}% · {host.failCount} fail
+              </span>
+            </div>
+          }
+        />
+      );
+    });
+
   const renderSection = (label: string, color: string, sectionHosts: HostPosture[]) => {
     if (sectionHosts.length === 0) return null;
+    const gaps = findSectionGaps(sectionHosts);
+
+    if (gaps.length === 0) {
+      return (
+        <div className={classes.section}>
+          <div className={classes.sectionLabel}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: color }} />
+            <Typography variant="caption" style={{ fontWeight: 600, color }}>
+              {label} ({sectionHosts.length})
+            </Typography>
+          </div>
+          <div className={classes.grid}>{renderChips(sectionHosts)}</div>
+        </div>
+      );
+    }
+
+    const blocks: HostPosture[][] = [];
+    let start = 0;
+    for (const gapIdx of gaps) {
+      blocks.push(sectionHosts.slice(start, gapIdx));
+      start = gapIdx;
+    }
+    blocks.push(sectionHosts.slice(start));
+
     return (
       <div className={classes.section}>
         <div className={classes.sectionLabel}>
@@ -45,25 +88,22 @@ export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostC
             {label} ({sectionHosts.length})
           </Typography>
         </div>
-        <div className={classes.grid}>
-          {sectionHosts.map(host => {
-            const style = getChipStyle(host, allHosts);
-            return (
-              <Chip key={host.hostname} className={classes.chip} variant="outlined"
-                onClick={() => onHostClick(host)}
-                style={{ borderColor: style.borderColor, backgroundColor: style.backgroundColor }}
-                label={
-                  <div className={classes.chipLabel}>
-                    <span className={classes.hostname} style={{ color: style.color }}>{host.hostname}</span>
-                    <span className={classes.score} style={{ color: style.color }}>
-                      {host.compliancePct}% · {host.failCount} fail
-                    </span>
-                  </div>
-                }
-              />
-            );
-          })}
-        </div>
+        {blocks.map((block, idx) => {
+          const minPct = block[0].compliancePct;
+          const maxPct = block[block.length - 1].compliancePct;
+          const range = minPct === maxPct ? `${minPct}%` : `${minPct}–${maxPct}%`;
+          return (
+            <React.Fragment key={idx}>
+              {idx > 0 && (
+                <div style={{ width: '100%', borderTop: `1px dashed ${color}`, opacity: 0.35, margin: '6px 0' }} />
+              )}
+              <Typography variant="caption" style={{ fontSize: '0.7rem', marginBottom: 4, display: 'block', color, opacity: 0.75 }}>
+                {range} · {block.length} host{block.length !== 1 ? 's' : ''}
+              </Typography>
+              <div className={classes.grid}>{renderChips(block)}</div>
+            </React.Fragment>
+          );
+        })}
       </div>
     );
   };
