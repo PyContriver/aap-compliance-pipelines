@@ -1,18 +1,15 @@
-# Compliance Plugins CI/CD — GitLab CEE
+# Compliance Plugins CI/CD — GitLab CEE (sole CI platform)
 #
-# Mirrors the GitHub Actions pipelines:
-#   - Collection tests: sanity, units, lint, build (profiles/**)
-#   - Deploy: auto-deploy to Netrunner on main push
+# Full pipeline:
+#   - Backstage: test → export dynamic plugins → deploy to Netrunner
+#   - Collections: sanity, units, lint, build (profiles/**)
 #
-# Backstage CI (yarn build + test) cannot run here — CEE runners
-# OOM at ~2GB on yarn install. That runs on GitHub Actions only.
+# GitHub remains a collaboration mirror — no CI runs there.
 #
 # Secrets required (GitLab CI/CD Variables):
 #   PORTAL_SSH_KEY  — PEM private key for Portal EC2 host (file type)
 #   PORTAL_HOST     — cloud-user@ec2-18-134-232-9.eu-west-2.compute.amazonaws.com
 
-# GitHub CI commits tarballs to deploy-artifacts/ on main pushes.
-# Individual jobs use their own rules: sections to decide what runs.
 workflow:
   rules:
     - when: always
@@ -26,6 +23,103 @@ variables:
   REMOTE_PLUGIN_DIR: /var/lib/portal/compliance-plugins
   OVERRIDE_YAML: /etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  NODE_OPTIONS: "--max_old_space_size=3072"
+
+# ─── Backstage Test ──────────────────────────────────────────────────
+
+backstage-test:
+  stage: test
+  tags:
+    - itup-alm-x86
+  image: node:20-slim
+  before_script:
+    - corepack enable
+    - corepack prepare yarn@4.12.0 --activate
+  script:
+    - cd backstage-app
+    - yarn install --immutable || yarn install
+    - yarn tsc --build
+    - yarn build
+    - yarn test --watchAll=false --ci
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - backstage-app/**/*
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - backstage-app/**/*
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+
+# ─── Backstage Export Dynamic Plugins ────────────────────────────────
+
+backstage-export:
+  stage: build
+  tags:
+    - itup-alm-x86
+  image: node:20-slim
+  needs:
+    - backstage-test
+  before_script:
+    - corepack enable
+    - corepack prepare yarn@4.12.0 --activate
+    - apt-get update -qq && apt-get install -y -qq openssl > /dev/null
+  script:
+    - cd backstage-app
+    - yarn install --immutable || yarn install
+    - yarn tsc --build
+    - yarn build
+
+    # Bump patch versions
+    - cd plugins/compliance-backend && npm version patch --no-git-tag-version && cd ../..
+    - cd plugins/compliance && npm version patch --no-git-tag-version && cd ../..
+    - echo "Backend $(node -p "require('./plugins/compliance-backend/package.json').version")"
+    - echo "Frontend $(node -p "require('./plugins/compliance/package.json').version")"
+
+    # Export dynamic plugins
+    - cd plugins/compliance-backend
+    - npx --yes @red-hat-developer-hub/cli plugin export --embed-package @aap-compliance/common
+    - cd dist-dynamic && npm pack && cd ../../..
+    - cd plugins/compliance
+    - npx --yes @red-hat-developer-hub/cli plugin export
+    - cd dist-dynamic && npm pack && cd ../../..
+
+    # Stage tarballs
+    - mkdir -p $CI_PROJECT_DIR/tarballs
+    - find plugins/compliance-backend/dist-dynamic -name '*.tgz' -exec cp {} $CI_PROJECT_DIR/tarballs/backend.tgz \;
+    - find plugins/compliance/dist-dynamic -name '*.tgz' -exec cp {} $CI_PROJECT_DIR/tarballs/frontend.tgz \;
+
+    # Validate npm-pack format
+    - |
+      for tgz in $CI_PROJECT_DIR/tarballs/backend.tgz $CI_PROJECT_DIR/tarballs/frontend.tgz; do
+        FIRST=$(tar tzf "$tgz" | head -1)
+        case "$FIRST" in
+          package/*) ;;
+          *) echo "ERROR: $tgz not npm-pack format (first entry: '$FIRST')"; exit 1 ;;
+        esac
+      done
+      echo "Tarball format validated"
+      ls -lh $CI_PROJECT_DIR/tarballs/
+
+    # Compute integrity hashes for logging
+    - |
+      for tgz in $CI_PROJECT_DIR/tarballs/*.tgz; do
+        hash=$(openssl dgst -sha512 -binary < "$tgz" | base64)
+        echo "$(basename $tgz): sha512-${hash:0:32}..."
+      done
+  artifacts:
+    paths:
+      - tarballs/backend.tgz
+      - tarballs/frontend.tgz
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - backstage-app/**/*
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
 
 # ─── Collection Tests ─────────────────────────────────────────────────
 
@@ -161,7 +255,9 @@ collection-build:
 
 deploy-netrunner:
   stage: deploy
-  needs: []
+  needs:
+    - job: backstage-export
+      artifacts: true
   image: python:3.12-slim
   tags:
     - itup-alm-x86
@@ -176,58 +272,47 @@ deploy-netrunner:
   script:
     - SSH="ssh -i ~/.ssh/portal.pem $PORTAL_HOST"
 
-    # Verify tarballs exist and are valid npm-pack format
+    # Verify tarballs from export stage
     - |
-      if [ ! -f deploy-artifacts/backend.tgz ] || [ ! -f deploy-artifacts/frontend.tgz ]; then
-        echo "ERROR: deploy-artifacts/backend.tgz or frontend.tgz not found."
-        echo "Run ./scripts/deploy-netrunner.sh locally first, then commit deploy-artifacts/."
+      if [ ! -f tarballs/backend.tgz ] || [ ! -f tarballs/frontend.tgz ]; then
+        echo "ERROR: tarballs/backend.tgz or frontend.tgz not found in artifacts."
         exit 1
       fi
-      echo "Tarballs found:"
-      ls -lh deploy-artifacts/
-      for tgz in deploy-artifacts/backend.tgz deploy-artifacts/frontend.tgz; do
+      echo "Tarballs from export stage:"
+      ls -lh tarballs/
+      for tgz in tarballs/backend.tgz tarballs/frontend.tgz; do
         FIRST_ENTRY=$(tar tzf "$tgz" 2>/dev/null | head -1 || true)
         case "$FIRST_ENTRY" in
-          package/*)
-            ;;
+          package/*) ;;
           *)
             echo "ERROR: $tgz is not a valid npm-pack tarball."
             echo "  First entry: '$FIRST_ENTRY' (must start with 'package/')"
-            echo "  Use ./scripts/deploy-netrunner.sh to rebuild, or 'npm pack' in dist-dynamic/."
             exit 1
             ;;
         esac
-        SIZE_MB=$(du -m "$tgz" | cut -f1)
-        if [ "$SIZE_MB" -gt 50 ]; then
-          echo "ERROR: $tgz is ${SIZE_MB}MB — too large (>50MB). Check for accumulated old tarballs."
-          exit 1
-        fi
       done
-      echo "Tarball format validated (npm-pack, <50MB each)"
+      echo "Tarball format validated"
 
-    # Backup current override YAML before deploying (rollback point, not restore)
+    # Backup current override YAML
     - |
       $SSH "
         sudo cp $OVERRIDE_YAML ${OVERRIDE_YAML}.bak
         echo 'Backed up override YAML'
       "
 
-    # Upload tarballs from repo to Portal host
-    - scp -i ~/.ssh/portal.pem deploy-artifacts/backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
-    - scp -i ~/.ssh/portal.pem deploy-artifacts/frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
+    # Upload tarballs
+    - scp -i ~/.ssh/portal.pem tarballs/backend.tgz "$PORTAL_HOST:/tmp/backend.tgz"
+    - scp -i ~/.ssh/portal.pem tarballs/frontend.tgz "$PORTAL_HOST:/tmp/frontend.tgz"
     - |
       $SSH "
         sudo cp /tmp/backend.tgz $REMOTE_PLUGIN_DIR/backend.tgz
         sudo cp /tmp/frontend.tgz $REMOTE_PLUGIN_DIR/frontend.tgz
-        # Remove extracted plugin dirs AND the lock file so Portal re-extracts cleanly.
-        # Without removing the lock, Portal's cleanup sweep treats the just-installed
-        # same-version dir as a stale entry and deletes it (causing 404 on all API routes).
         sudo rm -rf /opt/app-root/src/dynamic-plugins-root/aap-compliance-*
         sudo rm -f /opt/app-root/src/dynamic-plugins-root/install-dynamic-plugins.lock
       "
     - echo "Tarballs uploaded, old extractions and lock file cleared"
 
-    # Update integrity hashes using sed address ranges (package line to next integrity line)
+    # Update integrity hashes
     - |
       BACKEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/backend.tgz | base64 -w0")
       FRONTEND_HASH=$($SSH "openssl dgst -sha512 -binary $REMOTE_PLUGIN_DIR/frontend.tgz | base64 -w0")
@@ -237,17 +322,14 @@ deploy-netrunner:
         sudo sed -i '/backend\.tgz/,/integrity:/ s|integrity:.*|integrity: sha512-$BACKEND_HASH|' $OVERRIDE_YAML
         sudo sed -i '/frontend\.tgz/,/integrity:/ s|integrity:.*|integrity: sha512-$FRONTEND_HASH|' $OVERRIDE_YAML
       "
-      # Verify hashes were actually updated
       $SSH "grep -A2 'backend\.tgz' $OVERRIDE_YAML | grep integrity"
       $SSH "grep -A2 'frontend\.tgz' $OVERRIDE_YAML | grep integrity"
       echo "Integrity hashes updated and verified"
 
-    # Ensure frontend route: add /compliance/* catch-all if only /compliance exists.
-    # Uses grep+sed to avoid yaml.dump rewriting the entire file (which breaks YAML anchors/auth config).
+    # Ensure frontend route
     - |
       $SSH "
         if grep -q 'path: /compliance\$' $OVERRIDE_YAML && ! grep -q 'path: /compliance/\*' $OVERRIDE_YAML; then
-          # Add catch-all route after the existing /compliance menuItem route
           sudo sed -i '/path: \/compliance$/a\\      - importName: CompliancePage\n        path: /compliance/*' $OVERRIDE_YAML
           echo 'Added /compliance/* catch-all route'
         else
@@ -275,7 +357,7 @@ deploy-netrunner:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - deploy-artifacts/**/*
+        - backstage-app/**/*
         - .gitlab-ci.yml
       when: on_success
     - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
