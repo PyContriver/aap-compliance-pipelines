@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Typography, makeStyles } from '@material-ui/core';
+import { Typography, ButtonGroup, Button, makeStyles } from '@material-ui/core';
 import type { HostPosture } from '@aap-compliance/common';
 import { computeClusters, CHIP_THRESHOLD, type Cluster } from './hostUtils';
 import { StripPlot } from './StripPlot';
@@ -27,17 +27,32 @@ interface HostPostureViewProps {
   hosts: HostPosture[];
   osFilter: string | null;
   profileLabel: string;
+  baseline?: { rate: number; passCount: number; ruleCount: number };
+  scanId: string;
+  inventoryId: number;
+  profileId: string;
+  workflowJobId?: number;
 }
 
-export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilter, profileLabel }) => {
+type ViewMode = 'auto' | 'chips' | 'distribution';
+
+export const HostPostureView: React.FC<HostPostureViewProps> = ({
+  hosts, osFilter, profileLabel, baseline, scanId, inventoryId, profileId, workflowJobId,
+}) => {
   const classes = useStyles();
   const [zoomStack, setZoomStack] = useState<ZoomEntry[]>([]);
   const [drawerHost, setDrawerHost] = useState<HostPosture | null>(null);
+  const [viewOverride, setViewOverride] = useState<ViewMode>('auto');
 
   const filteredHosts = useMemo(
     () => osFilter ? hosts.filter(h => h.os === osFilter) : hosts,
     [hosts, osFilter],
   );
+
+  const effectiveView = useMemo(() => {
+    if (viewOverride !== 'auto') return viewOverride;
+    return filteredHosts.length > CHIP_THRESHOLD ? 'distribution' : 'chips';
+  }, [viewOverride, filteredHosts.length]);
 
   const topClusters = useMemo(() => computeClusters(filteredHosts), [filteredHosts]);
   const currentZoom = zoomStack.length > 0 ? zoomStack[zoomStack.length - 1] : null;
@@ -58,14 +73,26 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilte
 
   const goHome = useCallback(() => setZoomStack([]), []);
 
-  // Reset zoom when OS filter changes
-  React.useEffect(() => { setZoomStack([]); }, [osFilter]);
+  React.useEffect(() => { setZoomStack([]); setViewOverride('auto'); }, [osFilter]);
 
   return (
     <div>
-      <Typography variant="subtitle1" style={{ fontWeight: 600, marginBottom: 12 }}>
-        {profileLabel} — Host Compliance
-      </Typography>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+          {profileLabel} — Host Compliance
+        </Typography>
+        {filteredHosts.length > 0 && !currentZoom && (
+          <ButtonGroup size="small" variant="outlined">
+            {(['auto', 'chips', 'distribution'] as const).map(mode => (
+              <Button key={mode} onClick={() => setViewOverride(mode)}
+                style={viewOverride === mode ? { backgroundColor: 'rgba(0,0,0,0.08)', fontWeight: 600 } : undefined}
+              >
+                {mode === 'auto' ? `Auto (${filteredHosts.length > CHIP_THRESHOLD ? 'Distribution' : 'Chips'})` : mode === 'chips' ? 'Chips' : 'Distribution'}
+              </Button>
+            ))}
+          </ButtonGroup>
+        )}
+      </div>
 
       {zoomStack.length > 0 && (
         <div className={classes.breadcrumbTrail}>
@@ -87,12 +114,12 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilte
         </div>
       )}
 
-      {!currentZoom && filteredHosts.length > CHIP_THRESHOLD && (
+      {!currentZoom && effectiveView === 'distribution' && filteredHosts.length > 0 && (
         <StripPlot hosts={filteredHosts} allHosts={filteredHosts} clusters={topClusters}
           onClusterClick={pushZoom} onDotClick={setDrawerHost} height={180} />
       )}
 
-      {!currentZoom && filteredHosts.length <= CHIP_THRESHOLD && filteredHosts.length > 0 && (
+      {!currentZoom && effectiveView === 'chips' && filteredHosts.length > 0 && (
         <ChipMatrix hosts={filteredHosts} allHosts={filteredHosts} onHostClick={setDrawerHost} />
       )}
 
@@ -107,7 +134,10 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({ hosts, osFilte
       )}
 
       {drawerHost && (
-        <HostDetailDrawer host={drawerHost} allHosts={filteredHosts} onClose={() => setDrawerHost(null)} />
+        <HostDetailDrawer host={drawerHost} allHosts={filteredHosts} onClose={() => setDrawerHost(null)}
+          profileLabel={profileLabel} baseline={baseline}
+          scanId={scanId} inventoryId={inventoryId} profileId={profileId}
+          workflowJobId={workflowJobId} />
       )}
     </div>
   );

@@ -83,6 +83,7 @@ export const InventoryDetail: React.FC = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [osFilter, setOsFilter] = useState<string | null>(null);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [workflowJobId, setWorkflowJobId] = useState<number | undefined>();
 
   const invId = Number(inventoryId);
 
@@ -106,9 +107,11 @@ export const InventoryDetail: React.FC = () => {
       setStats(s);
       const inv = s.byInventory.find(i => i.inventoryId === invId);
       if (inv?.profileScores.length) {
-        const urlProfileId = searchParams.get('profileId');
-        const match = urlProfileId && inv.profileScores.some(ps => ps.profileId === urlProfileId);
-        setSelectedProfileId(match ? urlProfileId! : inv.profileScores[0].profileId);
+        const urlProfile = searchParams.get('profile') || searchParams.get('profileId');
+        const match = urlProfile && inv.profileScores.find(
+          ps => ps.profileId === urlProfile || ps.scanTags === urlProfile,
+        );
+        setSelectedProfileId(match ? match.profileId : inv.profileScores[0].profileId);
       }
     }).catch(err => { console.error('Failed to load dashboard stats:', err); }).finally(() => setLoading(false));
   }, [api, invId, searchParams]);
@@ -120,6 +123,9 @@ export const InventoryDetail: React.FC = () => {
       .then(setHostData)
       .catch(err => { console.error('Failed to load host posture:', err); setHostData(null); })
       .finally(() => setLoading(false));
+    api.getAuthoritativeScan(selectedProfileId, invId)
+      .then(result => setWorkflowJobId(result?.scan.workflowJobId ?? undefined))
+      .catch(() => setWorkflowJobId(undefined));
   }, [api, invId, selectedProfileId]);
 
   const hosts = hostData?.hosts ?? [];
@@ -299,6 +305,11 @@ export const InventoryDetail: React.FC = () => {
             hosts={hosts}
             osFilter={osFilter}
             profileLabel={selectedProfileName}
+            baseline={selectedBaseline ? { rate: selectedBaseline.rate, passCount: selectedBaseline.passCount, ruleCount: selectedBaseline.ruleCount } : undefined}
+            scanId={hostData?.scanId ?? ''}
+            inventoryId={invId}
+            profileId={selectedProfileId}
+            workflowJobId={workflowJobId}
           />
         </>
       )}

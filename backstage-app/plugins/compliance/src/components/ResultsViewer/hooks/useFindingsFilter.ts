@@ -16,6 +16,7 @@ export interface FindingsFilters {
   aap: string;
   comparison: string;
   search: string;
+  host: string;
 }
 
 export interface FindingsFilterResult {
@@ -40,6 +41,7 @@ export function useFindingsFilter(
     aap: searchParams.get('aap') || 'all',
     comparison: searchParams.get('comparison') || 'all',
     search: searchParams.get('q') || '',
+    host: searchParams.get('host') || 'all',
   }), [searchParams]);
 
   const updateFilter = useCallback((key: string, value: string) => {
@@ -79,6 +81,9 @@ export function useFindingsFilter(
         return comparisonMap.get(f.ruleId) === filters.comparison;
       })
       .filter(f =>
+        filters.host === 'all' || f.hosts.some(h => h.host === filters.host),
+      )
+      .filter(f =>
         filters.search === '' ||
         f.title.toLowerCase().includes(filters.search.toLowerCase()) ||
         f.stigId.toLowerCase().includes(filters.search.toLowerCase()),
@@ -94,6 +99,7 @@ export function useFindingsFilter(
     filters.disruption,
     filters.aap,
     filters.comparison,
+    filters.host,
   ].filter(f => f !== 'all').length;
 
   return { filtered, filters, updateFilter, activeFilterCount, clearAll };

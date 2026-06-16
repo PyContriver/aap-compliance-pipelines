@@ -239,6 +239,10 @@ function createMockDatabase() {
     getBaselineTargetsForProfile: jest.fn().mockResolvedValue([]),
     getNotApplicableRules: jest.fn().mockResolvedValue([]),
     getBatchScanStatsAggregated: jest.fn().mockResolvedValue(new Map()),
+    resolveProfileId: jest.fn().mockImplementation((id: string) =>
+      Promise.resolve(id.includes('-') && id.length >= 36 ? id : `resolved-${id}-uuid`)),
+    getHostFindings: jest.fn().mockResolvedValue([]),
+    getLatestCompletedScan: jest.fn().mockResolvedValue(null),
   } as any;
 }
 
@@ -965,7 +969,14 @@ describe('compliance backend router', () => {
       const { app, service } = await createApp();
       const res = await testRequest(app, { path: '/inventory/5/host-posture?profileId=rhel9-stig' });
       expect(res.status).toBe(200);
-      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'rhel9-stig', expect.anything());
+      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'resolved-rhel9-stig-uuid', expect.anything());
+    });
+
+    it('accepts profile query param as alias', async () => {
+      const { app, service } = await createApp();
+      const res = await testRequest(app, { path: '/inventory/5/host-posture?profile=stig' });
+      expect(res.status).toBe(200);
+      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'resolved-stig-uuid', expect.anything());
     });
   });
 

@@ -31,6 +31,7 @@ import type {
   BaselineTarget,
   RemediationEvent,
   HostPostureResponse,
+  HostFindingsResponse,
 } from '@aap-compliance/common';
 
 /** Interface for the compliance backend API. */
@@ -56,6 +57,7 @@ export interface ComplianceApi {
   getPostureHistory(profileId?: string, days?: number, inventoryId?: number): Promise<PostureSnapshot[]>;
   getRemediationEventsForTrend(days?: number, inventoryId?: number): Promise<RemediationEvent[]>;
   getHostPosture(inventoryId: number, profileId: string): Promise<HostPostureResponse>;
+  getHostFindings(inventoryId: number, hostname: string, profileId: string, limit?: number): Promise<HostFindingsResponse>;
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;
   saveRemediationProfile(body: SaveRemediationProfileRequest): Promise<RemediationProfile>;

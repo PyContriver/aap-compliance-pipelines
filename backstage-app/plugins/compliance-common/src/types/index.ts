@@ -55,4 +55,6 @@ export type {
   RemediationEvent,
   HostPosture,
   HostPostureResponse,
+  HostFindingSummary,
+  HostFindingsResponse,
 } from './api';

@@ -64,3 +64,16 @@ export function getChipStyle(host: HostPosture, allHosts: HostPosture[]) {
     backgroundColor: c === STATUS_COLORS.error ? 'rgba(201,25,11,0.04)' : c === STATUS_COLORS.warning ? 'rgba(240,171,0,0.04)' : 'rgba(62,134,53,0.04)',
   };
 }
+
+export function findSectionGaps(
+  hosts: HostPosture[],
+  gapThreshold: number = 5,
+): number[] {
+  const gaps: number[] = [];
+  for (let i = 1; i < hosts.length; i++) {
+    if (hosts[i].compliancePct - hosts[i - 1].compliancePct > gapThreshold) {
+      gaps.push(i);
+    }
+  }
+  return gaps;
+}
