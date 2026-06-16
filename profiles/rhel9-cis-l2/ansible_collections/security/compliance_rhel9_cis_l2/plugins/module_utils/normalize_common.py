@@ -45,7 +45,7 @@ STATUS_MAP = {
 SKIP_STATUSES = {'notselected', 'notchecked'}
 
 
-def load_aap_impact_map(filepath):
+def load_rules_metadata_map(filepath):
     """Load rule metadata from a rules YAML file, keyed by rule id.
 
     Returns aap_impact, aap_impact_reason, and fix_text (CaC task YAML)
@@ -241,7 +241,7 @@ def run_normalize(module):
     framework = module.params['framework']
     rules_metadata_file = module.params['rules_metadata_file']
 
-    aap_impact_map = load_aap_impact_map(rules_metadata_file)
+    rules_metadata_map = load_rules_metadata_map(rules_metadata_file)
 
     all_findings = []
     hosts_processed = 0
@@ -268,9 +268,9 @@ def run_normalize(module):
         except (KeyError, ValueError) as e:
             module.warn(f'Error processing {filepath}: {e}')
 
-    if aap_impact_map:
+    if rules_metadata_map:
         for f in all_findings:
-            meta = aap_impact_map.get(f['rule_id'])
+            meta = rules_metadata_map.get(f['rule_id'])
             if meta:
                 if meta.get('aap_impact'):
                     f['aap_impact'] = meta['aap_impact']
