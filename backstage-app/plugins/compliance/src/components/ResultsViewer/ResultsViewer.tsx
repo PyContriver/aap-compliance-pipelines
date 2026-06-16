@@ -257,6 +257,9 @@ export const ResultsViewer = () => {
       const cl = compLabels[filters.comparison];
       if (cl) pills.push({ label: cl.label, key: 'comparison', clearKey: 'comparison', color: cl.color });
     }
+    if (filters.host !== 'all') {
+      pills.push({ label: `Host: ${filters.host}`, key: 'host', clearKey: 'host', color: STATUS_COLORS.info });
+    }
     return pills;
   }, [filters]);
 
@@ -982,6 +985,7 @@ export const ResultsViewer = () => {
                   finding={finding}
                   expanded={expandedRule === finding.ruleId}
                   onToggle={() => setExpandedRule(expandedRule === finding.ruleId ? null : finding.ruleId)}
+                  hostFilter={filters.host !== 'all' ? filters.host : undefined}
                 />
               ))}
             </TableBody>
