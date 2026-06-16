@@ -93,9 +93,10 @@ interface FindingRowProps {
   finding: MultiHostFinding;
   expanded: boolean;
   onToggle: () => void;
+  hostFilter?: string;
 }
 
-export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => {
+export const FindingRow = ({ finding, expanded, onToggle, hostFilter }: FindingRowProps) => {
   const classes = useStyles();
 
   const getSeverityClass = (severity: FindingSeverity) => {
@@ -297,11 +298,16 @@ export const FindingRow = ({ finding, expanded, onToggle }: FindingRowProps) => 
                 <TableBody>
                   {finding.hosts
                     .sort((a, b) => {
+                      if (hostFilter) {
+                        if (a.host === hostFilter) return -1;
+                        if (b.host === hostFilter) return 1;
+                      }
                       const order = (s: string) => s === 'fail' ? 0 : s === 'not_applicable' ? 2 : s === 'pass' ? 3 : 1;
                       return order(a.status) - order(b.status);
                     })
                     .map(hostFinding => (
-                      <TableRow key={hostFinding.host} className={classes.hostDetailRow}>
+                      <TableRow key={hostFinding.host} className={classes.hostDetailRow}
+                        style={hostFilter && hostFinding.host !== hostFilter ? { opacity: 0.4 } : undefined}>
                         <TableCell>
                           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
                             {hostFinding.host}
