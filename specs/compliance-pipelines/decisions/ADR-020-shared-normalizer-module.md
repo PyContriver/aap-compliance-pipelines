@@ -1,6 +1,6 @@
 # ADR-020: Shared Normalizer Module via module_utils Pattern
 
-**Status:** Accepted (implemented 2026-06-06)  
+**Status:** Accepted (implemented 2026-06-06, updated 2026-06-16)  
 **Date:** 2026-06-06  
 **Deciders:** Massimo Ferrari  
 
@@ -65,7 +65,7 @@ run: python scripts/sync_shared_modules.py
 
 - `SEVERITY_MAP` and `STATUS_MAP` constants
 - `SKIP_STATUSES` set (notapplicable, notselected, notchecked)
-- `load_aap_impact_map(filepath)` -- load AAP impact metadata from a rules YAML file
+- `load_rules_metadata_map(filepath)` -- load AAP impact metadata AND `fix_text` (CaC Ansible task YAML) from a rules YAML file. Renamed from `load_aap_impact_map()` on 2026-06-16 to reflect its expanded scope: the function now reads `fix_text` from rules YAML files and merges it into findings at scan time, replacing XCCDF prose fix descriptions with actual Ansible remediation task YAML. This fixes `automationAvailable` detection in `FindingsParser.ts` (the `- name:` heuristic that identifies Ansible task content).
 - `extract_host_from_filename(filepath)` -- extract hostname from XCCDF result filename
 - `find_ns(root)` -- detect XCCDF namespace version
 - `parse_xccdf_results(filepath, framework)` -- full XCCDF parsing including metadata extraction

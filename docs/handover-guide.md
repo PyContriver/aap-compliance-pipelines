@@ -15,7 +15,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
 | Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
-| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 577 tests |
+| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 578+ tests |
 
 ### Where we extend beyond downstream
 
@@ -73,7 +73,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 
 1. User clicks "Launch Scan" → backend calls `POST /api/controller/v2/job_templates/{id}/launch/`
 2. Backend polls job status every 5s, frontend shows `ScanProgress`
-3. On completion, the Ansible collection's `normalize_xccdf` module POSTs findings to `POST /api/compliance/findings/ingest` with a per-scan ingest token (ADR-010)
+3. On completion, the Ansible collection's `normalize_xccdf` module POSTs findings to `POST /api/compliance/findings/ingest` with a per-scan ingest token (ADR-010). The normalizer's `load_rules_metadata_map()` reads `fix_text` (CaC Ansible task YAML) and `aap_impact` from the collection's `rules/*.yml` files, merging them into findings at scan time. This replaces XCCDF prose fix descriptions with actual Ansible remediation task YAML, which enables `automationAvailable` detection in the plugin's `FindingsParser.ts` (the `- name:` heuristic).
 4. Backend parses CFF JSON, stores in `compliance_findings` table
 5. `DashboardAggregator` computes posture snapshots from latest scan per profile×inventory
 6. Frontend fetches `GET /api/compliance/dashboard` for aggregated posture
@@ -140,7 +140,7 @@ cd backstage-app
 yarn install
 ./bin/start.sh mock   # Demo mode (hardcoded data)
 ./bin/start.sh live   # Connect to AAP lab
-yarn test             # 21 suites, 577 tests
+yarn test             # 21 suites, 578+ tests
 yarn build            # Build all packages
 ```
 
@@ -157,7 +157,7 @@ Registration config: `plugins/*/app-config.janus-idp.yaml`
 
 ### Deployment
 
-Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `deploy-artifacts/`. CI auto-bumps versions and commits tarballs to this directory. The GitLab CI pipeline (`deploy-netrunner` job) uploads tarballs to the Portal host, updates integrity hashes, and restarts the service.
+Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `deploy-artifacts/`. CI auto-bumps versions and commits tarballs to this directory. GitHub Actions are disabled; GitLab CEE now owns the full CI pipeline (backstage-test → backstage-export → deploy-netrunner). The `deploy-netrunner` job uploads tarballs to the Portal host, updates integrity hashes, and restarts the service.
 
 **Critical**: Portal's cleanup sweep deletes same-version plugin directories. Every deploy MUST use a bumped version number. CI handles this automatically.
 
@@ -178,6 +178,7 @@ Each profile is a self-contained Ansible collection with: `run_oscap.yml` (asses
 | Gap | Priority | Effort |
 |-----|----------|--------|
 | Tier 2 adapter PoC (Tenable/Insights) | P1 | 3-5 days |
+| CFF `remediation.available` field not populated by normalizers (heuristic in FindingsParser.ts) | P3 | 1-2 days |
 | `ComplianceDatabase.ts` is 1340 lines | P2 | 2-3 days to decompose |
 | `RemediationExecution.tsx` is 1430 lines | P2 | 2-3 days to split |
 | 5 components have no tests (ActiveJobsBanner, FilterGroup, FindingRow, ExportButton, ScanFailedView) | P2 | 3-4h |
@@ -201,6 +202,10 @@ Inventory chips throughout the app link to the inventory detail page with profil
 The inventory detail page reads `?profileId=` from the URL to pre-select the correct compliance profile in its dropdown. The `?baselineView=true` param triggers `ResultsViewer` to auto-activate the baseline filter on load.
 
 **LaunchScanDialog**: The inventory detail page has a "Scan Now" button in the subheader that opens a dialog with the inventory name (read-only), a profile dropdown (pre-populated from the current view), previous scan status check, and launch button. On success, navigates to the new scan's results page.
+
+**Inventory view improvements (2026-06-16)**: Short profile links via scanTags, chip cluster blocks, view toggle, host findings endpoint (`GET /inventories/:id/hosts/:hostname/findings`), enhanced host drawer with baseline scores, findings list, and clickable severity filters.
+
+**Host filter in ResultsViewer**: The `?host=X` URL param filters findings to a specific host. A blue pill indicator shows the active host filter, and host rows are highlighted in expanded finding rows.
 
 ## 9. Security Model
 

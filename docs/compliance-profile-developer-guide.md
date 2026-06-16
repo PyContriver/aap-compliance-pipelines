@@ -583,7 +583,7 @@ For local development, re-run the extraction script against the SSG datastream f
 
 **Data flow:**
 
-1. Scan-time extraction (normalizer reads XCCDF datastream + rules YAML for AAP-impact → produces CFF JSON → Direct POST → plugin DB) — this is the only path
+1. Scan-time extraction (normalizer reads XCCDF datastream + rules YAML via `load_rules_metadata_map()` for AAP-impact AND fix_text → produces CFF JSON → Direct POST → plugin DB) — this is the only path. The `load_rules_metadata_map()` function (renamed from `load_aap_impact_map()` on 2026-06-16) reads both `aap_impact` fields and `fix_text` from the collection's `rules/*.yml` files. When `fix_text` is present in rules YAML, it replaces the XCCDF prose fix description in the CFF output with actual CaC Ansible task YAML. This is critical for `automationAvailable` detection in the plugin's `FindingsParser.ts`, which uses a `- name:` heuristic to identify Ansible remediation content.
 2. The plugin's `rule_metadata` DB table caches metadata from ingested findings. There is no runtime YAML fallback at the plugin level.
 3. If a field was not populated by the normalizer, the UI shows "No description available"
 
@@ -652,7 +652,7 @@ See the OpenSCAP normalizer at:
 
 This module is a thin wrapper that imports shared parsing logic from `plugins/module_utils/normalize_common.py`. The shared source of truth is `profiles/_shared/normalize_common.py`; run `python scripts/sync_shared_modules.py` after editing it to propagate to all collections.
 
-The normalizer parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host. When `rules_metadata_file` is provided, the normalizer also loads AAP-impact classification data from the collection's `rules/*.yml` file.
+The normalizer parses XCCDF 1.1 and 1.2 Results XML, extracts rule metadata (title, description, fix_text, severity, stig_id) from the `<Benchmark>` element in the datastream, maps severity and status to CFF values, strips XCCDF prefixes from rule IDs so they match CaC remediation tags, and writes CFF JSON output. It processes 366 STIG rules per host. When `rules_metadata_file` is provided, the normalizer calls `load_rules_metadata_map()` to load both AAP-impact classification data and `fix_text` (CaC Ansible task YAML) from the collection's `rules/*.yml` file. The `fix_text` from rules YAML replaces the XCCDF prose fix description, ensuring that findings contain actual Ansible remediation task YAML rather than human-readable prose. This is required for `automationAvailable` detection in the plugin.
 
 For detailed module documentation, see `profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/docs/module-reference.md`.
 

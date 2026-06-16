@@ -1,6 +1,6 @@
 # Implementation Plan: Compliance Pipelines
 
-**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-11) | **Spec**: [spec.md](./spec.md)
+**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-16) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`
 **Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Ansible Content Ecosystem](../../prototypes/compliance-pipelines/context/ansible-content-ecosystem.md)
 
@@ -588,11 +588,17 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.13.54, Frontend v0.10.57, 577 tests across 21 suites, 25 ADRs
+**Current versions**: Backend v0.13.57, Frontend v0.10.58, 578+ tests across 21 suites, 25 ADRs
 
 **P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
 
 **Post-hardening completions (2026-06-08 through 2026-06-10)**: Phase 3a cleanup (remediation scan dual-write removed, draft upsert with migration 017, Active/All/Drafts/Archived filter), chain view (ADR-016 Layer 3 — ChainView component, `/chain/:executionId` endpoint, delta calculation, "Verified" badge), baseline feature (API endpoints, pin/unpin dialogs, dual-layer dashboard with standard/baseline toggle), ADR-015 prerequisites (mandatory scan check, authoritative scan resolution, inventory selector with reactive scan validation, cross-profile filtering), test coverage sprint (318→467 tests), P2 quick wins (baseline toggle, verification labels, builder context, scan ID consistency).
+
+**Normalizer fix_text merge (2026-06-16)**: `load_aap_impact_map()` in `profiles/_shared/normalize_common.py` renamed to `load_rules_metadata_map()`. Now reads `fix_text` from rules YAML files (which contain CaC Ansible task YAML) in addition to `aap_impact` fields. The fix_text is merged into findings at scan time, replacing the XCCDF prose fix description with actual Ansible remediation task YAML. This fixes `automationAvailable` detection in `FindingsParser.ts` (the `- name:` heuristic). Root cause: the hardening commit (f05d559) removed `loadRulesMetadata()` from `ComplianceService.ts`, and the DB-only approach lost the Ansible task YAML because the normalizer only extracted XCCDF prose. The fix shifts the merge to scan time in the normalizer. CFF `remediation.available` field should be populated by normalizers for Tier 2 readiness (tracked as P3).
+
+**Inventory view improvements (2026-06-16)**: 5 features added — short profile links (scanTags), chip cluster blocks, view toggle, host findings endpoint, enhanced host drawer with baseline scores/findings list/clickable severity filters. Host filter in ResultsViewer: `?host=X` URL param filters findings, blue pill indicator, host highlighting in expanded rows.
+
+**CI migration (2026-06-16)**: GitHub Actions disabled. GitLab CEE now owns full pipeline (backstage-test → backstage-export → deploy-netrunner).
 
 **Terminology alignment (2026-05-30)**: Renamed all internal "cartridge" references to "compliance profile" — types (`ComplianceProfile`, `SaveProfileRequest`), DB table (`compliance_profile_registry` via migration 008), API routes (`/compliance-profiles`), component directory (`ProfileSettings/`), and 35+ source files. API methods for registered profiles use `getRegisteredProfiles`/`saveRegisteredProfile` to disambiguate from the display profile endpoint (`getProfiles`). Old migrations preserved with historical table name. No external API contract existed — clean rename with zero backwards-compatibility concerns.
 
@@ -639,9 +645,9 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - All API calls via Gateway, zero direct Controller calls (spec SC-009)
 - Clean Knex migrations with up/down for all tables (spec SC-010)
 
-## Handoff Readiness (updated 2026-06-12)
+## Handoff Readiness (updated 2026-06-16)
 
-**Current score: 9/10.** Deployed on Netrunner (v0.13.54/v0.10.57). 577 tests across 21 suites. All must-do items complete.
+**Current score: 9/10.** Deployed on Netrunner (v0.13.57/v0.10.58). 578+ tests across 21 suites. All must-do items complete. CI migrated from GitHub Actions to GitLab CEE (backstage-test → backstage-export → deploy-netrunner).
 
 ### Completed (2026-06-12)
 

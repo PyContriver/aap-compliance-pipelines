@@ -31,3 +31,7 @@ Every scanner normalizer must produce CFF v1.0.0 JSON. The CFF is the single int
 - **Positive:** Remediation roles are scanner-agnostic -- the same role fixes the finding regardless of which scanner discovered it.
 - **Negative:** Every normalizer must populate all CFF metadata fields (title, description, check_text, fix_text, severity, parameters). The plugin does not enrich findings -- it displays exactly what it receives.
 - **Negative:** CFF schema changes require coordinated updates across all normalizers.
+
+## Open: `remediation.available` (P3)
+
+The CFF schema defines a `remediation.available` boolean on each finding (see the `remediation` object in the finding schema). As of 2026-06-16, normalizers do not populate this field. The plugin's `FindingsParser.ts` uses a heuristic (`- name:` prefix in `fix_text`) to detect whether Ansible remediation task YAML is present, which implicitly determines `automationAvailable`. For Tier 2 readiness, normalizers should populate `remediation.available` explicitly so the plugin does not rely on heuristics. Tracked as P3 backlog.
