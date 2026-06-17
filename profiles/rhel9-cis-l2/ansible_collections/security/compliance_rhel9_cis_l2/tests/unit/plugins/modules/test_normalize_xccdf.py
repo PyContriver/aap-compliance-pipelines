@@ -296,8 +296,7 @@ class TestStatusMapping:
         assert result['summary']['pass'] == 2      # pass + fixed
         assert result['summary']['fail'] == 1
         assert result['summary']['error'] == 1
-        # not_applicable is skipped during parsing (SKIP_STATUSES) to reduce DB bloat
-        assert result['summary']['not_applicable'] == 0
+        assert result['summary']['not_applicable'] == 1
 
 
 class TestHostExtraction:
@@ -305,14 +304,14 @@ class TestHostExtraction:
 
     def test_standard_filename(self):
         """Standard xccdf-results-<host>.xml filename extracts host."""
-        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.modules.normalize_xccdf import (
+        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.module_utils.normalize_common import (
             extract_host_from_filename,
         )
         assert extract_host_from_filename('/path/to/xccdf-results-webserver01.xml') == 'webserver01'
 
     def test_nonstandard_filename(self):
         """Non-standard filename returns the basename."""
-        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.modules.normalize_xccdf import (
+        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.module_utils.normalize_common import (
             extract_host_from_filename,
         )
         result = extract_host_from_filename('/path/to/scan-output.xml')
@@ -512,7 +511,7 @@ class TestNamespaceDetection:
 
     def test_detect_12(self):
         """XCCDF 1.2 namespace is detected."""
-        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.modules.normalize_xccdf import (
+        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.module_utils.normalize_common import (
             find_ns,
         )
         import xml.etree.ElementTree as ET
@@ -521,7 +520,7 @@ class TestNamespaceDetection:
 
     def test_detect_11(self):
         """XCCDF 1.1 namespace is detected."""
-        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.modules.normalize_xccdf import (
+        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.module_utils.normalize_common import (
             find_ns,
         )
         import xml.etree.ElementTree as ET
@@ -530,7 +529,7 @@ class TestNamespaceDetection:
 
     def test_no_namespace(self):
         """Missing namespace returns empty string."""
-        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.modules.normalize_xccdf import (
+        from ansible_collections.security.compliance_rhel9_cis_l2.plugins.module_utils.normalize_common import (
             find_ns,
         )
         import xml.etree.ElementTree as ET
