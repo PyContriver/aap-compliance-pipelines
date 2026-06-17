@@ -121,6 +121,17 @@ jobs:
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
 
+      - name: Make package public
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          PACKAGE_NAME="compliance-${{ matrix.image_suffix }}"
+          gh api --method PUT \
+            "/user/packages/container/${PACKAGE_NAME}/versions" \
+            -f visibility=public 2>/dev/null || \
+          echo "Could not set visibility (may need admin:packages scope) — Controller uses GHCR credential as fallback"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Verify EE contents
         if: steps.check.outputs.skip != 'true'
         run: |
