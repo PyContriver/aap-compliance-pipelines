@@ -37,7 +37,7 @@ The monolithic 1,599-line `router.ts` was the primary maintenance risk. Split in
 ### 2. Rate Limiting on Ingest (P3.2)
 
 - `express-rate-limit` applied to `POST /findings/ingest`: 30 requests/minute per IP
-- Body limit reduced from 50MB to 10MB (max legitimate payload ~6MB for 50K findings)
+- Body limit: 50MB (was reduced to 10MB during P3, reverted 2026-06-18 after fix_text enrichment from ADR-020 made payloads larger — 18 hosts × 600 rules with Ansible YAML fix_text exceeded 10MB)
 - Rate limiter is in-process (per-instance); documented limitation for multi-replica deployments
 
 ### 3. User Identity Tracking (P3.3)

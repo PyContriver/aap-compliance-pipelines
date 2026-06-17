@@ -1,6 +1,6 @@
 # Implementation Plan: Compliance Pipelines
 
-**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-16) | **Spec**: [spec.md](./spec.md)
+**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-18) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`
 **Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Ansible Content Ecosystem](../../prototypes/compliance-pipelines/context/ansible-content-ecosystem.md)
 
@@ -588,7 +588,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.13.57, Frontend v0.10.58, 578+ tests across 21 suites, 25 ADRs
+**Current versions**: Backend v0.13.61, Frontend v0.10.60, 584 tests across 21 suites, 25 ADRs
 
 **P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
 
@@ -598,7 +598,9 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 **Inventory view improvements (2026-06-16)**: 5 features added — short profile links (scanTags), chip cluster blocks, view toggle, host findings endpoint, enhanced host drawer with baseline scores/findings list/clickable severity filters. Host filter in ResultsViewer: `?host=X` URL param filters findings, blue pill indicator, host highlighting in expanded rows.
 
-**CI migration (2026-06-16)**: GitHub Actions disabled. GitLab CEE now owns full pipeline (backstage-test → backstage-export → deploy-netrunner).
+**CI migration (2026-06-16)**: Backstage CI disabled on GitHub Actions. GitLab CEE now owns backstage pipeline (backstage-test → backstage-export → deploy-netrunner). Collection tests also on GitLab (sanity, units, lint, build).
+
+**EE build pipeline + ingest fix (2026-06-18)**: Per-collection EE build pipeline added to GitHub Actions (`build-ee.yml` matrix: STIG, CIS L1, CIS L2, `fail-fast: false`). GitHub Actions retained for EE builds because they require container tooling (docker) which GitLab CEE runners lack. Images pushed to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest`. Controller EE mappings corrected (CIS L1/L2 were pointing to STIG image). Ingest body limit restored to 50MB (P3 hardening had reduced to 10MB, but fix_text enrichment from ADR-020 made payloads exceed 10MB with 18+ hosts). Metadata upsert guard added to prevent slim Controller event fallback from overwriting full metadata.
 
 **Terminology alignment (2026-05-30)**: Renamed all internal "cartridge" references to "compliance profile" — types (`ComplianceProfile`, `SaveProfileRequest`), DB table (`compliance_profile_registry` via migration 008), API routes (`/compliance-profiles`), component directory (`ProfileSettings/`), and 35+ source files. API methods for registered profiles use `getRegisteredProfiles`/`saveRegisteredProfile` to disambiguate from the display profile endpoint (`getProfiles`). Old migrations preserved with historical table name. No external API contract existed — clean rename with zero backwards-compatibility concerns.
 

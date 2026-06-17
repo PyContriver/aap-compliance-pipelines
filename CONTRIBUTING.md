@@ -66,31 +66,33 @@ Target: all tests passing. Collection unit tests: 19 per profile (57 total acros
 
 ## CI/CD Pipelines
 
-GitHub Actions workflows in `.github/workflows/`:
+CI is split across **GitHub Actions** (EE builds) and **GitLab CEE** (everything else):
+
+**GitLab CEE** (`.gitlab-ci.yml`) — primary CI:
+
+| Job | Trigger | What it does |
+|-----|---------|-------------|
+| `backstage-test` | Push to `main` (backstage-app paths) | `yarn install` → `yarn build` → `yarn test` |
+| `backstage-export` | Push to `main` (backstage-app paths) | Exports dynamic plugins via `@red-hat-developer-hub/cli`, packs tarballs with integrity hashes |
+| `collection-sanity` | Push to `main` (profiles paths) | `ansible-test sanity` per collection × ansible-core 2.17/2.18 |
+| `collection-units` | Push to `main` (profiles paths) | `pytest tests/unit/` per collection × ansible-core 2.17/2.18 |
+| `collection-lint` | Push to `main` (profiles paths) | `ansible-lint` per collection (allow_failure) |
+| `collection-build` | After sanity+units | `ansible-galaxy collection build` per collection |
+| `deploy-netrunner` | Push to `main` (backstage-app paths) | Uploads tarballs to Portal host, updates integrity hashes, restarts |
+
+**GitHub Actions** (`.github/workflows/`) — EE builds only:
 
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
-| **`ci.yml`** | Push/PR to `main` (backstage-app paths) | Runs tests, builds, exports dist-dynamic tarballs, uploads as artifacts with integrity hashes |
-| **`collection-tests.yml`** | Push/PR to `main` (profiles paths) | Runs ansible-test sanity + units, ansible-lint, ansible-galaxy collection build per changed profile. Matrix: ansible-core 2.16/2.17/2.18 (required), 2.20 (experimental) |
-| **`build-ee.yml`** | Push to `main` (profiles paths) | Builds custom Execution Environment with scap-security-guide, pushes to ghcr.io |
-
-### CI workflow (`ci.yml`)
-
-Matches the downstream `ansible-rhdh-plugins` pattern with concurrency groups.
-
-**Test job** (every push/PR):
-- Node 20, Yarn 4 (Corepack)
-- `yarn install --immutable` → `yarn build` → `yarn test --watchAll=false --ci`
-
-**Export job** (main branch + manual dispatch only):
-- Exports both plugins via `@red-hat-developer-hub/cli plugin export`
-- Packs tarballs and computes SHA-512 integrity hashes
-- Uploads tarballs as GitHub artifacts for Portal deployment
-- Integrity hashes printed to job summary for copy-paste
+| **`build-ee.yml`** | Push to `main` (profiles paths) / `workflow_dispatch` | Per-collection EE image builds (STIG, CIS L1, CIS L2 matrix, `fail-fast: false`). Pushes to ghcr.io. Requires `REDHAT_REGISTRY_USER`/`TOKEN` secrets |
+| **`ci.yml`** | Disabled | Placeholder — backstage CI moved to GitLab |
+| **`collection-tests.yml`** | Disabled | Collection tests moved to GitLab |
 
 ### EE build workflow (`build-ee.yml`)
 
-Builds the compliance EE from `ee-minimal-rhel9` base with `scap-security-guide` installed. Pushes to `ghcr.io/cross-logic/compliance-stig-rhel9`. Requires `REDHAT_REGISTRY_USER` and `REDHAT_REGISTRY_TOKEN` secrets.
+Builds per-collection EE images from `ee-minimal-rhel9` base with `scap-security-guide` and `openscap-scanner`. Matrix: STIG, CIS L1, CIS L2 with `fail-fast: false`. Each profile's collection is copied into the build context, and `extract_rule_metadata.py` generates the rules YAML from the XCCDF datastream at build time. Images pushed to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9`. Requires `REDHAT_REGISTRY_USER` and `REDHAT_REGISTRY_TOKEN` secrets.
+
+To trigger manually: `gh workflow run build-ee.yml -f profiles=all`
 
 ## Branching and Workflow
 

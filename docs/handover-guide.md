@@ -163,7 +163,12 @@ Registration config: `plugins/*/app-config.janus-idp.yaml`
 
 ### Deployment
 
-Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `deploy-artifacts/`. CI auto-bumps versions and commits tarballs to this directory. GitHub Actions are disabled; GitLab CEE now owns the full CI pipeline (backstage-test → backstage-export → deploy-netrunner). The `deploy-netrunner` job uploads tarballs to the Portal host, updates integrity hashes, and restarts the service.
+Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `deploy-artifacts/`. CI auto-bumps versions and commits tarballs to this directory. The `deploy-netrunner` job uploads tarballs to the Portal host, updates integrity hashes, and restarts the service.
+
+**CI/CD split (GitHub + GitLab)**:
+- **GitLab CEE** (`.gitlab-ci.yml`): Backstage tests, plugin export, deploy to Netrunner. Collection sanity/unit/lint tests and tarball builds.
+- **GitHub Actions** (`build-ee.yml`): Per-collection EE image builds (STIG, CIS L1, CIS L2). Matrix with `fail-fast: false`. Pushes to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest`. Triggers on changes to `profiles/**` or manual `workflow_dispatch`. GitHub retained for EE builds because they require container tooling (docker) which GitLab CEE runners lack.
+- **GitHub Actions** (`ci.yml`): Disabled — placeholder only.
 
 **Critical**: Portal's cleanup sweep deletes same-version plugin directories. Every deploy MUST use a bumped version number. CI handles this automatically.
 
