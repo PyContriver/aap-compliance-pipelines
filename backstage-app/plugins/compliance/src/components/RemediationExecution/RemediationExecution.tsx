@@ -28,6 +28,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Paper,
+  Tooltip,
   makeStyles,
 } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -1322,8 +1323,11 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
                               variant="caption"
                               className={classes.ruleProgressLabel}
                             >
-                              {!hasTasks && ruleStatus === 'failed' ? 'Not run'
-                                : !hasTasks && ruleStatus === 'completed' ? 'Compliant'
+                              {!hasTasks && ruleStatus === 'failed' ? (
+                                <Tooltip title="No remediation tasks executed for this rule. Common reasons: the rule has no automated fix in the CaC playbook, the host already meets a precondition that skips the task, or the rule requires manual remediation (e.g., partitioning, hardware config).">
+                                  <span style={{ cursor: 'help', borderBottom: '1px dotted' }}>Not run</span>
+                                </Tooltip>
+                              ) : !hasTasks && ruleStatus === 'completed' ? 'Compliant'
                                 : `${pct}%`}
                             </Typography>
                           </div>
