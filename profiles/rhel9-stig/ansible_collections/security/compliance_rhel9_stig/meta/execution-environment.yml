@@ -44,8 +44,6 @@ dependencies:
     collections:
       - name: ansible.posix
       - name: community.general
-  python: []
-  system: []
 
 additional_build_steps:
   prepend_galaxy:
