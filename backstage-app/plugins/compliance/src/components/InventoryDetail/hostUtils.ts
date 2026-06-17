@@ -52,9 +52,9 @@ export function isOutlier(host: HostPosture, allHosts: HostPosture[]): boolean {
 
 export function hostColor(host: HostPosture, allHosts: HostPosture[]): string {
   if (isOutlier(host, allHosts)) return STATUS_COLORS.error;
+  if (host.catIFail > 0) return STATUS_COLORS.warning;
   if (host.compliancePct < THRESHOLDS.good) return STATUS_COLORS.error;
   if (host.compliancePct < THRESHOLDS.excellent) return STATUS_COLORS.warning;
-  if (host.catIFail > 0) return STATUS_COLORS.warning;
   return STATUS_COLORS.success;
 }
 

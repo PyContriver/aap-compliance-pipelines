@@ -132,7 +132,7 @@ export class ComplianceDatabase {
   async getPreviousScan(currentScan: ComplianceScan): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')
       .where('profile_id', currentScan.profileId)
-      .where('scan_type', 'assessment')
+      .whereIn('scan_type', ['assessment', 'verification'])
       .where('status', 'completed')
       .where('scanner', 'oscap')
       .where('started_at', '<', currentScan.startedAt)

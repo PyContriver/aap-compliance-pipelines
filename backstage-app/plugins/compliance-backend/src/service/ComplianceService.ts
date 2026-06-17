@@ -602,7 +602,9 @@ export class ComplianceService {
               allRawFindings.push(...rawFindings);
             }
           }
-          const hasFullMetadata = allRawFindings.some(f => 'fix_text' in f || 'description' in f);
+          const hasFullMetadata = allRawFindings.some(f =>
+            (typeof f.fix_text === 'string' && f.fix_text.length > 0) ||
+            (typeof f.description === 'string' && f.description.length > 0));
           if (allRawFindings.length > 0 && hasFullMetadata) {
             const metadataRecords = buildRuleMetadataRecords(allRawFindings);
             const metaCount = await this.database.upsertRuleMetadata(metadataRecords);
