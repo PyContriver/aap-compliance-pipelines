@@ -173,7 +173,7 @@ export const InventoryDetail: React.FC = () => {
       subheader={
         hostData ? (
           <div className={classes.subheaderRow}>
-            <Typography variant="body2" color="textSecondary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Typography variant="body2" color="textSecondary" component="span" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               Last scanned {new Date(hostData.scanTimestamp).toLocaleString()}
               <Tooltip title={hostData.scanType === 'verification'
                 ? 'Verification scan — a post-remediation re-assessment that evaluates all rules to confirm remediation effectiveness'

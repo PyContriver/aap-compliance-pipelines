@@ -33,4 +33,4 @@ additional_build_steps:
     - RUN test -f /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
     - COPY _build/extract_rule_metadata.py /tmp/extract_rule_metadata.py
     - RUN python3 /tmp/extract_rule_metadata.py /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml --profile stig --framework DISA_STIG --version V2R8 -o /usr/share/ansible/collections/ansible_collections/security/compliance_rhel9_stig/rules/stig_rhel9.yml && rm /tmp/extract_rule_metadata.py
-    - RUN sed -i 's/^- hosts:/- max_fail_percentage: 100\n  hosts:/' /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
+    - "RUN sed -i '/^- hosts:/i\\- max_fail_percentage: 100' /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml"
