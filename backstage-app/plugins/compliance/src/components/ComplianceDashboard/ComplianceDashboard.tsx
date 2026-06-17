@@ -37,7 +37,7 @@ import { PinBaselineDialog } from './PinBaselineDialog';
 import { PostureTrendChart } from './PostureTrendChart';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
-import { scoreColor, STATUS_COLORS } from '../shared/colors';
+import { scoreColor, STATUS_COLORS, THRESHOLDS } from '../shared/colors';
 import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
@@ -642,9 +642,9 @@ export const ComplianceDashboard = () => {
                         <StatusError />
                       ) : isRemediation ? (
                         <StatusOK />
-                      ) : scan.passRate >= 80 ? (
+                      ) : scan.passRate >= THRESHOLDS.excellent ? (
                         <StatusOK />
-                      ) : scan.passRate >= 65 ? (
+                      ) : scan.passRate >= THRESHOLDS.good ? (
                         <StatusWarning />
                       ) : (
                         <StatusError />
@@ -689,7 +689,7 @@ export const ComplianceDashboard = () => {
                         variant="determinate"
                         value={fw.rate}
                         className={classes.complianceBar}
-                        color={fw.rate >= 80 ? 'primary' : 'secondary'}
+                        sx={{ '& .MuiLinearProgress-bar': { backgroundColor: scoreColor(fw.rate) } }}
                       />
                     </Box>
                     <Box mt={1.5} display="flex" justifyContent="space-between" alignItems="center">

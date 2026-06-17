@@ -45,7 +45,7 @@ import CompareArrowsIcon from '@material-ui/icons/CompareArrows';
 import StarIcon from '@material-ui/icons/Star';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
-import { STATUS_COLORS, EXECUTION_COLORS } from '../shared/colors';
+import { STATUS_COLORS, EXECUTION_COLORS, scoreColor } from '../shared/colors';
 import type {
   ComplianceScan,
   ScanCertification,
@@ -588,8 +588,8 @@ export const ScanHistory = () => {
                           size="small"
                           variant="outlined"
                           style={{
-                            borderColor: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? STATUS_COLORS.success : STATUS_COLORS.error,
-                            color: latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1) >= 0.8 ? STATUS_COLORS.success : STATUS_COLORS.error,
+                            borderColor: scoreColor(Math.round((latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1)) * 100)),
+                            color: scoreColor(Math.round((latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1)) * 100)),
                           }}
                         />
                       )}
@@ -857,7 +857,7 @@ export const ScanHistory = () => {
                           label={`${pct}%`}
                           size="small"
                           style={{
-                            backgroundColor: pct >= 80 ? STATUS_COLORS.success : pct >= 50 ? STATUS_COLORS.warning : STATUS_COLORS.error,
+                            backgroundColor: scoreColor(pct),
                             color: '#fff',
                             fontWeight: 600,
                             fontSize: '0.75rem',
