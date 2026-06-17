@@ -96,10 +96,6 @@ jobs:
           cd $BUILD_DIR
           ansible-builder create -f execution-environment.yml -v 3
 
-          # Create empty dependency files (no extra python/system deps needed)
-          touch context/_build/requirements.txt
-          touch context/_build/bindep.txt
-
           # Copy collection into the build context
           mkdir -p context/_build/collections/ansible_collections/security
           cp -r $GITHUB_WORKSPACE/$COLLECTION_DIR \
