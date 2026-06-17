@@ -169,6 +169,7 @@ Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `
 - **GitLab CEE** (`.gitlab-ci.yml`): Backstage tests, plugin export, deploy to Netrunner. Collection sanity/unit/lint tests and tarball builds.
 - **GitHub Actions** (`build-ee.yml`): Per-collection EE image builds (STIG, CIS L1, CIS L2). Matrix with `fail-fast: false`. Pushes to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest`. Triggers on changes to `profiles/**` or manual `workflow_dispatch`. GitHub retained for EE builds because they require container tooling (docker) which GitLab CEE runners lack.
 - **GitHub Actions** (`ci.yml`): Disabled — placeholder only.
+- **EE registry auth**: GHCR packages may be private. Controller needs a Container Registry credential (`GHCR-cross-logic`, host `ghcr.io`) attached to each compliance EE. The workflow attempts to make packages public after push but falls back to credential-based pull.
 
 **Critical**: Portal's cleanup sweep deletes same-version plugin directories. Every deploy MUST use a bumped version number. CI handles this automatically.
 
