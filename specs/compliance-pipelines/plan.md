@@ -588,7 +588,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 - [x] Performance optimization for large finding sets (database query tuning, frontend virtualization)
 - [x] E2E tests (full workflow: add compliance profile → scan → review → remediate → verify → export)
 
-**Current versions**: Backend v0.13.61, Frontend v0.10.60, 584 tests across 21 suites, 25 ADRs
+**Current versions**: Backend v0.13.65, Frontend v0.10.67, 584 backend/frontend tests across 21 suites + 57 collection unit tests (641 total), 25 ADRs
 
 **P3 Hardening Sprint (2026-06-08)**: Router decomposition (1,599→12 modules), rate limiting on ingest (30 req/min), user identity tracking on executions, N/A type safety + denominator adjustment, dashboard N+1 batch fix, execution reconciliation throttle, inventory chip on results page, clickable comparison stats. See ADR-021.
 
@@ -649,7 +649,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 ## Handoff Readiness (updated 2026-06-16)
 
-**Current score: 9/10.** Deployed on Netrunner (v0.13.57/v0.10.58). 578+ tests across 21 suites. All must-do items complete. CI migrated from GitHub Actions to GitLab CEE (backstage-test → backstage-export → deploy-netrunner).
+**Current score: 9/10.** Deployed on Netrunner (v0.13.65/v0.10.67). 641 tests (584 backend/frontend + 57 collection). All must-do items complete. CI migrated from GitHub Actions to GitLab CEE (backstage-test → backstage-export → deploy-netrunner).
 
 ### Completed (2026-06-12)
 

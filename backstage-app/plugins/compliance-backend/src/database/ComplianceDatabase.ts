@@ -125,9 +125,9 @@ export class ComplianceDatabase {
   }
 
   /**
-   * Find the most recent completed assessment scan for the same profile
-   * that was completed before the given scan. Used to provide before/after
-   * comparison for verification scans.
+   * Find the most recent completed scan (assessment or verification) for the
+   * same profile that was completed before the given scan. Used to provide
+   * before/after comparison.
    */
   async getPreviousScan(currentScan: ComplianceScan): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans')

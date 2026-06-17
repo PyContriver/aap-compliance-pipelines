@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 12 suites
+yarn test             # Run tests across 21 suites (584 tests)
 yarn build            # Build all packages
 ```
 
@@ -88,4 +88,4 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
 - 57 collection unit tests (19 per profile) + 584 backend/frontend tests across 21 suites
-- 20 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 25 formal ADRs in `specs/compliance-pipelines/decisions/`

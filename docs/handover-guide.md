@@ -15,7 +15,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
 | Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
-| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 584+ tests |
+| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 584 backend/frontend tests + 57 collection unit tests (641 total) |
 
 ### Where we extend beyond downstream
 
@@ -146,7 +146,7 @@ cd backstage-app
 yarn install
 ./bin/start.sh mock   # Demo mode (hardcoded data)
 ./bin/start.sh live   # Connect to AAP lab
-yarn test             # 21 suites, 584+ tests
+yarn test             # 21 suites, 584 tests (+ 57 collection unit tests)
 yarn build            # Build all packages
 ```
 
@@ -224,6 +224,6 @@ The inventory detail page reads `?profileId=` from the URL to pre-select the cor
 - **User auth**: Per-user AAP tokens via `x-aap-token` header, passed through to Gateway API
 - **Scan ingest**: Per-scan crypto-random tokens (ADR-010), validated on POST
 - **Rate limiting**: 30 req/min on `/findings/ingest`
-- **Input validation**: Body size (10MB), finding count (50K), parameterized SQL queries throughout
+- **Input validation**: Body size (50MB — raised from 10MB because fix_text enrichment produces large payloads), finding count (50K), parameterized SQL queries throughout
 - **No XSS**: Zero `dangerouslySetInnerHTML` usage
 - **Auth mode**: Baked into `app-config.janus-idp.yaml` (`authMode: development` for demo, `oauth` for production)
