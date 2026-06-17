@@ -113,6 +113,54 @@ export function buildMultiProfileSeries(
   return { data, profileIds };
 }
 
+export function buildFilteredSeries(
+  snapshots: PostureSnapshot[],
+  seriesMap: Map<string, string>,
+  groupByInventory: boolean,
+): { data: MultiProfileRow[]; seriesIds: string[] } {
+  const bySeries = new Map<string, PostureSnapshot[]>();
+  for (const snap of snapshots) {
+    const key = groupByInventory
+      ? `${snap.profileId}:${snap.inventoryId ?? 0}`
+      : snap.profileId;
+    if (!seriesMap.has(key)) continue;
+    const existing = bySeries.get(key) ?? [];
+    existing.push(snap);
+    bySeries.set(key, existing);
+  }
+
+  const seriesIds = [...bySeries.keys()];
+  if (seriesIds.length === 0) return { data: [], seriesIds: [] };
+
+  const allTimestamps = new Set<number>();
+  for (const snaps of bySeries.values()) {
+    for (const s of snaps) allTimestamps.add(new Date(s.timestamp).getTime());
+  }
+  const sortedTimestamps = [...allTimestamps].sort((a, b) => a - b);
+
+  const lastKnown = new Map<string, number>();
+  const indexBySeries = new Map<string, number>();
+  for (const sid of seriesIds) indexBySeries.set(sid, 0);
+
+  const data: MultiProfileRow[] = sortedTimestamps.map(ts => {
+    const row: MultiProfileRow = { timestamp: ts };
+    for (const sid of seriesIds) {
+      const snaps = bySeries.get(sid)!;
+      let idx = indexBySeries.get(sid)!;
+      while (idx < snaps.length && new Date(snaps[idx].timestamp).getTime() <= ts) {
+        lastKnown.set(sid, snaps[idx].compliancePct);
+        idx++;
+      }
+      indexBySeries.set(sid, idx);
+      const val = lastKnown.get(sid);
+      if (val !== undefined) row[sid] = val;
+    }
+    return row;
+  });
+
+  return { data, seriesIds };
+}
+
 export function formatTrendDate(ts: number): string {
   const d = new Date(ts);
   return `${d.getMonth() + 1}/${d.getDate()}`;

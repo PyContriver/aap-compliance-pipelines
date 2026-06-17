@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Typography,
-  ButtonGroup,
-  Button,
   Tooltip,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   makeStyles,
-  Box,
 } from '@material-ui/core';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import {
@@ -25,9 +18,10 @@ import {
 } from 'recharts';
 import type { ComplianceApi } from '../../api';
 import type { DashboardStats, PostureSnapshot, RemediationEvent } from '@aap-compliance/common';
+import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import {
   detectEvents,
-  buildMultiProfileSeries,
+  buildFilteredSeries,
   formatTrendDate,
   formatTrendDateFull,
   TREND_COLORS,
@@ -36,31 +30,17 @@ import {
   type MultiProfileRow,
 } from './trendUtils';
 import { STATUS_COLORS } from '../shared/colors';
-
-type TrendScope = 'all-profiles' | 'per-profile' | 'per-inventory';
+import { TrendFilterBar } from './TrendFilterBar';
 
 interface PostureTrendChartProps {
   initialData: PostureSnapshot[];
+  remediationEvents?: RemediationEvent[];
   stats: DashboardStats;
   api: ComplianceApi;
   onPointClick?: (snapshot: PostureSnapshot) => void;
 }
 
 const useStyles = makeStyles(theme => ({
-  controls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(2),
-    marginBottom: theme.spacing(2),
-    flexWrap: 'wrap',
-  },
-  dropdowns: {
-    display: 'flex',
-    gap: theme.spacing(1.5),
-  },
-  select: {
-    minWidth: 180,
-  },
   empty: {
     display: 'flex',
     flexDirection: 'column' as const,
@@ -169,11 +149,11 @@ function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) 
   );
 }
 
-function computeYDomain(data: Array<Record<string, any>>, profileIds?: string[]): [number, number] {
+function computeYDomain(data: Array<Record<string, any>>, seriesIds?: string[]): [number, number] {
   let values: number[];
-  if (profileIds) {
+  if (seriesIds) {
     values = data.flatMap(row =>
-      profileIds.map(pid => (row as any)[pid]).filter((v): v is number => v !== undefined),
+      seriesIds.map(sid => (row as any)[sid]).filter((v): v is number => v !== undefined),
     );
   } else {
     values = data.map(d => d.compliancePct!).filter((v): v is number => v !== undefined);
@@ -186,225 +166,219 @@ function computeYDomain(data: Array<Record<string, any>>, profileIds?: string[])
 
 export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   initialData,
+  remediationEvents: initialRemediationEvents,
   stats,
   api,
   onPointClick,
 }) => {
   const classes = useStyles();
 
-  // UI state
-  const [scope, setScope] = useState<TrendScope>('all-profiles');
-  const [loading, setLoading] = useState(false);
-
-  // Filter state
-  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
-
-  // Data state
-  const [data, setData] = useState<PostureSnapshot[]>(initialData);
-  const [remediationEvents, setRemediationEvents] = useState<RemediationEvent[]>([]);
-
-  const profileOptions = useMemo(
-    () => stats.frameworkScores.map(fw => ({ value: fw.profileId, label: fw.name })),
-    [stats.frameworkScores],
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
+  const [selectedInventories, setSelectedInventories] = useState<Set<string>>(new Set());
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [remediationEvents, setRemediationEvents] = useState<RemediationEvent[]>(
+    initialRemediationEvents ?? [],
   );
 
-  const inventoryOptions = useMemo(() => {
-    if (!selectedProfileId) return [];
-    return stats.byInventory
-      .filter(inv => inv.profileScores.some(ps => ps.profileId === selectedProfileId))
-      .map(inv => ({ value: String(inv.inventoryId), label: inv.inventoryName }));
-  }, [stats.byInventory, selectedProfileId]);
-
-  useEffect(() => {
-    if (scope === 'all-profiles') {
-      setData(initialData);
+  React.useEffect(() => {
+    if (!initialRemediationEvents) {
       api.getRemediationEventsForTrend(90).then(setRemediationEvents).catch(() => {});
-      return;
     }
-
-    if (scope === 'per-profile' && selectedProfileId) {
-      setLoading(true);
-      setRemediationEvents([]);
-      api.getPostureHistory(selectedProfileId, 90)
-        .then(setData)
-        .catch(() => {})
-        .finally(() => setLoading(false));
-      return;
-    }
-
-    if (scope === 'per-inventory' && selectedProfileId && selectedInventoryId) {
-      setLoading(true);
-      const invId = Number(selectedInventoryId);
-      Promise.all([
-        api.getPostureHistory(selectedProfileId, 90, invId),
-        api.getRemediationEventsForTrend(90, invId),
-      ]).then(([history, events]) => {
-        setData(history);
-        setRemediationEvents(events);
-      }).catch(() => {}).finally(() => setLoading(false));
-      return;
-    }
-  }, [scope, selectedProfileId, selectedInventoryId, api, initialData]);
-
-  const handleScopeChange = useCallback((newScope: TrendScope) => {
-    setScope(newScope);
-    if (newScope === 'all-profiles') {
-      setSelectedProfileId('');
-      setSelectedInventoryId('');
-    } else if (newScope === 'per-profile') {
-      setSelectedInventoryId('');
-      if (!selectedProfileId && profileOptions.length > 0) {
-        setSelectedProfileId(profileOptions[0].value);
-      }
-    } else if (newScope === 'per-inventory') {
-      if (!selectedProfileId && profileOptions.length > 0) {
-        setSelectedProfileId(profileOptions[0].value);
-      }
-    }
-  }, [selectedProfileId, profileOptions]);
+  }, [api, initialRemediationEvents]);
 
   const profileMap = useMemo(
     () => new Map(stats.frameworkScores.map(fw => [fw.profileId, fw.name])),
     [stats.frameworkScores],
   );
 
-  const multiProfile = useMemo(() => {
-    if (scope !== 'all-profiles') return null;
-    return buildMultiProfileSeries(data, profileMap);
-  }, [scope, data, profileMap]);
+  const inventoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    stats.byInventory.forEach(inv => map.set(String(inv.inventoryId), inv.inventoryName));
+    return map;
+  }, [stats.byInventory]);
+
+  const profileFilterOptions: FilterOption[] = useMemo(
+    () => stats.frameworkScores.map((fw, i) => ({
+      key: fw.profileId,
+      label: fw.name,
+      color: PROFILE_PALETTE[i % PROFILE_PALETTE.length],
+    })),
+    [stats.frameworkScores],
+  );
+
+  const inventoryFilterOptions: FilterOption[] = useMemo(
+    () => stats.byInventory.map(inv => ({
+      key: String(inv.inventoryId),
+      label: inv.inventoryName,
+      color: STATUS_COLORS.info,
+    })),
+    [stats.byInventory],
+  );
+
+  const handleToggleProfile = useCallback((profileId: string) => {
+    setSelectedProfiles(prev => {
+      const next = new Set(prev);
+      if (next.has(profileId)) next.delete(profileId);
+      else next.add(profileId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleInventory = useCallback((inventoryId: string) => {
+    setSelectedInventories(prev => {
+      const next = new Set(prev);
+      if (next.has(inventoryId)) next.delete(inventoryId);
+      else next.add(inventoryId);
+      return next;
+    });
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    setSelectedProfiles(new Set());
+    setSelectedInventories(new Set());
+  }, []);
+
+  const handleToggleGroup = useCallback((group: string) => {
+    setExpandedGroup(prev => (prev === group ? null : group));
+  }, []);
+
+  const filteredData = useMemo(() => {
+    let filtered = initialData;
+    if (selectedProfiles.size > 0) {
+      filtered = filtered.filter(s => selectedProfiles.has(s.profileId));
+    }
+    if (selectedInventories.size > 0) {
+      filtered = filtered.filter(
+        s => s.inventoryId !== undefined && selectedInventories.has(String(s.inventoryId)),
+      );
+    }
+    return filtered;
+  }, [initialData, selectedProfiles, selectedInventories]);
+
+  const groupByInventory = selectedInventories.size > 0;
+
+  const isSingleLine = useMemo(() => {
+    const effectiveProfileCount = selectedProfiles.size || profileMap.size;
+    return effectiveProfileCount === 1 && selectedInventories.size <= 1;
+  }, [selectedProfiles, selectedInventories, profileMap]);
+
+  const filteredRemediationEvents = useMemo(() => {
+    if (selectedProfiles.size === 0 && selectedInventories.size === 0) return remediationEvents;
+    let filtered = remediationEvents;
+    if (selectedInventories.size > 0) {
+      filtered = filtered.filter(
+        evt => selectedInventories.has(String(evt.inventoryId)),
+      );
+    }
+    if (isSingleLine && selectedProfiles.size > 0) {
+      filtered = filtered.filter(
+        evt => filteredData.some(s => s.inventoryId === evt.inventoryId),
+      );
+    }
+    return filtered;
+  }, [remediationEvents, selectedProfiles, selectedInventories, isSingleLine, filteredData]);
+
+  const seriesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (groupByInventory) {
+      for (const snap of filteredData) {
+        const key = `${snap.profileId}:${snap.inventoryId ?? 0}`;
+        if (!map.has(key)) {
+          const pName = profileMap.get(snap.profileId) ?? snap.profileId;
+          const iName = inventoryMap.get(String(snap.inventoryId)) ?? `Inventory ${snap.inventoryId}`;
+          map.set(key, `${pName} — ${iName}`);
+        }
+      }
+    } else {
+      const activeProfiles = selectedProfiles.size > 0
+        ? [...selectedProfiles]
+        : [...profileMap.keys()];
+      activeProfiles.forEach(pid => {
+        const name = profileMap.get(pid);
+        if (name) map.set(pid, name);
+      });
+    }
+    return map;
+  }, [filteredData, groupByInventory, selectedProfiles, profileMap, inventoryMap]);
+
+  const multiSeries = useMemo(() => {
+    if (isSingleLine) return null;
+    return buildFilteredSeries(filteredData, seriesMap, groupByInventory);
+  }, [isSingleLine, filteredData, seriesMap, groupByInventory]);
 
   const singleLineData = useMemo(() => {
-    if (scope === 'all-profiles') return [];
-    return detectEvents(data);
-  }, [scope, data]);
+    if (!isSingleLine) return [];
+    return detectEvents(filteredData);
+  }, [isSingleLine, filteredData]);
 
   const handleDotClick = useCallback(
     (point: TrendDataPoint) => {
       if (!onPointClick) return;
       if (!point.scanId && !point.workflowJobId) return;
-      const snap = data.find(s => s.scanId === point.scanId);
+      const snap = filteredData.find(s => s.scanId === point.scanId);
       if (snap) onPointClick(snap);
     },
-    [data, onPointClick],
+    [filteredData, onPointClick],
   );
 
-  const hasData = scope === 'all-profiles'
-    ? (multiProfile?.data.length ?? 0) >= 2
-    : singleLineData.length >= 2;
+  const hasData = isSingleLine
+    ? singleLineData.length >= 2
+    : (multiSeries?.data.length ?? 0) >= 2;
 
   return (
     <div>
-      {/* Scope selector */}
-      <div className={classes.controls}>
-        <ButtonGroup size="small" variant="outlined">
-          <Tooltip title="One line per compliance profile">
-            <Button
-              color={scope === 'all-profiles' ? 'primary' : 'default'}
-              onClick={() => handleScopeChange('all-profiles')}
-            >
-              All Profiles
-            </Button>
-          </Tooltip>
-          <Tooltip title="Single profile trend across all inventories">
-            <Button
-              color={scope === 'per-profile' ? 'primary' : 'default'}
-              onClick={() => handleScopeChange('per-profile')}
-            >
-              Per Profile
-            </Button>
-          </Tooltip>
-          <Tooltip title="Single profile × inventory trend">
-            <Button
-              color={scope === 'per-inventory' ? 'primary' : 'default'}
-              onClick={() => handleScopeChange('per-inventory')}
-            >
-              Per Inventory
-            </Button>
-          </Tooltip>
-        </ButtonGroup>
+      <TrendFilterBar
+        profileOptions={profileFilterOptions}
+        inventoryOptions={inventoryFilterOptions}
+        selectedProfiles={selectedProfiles}
+        selectedInventories={selectedInventories}
+        expandedGroup={expandedGroup}
+        onToggleGroup={handleToggleGroup}
+        onToggleProfile={handleToggleProfile}
+        onToggleInventory={handleToggleInventory}
+        onClearAll={handleClearAll}
+      />
 
-        <div className={classes.dropdowns}>
-          {(scope === 'per-profile' || scope === 'per-inventory') && (
-            <FormControl variant="outlined" size="small" className={classes.select}>
-              <InputLabel id="trend-profile-label">Profile</InputLabel>
-              <Select
-                labelId="trend-profile-label"
-                value={selectedProfileId}
-                onChange={e => {
-                  setSelectedProfileId(e.target.value as string);
-                  setSelectedInventoryId('');
-                }}
-                label="Profile"
-              >
-                {profileOptions.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {scope === 'per-inventory' && (
-            <FormControl variant="outlined" size="small" className={classes.select}>
-              <InputLabel id="trend-inventory-label">Inventory</InputLabel>
-              <Select
-                labelId="trend-inventory-label"
-                value={selectedInventoryId}
-                onChange={e => setSelectedInventoryId(e.target.value as string)}
-                label="Inventory"
-              >
-                {inventoryOptions.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-        </div>
-      </div>
-
-      {/* Chart or empty state */}
       {!hasData ? (
         <div className={classes.empty}>
           <TrendingUpIcon style={{ fontSize: 48, opacity: 0.3, marginBottom: 8 }} />
           <Typography variant="body2">
-            {loading ? 'Loading trend data...' : 'Run more scans to see compliance trends'}
+            {filteredData.length === 0 && (selectedProfiles.size > 0 || selectedInventories.size > 0)
+              ? 'No data matches the selected filters'
+              : 'Run more scans to see compliance trends'}
           </Typography>
           <Typography variant="caption" color="textSecondary">
             At least two completed scans are needed to display a trend line
           </Typography>
         </div>
-      ) : scope === 'all-profiles' && multiProfile ? (
-        <MultiLineChart
-          data={multiProfile.data}
-          profileIds={multiProfile.profileIds}
-          profileMap={profileMap}
-        />
-      ) : (
+      ) : isSingleLine ? (
         <SingleLineChart
           data={singleLineData}
-          remediationEvents={scope === 'per-inventory' ? remediationEvents : []}
+          remediationEvents={filteredRemediationEvents}
           onDotClick={handleDotClick}
           classes={classes}
         />
-      )}
+      ) : multiSeries ? (
+        <MultiLineChart
+          data={multiSeries.data}
+          seriesIds={multiSeries.seriesIds}
+          seriesMap={seriesMap}
+        />
+      ) : null}
     </div>
   );
 };
 
 const MultiLineChart = React.memo(({
   data,
-  profileIds,
-  profileMap,
+  seriesIds,
+  seriesMap,
 }: {
   data: MultiProfileRow[];
-  profileIds: string[];
-  profileMap: Map<string, string>;
+  seriesIds: string[];
+  seriesMap: Map<string, string>;
 }) => {
-  const [min, max] = React.useMemo(() => computeYDomain(data, profileIds), [data, profileIds]);
+  const [min, max] = React.useMemo(() => computeYDomain(data, seriesIds), [data, seriesIds]);
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 40 }}>
@@ -427,17 +401,17 @@ const MultiLineChart = React.memo(({
         />
         <RechartsTooltip
           labelFormatter={(ts: number) => formatTrendDateFull(ts)}
-          formatter={(value: number, name: string) => [`${value}%`, profileMap.get(name) ?? name]}
+          formatter={(value: number, name: string) => [`${value}%`, seriesMap.get(name) ?? name]}
         />
         <Legend
-          formatter={(value: string) => profileMap.get(value) ?? value}
+          formatter={(value: string) => seriesMap.get(value) ?? value}
           iconType="plainline"
         />
-        {profileIds.map((pid, i) => (
+        {seriesIds.map((sid, i) => (
           <Line
-            key={pid}
+            key={sid}
             type="monotone"
-            dataKey={pid}
+            dataKey={sid}
             stroke={PROFILE_PALETTE[i % PROFILE_PALETTE.length]}
             strokeWidth={2}
             dot={false}

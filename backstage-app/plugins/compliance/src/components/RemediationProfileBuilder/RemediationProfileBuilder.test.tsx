@@ -6,6 +6,20 @@ import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
 import type { ComplianceApi } from '../../api';
 
+// react-window: render all items directly in tests (JSDOM has no layout dimensions)
+jest.mock('react-window', () => ({
+  VariableSizeList: React.forwardRef(({ children: Row, itemCount }: any, ref: any) => {
+    React.useImperativeHandle(ref, () => ({ resetAfterIndex: () => {} }));
+    return (
+      <div data-testid="virtualized-list">
+        {Array.from({ length: itemCount }, (_, i) => (
+          <Row key={i} index={i} style={{}} />
+        ))}
+      </div>
+    );
+  }),
+}));
+
 // Mock useParams to provide a jobId
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),

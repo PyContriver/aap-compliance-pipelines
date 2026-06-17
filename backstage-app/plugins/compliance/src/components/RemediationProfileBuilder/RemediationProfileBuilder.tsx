@@ -8,16 +8,14 @@ import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
-  Typography, Button, Chip, Box, Switch, Collapse, IconButton,
-  TextField, FormControl, InputLabel, Select, MenuItem, Divider,
-  Radio, RadioGroup, FormControlLabel, makeStyles, ButtonGroup, Tooltip,
+  Typography, Button, Chip, Box, Collapse, IconButton,
+  TextField, Divider, makeStyles, ButtonGroup, Tooltip,
 } from '@material-ui/core';
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import WarningIcon from '@material-ui/icons/Warning';
-import InfoIcon from '@material-ui/icons/Info';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import SaveIcon from '@material-ui/icons/Save';
 import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
@@ -25,6 +23,9 @@ import { complianceApiRef } from '../../api';
 import { FilterGroup } from '../ResultsViewer/FilterGroup';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
+import { VirtualizedFindingsList } from './VirtualizedFindingsList';
+import type { ListItem } from './VirtualizedFindingsList';
+import type { RuleSelection } from './FindingCard';
 
 // ─── Filter definitions (consistent with ResultsViewer) ─────────────
 const SEVERITY_OPTIONS: FilterOption[] = [
@@ -82,7 +83,6 @@ const useStyles = makeStyles(theme => ({
 
 type ViewMode = 'status' | 'category';
 type RemediationScope = 'failed_only' | 'standardize_all';
-interface RuleSelection { enabled: boolean; expanded: boolean; scope: RemediationScope; parameters: Record<string, string | number | boolean>; }
 type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const severityLabel: Record<FindingSeverity, string> = { CAT_I: 'CAT I — Critical', CAT_II: 'CAT II — Medium', CAT_III: 'CAT III — Low' };
@@ -210,10 +210,10 @@ export const RemediationProfileBuilder = () => {
     });
   }, [allFindings, editProfile, isEditMode]);
 
-  const toggleFinding = (ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], enabled: !prev[ruleId].enabled } })); };
-  const toggleExpanded = (ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], expanded: !prev[ruleId].expanded } })); };
-  const setScope = (ruleId: string, scope: RemediationScope) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], scope } })); };
-  const updateParameter = (ruleId: string, paramName: string, value: string | number | boolean) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], parameters: { ...prev[ruleId].parameters, [paramName]: value } } })); };
+  const toggleFinding = useCallback((ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], enabled: !prev[ruleId].enabled } })); }, []);
+  const toggleExpanded = useCallback((ruleId: string) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], expanded: !prev[ruleId].expanded } })); }, []);
+  const setScope = useCallback((ruleId: string, scope: RemediationScope) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], scope } })); }, []);
+  const updateParameter = useCallback((ruleId: string, paramName: string, value: string | number | boolean) => { setSelections(prev => ({ ...prev, [ruleId]: { ...prev[ruleId], parameters: { ...prev[ruleId].parameters, [paramName]: value } } })); }, []);
   // ─── Risk filter: merges disruption + aap into a single group ──
   const riskActiveValue = useMemo(() => {
     if (disruptionFilter !== 'all') return `disruption:${disruptionFilter}`;
@@ -314,7 +314,7 @@ export const RemediationProfileBuilder = () => {
   const disabledCount = Object.values(selections).filter(s => !s.enabled).length;
   const totalAffectedHosts = useMemo(() => { const hostSet = new Set<string>(); allFindings.forEach(f => { const sel = selections[f.ruleId]; if (sel?.enabled) { const failedHosts = f.hosts.filter(h => h.status === 'fail'); if (sel.scope === 'standardize_all' || failedHosts.length === 0) { f.hosts.forEach(h => hostSet.add(h.host)); } else { failedHosts.forEach(h => hostSet.add(h.host)); } } }); return hostSet.size; }, [allFindings, selections]);
   const groupedBySeverity = useMemo(() => { const groups: Record<FindingSeverity, MultiHostFinding[]> = { CAT_I: [], CAT_II: [], CAT_III: [] }; displayFindings.forEach(f => groups[f.severity].push(f)); return groups; }, [displayFindings]);
-  const getSeverityClass = (severity: FindingSeverity) => { switch (severity) { case 'CAT_I': return classes.catI; case 'CAT_II': return classes.catII; case 'CAT_III': return classes.catIII; default: return ''; } };
+  const getSeverityClass = useCallback((severity: FindingSeverity) => { switch (severity) { case 'CAT_I': return classes.catI; case 'CAT_II': return classes.catII; case 'CAT_III': return classes.catIII; default: return ''; } }, [classes.catI, classes.catII, classes.catIII]);
 
   // Auto-save (Insights pattern)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -356,63 +356,49 @@ export const RemediationProfileBuilder = () => {
     return null;
   };
 
-  const renderFinding = (finding: MultiHostFinding) => {
-    const sel = selections[finding.ruleId];
-    if (!sel) return null;
-    return (
-      <div key={finding.ruleId} className={`${classes.findingCard} ${sel.enabled ? classes.findingEnabled : classes.findingDisabled}`}>
-        <div className={classes.findingHeader}>
-          <Switch checked={sel.enabled} onChange={() => toggleFinding(finding.ruleId)} color="primary" size="small" disabled={finding.automationAvailable === false} inputProps={{ 'aria-label': `Toggle rule ${finding.stigId} for remediation` }} />
-          {finding.automationAvailable === false && (<Chip label="Manual" size="small" variant="outlined" style={{ color: STATUS_COLORS.neutral, borderColor: STATUS_COLORS.neutral, fontSize: '0.7rem' }} />)}
-          {finding.stigId && <Chip label={finding.stigId} size="small" variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />}
-          <Chip label={finding.severity === 'CAT_I' ? 'CAT I' : finding.severity === 'CAT_II' ? 'CAT II' : 'CAT III'} size="small" className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`} />
-          <div className={classes.titleGroup}>
-            <Typography variant="subtitle2">{finding.title}</Typography>
-            <div className={classes.hostBreakdown}>
-              {finding.failCount > 0 ? (
-                <>
-                  <span style={{ color: STATUS_COLORS.error, fontWeight: 600 }}>{finding.failCount} failed</span><span>/</span><span>{finding.totalCount} hosts</span>
-                  {finding.hosts.filter(h => h.status === 'fail').length > 0 && (<span style={{ color: '#666' }}>({finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')})</span>)}
-                </>
-              ) : (
-                <span style={{ color: STATUS_COLORS.success, fontWeight: 600 }}>{finding.passCount}/{finding.totalCount} hosts passing</span>
-              )}
-            </div>
-          </div>
-          {finding.disruption === 'high' && (<Chip label="High disruption" size="small" color="secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }} />)}
-          {finding.aapImpact === 'breaks-connectivity' && (
-            <Chip label="Breaks AAP" size="small" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
-          )}
-          {finding.aapImpact === 'caution' && (
-            <Chip label="AAP caution" size="small" style={{ backgroundColor: STATUS_COLORS.warning, color: '#fff', fontSize: '0.7rem', fontWeight: 600 }} />
-          )}
-          <IconButton size="small" onClick={e => { e.stopPropagation(); toggleExpanded(finding.ruleId); }} aria-label={sel.expanded ? `Collapse rule details for ${finding.stigId}` : `Expand rule details for ${finding.stigId}`}>{sel.expanded ? <ExpandLessIcon /> : <SettingsIcon fontSize="small" />}</IconButton>
-        </div>
-        <Collapse in={sel.expanded}>
-          <div className={classes.detailPanel}>
-            {finding.description && (<Box mb={2}><Typography variant="body2">{finding.description}</Typography></Box>)}
-            {(finding.checkText || finding.fixText) && (<Box mb={2} display="flex" flexDirection="column" style={{ gap: 12 }}>{finding.checkText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Check</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.checkText}</Typography></div>)}{finding.fixText && (<div><Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>Fix</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: 2 }}>{finding.fixText}</Typography></div>)}</Box>)}
-            {finding.disruption && (<Box mb={2} display="flex" style={{ gap: 8 }}><Chip size="small" label={`Disruption: ${finding.disruption}`} style={{ backgroundColor: finding.disruption === 'high' ? STATUS_COLORS.error : finding.disruption === 'medium' ? STATUS_COLORS.warning : STATUS_COLORS.success, color: '#fff', fontWeight: 600 }} />{finding.aapImpact === 'breaks-connectivity' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="Breaks AAP connectivity" style={{ backgroundColor: STATUS_COLORS.error, color: '#fff', fontWeight: 600 }} /></Tooltip>)}{finding.aapImpact === 'caution' && (<Tooltip title={finding.aapImpactReason}><Chip size="small" label="AAP caution" style={{ backgroundColor: STATUS_COLORS.warning, color: '#fff', fontWeight: 600 }} /></Tooltip>)}</Box>)}
-            {finding.passCount > 0 && finding.failCount > 0 && (<div className={classes.adviceBanner}><InfoIcon className={classes.adviceIcon} fontSize="small" /><div><Typography variant="body2" style={{ color: '#856404', fontWeight: 600 }}>Only {finding.failCount} of {finding.totalCount} hosts failed this rule.</Typography><Typography variant="caption" style={{ color: '#856404' }}>Consider whether {finding.hosts.filter(h => h.status === 'fail').map(h => h.host).join(', ')} should belong to a different inventory with different compliance requirements.</Typography></div></div>)}
-            <div className={classes.remediationStrategy}>
-              <Typography variant="caption" color="textSecondary" gutterBottom>Remediation Scope</Typography>
-              {finding.failCount === 0 ? (
-                <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>All {finding.totalCount} hosts are compliant {'—'} enabling this rule enforces continuous compliance.</Typography>
-              ) : finding.failCount === finding.totalCount ? (<Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>All {finding.totalCount} hosts failed {'—'} remediation will apply to all hosts.</Typography>) : (
-                <RadioGroup value={sel.scope} onChange={e => setScope(finding.ruleId, e.target.value as RemediationScope)}>
-                  <FormControlLabel value="failed_only" control={<Radio size="small" color="primary" />} label={<Typography variant="body2">Remediate failed hosts only ({finding.failCount} hosts)</Typography>} />
-                  <FormControlLabel value="standardize_all" control={<Radio size="small" color="primary" />} label={<Typography variant="body2">Apply to all hosts {'—'} standardize to same setting ({finding.totalCount} hosts)</Typography>} />
-                </RadioGroup>)}
-            </div>
-            {finding.parameters.length > 0 && (<Box mt={2}><Typography variant="caption" color="textSecondary" gutterBottom>Parameters{sel.scope === 'standardize_all' && (<span style={{ fontStyle: 'italic' }}> {'—'} applied to all {finding.totalCount} hosts</span>)}</Typography><Box display="flex" flexWrap="wrap" style={{ gap: 16, marginTop: 8 }}>{finding.parameters.map(param => (<div key={param.name} style={{ flex: '1 1 200px', maxWidth: 300 }}>{param.type === 'select' ? (<FormControl variant="outlined" size="small" fullWidth><InputLabel>{param.label}</InputLabel><Select value={sel.parameters[param.name] ?? param.default} onChange={e => updateParameter(finding.ruleId, param.name, e.target.value as string)} label={param.label}>{param.options?.map(opt => (<MenuItem key={String(opt.value)} value={opt.value}>{opt.label}</MenuItem>))}</Select></FormControl>) : (<TextField label={param.label} variant="outlined" size="small" fullWidth type={param.type === 'number' ? 'number' : 'text'} value={sel.parameters[param.name] ?? param.default} onChange={e => updateParameter(finding.ruleId, param.name, param.type === 'number' ? Number(e.target.value) : e.target.value)} helperText={param.description} />)}</div>))}</Box></Box>)}
-            {finding.hosts.filter(h => h.status === 'fail').length > 0 && (
-              <Box mt={2}><Typography variant="caption" color="textSecondary">Failed Hosts {'—'} Actual Values</Typography><Box mt={1}>{finding.hosts.filter(h => h.status === 'fail').map(h => (<Box key={h.host} display="flex" style={{ gap: 16 }} py={0.5}><Typography variant="body2" style={{ fontFamily: 'monospace', minWidth: 120 }}>{h.host}</Typography><Typography variant="body2" style={{ fontFamily: 'monospace', color: STATUS_COLORS.error }}>{h.actualValue}</Typography><Typography variant="caption" color="textSecondary">(expected: {h.expectedValue})</Typography></Box>))}</Box></Box>
-            )}
-          </div>
-        </Collapse>
-      </div>
-    );
-  };
+  const failedListItems = useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+    (['CAT_I', 'CAT_II', 'CAT_III'] as FindingSeverity[]).forEach(sev => {
+      const sevFindings = failedFindings.filter(f => f.severity === sev);
+      if (sevFindings.length === 0) return;
+      const sevEnabledCount = sevFindings.filter(f => selections[f.ruleId]?.enabled).length;
+      items.push({ type: 'header', key: `failed-${sev}`, severity: sev, label: severityLabel[sev], count: sevFindings.length, enabledCount: sevEnabledCount });
+      sevFindings.forEach(f => items.push({ type: 'finding', finding: f }));
+    });
+    return items;
+  }, [failedFindings, selections]);
+
+  const passingListItems = useMemo((): ListItem[] => {
+    return passingFindings.map(f => ({ type: 'finding' as const, finding: f }));
+  }, [passingFindings]);
+
+  const categoryListItems = useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+    (['CAT_I', 'CAT_II', 'CAT_III'] as FindingSeverity[]).forEach(severity => {
+      const group = groupedBySeverity[severity];
+      if (group.length === 0) return;
+      const groupEnabled = group.filter(f => selections[f.ruleId]?.enabled).length;
+      const sorted = [...group].sort((a, b) => {
+        const aFailed = a.failCount > 0 ? 0 : 1;
+        const bFailed = b.failCount > 0 ? 0 : 1;
+        return aFailed - bFailed;
+      });
+      items.push({ type: 'header', key: `cat-${severity}`, severity, label: severityLabel[severity], count: group.length, enabledCount: groupEnabled });
+      sorted.forEach(f => items.push({ type: 'finding', finding: f }));
+    });
+    return items;
+  }, [groupedBySeverity, selections]);
+
+  const virtualListProps = useMemo(() => ({
+    selections,
+    onToggleFinding: toggleFinding,
+    onToggleExpanded: toggleExpanded,
+    onSetScope: setScope,
+    onUpdateParameter: updateParameter,
+    cardClasses: classes,
+    getSeverityClass,
+    severityChipClass: classes.severityChip,
+  }), [selections, classes, toggleFinding, toggleExpanded, setScope, updateParameter, getSeverityClass]);
 
   const renderStatusView = () => {
     const failedGroupEnabled = failedFindings.filter(f => selections[f.ruleId]?.enabled).length;
@@ -420,7 +406,6 @@ export const RemediationProfileBuilder = () => {
 
     return (
       <>
-        {/* Failed rules section - always expanded */}
         {failedFindings.length > 0 && (
           <>
             <div className={classes.sectionHeader} role="button" tabIndex={0} data-testid="failed-rules-header">
@@ -429,23 +414,10 @@ export const RemediationProfileBuilder = () => {
                 <Typography variant="body2" color="textSecondary">{failedGroupEnabled}/{failedFindings.length} selected</Typography>
               </Box>
             </div>
-            {(['CAT_I', 'CAT_II', 'CAT_III'] as FindingSeverity[]).map(sev => {
-              const sevFindings = failedFindings.filter(f => f.severity === sev);
-              if (sevFindings.length === 0) return null;
-              return (
-                <React.Fragment key={sev}>
-                  <Box display="flex" alignItems="center" style={{ gap: 8, marginTop: 8, marginBottom: 4, paddingLeft: 8 }}>
-                    <Chip label={severityLabel[sev]} size="small" className={`${classes.severityChip} ${getSeverityClass(sev)}`} />
-                    <Typography variant="caption" color="textSecondary">{sevFindings.length} rules</Typography>
-                  </Box>
-                  {sevFindings.map(finding => renderFinding(finding))}
-                </React.Fragment>
-              );
-            })}
+            <VirtualizedFindingsList items={failedListItems} {...virtualListProps} />
           </>
         )}
 
-        {/* Passing rules section - collapsed by default */}
         {passingFindings.length > 0 && (
           <>
             <div
@@ -471,7 +443,7 @@ export const RemediationProfileBuilder = () => {
                   These rules are currently compliant. Enable to enforce continuous compliance.
                 </Typography>
               </div>
-              {passingFindings.map(finding => renderFinding(finding))}
+              <VirtualizedFindingsList items={passingListItems} listHeight={400} {...virtualListProps} />
             </Collapse>
           </>
         )}
@@ -480,32 +452,7 @@ export const RemediationProfileBuilder = () => {
   };
 
   const renderCategoryView = () => {
-    return (
-      <>
-        {(['CAT_I', 'CAT_II', 'CAT_III'] as FindingSeverity[]).map(severity => {
-          const group = groupedBySeverity[severity];
-          if (group.length === 0) return null;
-          const groupEnabled = group.filter(f => selections[f.ruleId]?.enabled).length;
-          // Sort: failed first, then passing
-          const sortedGroup = [...group].sort((a, b) => {
-            const aFailed = a.failCount > 0 ? 0 : 1;
-            const bFailed = b.failCount > 0 ? 0 : 1;
-            return aFailed - bFailed;
-          });
-          return (
-            <React.Fragment key={severity}>
-              <div className={classes.sectionHeader}>
-                <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                  <Chip label={severityLabel[severity]} size="small" className={`${classes.severityChip} ${getSeverityClass(severity)}`} />
-                  <Typography variant="body2" color="textSecondary">{groupEnabled}/{group.length} selected</Typography>
-                </Box>
-              </div>
-              {sortedGroup.map(finding => renderFinding(finding))}
-            </React.Fragment>
-          );
-        })}
-      </>
-    );
+    return <VirtualizedFindingsList items={categoryListItems} {...virtualListProps} />;
   };
 
   if (loading) return (<Box p={4}><Progress /><Typography variant="body2" align="center" style={{ marginTop: 16 }}>Loading findings for remediation...</Typography></Box>);
