@@ -626,7 +626,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 |---|---|
 | **XCCDF parsing complexity**: ComplianceAsCode output format varies between scanner versions | Abstract parser behind interface, version-detect in XCCDF header, maintain parser test fixtures from known scanner versions |
 | **AAP Gateway API stability**: Gateway API may change between AAP releases | Isolate all Gateway calls in `AapGatewayClient`, version-detect API paths, maintain integration test suite against Gateway |
-| **Large finding sets**: 300 rules x 20K hosts = 6M findings per scan | Database pagination, indexed queries, frontend virtualization (react-window), async export for large datasets |
+| **Large finding sets**: 300 rules x 20K hosts = 6M findings per scan | Database pagination, indexed queries, frontend virtualization via `react-window` `VariableSizeList` (implemented in `VirtualizedFindingsList.tsx` with `ResizeObserver` height caching and memoized `FindingCard` component), async export for large datasets |
 | **Workflow parameter translation**: Mapping remediation decisions to `--tags`/`--limit`/`--extra-vars` is complex | Extensive unit tests for `RemediationService`, validate generated parameters against known CaC playbook tag names |
 | **EE availability**: Referenced EE may be deleted or unavailable after compliance profile registration | Compliance profile status check on scan launch, clear error messaging, admin notification for unavailable compliance profiles |
 | **Concurrent scan conflicts**: Multiple scans targeting same hosts may interfere | AAP handles job isolation natively; portal displays warnings and tracks scans independently |

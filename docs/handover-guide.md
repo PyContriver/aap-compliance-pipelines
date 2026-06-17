@@ -15,7 +15,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
 | Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
-| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 578+ tests |
+| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 584+ tests |
 
 ### Where we extend beyond downstream
 
@@ -23,6 +23,8 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 |-----------|-----|-------|
 | `shared/colors.ts` | Centralized semantic colors — downstream uses inline hex everywhere, we centralize because we have 20+ components using the same compliance-specific palette | `plugins/compliance/src/components/shared/colors.ts` |
 | `shared/chipStyles.ts` | Shared chip sizing and table header styles | `plugins/compliance/src/components/shared/chipStyles.ts` |
+| `shared/MultiFilterGroup.tsx` | Multi-select chip filter (extends `FilterOption` from `FilterGroup`) — used by trend chart, reusable for any multi-select filter | `plugins/compliance/src/components/shared/MultiFilterGroup.tsx` |
+| `react-window` virtualization | `VariableSizeList` for 100+ rule lists in remediation builder — downstream doesn't use virtualization, we add it because STIG profiles have 200+ rules | `plugins/compliance/src/components/RemediationProfileBuilder/VirtualizedFindingsList.tsx` |
 | `compliance-common` package | Shared TypeScript types between frontend and backend — downstream uses `backstage-rhaap-common` for the same purpose | `plugins/compliance-common/` |
 | Error boundary | Class component in `ComplianceRouter.tsx` wrapping all routes — downstream doesn't use error boundaries | `plugins/compliance/src/components/ComplianceRouter.tsx` |
 | `<Progress />` loading states | Standard Backstage component — downstream uses plain text `"Loading..."` | Consistent throughout |
@@ -92,8 +94,12 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | File | Purpose |
 |------|---------|
 | `components/ComplianceRouter.tsx` | Route definitions, error boundary, tab navigation |
-| `components/shared/colors.ts` | All semantic colors — SEVERITY, STATUS, EXECUTION, FINDING_STATE |
+| `components/shared/colors.ts` | All semantic colors — SEVERITY, STATUS, EXECUTION, FINDING_STATE, SURFACE |
 | `components/shared/chipStyles.ts` | CHIP_SIZES, TABLE_STYLES constants |
+| `components/shared/MultiFilterGroup.tsx` | Reusable multi-select chip filter group |
+| `components/ComplianceDashboard/TrendFilterBar.tsx` | Profile + inventory filter bar for trend chart |
+| `components/RemediationProfileBuilder/FindingCard.tsx` | Memoized finding card (extracted from builder) |
+| `components/RemediationProfileBuilder/VirtualizedFindingsList.tsx` | react-window virtualized rule list |
 | `api/ComplianceBackendClient.ts` | API client (all backend calls) |
 | `api/complianceApiRef.ts` | Backstage API ref registration |
 | `__testutils__/mockComplianceApi.ts` | Centralized mock factory for tests |
@@ -140,7 +146,7 @@ cd backstage-app
 yarn install
 ./bin/start.sh mock   # Demo mode (hardcoded data)
 ./bin/start.sh live   # Connect to AAP lab
-yarn test             # 21 suites, 578+ tests
+yarn test             # 21 suites, 584+ tests
 yarn build            # Build all packages
 ```
 

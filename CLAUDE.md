@@ -87,5 +87,5 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 57 collection unit tests (19 per profile) + backend/frontend test suites
+- 57 collection unit tests (19 per profile) + 584 backend/frontend tests across 21 suites
 - 20 formal ADRs in `specs/compliance-pipelines/decisions/`
