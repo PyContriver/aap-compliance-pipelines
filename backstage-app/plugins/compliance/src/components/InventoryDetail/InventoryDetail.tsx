@@ -184,8 +184,8 @@ export const InventoryDetail: React.FC = () => {
                   icon={hostData.scanType === 'verification' ? <VerifiedUserIcon style={{ fontSize: 14 }} /> : <AssessmentIcon style={{ fontSize: 14 }} />}
                   label={hostData.scanType === 'verification' ? 'Verification' : 'Assessment'}
                   style={hostData.scanType === 'verification'
-                    ? { borderColor: STATUS_COLORS.info, color: STATUS_COLORS.info, fontSize: '0.7rem', height: 22 }
-                    : { fontSize: '0.7rem', height: 22 }}
+                    ? { borderColor: STATUS_COLORS.info, color: STATUS_COLORS.info, fontSize: '0.7rem', height: 22, verticalAlign: 'middle' }
+                    : { fontSize: '0.7rem', height: 22, verticalAlign: 'middle' }}
                 />
               </Tooltip>
             </Typography>
