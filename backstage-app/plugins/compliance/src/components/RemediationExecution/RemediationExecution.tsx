@@ -645,6 +645,14 @@ export const RemediationExecution = ({ viewMode }: { viewMode?: boolean } = {}) 
         }
       }
 
+      if (inventoryIdRef.current === 0 && scanId) {
+        const scans = await api.getScans().catch(() => []);
+        const scan = scans.find(s => s.id === scanId || String(s.workflowJobId) === scanId);
+        if (scan?.inventoryId) {
+          inventoryIdRef.current = scan.inventoryId;
+        }
+      }
+
       if (inventoryIdRef.current === 0) {
         setPhase('failed');
         setErrorMessage(
