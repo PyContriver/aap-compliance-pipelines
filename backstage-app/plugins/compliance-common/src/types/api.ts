@@ -140,6 +140,7 @@ export interface HostPostureResponse {
   hosts: HostPosture[];
   scanId: string;
   scanTimestamp: string;
+  scanType: 'assessment' | 'verification';
   profileId: string;
   inventoryId: number;
 }

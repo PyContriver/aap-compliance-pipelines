@@ -17,6 +17,7 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
@@ -172,8 +173,21 @@ export const InventoryDetail: React.FC = () => {
       subheader={
         hostData ? (
           <div className={classes.subheaderRow}>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="textSecondary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Last scanned {new Date(hostData.scanTimestamp).toLocaleString()}
+              <Tooltip title={hostData.scanType === 'verification'
+                ? 'Verification scan — a post-remediation re-assessment that evaluates all rules to confirm remediation effectiveness'
+                : 'Assessment scan — a full compliance evaluation of all rules in the profile against the target inventory'}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={hostData.scanType === 'verification' ? <VerifiedUserIcon style={{ fontSize: 14 }} /> : <AssessmentIcon style={{ fontSize: 14 }} />}
+                  label={hostData.scanType === 'verification' ? 'Verification' : 'Assessment'}
+                  style={hostData.scanType === 'verification'
+                    ? { borderColor: STATUS_COLORS.info, color: STATUS_COLORS.info, fontSize: '0.7rem', height: 22 }
+                    : { fontSize: '0.7rem', height: 22 }}
+                />
+              </Tooltip>
             </Typography>
             <Button
               variant="outlined"

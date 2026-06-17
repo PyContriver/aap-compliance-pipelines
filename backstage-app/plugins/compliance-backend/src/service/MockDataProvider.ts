@@ -462,6 +462,7 @@ export class MockDataProvider {
       hosts,
       scanId: 'mock-scan-1',
       scanTimestamp: new Date().toISOString(),
+      scanType: 'assessment',
       profileId,
       inventoryId: _inventoryId,
     };

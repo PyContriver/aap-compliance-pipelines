@@ -280,7 +280,7 @@ export class ComplianceDatabase {
       .where('profile_id', profileId)
       .where('inventory_id', inventoryId)
       .where('scanner', 'oscap')
-      .where('scan_type', 'assessment')
+      .whereIn('scan_type', ['assessment', 'verification'])
       .where('status', 'completed')
       .orderBy('completed_at', 'desc')
       .first();

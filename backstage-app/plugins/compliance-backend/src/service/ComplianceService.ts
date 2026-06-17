@@ -983,7 +983,7 @@ export class ComplianceService {
     if (!scan) {
       const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
       if (!fallback) {
-        return { hosts: [], scanId: '', scanTimestamp: '', profileId, inventoryId };
+        return { hosts: [], scanId: '', scanTimestamp: '', scanType: 'assessment', profileId, inventoryId };
       }
       scan = fallback;
     }
@@ -1008,6 +1008,7 @@ export class ComplianceService {
       hosts,
       scanId: scan.id,
       scanTimestamp: scan.completedAt || scan.startedAt,
+      scanType: scan.scanType || 'assessment',
       profileId,
       inventoryId,
     };
