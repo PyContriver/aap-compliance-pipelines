@@ -251,6 +251,15 @@ collection-build:
       - profiles/*/ansible_collections/security/*/security-*.tar.gz
     expire_in: 1 week
 
+# ─── EE Build (triggered via GitHub Actions) ─────────────────────────
+#
+# EE images are built by GitHub Actions (.github/workflows/build-ee.yml)
+# because GitLab CEE runners lack container build tooling (no docker/podman).
+# GitHub builds on push to profiles/** and via workflow_dispatch.
+#
+# To trigger manually: gh workflow run build-ee.yml
+# Images: ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest
+
 # ─── Deploy ───────────────────────────────────────────────────────────
 
 deploy-netrunner:

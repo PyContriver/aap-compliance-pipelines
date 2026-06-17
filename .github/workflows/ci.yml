@@ -1,6 +1,9 @@
 # CI has moved to GitLab CEE (.gitlab-ci.yml)
 #
-# GitHub is a collaboration mirror — all CI/CD runs on GitLab:
+# GitHub handles ONLY EE image builds (build-ee.yml) — these need
+# container tooling (docker) which GitLab CEE runners lack.
+#
+# GitLab handles everything else:
 #   - backstage-test: yarn install/build/test
 #   - backstage-export: janus-cli dynamic plugin export
 #   - deploy-netrunner: SCP to Portal + restart

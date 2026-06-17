@@ -602,10 +602,13 @@ export class ComplianceService {
               allRawFindings.push(...rawFindings);
             }
           }
-          if (allRawFindings.length > 0) {
+          const hasFullMetadata = allRawFindings.some(f => 'fix_text' in f || 'description' in f);
+          if (allRawFindings.length > 0 && hasFullMetadata) {
             const metadataRecords = buildRuleMetadataRecords(allRawFindings);
             const metaCount = await this.database.upsertRuleMetadata(metadataRecords);
             this.logger.info(`Upserted ${metaCount} rule metadata records from event parsing`);
+          } else if (allRawFindings.length > 0) {
+            this.logger.info('Skipped metadata upsert — event findings are slim format (no fix_text/description)');
           }
         } catch (metaErr) {
           this.logger.warn(`Rule metadata upsert from events failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
