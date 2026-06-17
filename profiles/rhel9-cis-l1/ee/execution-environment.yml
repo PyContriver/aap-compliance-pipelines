@@ -21,8 +21,8 @@ dependencies:
     collections:
       - name: ansible.posix
       - name: community.general
-  python: []
-  system: []
+  python: _build/requirements.txt
+  system: _build/bindep.txt
 
 additional_build_steps:
   prepend_galaxy:
