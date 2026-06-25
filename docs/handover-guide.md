@@ -167,15 +167,15 @@ Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `
 
 **CI/CD split (GitHub + GitLab)**:
 - **GitLab CEE** (`.gitlab-ci.yml`): Backstage tests, plugin export, deploy to Netrunner. Collection sanity/unit/lint tests and tarball builds.
-- **GitHub Actions** (`build-ee.yml`): Per-collection EE image builds (STIG, CIS L1, CIS L2). Matrix with `fail-fast: false`. Pushes to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest`. Triggers on changes to `profiles/**` or manual `workflow_dispatch`. GitHub retained for EE builds because they require container tooling (docker) which GitLab CEE runners lack.
+- **GitHub Actions** (`build-ee.yml`): Per-collection EE image builds (STIG, CIS L1, CIS L2, Supply Chain). Matrix with `fail-fast: false`. Pushes to GHCR, then mirrored to PAH via `skopeo copy` (ADR-031). Triggers on changes to `profiles/**` or manual `workflow_dispatch`.
 - **GitHub Actions** (`ci.yml`): Disabled — placeholder only.
-- **EE registry auth**: GHCR packages may be private. Controller needs a Container Registry credential (`GHCR-cross-logic`, host `ghcr.io`) attached to each compliance EE. The workflow attempts to make packages public after push but falls back to credential-based pull.
+- **EE registry**: Images hosted in Private Automation Hub (PAH) at `aap-netrunner.demoredhat.com/compliance-*:latest`. Controller trusts PAH natively — no external registry credential needed (ADR-031).
 
 **Critical**: Portal's cleanup sweep deletes same-version plugin directories. Every deploy MUST use a bumped version number. CI handles this automatically.
 
 ## 6. Scanner Profiles
 
-Three OpenSCAP profiles ship under `profiles/`:
+Four compliance profiles ship under `profiles/` (3 OpenSCAP + 1 Supply Chain):
 
 | Profile | Framework | XCCDF Profile |
 |---------|-----------|---------------|

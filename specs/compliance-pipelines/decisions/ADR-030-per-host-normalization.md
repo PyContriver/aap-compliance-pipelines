@@ -68,7 +68,7 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
     body:
       scanId: "{{ scan_id }}"
       ingestToken: "{{ ingest_token }}"
-      findings: "{{ lookup('file', item.path) | from_json | json_query('findings') }}"
+      findings: "{{ (lookup('file', item.path) | from_json).findings }}"
   loop: "{{ _findings_files.files }}"
 ```
 

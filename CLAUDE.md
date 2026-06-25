@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 21 suites (584 tests)
+yarn test             # Run tests across 22 suites (597 tests)
 yarn build            # Build all packages
 ```
 

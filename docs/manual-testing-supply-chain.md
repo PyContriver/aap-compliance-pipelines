@@ -16,8 +16,7 @@ Two modes: **Netrunner Live** (primary, production-like) and **Local Mock** (off
 | AAP Token | `<AAP_TOKEN>` |
 | Organization | `compliance-prototype` (ID 2) |
 | Inventory | `compliance-rhel9-inventory` (ID 4) |
-| Supply Chain EE | `ghcr.io/cross-logic/compliance-supply-chain:latest` |
-| GHCR Credential | `GHCR-cross-logic` (ID 8) |
+| Supply Chain EE | `aap-netrunner.demoredhat.com/compliance-supply-chain:latest` (PAH) |
 
 ### Pre-flight: Verify CI deployment completed
 
@@ -41,9 +40,8 @@ curl -sk -X POST "https://aap-netrunner.demoredhat.com/api/controller/v2/executi
   -H "Content-Type: application/json" \
   -d '{
     "name": "Compliance Supply Chain",
-    "image": "ghcr.io/cross-logic/compliance-supply-chain:latest",
-    "organization": 2,
-    "credential": 8
+    "image": "aap-netrunner.demoredhat.com/compliance-supply-chain:latest",
+    "organization": 2
   }'
 ```
 
