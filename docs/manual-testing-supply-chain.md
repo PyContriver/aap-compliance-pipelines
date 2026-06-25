@@ -1,12 +1,71 @@
 # Manual Testing Suite — Supply Chain & Portable Profiles
 
-Branch: `claude/sbom-supply-chain`
+This document is a step-by-step verification checklist for all features added in the supply chain / portable profiles work. Walk through each section in order. Mark items as you go.
 
-This document is a step-by-step verification checklist for all features added in this branch. Walk through each section in order. Mark items as you go.
+Two modes: **Netrunner Live** (primary, production-like) and **Local Mock** (offline dev).
 
 ---
 
-## Prerequisites
+## Netrunner Live Prerequisites
+
+| Resource | Value |
+|----------|-------|
+| Portal | `https://dev-portal-netrunner.demoredhat.com/compliance` |
+| Controller API | `https://aap-netrunner.demoredhat.com/api/controller/v2/` |
+| Backend API | `https://dev-portal-netrunner.demoredhat.com/api/compliance/` |
+| AAP Token | `OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo` |
+| Organization | `compliance-prototype` (ID 2) |
+| Inventory | `compliance-rhel9-inventory` (ID 4) |
+| Supply Chain EE | `ghcr.io/cross-logic/compliance-supply-chain:latest` |
+| GHCR Credential | `GHCR-cross-logic` (ID 8) |
+
+### Pre-flight: Verify CI deployment completed
+
+```bash
+# Check Portal is running with new plugins
+curl -sk https://dev-portal-netrunner.demoredhat.com/api/compliance/health | jq .
+
+# Check Controller has the compliance project synced
+curl -sk "https://aap-netrunner.demoredhat.com/api/controller/v2/projects/32/" \
+  -H "Authorization: Bearer OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo" | jq '{name, status, scm_revision}'
+```
+
+- [ ] Health endpoint returns OK
+- [ ] Project shows latest `scm_revision` matching commit `2707b30`
+
+### Pre-flight: Register supply chain EE on Controller
+
+```bash
+curl -sk -X POST "https://aap-netrunner.demoredhat.com/api/controller/v2/execution_environments/" \
+  -H "Authorization: Bearer OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Compliance Supply Chain",
+    "image": "ghcr.io/cross-logic/compliance-supply-chain:latest",
+    "organization": 2,
+    "credential": 8
+  }'
+```
+
+- [ ] EE created (201) or already exists (400 with name conflict)
+
+### Pre-flight: Run install.yml for supply chain JTs
+
+```bash
+cd profiles/supply-chain
+ansible-playbook install.yml \
+  -e aap_host=https://aap-netrunner.demoredhat.com \
+  -e aap_token=OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo \
+  -e organization=compliance-prototype \
+  -e inventory=compliance-rhel9-inventory
+```
+
+- [ ] Assessment JT `compliance-scan-supply-chain` created
+- [ ] Remediation JT `compliance-remediate-supply-chain` created
+
+---
+
+## Local Mock Prerequisites (Alternative)
 
 ```bash
 cd backstage-app
@@ -230,7 +289,71 @@ curl -s -X DELETE "http://localhost:7007/api/compliance/compliance-profiles/$PRO
 
 ---
 
-## H. EE Build Verification (Layer 2)
+## H. Netrunner Live Scan (Layer 3)
+
+Requires Portal deployed and Controller provisioned (pre-flight steps above).
+
+### H.1 Add supply chain profile in Portal UI
+
+1. Open `https://dev-portal-netrunner.demoredhat.com/compliance`
+2. Navigate to **Settings** tab
+3. Click **Add Profile**
+4. Select the `compliance-scan-supply-chain` assessment JT
+5. Verify auto-populate fills in:
+   - [ ] Display Name: "Supply Chain Vulnerability Scan"
+   - [ ] Framework: "SUPPLY_CHAIN"
+   - [ ] Version: "1.0.0"
+   - [ ] Certification: "uncertified"
+6. Save the profile
+
+### H.2 Verify dynamic tab appears
+
+- [ ] "Supply Chain" tab appears in the header tab bar (between Inventories and Settings)
+- [ ] Click the tab — loads without errors
+
+### H.3 Launch a supply chain scan
+
+1. Navigate to **New Scan** tab
+2. Select the Supply Chain profile
+3. Select `compliance-rhel9-inventory`
+4. Click **Launch Scan**
+5. Wait for the scan to complete (may take 5-15 minutes — Syft scans the full filesystem)
+
+- [ ] Scan status shows "Running" then "Completed"
+- [ ] No errors in scan status
+
+### H.4 Verify scan results
+
+1. Navigate to **Results** tab
+2. Click the completed supply chain scan
+
+- [ ] Column headers show "CVE", "Package", "CVSS Severity" (not "Rule ID", "STIG ID")
+- [ ] Severity chips show "Critical / High", "Medium", "Low"
+- [ ] Findings are real CVEs from the scanned hosts
+- [ ] Fix text shows `dnf update <package>` instructions
+
+### H.5 Verify dynamic tab with live data
+
+1. Click the **Supply Chain** tab
+
+- [ ] Summary card shows vulnerability-free rate with real data
+- [ ] Severity breakdown shows actual CVE counts
+- [ ] Findings table shows real CVEs
+- [ ] Host breakdown shows hosts sorted by vulnerability count
+
+### H.6 Regression: existing scans still work
+
+1. Navigate to **New Scan** and select the STIG profile
+2. Launch a STIG scan against the compliance inventory
+
+- [ ] STIG scan completes successfully
+- [ ] Results show standard STIG columns ("Rule ID", "STIG ID", "Severity")
+- [ ] No dynamic tab appears for STIG profile
+- [ ] Dashboard overview still renders all profiles correctly
+
+---
+
+## I. EE Build Verification (Layer 2)
 
 Requires Docker or Podman.
 
@@ -263,7 +386,7 @@ ansible-builder build -f execution-environment.yml -t compliance-supply-chain:la
 
 ---
 
-## I. Collection Structure Validation
+## J. Collection Structure Validation
 
 ```bash
 cd /path/to/aap-compliance-pipelines
@@ -275,7 +398,7 @@ python3 -m pytest profiles/_shared/test_profile_structure.py -v
 
 ---
 
-## J. Normalizer Unit Tests
+## K. Normalizer Unit Tests
 
 ```bash
 cd profiles/supply-chain/ansible_collections/security/compliance_supply_chain
@@ -288,7 +411,7 @@ python3 -m pytest tests/ -v
 
 ---
 
-## K. Full Automated Test Suite
+## L. Full Automated Test Suite
 
 ```bash
 cd backstage-app
@@ -319,8 +442,9 @@ python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-cha
 | E | 3 | Lifecycle API: connect/disconnect/validation |
 | F | 7 | Bundle API: upload/serve/size-limit/delete |
 | G | 6 | Existing features: scan, history, remediation, inventories, results, browser |
-| H | 5 | EE builds, tools at pinned versions, scanning works |
-| I | 1 | Cross-profile structure validation (60 sub-tests) |
-| J | 1 | Normalizer correctness (23 sub-tests) |
-| K | 2 | Full automated suite (680 sub-tests) |
-| **Total** | **57** | |
+| H | 14 | Netrunner live: add profile, scan, verify results, regression |
+| I | 5 | EE builds, tools at pinned versions, scanning works |
+| J | 1 | Cross-profile structure validation (60 sub-tests) |
+| K | 1 | Normalizer correctness (23 sub-tests) |
+| L | 2 | Full automated suite (680 sub-tests) |
+| **Total** | **71** | |
