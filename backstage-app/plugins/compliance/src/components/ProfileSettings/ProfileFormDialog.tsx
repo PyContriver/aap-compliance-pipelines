@@ -162,6 +162,8 @@ export const ProfileFormDialog = ({
       ? workflowTemplates.find(t => t.name === remediateJtName)
       : undefined;
 
+    const displayConfig = vars.display_config as Record<string, unknown> | undefined;
+
     setForm(prev => ({
       ...prev,
       displayName: (vars.profile_name as string) || prev.displayName,
@@ -177,6 +179,7 @@ export const ProfileFormDialog = ({
         os_family: (vars.os_family as string[]) || prev.platformSpec?.os_family,
         os_version: (vars.os_version as string[]) || prev.platformSpec?.os_version,
       },
+      ...(displayConfig ? { displayConfig: displayConfig as any } : {}),
     }));
     if (vars.certification_status && ['certified', 'conformant', 'uncertified'].includes(vars.certification_status as string)) {
       setCertStatus(vars.certification_status as string);

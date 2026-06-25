@@ -35,12 +35,39 @@
       name: "Supply Chain Vulnerability Scan"
       framework: "SUPPLY_CHAIN"
       version: "1.0.0"
+      description: "Syft/Grype SBOM vulnerability scanning for OS packages and language dependencies across Linux hosts."
       certification_status: "uncertified"
       certification_authority: "N/A"
+      certification_disclaimer: "Syft and Grype are open-source tools from Anchore. Vulnerability data is sourced from NVD and distribution-specific advisory feeds."
+      platform: "Linux (multi-distro)"
+      scanner: "syft-grype"
+      os_family: ["RedHat", "Debian", "Suse", "Alpine"]
       scan_jt_name: "compliance-scan-supply-chain"
       scan_playbook: "profiles/supply-chain/ansible_collections/security/compliance_supply_chain/playbooks/run_scan.yml"
       remediate_jt_name: "compliance-remediate-supply-chain"
       remediate_playbook: "profiles/supply-chain/ansible_collections/security/compliance_supply_chain/playbooks/remediate.yml"
+      display_config:
+        gauge_label: "vulnerability-free rate"
+        gauge_unit: "packages"
+        remediation_verb: "Patch"
+        severity_map:
+          CAT_I: "Critical / High"
+          CAT_II: "Medium"
+          CAT_III: "Low"
+        columns:
+          - { field: "rule_id", label: "CVE" }
+          - { field: "title", label: "Package" }
+          - { field: "severity", label: "CVSS Severity" }
+          - { field: "status", label: "Status" }
+          - { field: "fix_text", label: "Remediation" }
+        tab:
+          label: "Supply Chain"
+          icon: "security"
+          layout:
+            - { widget: "summary_card", title: "SBOM Coverage", metric: "vulnerability_free_rate", unit: "packages" }
+            - { widget: "severity_breakdown", group_by: "severity", labels: { CAT_I: "Critical / High", CAT_II: "Medium", CAT_III: "Low" } }
+            - { widget: "findings_table", columns: [{ field: "rule_id", label: "CVE" }, { field: "title", label: "Package" }, { field: "severity", label: "Severity" }, { field: "fix_text", label: "Fix" }] }
+            - { widget: "host_breakdown", title: "Hosts by Vulnerability Count" }
 
   tasks:
     - name: Validate required variables
@@ -68,7 +95,7 @@
           ask_variables_on_launch: true
           ask_inventory_on_launch: true
           use_fact_cache: true
-          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'description': 'Syft/Grype SBOM vulnerability scanning for OS packages and language dependencies across Linux hosts.', 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'certification_disclaimer': 'Syft and Grype are open-source tools from Anchore. Vulnerability data is sourced from NVD and distribution-specific advisory feeds.', 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': 'Linux (multi-distro)', 'scanner': 'syft-grype', 'os_family': ['RedHat', 'Debian', 'Suse', 'Alpine']} | to_json }}"
+          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'description': profile.description, 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'certification_disclaimer': profile.certification_disclaimer, 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': profile.platform, 'scanner': profile.scanner, 'os_family': profile.os_family, 'display_config': profile.display_config} | to_json }}"
         validate_certs: false
         status_code: [200, 201]
       register: _scan_jt
