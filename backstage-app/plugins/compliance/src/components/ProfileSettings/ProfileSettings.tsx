@@ -36,6 +36,7 @@ import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { STATUS_COLORS } from '../shared/colors';
 import { ProfileFormDialog } from './ProfileFormDialog';
+import { useDynamicTabRefresh } from '../ComplianceRouter';
 
 import type {
   ComplianceProfile,
@@ -218,10 +219,15 @@ export const ProfileSettings = () => {
     setEditProfile(null);
   };
 
+  const refreshTabs = useDynamicTabRefresh();
+
   const handleSave = async (request: SaveProfileRequest) => {
     await api.saveRegisteredProfile(request);
     handleCloseDialog();
     await loadProfiles();
+    if (request.displayConfig?.tab) {
+      refreshTabs?.();
+    }
   };
 
   const handleDeleteClick = (profile: ComplianceProfile) => {
@@ -234,10 +240,12 @@ export const ProfileSettings = () => {
     if (!deleteTarget) return;
     setDeleteError(null);
     try {
+      const hadTab = deleteTarget.displayConfig?.tab;
       await api.deleteRegisteredProfile(deleteTarget.id);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
       await loadProfiles();
+      if (hadTab) refreshTabs?.();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete profile');
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   Page,
@@ -8,6 +8,9 @@ import {
   ErrorPanel,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+
+const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
+export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
 import { Typography, Box, Button } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
@@ -100,6 +103,11 @@ const ComplianceRouter = () => {
   const api = useApi(complianceApiRef);
 
   const [dynamicTabs, setDynamicTabs] = useState<DynamicTabEntry[]>([]);
+  const [tabRefreshKey, setTabRefreshKey] = useState(0);
+
+  const refreshDynamicTabs = useCallback(() => {
+    setTabRefreshKey(k => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +123,7 @@ const ComplianceRouter = () => {
       setDynamicTabs(tabs);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [api]);
+  }, [api, tabRefreshKey]);
 
   const allTabs = useMemo(() => {
     const settingsIdx = CORE_TABS.findIndex(t => t.id === 'settings');
@@ -155,7 +163,7 @@ const ComplianceRouter = () => {
   };
 
   return (
-    <>
+    <DynamicTabRefreshContext.Provider value={refreshDynamicTabs}>
       <Page themeId="app">
         <Header
           title="Compliance"
@@ -203,7 +211,7 @@ const ComplianceRouter = () => {
         </Content>
       </Page>
       <ActiveJobsBanner />
-    </>
+    </DynamicTabRefreshContext.Provider>
   );
 };
 
