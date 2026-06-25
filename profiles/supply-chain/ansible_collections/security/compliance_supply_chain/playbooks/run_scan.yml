@@ -110,7 +110,6 @@
   vars:
     fetch_dest_dir: /tmp/supply-chain-results
     grype_results_dir: /tmp/supply-chain-grype
-    output_file: /tmp/supply-chain-report.json
 
   tasks:
     - name: Find all fetched SBOM files
@@ -148,25 +147,60 @@
       failed_when: false
       timeout: 300
 
-    - name: Normalize Grype results to CFF
+    - name: Find all Grype result files
+      ansible.builtin.find:
+        paths: "{{ grype_results_dir }}"
+        patterns: "grype-*.json"
+      register: _grype_result_files
+
+    - name: Fail if no Grype results found
+      ansible.builtin.fail:
+        msg: >-
+          No Grype result files found in {{ grype_results_dir }}.
+          Ensure the Grype scan completed successfully.
+      when: _grype_result_files.files | length == 0
+
+    # Normalize each host's Grype results individually. Each loop
+    # iteration produces a runner_on_ok event with that host's findings.
+    # This avoids loading all hosts' results into memory at once (which
+    # caused OOM on the execution node with 15+ hosts) and stays under
+    # Controller's event size limit for large finding counts.
+    - name: Normalize Grype results to CFF (per-host)
       security.compliance_supply_chain.normalize_cyclonedx:
-        grype_files: "{{ _grype_file_list }}"
-        output_file: "{{ output_file }}"
+        grype_files:
+          - "{{ item.path }}"
+        output_file: "{{ grype_results_dir }}/findings-{{ _hostname }}.json"
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"
       vars:
-        _grype_file_list: "{{ _sbom_files.files | map(attribute='path') | map('basename') | map('regex_replace', 'sbom-(.+)\\.json', grype_results_dir + '/grype-\\1.json') | list }}"
+        _hostname: "{{ item.path | basename | regex_replace('grype-(.+)\\.json', '\\1') }}"
+      loop: "{{ _grype_result_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
       register: _normalized
 
-    - name: Read normalized findings
-      ansible.builtin.slurp:
-        src: "{{ output_file }}"
-      register: _report_raw
+    # ── Direct POST findings to Backstage plugin API ─────────────────
+    # Collect per-host findings files and POST as a single batch.
+
+    - name: Find per-host findings JSON files
+      ansible.builtin.find:
+        paths: "{{ grype_results_dir }}"
+        patterns: "findings-*.json"
+      register: _findings_files
       when: backstage_api_url | default('') | length > 0
 
-    - name: Parse findings
+    - name: Read per-host findings files
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ _findings_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: _findings_raw
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Build combined findings array
       ansible.builtin.set_fact:
-        _all_findings: "{{ (_report_raw.content | b64decode | from_json).findings }}"
+        _all_findings: "{{ _findings_raw.results | default([]) | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('from_json') | map(attribute='findings', default=[]) | flatten }}"
       when: backstage_api_url | default('') | length > 0
 
     - name: POST findings to Backstage compliance API
@@ -182,6 +216,7 @@
           Content-Type: application/json
         status_code: [201]
         validate_certs: false
+        # Higher than STIG's 60s — supply chain can have 500+ CVEs per host
         timeout: 120
       when:
         - backstage_api_url | default('') | length > 0
@@ -202,8 +237,6 @@
       ansible.builtin.debug:
         msg: >-
           Supply chain scan complete.
-          Hosts: {{ _normalized.hosts_processed }},
-          Packages: {{ _normalized.total_packages }},
-          CVEs: {{ _normalized.total_vulnerabilities }},
-          Findings: {{ _normalized.total_findings }}
-          ({{ _normalized.summary.pass }} pass, {{ _normalized.summary.fail }} fail).
+          Hosts: {{ _normalized.results | selectattr('hosts_processed', 'defined') | map(attribute='hosts_processed') | sum }},
+          Findings: {{ _normalized.results | selectattr('total_findings', 'defined') | map(attribute='total_findings') | sum }}
+          across {{ _grype_result_files.files | length }} hosts.

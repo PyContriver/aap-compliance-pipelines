@@ -16,7 +16,6 @@
 
   vars:
     grype_results_dir: /tmp/supply-chain-results
-    output_file: /tmp/supply-chain-report.json
 
   tasks:
     - name: Find Grype result files
@@ -30,19 +29,23 @@
         msg: "No Grype result files found in {{ grype_results_dir }}"
       when: _result_files.files | length == 0
 
-    - name: Normalize Grype results to CFF
+    - name: Normalize Grype results to CFF (per-host)
       security.compliance_supply_chain.normalize_cyclonedx:
-        grype_files: "{{ _result_files.files | map(attribute='path') | list }}"
-        output_file: "{{ output_file }}"
+        grype_files:
+          - "{{ item.path }}"
+        output_file: "{{ grype_results_dir }}/findings-{{ _hostname }}.json"
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"
+      vars:
+        _hostname: "{{ item.path | basename | regex_replace('grype-(.+)\\.json', '\\1') }}"
+      loop: "{{ _result_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
       register: _normalized
 
     - name: Display summary
       ansible.builtin.debug:
         msg: >-
-          Normalized {{ _normalized.hosts_processed }} hosts.
-          Packages: {{ _normalized.total_packages }},
-          CVEs: {{ _normalized.total_vulnerabilities }},
-          Findings: {{ _normalized.total_findings }}.
-          Output: {{ output_file }}
+          Normalized {{ _result_files.files | length }} hosts.
+          Findings: {{ _normalized.results | selectattr('total_findings', 'defined') | map(attribute='total_findings') | sum }}.
+          Per-host files: {{ grype_results_dir }}/findings-*.json
