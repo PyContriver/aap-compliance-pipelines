@@ -54,34 +54,22 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
     output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
   loop: "{{ _result_files.files }}"
 
-# 3. Collect per-host findings for POST
+# 3. Find per-host findings files
 - name: Find per-host findings files
   ansible.builtin.find:
     paths: "{{ results_dir }}"
     patterns: "findings-*.json"
   register: _findings_files
 
-- name: Read per-host findings files
-  ansible.builtin.slurp:
-    src: "{{ item.path }}"
-  loop: "{{ _findings_files.files }}"
-  register: _findings_raw
-
-- name: Build combined findings array
-  ansible.builtin.set_fact:
-    _all_findings: >-
-      {{ _findings_raw.results | selectattr('content', 'defined')
-         | map(attribute='content') | map('b64decode') | map('from_json')
-         | map(attribute='findings', default=[]) | flatten }}
-
-# 4. POST combined findings
-- name: POST findings to Backstage compliance API
+# 4. POST findings per-host (NOT combined)
+- name: POST findings per-host to Backstage compliance API
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
     body:
       scanId: "{{ scan_id }}"
       ingestToken: "{{ ingest_token }}"
-      findings: "{{ _all_findings }}"
+      findings: "{{ lookup('file', item.path) | from_json | json_query('findings') }}"
+  loop: "{{ _findings_files.files }}"
 ```
 
 ### Benefits

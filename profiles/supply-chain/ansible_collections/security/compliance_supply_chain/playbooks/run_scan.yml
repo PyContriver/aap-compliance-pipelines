@@ -222,7 +222,8 @@
       when: backstage_api_url | default('') | length > 0
 
     # ── Direct POST findings to Backstage plugin API ─────────────────
-    # Collect per-host findings files and POST as a single batch.
+    # POST per-host to avoid loading all findings into one Ansible
+    # variable. Each POST sends one host's findings — safe at any scale.
 
     - name: Find per-host findings JSON files
       ansible.builtin.find:
@@ -231,21 +232,7 @@
       register: _findings_files
       when: backstage_api_url | default('') | length > 0
 
-    - name: Read per-host findings files
-      ansible.builtin.slurp:
-        src: "{{ item.path }}"
-      loop: "{{ _findings_files.files | default([]) }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-      register: _findings_raw
-      when: backstage_api_url | default('') | length > 0
-
-    - name: Build combined findings array
-      ansible.builtin.set_fact:
-        _all_findings: "{{ _findings_raw.results | default([]) | selectattr('content', 'defined') | map(attribute='content') | map('b64decode') | map('from_json') | map(attribute='findings', default=[]) | flatten }}"
-      when: backstage_api_url | default('') | length > 0
-
-    - name: POST findings to Backstage compliance API
+    - name: POST findings per-host to Backstage compliance API
       ansible.builtin.uri:
         url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
         method: POST
@@ -253,26 +240,25 @@
         body:
           scanId: "{{ scan_id }}"
           ingestToken: "{{ ingest_token | default('') }}"
-          findings: "{{ _all_findings }}"
+          findings: "{{ lookup('file', item.path) | from_json | json_query('findings') }}"
         headers:
           Content-Type: application/json
         status_code: [201]
         validate_certs: false
-        # Higher than STIG's 60s — supply chain can have 500+ CVEs per host
         timeout: 120
+      loop: "{{ _findings_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
       when:
         - backstage_api_url | default('') | length > 0
         - scan_id | default('') | length > 0
-        - _all_findings | default([]) | length > 0
-      register: _post_result
+      register: _post_results
       failed_when: false
 
-    - name: Report POST result
+    - name: Report POST results
       ansible.builtin.debug:
         msg: >-
-          {{ 'POSTed ' + (_post_result.json.findingsCount | default('?') | string) + ' findings to ' + backstage_api_url
-             if (_post_result.status | default(0)) == 201
-             else 'Direct POST skipped or failed (status=' + (_post_result.status | default('N/A') | string) + ').' }}
+          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _findings_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
       when: backstage_api_url | default('') | length > 0
 
     - name: Display summary
