@@ -304,7 +304,9 @@ export const ProfileFormDialog = ({
               }}
               value={form.framework}
               onChange={(_, val) => updateForm('framework', val || '')}
-              onInputChange={(_, val) => updateForm('framework', val)}
+              onInputChange={(_, val, reason) => {
+                if (reason === 'input') updateForm('framework', val);
+              }}
               renderInput={params => (
                 <TextField {...params} label="Compliance Standard" variant="outlined" placeholder="e.g., DISA STIG, CIS, SOC2" className={classes.formField} />
               )}
