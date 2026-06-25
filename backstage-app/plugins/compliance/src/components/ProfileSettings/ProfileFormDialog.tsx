@@ -195,9 +195,7 @@ export const ProfileFormDialog = ({
     setSaving(true);
     setSaveError(null);
     try {
-      const certification = certStatus !== 'uncertified'
-        ? { status: certStatus as CertificationStatus, authority: certAuthority, validationId: '', disclaimer: '' }
-        : null;
+      const certification = { status: certStatus as CertificationStatus, authority: certAuthority, validationId: '', disclaimer: '' };
       const payload = editProfile
         ? { ...form, id: editProfile.id, certification }
         : { ...form, certification };

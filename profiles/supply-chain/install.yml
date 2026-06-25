@@ -68,7 +68,7 @@
           ask_variables_on_launch: true
           ask_inventory_on_launch: true
           use_fact_cache: true
-          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': 'Linux (multi-distro)', 'scanner': 'syft-grype'} | to_json }}"
+          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'description': 'Syft/Grype SBOM vulnerability scanning for OS packages and language dependencies across Linux hosts.', 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'certification_disclaimer': 'Syft and Grype are open-source tools from Anchore. Vulnerability data is sourced from NVD and distribution-specific advisory feeds.', 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': 'Linux (multi-distro)', 'scanner': 'syft-grype', 'os_family': ['RedHat', 'Debian', 'Suse', 'Alpine']} | to_json }}"
         validate_certs: false
         status_code: [200, 201]
       register: _scan_jt
