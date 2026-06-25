@@ -179,7 +179,7 @@ export const ProfileFormDialog = ({
         os_family: (vars.os_family as string[]) || prev.platformSpec?.os_family,
         os_version: (vars.os_version as string[]) || prev.platformSpec?.os_version,
       },
-      ...(displayConfig ? { displayConfig: displayConfig as any } : {}),
+      ...(displayConfig && typeof displayConfig === 'object' ? { displayConfig: displayConfig as import('@aap-compliance/common').ProfileDisplayConfig } : {}),
     }));
     if (vars.certification_status && ['certified', 'conformant', 'uncertified'].includes(vars.certification_status as string)) {
       setCertStatus(vars.certification_status as string);

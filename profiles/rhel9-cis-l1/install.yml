@@ -60,6 +60,7 @@
           project: "{{ project_name }}"
           playbook: "{{ profile.scan_playbook }}"
           inventory: "{{ inventory_name }}"
+          become_enabled: true
           ask_variables_on_launch: true
           ask_inventory_on_launch: true
           use_fact_cache: true
