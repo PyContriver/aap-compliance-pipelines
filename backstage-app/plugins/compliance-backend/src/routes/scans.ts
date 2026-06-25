@@ -39,6 +39,10 @@ export function registerScanRoutes(
             logger.debug(`WJT status failed for scan ${scan.id}, falling back to JT: ${err instanceof Error ? err.message : String(err)}`);
             status = await service.getJobStatus(scan.workflowJobId!, userToken);
           }
+          if (status.status === 'running' && scan.status === 'pending') {
+            await database.updateScanStatus(scan.id, 'running', null);
+            scan.status = 'running';
+          }
           const terminal = ['successful', 'failed', 'error', 'canceled'];
           if (terminal.includes(status.status) && scan.status !== 'completed') {
             const newStatus = status.status === 'successful' ? 'completed' : 'failed';
