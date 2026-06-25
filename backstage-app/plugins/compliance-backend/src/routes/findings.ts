@@ -192,7 +192,7 @@ export function registerFindingsRoutes(
 
       await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
-      const uniqueRules = new Set(mapped.map(f => f.rule_id)).size;
+      const uniqueRules = new Set(mapped.map(f => f.ruleId)).size;
       if (uniqueRules > 0) {
         await database.updateProfileRuleCount(scan.profileId, uniqueRules);
       }
