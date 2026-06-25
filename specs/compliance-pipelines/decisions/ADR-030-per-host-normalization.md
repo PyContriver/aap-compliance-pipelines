@@ -80,7 +80,7 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
 
 3. **Progress visibility.** Controller shows per-host task events in the job log, making it clear which host is being processed and where failures occur.
 
-4. **Consistent pattern.** All profiles (XCCDF and CycloneDX) use the same find→loop→normalize→find→slurp→combine→POST flow. New scanner profiles follow this template.
+4. **Consistent pattern.** All profiles (XCCDF and CycloneDX) use the same find→loop→normalize→find→loop→POST-per-host flow. New scanner profiles follow this template.
 
 ### Normalizer module compatibility
 
@@ -90,7 +90,7 @@ Normalizer modules (`normalize_xccdf`, `normalize_cyclonedx`) accept a list inpu
 
 - New scanner profiles MUST follow the per-host loop pattern. The developer guide checklist (Section 11) is updated to include this requirement.
 - Standalone `normalize.yml` playbooks are also updated to loop per-host for consistency.
-- The POST step still sends all findings in a single request. For very large inventories (100+ hosts), this may need pagination — deferred until proven necessary.
+- The POST step sends findings per-host (one POST per host's findings file). The last POST includes `finalize: true` to trigger scan completion, posture snapshot, and finding state computation. Intermediate POSTs only save findings.
 
 ## Related
 

@@ -9,7 +9,7 @@ import { resolveScanId, savePostureFromFindings, fetchLiveFindings } from './hel
 
 const ingestLimiter = rateLimit({
   windowMs: 60_000,
-  limit: 30,
+  limit: 500,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many ingest requests, please try again later' },
@@ -136,6 +136,7 @@ export function registerFindingsRoutes(
     const scanId = body.scanId as string | undefined;
     const ingestToken = body.ingestToken as string | undefined;
     const findings = body.findings as Array<Record<string, unknown>> | undefined;
+    const finalize = body.finalize === true;
 
     if (!scanId || !findings || !Array.isArray(findings)) {
       res.status(400).json({ error: 'scanId (string) and findings (array) are required' });
@@ -190,26 +191,31 @@ export function registerFindingsRoutes(
         logger.warn(`Rule metadata upsert failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
       }
 
-      await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
+      // Finalization: only run on the last per-host POST (finalize: true)
+      // or when finalize is not specified (backward compat with single-POST)
+      if (finalize || body.finalize === undefined) {
+        await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
-      const uniqueRules = new Set(mapped.map(f => f.ruleId)).size;
-      if (uniqueRules > 0) {
-        await database.updateProfileRuleCount(scan.profileId, uniqueRules);
+        const allFindings = await database.getFindingsByScanId(scanId);
+        const uniqueRules = new Set(allFindings.map(f => f.ruleId)).size;
+        if (uniqueRules > 0) {
+          await database.updateProfileRuleCount(scan.profileId, uniqueRules);
+        }
+
+        try {
+          await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id);
+        } catch (err) {
+          logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+
+        try {
+          await database.computeFindingStates(scanId, scan.profileId, scan.inventoryId);
+        } catch (err) {
+          logger.warn(`Finding state computation failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
 
-      try {
-        await savePostureFromFindings(database, logger, mapped, scan.profileId, scan.inventoryId, scan.id);
-      } catch (err) {
-        logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-
-      try {
-        await database.computeFindingStates(scanId, scan.profileId, scan.inventoryId);
-      } catch (err) {
-        logger.warn(`Finding state computation failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-
-      logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST`);
+      logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST (finalize=${finalize})`);
       res.status(201).json({ scanId, findingsCount: count });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

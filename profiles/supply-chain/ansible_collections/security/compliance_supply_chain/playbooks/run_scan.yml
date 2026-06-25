@@ -241,6 +241,7 @@
           scanId: "{{ scan_id }}"
           ingestToken: "{{ ingest_token | default('') }}"
           findings: "{{ (lookup('file', item.path) | from_json).findings }}"
+          finalize: "{{ ansible_loop.last | default(true) }}"
         headers:
           Content-Type: application/json
         status_code: [201]
@@ -249,6 +250,7 @@
       loop: "{{ _findings_files.files | default([]) }}"
       loop_control:
         label: "{{ item.path | basename }}"
+        extended: true
       when:
         - backstage_api_url | default('') | length > 0
         - scan_id | default('') | length > 0
