@@ -80,97 +80,81 @@ Wait for both services to be ready (backend health check passes, frontend loads)
 
 ## A. Dashboard Overview (Regression)
 
+Open `https://dev-portal-netrunner.demoredhat.com/compliance`
+
 - [ ] Dashboard loads at `/compliance`
-- [ ] 4 stat cards render (Hosts Scanned, Critical Findings, Pending Remediation, Active Profiles)
-- [ ] Active Profiles shows **4** (was 3 — now includes Supply Chain)
-- [ ] Per-profile gauges render — should see DISA STIG, CIS L1, PCI-DSS, **and Supply Chain (94%)**
-- [ ] Recent scans list includes "Supply Chain Vulnerability Scan" entry
+- [ ] Stat cards render (Hosts Scanned, Critical Findings, Pending Remediation, Active Profiles)
+- [ ] Per-profile gauges render for existing profiles (DISA STIG, CIS, etc.)
 - [ ] Compliance Score Trend chart renders without errors
 - [ ] Inventory breakdown section renders
 
 ---
 
-## B. Dynamic Tab — Supply Chain
+## B. Add Supply Chain Profile via Settings
 
-- [ ] Header tab bar shows: Overview | New Scan | Results | Remediations | Inventories | **Supply Chain** | Settings
-- [ ] "Supply Chain" tab is inserted BEFORE Settings
+1. Navigate to **Settings** tab
+2. Click **Add Profile**
+3. In the Scan Job Template dropdown, select `compliance-scan-supply-chain`
+4. Verify auto-populate fills in:
+   - [ ] Display Name: "Supply Chain Vulnerability Scan"
+   - [ ] Framework: "SUPPLY_CHAIN"
+   - [ ] Version: "1.0.0"
+   - [ ] Certification: "uncertified" / "N/A"
+   - [ ] Remediate JT: auto-resolves to `compliance-remediate-supply-chain`
+   - [ ] Platform: "Linux (multi-distro)"
+5. **Save the profile**
+6. Verify the profile appears in the Settings table
+
+---
+
+## C. Dynamic Tab — Supply Chain
+
+After saving the profile in step B:
+
+- [ ] Header tab bar shows a **Supply Chain** tab (inserted BEFORE Settings)
 - [ ] STIG and CIS profiles do NOT generate extra tabs (they have no `displayConfig.tab`)
-- [ ] Click "Supply Chain" tab — navigates to `/compliance/profile-tab/supply-chain-vuln`
-- [ ] Tab renders without errors
-- [ ] **Summary card widget** shows "SBOM Coverage" with a percentage and progress bar
-- [ ] **Severity breakdown widget** shows chips labeled "Critical / High", "Medium", "Low" (NOT "CAT I", "CAT II", "CAT III")
-- [ ] **Findings table widget** shows columns: CVE | Package | Severity | Fix
-- [ ] Findings table shows CVE-2026-28439 (openssl), CVE-2026-31852 (curl), etc.
+- [ ] Click "Supply Chain" tab — navigates to the profile tab route
+- [ ] Tab renders (may show empty state if no scan has run yet)
+
+---
+
+## D. Profile Settings (Framework Dropdown)
+
+1. Click **Add Profile** again (don't save — just check the dropdown)
+2. Framework dropdown includes all options:
+   - [ ] DISA STIG
+   - [ ] CIS Benchmark
+   - [ ] PCI-DSS
+   - [ ] HIPAA
+   - [ ] NIST 800-53
+   - [ ] **Supply Chain (SBOM)** (new)
+   - [ ] **PQC Readiness** (new)
+   - [ ] **Custom** (new)
+3. Cancel dialog
+
+---
+
+## E. Display Config — Column Labels (after scan)
+
+After a supply chain scan completes (Section H):
+
+- [ ] Navigate to Results, click the completed supply chain scan
+- [ ] Column headers show "CVE", "Package", "CVSS Severity" (NOT "Rule ID", "STIG ID")
+- [ ] Severity filter chips show "Critical / High", "Medium", "Low" (NOT "CAT I", "CAT II", "CAT III")
+- [ ] Navigate to a STIG scan result — verify default labels ("Rule ID", "STIG ID", "CAT I") still render
+
+---
+
+## F. Dynamic Tab with Live Data (after scan)
+
+After a supply chain scan completes (Section H):
+
+- [ ] Click the **Supply Chain** tab
+- [ ] **Summary card widget** shows "SBOM Coverage" with real vulnerability-free rate
+- [ ] **Severity breakdown widget** shows chips labeled "Critical / High", "Medium", "Low" with actual CVE counts
+- [ ] **Findings table widget** shows real CVEs with columns: CVE | Package | Severity | Fix
 - [ ] **Host breakdown widget** shows hosts sorted by vulnerability count
-- [ ] Navigate away and back — tab state persists
-
----
-
-## C. Display Config — Column Labels
-
-- [ ] Navigate to Results for any mock scan (click a scan in Recent Scans or Scan History)
-- [ ] For STIG scan: column headers show "Severity", "Title", "Rule ID" (default labels)
-- [ ] Severity filter chips show "CAT I", "CAT II", "CAT III" (default labels)
-- [ ] FindingRow severity chips show "CAT I", "CAT II", "CAT III"
-
-> **Note:** The supply chain display config for ResultsViewer columns is only active when viewing a scan associated with the supply chain profile. In mock mode, scans are not profile-associated, so you'll see default STIG labels. Full verification of custom column labels requires live mode with a real supply chain scan.
-
----
-
-## D. Profile Settings (Regression + New Frameworks)
-
-- [ ] Navigate to Settings tab
-- [ ] Existing profiles (DISA STIG, CIS L1, PCI-DSS, Supply Chain) render in the table
-- [ ] Click "Add Profile" button
-- [ ] Framework dropdown includes all options:
-  - [ ] DISA STIG
-  - [ ] CIS Benchmark
-  - [ ] PCI-DSS
-  - [ ] HIPAA
-  - [ ] NIST 800-53
-  - [ ] **Supply Chain (SBOM)** (new)
-  - [ ] **PQC Readiness** (new)
-  - [ ] **Custom** (new)
-- [ ] Select "Supply Chain (SBOM)" — form renders normally
-- [ ] Cancel dialog — no side effects
-- [ ] Edit an existing profile — form populates with current values
-
----
-
-## E. Profile Lifecycle Endpoints (API-level)
-
-Open a second terminal. Backend must be running on port 7007.
-
-### E.1 Disconnect a profile
-
-```bash
-curl -s -X POST http://localhost:7007/api/compliance/compliance-profiles/disconnect \
-  -H 'Content-Type: application/json' \
-  -d '{"framework": "SUPPLY_CHAIN"}' | jq .
-```
-
-- [ ] Returns 204 (or 404 if profile not in DB — expected in mock mode since mock profiles aren't in SQLite)
-
-### E.2 Connect a profile
-
-```bash
-curl -s -X POST http://localhost:7007/api/compliance/compliance-profiles/connect \
-  -H 'Content-Type: application/json' \
-  -d '{"framework": "SUPPLY_CHAIN", "version": "1.0.0", "displayName": "Supply Chain Scan"}' | jq .
-```
-
-- [ ] Returns 200 with profile JSON (if previously created) or 404 (if no profile with that framework exists in DB)
-
-### E.3 Permission check
-
-```bash
-# These should require auth in production mode but succeed in dev mode
-curl -s -X POST http://localhost:7007/api/compliance/compliance-profiles/connect \
-  -H 'Content-Type: application/json' \
-  -d '{"framework": "NONEXISTENT"}' | jq .
-```
-
-- [ ] Returns 404 with error message "No profile with framework 'NONEXISTENT' found to reconnect"
+- [ ] Findings table fix text shows `dnf update <package>` instructions
 
 ---
 
@@ -179,7 +163,7 @@ curl -s -X POST http://localhost:7007/api/compliance/compliance-profiles/connect
 ### F.1 Create a profile first (needed for bundle ops)
 
 ```bash
-PROFILE_ID=$(curl -s -X POST http://localhost:7007/api/compliance/compliance-profiles \
+PROFILE_ID=$(curl -s -X POST https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles \
   -H 'Content-Type: application/json' \
   -d '{"displayName":"Test Bundle Profile","framework":"CUSTOM","version":"1.0","platform":"Test"}' | jq -r .id)
 echo "Created profile: $PROFILE_ID"
@@ -190,7 +174,7 @@ echo "Created profile: $PROFILE_ID"
 ### F.2 Upload a bundle
 
 ```bash
-curl -s -X PUT "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bundle" \
+curl -s -X PUT "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID/bundle" \
   -H 'Content-Type: application/json' \
   -d '"export default function TestTab() { return \"hello\"; }"' | jq .
 ```
@@ -200,7 +184,7 @@ curl -s -X PUT "http://localhost:7007/api/compliance/compliance-profiles/$PROFIL
 ### F.3 Retrieve the bundle
 
 ```bash
-curl -s -D - "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bundle" 2>&1 | head -10
+curl -s -D - "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID/bundle" 2>&1 | head -10
 ```
 
 - [ ] Returns the JS content
@@ -213,7 +197,7 @@ curl -s -D - "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_
 ```bash
 # Generate >5MB payload
 LARGE=$(python3 -c "print('x' * 6000000)")
-curl -s -X PUT "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bundle" \
+curl -s -X PUT "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID/bundle" \
   -H 'Content-Type: application/json' \
   -d "\"$LARGE\"" | jq .
 ```
@@ -223,7 +207,7 @@ curl -s -X PUT "http://localhost:7007/api/compliance/compliance-profiles/$PROFIL
 ### F.5 Delete the bundle
 
 ```bash
-curl -s -X DELETE "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bundle" -w "\n%{http_code}\n"
+curl -s -X DELETE "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID/bundle" -w "\n%{http_code}\n"
 ```
 
 - [ ] Returns 204
@@ -231,7 +215,7 @@ curl -s -X DELETE "http://localhost:7007/api/compliance/compliance-profiles/$PRO
 ### F.6 Verify bundle gone
 
 ```bash
-curl -s "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bundle" | jq .
+curl -s "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID/bundle" | jq .
 ```
 
 - [ ] Returns 404
@@ -239,7 +223,7 @@ curl -s "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID/bu
 ### F.7 Cleanup
 
 ```bash
-curl -s -X DELETE "http://localhost:7007/api/compliance/compliance-profiles/$PROFILE_ID" -w "\n%{http_code}\n"
+curl -s -X DELETE "https://dev-portal-netrunner.demoredhat.com/api/compliance/compliance-profiles/$PROFILE_ID" -w "\n%{http_code}\n"
 ```
 
 - [ ] Returns 204
@@ -435,16 +419,17 @@ python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-cha
 
 | Section | Tests | What it verifies |
 |---------|-------|-----------------|
-| A | 7 | Dashboard renders with 4 profiles, no regression |
-| B | 11 | Dynamic tab appears, widgets render, correct labels |
-| C | 4 | Display config drives column/severity labels |
-| D | 10 | Settings shows new framework options |
-| E | 3 | Lifecycle API: connect/disconnect/validation |
-| F | 7 | Bundle API: upload/serve/size-limit/delete |
-| G | 6 | Existing features: scan, history, remediation, inventories, results, browser |
-| H | 14 | Netrunner live: add profile, scan, verify results, regression |
-| I | 5 | EE builds, tools at pinned versions, scanning works |
-| J | 1 | Cross-profile structure validation (60 sub-tests) |
-| K | 1 | Normalizer correctness (23 sub-tests) |
-| L | 2 | Full automated suite (680 sub-tests) |
-| **Total** | **71** | |
+| A | 5 | Dashboard renders, regression check |
+| B | 7 | Add supply chain profile via Settings, auto-populate |
+| C | 4 | Dynamic tab appears after profile creation |
+| D | 8 | Framework dropdown includes all new options |
+| E | 4 | Display config column/severity labels (after scan) |
+| F | 6 | Dynamic tab renders live data (after scan) |
+| G | 6 | Bundle API: upload/serve/size-limit/delete |
+| H | 14 | Live scan: launch, verify results, regression |
+| I | 6 | Existing features regression |
+| J | 5 | EE build verification |
+| K | 1 | Cross-profile structure validation (60 sub-tests) |
+| L | 1 | Normalizer correctness (23 sub-tests) |
+| M | 2 | Full automated suite (680 sub-tests) |
+| **Total** | **69** | |
