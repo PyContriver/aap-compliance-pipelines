@@ -2,15 +2,15 @@
 
 [id="con-about-compliance-pipelines_{context}"]
 
-= About compliance pipelines
+= About the Compliance Dashboard
 
 [role="_abstract"]
 
-Compliance pipelines provide scanner orchestration for {PlatformNameShort}, enabling organizations to assess, report on, and remediate the compliance posture of their managed infrastructure. The compliance pipelines plugin integrates with {ControllerName} to execute scanning and remediation workflows, and surfaces results through a self-service interface built on {RHDH}.
+The Compliance Dashboard provides scanner orchestration for {PlatformNameShort}, enabling organizations to assess, report on, and remediate the compliance posture of their managed infrastructure. The compliance plugin integrates with {ControllerName} to execute scanning and remediation workflows, and surfaces results through a self-service interface in the Ansible Automation Portal.
 
 == Scanner model
 
-Compliance pipelines use a three-tier scanner model that accommodates different levels of scanner integration and organizational requirements:
+The Compliance Dashboard uses a three-tier scanner model that accommodates different levels of scanner integration and organizational requirements:
 
 Tier 1 (Fully shippable)::
 Scanners that Red Hat can package and distribute as part of the compliance content. These scanners run entirely within an {ExecEnvShort} and require no external dependencies beyond what is included in the container image.
@@ -29,7 +29,7 @@ Example: OpenSCAP with a customer-authored XCCDF tailoring file.
 
 == Scanning tracks
 
-Compliance pipelines support two scanning tracks that serve different purposes in the compliance lifecycle. The current implementation uses Track B (OpenSCAP audit-grade scanning). Track A is planned for a future release.
+The Compliance Dashboard supports two scanning tracks that serve different purposes in the compliance lifecycle. The current implementation uses Track B (OpenSCAP audit-grade scanning). Track A is planned for a future release.
 
 Track A (Pre-assessment) -- _planned_::
 Lightweight scans that provide a rapid compliance posture check. Pre-assessment scans are designed to run frequently (daily or on-demand) with minimal impact on target systems. Results are informational and help teams identify drift before a formal audit. This track is not yet implemented.
@@ -39,7 +39,7 @@ Full-depth scans that produce evidence suitable for auditor review. Audit-grade 
 
 == Integration with {PlatformNameShort}
 
-Compliance pipelines integrate with the following {PlatformNameShort} components:
+The Compliance Dashboard integrates with the following {PlatformNameShort} components:
 
 {ControllerName}::
 Job templates orchestrate the scan and remediation cycle. For Tier 1 scanners (OpenSCAP), assessment uses a single job template with two plays. Each compliance profile maps to a set of job templates that run within a dedicated organization. Job templates support launch-time prompts for inventory scope, rule selections, and remediation parameters.
@@ -48,7 +48,7 @@ Execution environments::
 Compliance scanners and their dependencies are packaged as {ExecEnvShort}s. This ensures that scanner binaries (such as `openscap-scanner`), SCAP content (such as `scap-security-guide`), and required Python libraries are available on execution nodes without modifying the node operating system.
 
 Platform gateway::
-The Backstage plugin communicates with {ControllerName} through the platform gateway API (`/api/controller/v2/`). Authentication uses per-user OAuth2 tokens or service account tokens, and all API calls are subject to {ControllerName} RBAC.
+The compliance plugin communicates with {ControllerName} through the platform gateway API (`/api/controller/v2/`). Authentication uses per-user OAuth2 tokens or service account tokens, and all API calls are subject to {ControllerName} RBAC.
 
 == Compliance profiles
 
@@ -74,11 +74,20 @@ The authoritative scan serves two purposes:
 
 If no completed assessment scan exists for the selected profile and inventory combination, the plugin blocks the remediation launch and offers to run a scan first.
 
+== Finding lifecycle states
+
+Each finding tracks its lifecycle state across consecutive scans for the same compliance profile and inventory:
+
+New:: A rule that failed for the first time. Not present in the previous scan for this profile and inventory combination.
+Active:: A rule that continues to fail across consecutive scans. The finding was already present in the previous scan.
+Fixed:: A previously failing rule that now passes. Indicates successful remediation.
+Resurfaced:: A rule that was previously fixed but has regressed to failing. Indicates a compliance regression.
+
 == Plugin architecture
 
-The compliance pipelines plugin consists of three packages:
+The Compliance Dashboard plugin consists of three packages:
 
-* *Frontend plugin* (`@aap-compliance/plugin`): Provides the user interface with six tabs -- Overview, Profiles, New Scan, Results, Remediations, and Settings. Key features include:
+* *Frontend plugin* (`@aap-compliance/plugin`): Provides the user interface with six tabs -- Overview, New Scan, Results, Remediations, Inventories, and Settings. Key features include:
 ** *CSV and JSON export* -- Export findings from any scan result for auditors or integration with external tools.
 ** *Verification comparison view* -- After remediation, compare before-and-after compliance scores with side-by-side gauges showing pass-rate improvement.
 ** *Dual view modes* -- View findings organized by status (pass/fail) or by category (Access Control, Audit, etc.) for flexible analysis.
@@ -86,5 +95,5 @@ The compliance pipelines plugin consists of three packages:
 ** *Inventory-aware remediation launch* -- When launching a saved remediation, you select a target inventory and the system validates that a completed assessment scan exists before allowing the launch.
 ** *Insights pattern* -- Remediation profiles auto-save as you configure them, with inline naming that removes manual save steps.
 ** *Data retention settings* -- Configure how long scan findings are retained, with manual cleanup support for immediate space reclamation.
-* *Backend plugin* (`@aap-compliance/backend`): REST API that communicates with {ControllerName}, manages scan state, and stores remediation profiles in a local database. The backend implements automatic data retention cleanup on startup and exposes settings and cleanup endpoints for administrative control.
+* *Backend plugin* (`@aap-compliance/backend`): REST API that communicates with {ControllerName}, manages scan state, and stores remediation profiles in a database. The backend implements automatic data retention cleanup on startup and exposes settings and cleanup endpoints for administrative control.
 * *Common package* (`@aap-compliance/common`): Shared TypeScript types for profiles, findings, and API contracts.

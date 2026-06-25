@@ -1,0 +1,82 @@
+---
+# Supply Chain: Remediate vulnerable packages on target hosts
+#
+# This playbook applies package updates for CVEs identified by the
+# Grype vulnerability scan. It supports RPM-based (dnf) and
+# Debian-based (apt) package managers.
+#
+# Variables:
+#   packages: List of package names to update (from remediation builder)
+#   update_all: If true, update all packages (full system update)
+#   reboot_if_needed: Whether to reboot if kernel was updated (default: false)
+
+- name: "Supply Chain: Patch vulnerable packages"
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  max_fail_percentage: 100
+
+  vars:
+    packages: []
+    update_all: false
+    reboot_if_needed: false
+
+  tasks:
+    - name: Update specific packages (RPM-based)
+      ansible.builtin.dnf:
+        name: "{{ packages }}"
+        state: latest
+        security: true
+      when:
+        - ansible_os_family == 'RedHat'
+        - packages | length > 0
+        - not update_all
+      register: _dnf_result
+
+    - name: Update specific packages (Debian-based)
+      ansible.builtin.apt:
+        name: "{{ packages }}"
+        state: latest
+        only_upgrade: true
+      when:
+        - ansible_os_family == 'Debian'
+        - packages | length > 0
+        - not update_all
+      register: _apt_result
+
+    - name: Full security update (RPM-based)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        security: true
+      when:
+        - ansible_os_family == 'RedHat'
+        - update_all | bool
+      register: _dnf_all_result
+
+    - name: Full security update (Debian-based)
+      ansible.builtin.apt:
+        upgrade: safe
+      when:
+        - ansible_os_family == 'Debian'
+        - update_all | bool
+      register: _apt_all_result
+
+    - name: Check if reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: _reboot_file
+      when: reboot_if_needed | bool
+
+    - name: Reboot if kernel updated
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+      when:
+        - reboot_if_needed | bool
+        - _reboot_file.stat.exists | default(false)
+
+    - name: Report remediation result
+      ansible.builtin.debug:
+        msg: >-
+          Remediation complete on {{ inventory_hostname }}.
+          {{ 'Updated ' + (packages | length | string) + ' packages.' if packages | length > 0 else 'Full security update applied.' }}

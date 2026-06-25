@@ -1,0 +1,30 @@
+---
+namespace: security
+name: compliance_supply_chain
+version: 0.1.0
+readme: README.md
+authors:
+  - Massimo Ferrari (@cross-logic)
+  - Red Hat Ansible Security Team
+description: >
+  Supply chain vulnerability scanning profile for the AAP Compliance Dashboard.
+  Uses Syft for SBOM generation and Grype for vulnerability matching against
+  OS packages and language-level dependencies. Findings normalize to CFF
+  (Common Findings Format) via CycloneDX mapping.
+  Supported targets: RHEL 7-9, CentOS, Ubuntu, Debian, Alpine, Amazon Linux,
+  SUSE, Oracle Linux, and OCI container images.
+license_file: LICENSE
+tags:
+  - compliance
+  - sbom
+  - supply-chain
+  - vulnerability
+  - security
+  - syft
+  - grype
+  - cyclonedx
+dependencies:
+  ansible.posix: ">=1.5.0"
+repository: https://github.com/cross-logic/aap-compliance-pipelines
+documentation: https://github.com/cross-logic/aap-compliance-pipelines
+issues: https://github.com/cross-logic/aap-compliance-pipelines/issues

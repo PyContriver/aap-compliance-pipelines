@@ -15,6 +15,24 @@ export type {
   RemediationProfile,
 } from './profiles';
 
+export { FRAMEWORK_OPTIONS } from './profiles';
+
+export type {
+  DisplayColumn,
+  SeverityMap,
+  WidgetType,
+  TabWidget,
+  CustomComponentRef,
+  TabConfig,
+  ProfileDisplayConfig,
+} from './display';
+
+export type {
+  ProfileConnectionStatus,
+  ProfileVersion,
+  ProfileLifecycleState,
+} from './lifecycle';
+
 export type {
   LaunchScanRequest,
   LaunchScanResponse,

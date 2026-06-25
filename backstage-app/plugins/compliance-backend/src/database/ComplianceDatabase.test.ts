@@ -155,6 +155,16 @@ async function createTables(database: Knex): Promise<void> {
       table.text('remediation_playbook_path').defaultTo('');
       table.string('scan_tags').defaultTo('');
       table.text('certification').nullable();
+      table.integer('rule_count').nullable();
+      table.text('display_config').nullable();
+      table.string('connection_status').notNullable().defaultTo('connected');
+      table.text('bundle_data').nullable();
+      table.text('bundle_metadata').nullable();
+      table.timestamp('connected_at').nullable();
+      table.timestamp('disconnected_at').nullable();
+      table.string('disconnected_by').nullable();
+      table.string('profile_version').nullable();
+      table.text('version_history').nullable();
       table
         .timestamp('created_at')
         .notNullable()
@@ -627,6 +637,124 @@ describe('ComplianceDatabase', () => {
 
       const found = await complianceDb.getProfile(saved.id);
       expect(found!.platformSpec).toBeNull();
+    });
+  });
+
+  // ─── Profile lifecycle ──────────────────────────────────────────
+
+  describe('connectProfile + disconnectProfile', () => {
+    it('disconnects a profile and reconnects it', async () => {
+      const saved = await complianceDb.saveProfile({
+        displayName: 'STIG Lifecycle Test',
+        description: '',
+        framework: 'DISA_STIG',
+        version: 'V2R8',
+        platform: 'RHEL 9',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      const disconnected = await complianceDb.disconnectProfile(saved.id, 'admin@test.com');
+      expect(disconnected).toBe(true);
+
+      const profile = await complianceDb.getProfile(saved.id);
+      expect(profile!.connectionStatus).toBe('disconnected');
+
+      const reconnected = await complianceDb.connectProfile('DISA_STIG', 'V2R9');
+      expect(reconnected).not.toBeNull();
+      expect(reconnected!.connectionStatus).toBe('connected');
+    });
+
+    it('connectProfile returns null for unknown framework', async () => {
+      const result = await complianceDb.connectProfile('NONEXISTENT', '1.0');
+      expect(result).toBeNull();
+    });
+
+    it('disconnectProfileByFramework works', async () => {
+      await complianceDb.saveProfile({
+        displayName: 'CIS Disconnect Test',
+        description: '',
+        framework: 'CIS',
+        version: 'v1.0',
+        platform: 'RHEL 9',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      const result = await complianceDb.disconnectProfileByFramework('CIS');
+      expect(result).toBe(true);
+    });
+
+    it('disconnectProfile returns false for unknown id', async () => {
+      const result = await complianceDb.disconnectProfile('nonexistent-id');
+      expect(result).toBe(false);
+    });
+  });
+
+  // ─── Bundle storage ────────────────────────────────────────────
+
+  describe('saveProfileBundle + getProfileBundle + deleteProfileBundle', () => {
+    it('saves and retrieves a bundle', async () => {
+      const saved = await complianceDb.saveProfile({
+        displayName: 'Bundle Test',
+        description: '',
+        framework: 'SUPPLY_CHAIN',
+        version: '1.0',
+        platform: 'Linux',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      await complianceDb.saveProfileBundle(saved.id, 'export default function(){}', { size: 30 });
+
+      const bundle = await complianceDb.getProfileBundle(saved.id);
+      expect(bundle).not.toBeNull();
+      expect(bundle!.data).toBe('export default function(){}');
+      expect(bundle!.metadata.size).toBe(30);
+    });
+
+    it('returns null when no bundle exists', async () => {
+      const saved = await complianceDb.saveProfile({
+        displayName: 'No Bundle',
+        description: '',
+        framework: 'PQC_READINESS',
+        version: '1.0',
+        platform: 'Linux',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      const bundle = await complianceDb.getProfileBundle(saved.id);
+      expect(bundle).toBeNull();
+    });
+
+    it('deletes a bundle', async () => {
+      const saved = await complianceDb.saveProfile({
+        displayName: 'Delete Bundle Test',
+        description: '',
+        framework: 'CUSTOM',
+        version: '1.0',
+        platform: 'Linux',
+        workflowTemplateId: null,
+        eeId: null,
+        remediationPlaybookPath: '',
+        scanTags: '',
+      });
+
+      await complianceDb.saveProfileBundle(saved.id, 'code', { size: 4 });
+      const deleted = await complianceDb.deleteProfileBundle(saved.id);
+      expect(deleted).toBe(true);
+
+      const bundle = await complianceDb.getProfileBundle(saved.id);
+      expect(bundle).toBeNull();
     });
   });
 

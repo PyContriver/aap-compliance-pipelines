@@ -41,6 +41,7 @@ import type {
   ComplianceProfile,
   SaveProfileRequest,
 } from '@aap-compliance/common';
+import { FRAMEWORK_OPTIONS } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {
@@ -57,14 +58,6 @@ const useStyles = makeStyles(theme => ({
     fontWeight: 600,
   },
 }));
-
-const FRAMEWORK_OPTIONS = [
-  { value: 'DISA_STIG', label: 'DISA STIG' },
-  { value: 'CIS', label: 'CIS Benchmark' },
-  { value: 'PCI_DSS', label: 'PCI-DSS' },
-  { value: 'HIPAA', label: 'HIPAA' },
-  { value: 'NIST_800_53', label: 'NIST 800-53' },
-];
 
 interface WorkflowTemplate {
   id: number;

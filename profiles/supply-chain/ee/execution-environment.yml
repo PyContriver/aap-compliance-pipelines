@@ -1,0 +1,47 @@
+---
+# Execution Environment: Supply Chain Vulnerability Scanner
+#
+# Bundles Syft (SBOM generation) and Grype (vulnerability matching) for
+# scanning managed hosts. Both are Go binaries installed from GitHub releases.
+#
+# Supported architectures: linux/amd64, linux/arm64
+#
+# Build:
+#   ansible-builder build -f execution-environment.yml -t compliance-supply-chain:latest -v3
+
+version: 3
+
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: '--pre'
+
+options:
+  package_manager_path: /usr/bin/microdnf
+
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
+
+dependencies:
+  galaxy:
+    collections:
+      - name: ansible.posix
+      - name: community.general
+
+additional_build_steps:
+  prepend_galaxy:
+    - COPY _build/collections/ /usr/share/ansible/collections/
+  prepend_final:
+    # Pin Syft and Grype versions for reproducible builds.
+    # Update these when upgrading scanner versions.
+    - ENV SYFT_VERSION=1.20.0
+    - ENV GRYPE_VERSION=0.90.0
+    # Install Syft — SBOM generation
+    - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin syft
+    # Install Grype — vulnerability matching
+    - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin grype
+    # Install jq for JSON processing in playbooks
+    - RUN microdnf install -y jq && microdnf clean all
+  append_final:
+    - RUN syft version
+    - RUN grype version
+    - RUN jq --version

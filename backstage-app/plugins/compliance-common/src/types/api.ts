@@ -4,6 +4,8 @@
 
 import type { FindingParameter } from './findings';
 import type { RemediationProfile, RemediationSelection } from './profiles';
+import type { ProfileDisplayConfig } from './display';
+import type { ProfileConnectionStatus, ProfileVersion } from './lifecycle';
 
 /**
  * Scanner certification status for a compliance profile.
@@ -436,6 +438,9 @@ export interface ComplianceProfile {
   scanTags: string;
   certification: ScanCertification | null;
   ruleCount?: number;
+  displayConfig?: ProfileDisplayConfig;
+  connectionStatus?: ProfileConnectionStatus;
+  currentVersion?: ProfileVersion;
   createdAt: string;
   updatedAt: string;
 }
@@ -471,6 +476,7 @@ export interface SaveProfileRequest {
   remediationPlaybookPath: string;
   scanTags: string;
   certification?: ScanCertification | null;
+  displayConfig?: ProfileDisplayConfig;
 }
 
 /** Platform requirements for a compliance profile (ADR-011). */

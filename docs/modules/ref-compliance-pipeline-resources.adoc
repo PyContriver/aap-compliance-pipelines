@@ -2,10 +2,10 @@
 
 [id="ref-compliance-pipeline-resources_{context}"]
 
-= Compliance pipeline {ControllerName} resources
+= Compliance Dashboard {ControllerName} resources
 
 [role="_abstract"]
-The following tables describe the {ControllerName} resources required by the compliance pipelines plugin.
+The following tables describe the {ControllerName} resources required by the Compliance Dashboard plugin.
 
 == Organization
 
@@ -96,7 +96,7 @@ Add target RHEL 9 hosts to this inventory. Each host must be accessible over the
 |`profiles/rhel9-stig/ansible_collections/security/compliance_rhel9_stig/playbooks/remediate.yml`
 |`Compliance STIG RHEL 9`
 |Enabled
-|`ask_tags_on_launch: true`, `ask_variables_on_launch: true`. Machine credential with become.
+|`ask_limit_on_launch: true`, `ask_tags_on_launch: true`, `ask_variables_on_launch: true`. Machine credential with become.
 
 |`compliance-scan-cis-l1-rhel9`
 |Run
@@ -141,11 +141,6 @@ The assessment uses a **single job template** (`compliance-run-oscap`) running `
 Both plays run in the same container, so Play 1's fetched files are available to Play 2. A multi-node workflow would fail because each workflow node runs in a separate container and fetched files are not shared between nodes.
 
 Remediation is launched as a **separate, standalone job template** with `job_tags` for selective rule execution. It is not part of the assessment.
-
-[NOTE]
-====
-A legacy workflow job template (`compliance-pipeline-rhel9-stig`) exists with a single node pointing to `compliance-run-oscap`. This is retained for backward compatibility and as a template for Tier 2 scanners where multi-node workflows are valid (API-based scanners run on localhost, no cross-container file sharing issues).
-====
 
 == Execution environment
 
@@ -216,7 +211,7 @@ The certification status is declared in the compliance profile's `meta/complianc
 
 == API endpoints
 
-The compliance pipelines Backstage plugin communicates with {ControllerName} through the platform gateway. All endpoints use the `/api/controller/v2/` base path.
+The Compliance Dashboard plugin communicates with {ControllerName} through the platform gateway. All endpoints use the `/api/controller/v2/` base path.
 
 [cols="2,1,3", options="header"]
 |===

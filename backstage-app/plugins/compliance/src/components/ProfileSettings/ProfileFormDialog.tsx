@@ -25,6 +25,7 @@ import type {
   SaveProfileRequest,
   CertificationStatus,
 } from '@aap-compliance/common';
+import { FRAMEWORK_OPTIONS } from '@aap-compliance/common';
 
 const useStyles = makeStyles(theme => ({
   formField: {
@@ -38,14 +39,6 @@ const useStyles = makeStyles(theme => ({
     paddingTop: theme.spacing(1),
   },
 }));
-
-const FRAMEWORK_OPTIONS = [
-  { value: 'DISA_STIG', label: 'DISA STIG' },
-  { value: 'CIS', label: 'CIS Benchmark' },
-  { value: 'PCI_DSS', label: 'PCI-DSS' },
-  { value: 'HIPAA', label: 'HIPAA' },
-  { value: 'NIST_800_53', label: 'NIST 800-53' },
-];
 
 const EMPTY_FORM: SaveProfileRequest = {
   displayName: '',

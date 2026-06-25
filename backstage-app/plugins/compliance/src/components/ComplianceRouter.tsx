@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   Page,
@@ -7,6 +7,7 @@ import {
   Content,
   ErrorPanel,
 } from '@backstage/core-components';
+import { useApi } from '@backstage/core-plugin-api';
 import { Typography, Box, Button } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
@@ -21,6 +22,9 @@ import { ChainView } from './ChainView';
 import { InventoriesList } from './InventoriesList';
 import { InventoryDetail } from './InventoryDetail';
 import { ActiveJobsBanner } from './ActiveJobsBanner';
+import { DynamicProfileTab } from './DynamicProfileTab';
+import { complianceApiRef } from '../api';
+import type { ComplianceProfile } from '@aap-compliance/common';
 
 /**
  * Error boundary for the Compliance tab.
@@ -66,7 +70,7 @@ class ComplianceErrorBoundary extends React.Component<
   }
 }
 
-const TABS = [
+const CORE_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'scan', label: 'New Scan' },
   { id: 'results', label: 'Results' },
@@ -75,7 +79,7 @@ const TABS = [
   { id: 'settings', label: 'Settings' },
 ];
 
-const tabRouteMap: Record<string, string> = {
+const coreTabRouteMap: Record<string, string> = {
   overview: '',
   scan: 'scan',
   results: 'results',
@@ -84,26 +88,70 @@ const tabRouteMap: Record<string, string> = {
   settings: 'settings',
 };
 
+interface DynamicTabEntry {
+  id: string;
+  label: string;
+  profile: ComplianceProfile;
+}
+
 const ComplianceRouter = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const api = useApi(complianceApiRef);
 
-  // Derive selected tab from URL on every render so browser back/forward stays in sync.
+  const [dynamicTabs, setDynamicTabs] = useState<DynamicTabEntry[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getRegisteredProfiles().then(profiles => {
+      if (cancelled) return;
+      const tabs: DynamicTabEntry[] = profiles
+        .filter(p => p.displayConfig?.tab)
+        .map(p => ({
+          id: `profile-${p.id}`,
+          label: p.displayConfig!.tab!.label,
+          profile: p,
+        }));
+      setDynamicTabs(tabs);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [api]);
+
+  const allTabs = useMemo(() => {
+    const settingsIdx = CORE_TABS.findIndex(t => t.id === 'settings');
+    const before = CORE_TABS.slice(0, settingsIdx);
+    const settings = CORE_TABS.slice(settingsIdx);
+    const dynamic = dynamicTabs.map(dt => ({ id: dt.id, label: dt.label }));
+    return [...before, ...dynamic, ...settings];
+  }, [dynamicTabs]);
+
   const getSelectedTab = (): number => {
     const path = location.pathname.replace(/^\/compliance\/?/, '');
     if (path.startsWith('scan')) return 1;
     if (path.startsWith('results') || path.startsWith('chain/') || path.startsWith('remediation/') || path.startsWith('execute') || path.startsWith('remediation-result')) return 2;
     if (path === 'remediations' || path.startsWith('remediation-edit/')) return 3;
     if (path.startsWith('inventories')) return 4;
-    if (path.startsWith('settings')) return 5;
+
+    for (let i = 0; i < dynamicTabs.length; i++) {
+      if (path.startsWith(`profile-tab/${dynamicTabs[i].profile.id}`)) {
+        return 5 + i;
+      }
+    }
+
+    if (path.startsWith('settings')) return 5 + dynamicTabs.length;
     return 0;
   };
 
   const selectedTab = getSelectedTab();
 
   const handleTabChange = (index: number) => {
-    const tab = TABS[index];
-    navigate(tabRouteMap[tab.id] || '');
+    const tab = allTabs[index];
+    if (coreTabRouteMap[tab.id] !== undefined) {
+      navigate(coreTabRouteMap[tab.id]);
+    } else {
+      const dt = dynamicTabs.find(d => d.id === tab.id);
+      if (dt) navigate(`profile-tab/${dt.profile.id}`);
+    }
   };
 
   return (
@@ -117,7 +165,7 @@ const ComplianceRouter = () => {
         <HeaderTabs
           selectedIndex={selectedTab}
           onChange={handleTabChange}
-          tabs={TABS}
+          tabs={allTabs}
         />
         <Content>
           <ComplianceErrorBoundary>
@@ -137,6 +185,18 @@ const ComplianceRouter = () => {
               <Route path="/remediations" element={<RemediationsList />} />
               <Route path="/inventories" element={<InventoriesList />} />
               <Route path="/inventories/:inventoryId" element={<InventoryDetail />} />
+              {dynamicTabs.map(dt => (
+                <Route
+                  key={dt.id}
+                  path={`/profile-tab/${dt.profile.id}`}
+                  element={
+                    <DynamicProfileTab
+                      profile={dt.profile}
+                      tabConfig={dt.profile.displayConfig!.tab!}
+                    />
+                  }
+                />
+              ))}
               <Route path="/settings" element={<ProfileSettings />} />
             </Routes>
           </ComplianceErrorBoundary>

@@ -167,6 +167,11 @@ const frameworkColor: Record<string, 'primary' | 'secondary' | 'default'> = {
   CIS: 'primary',
   'PCI-DSS': 'default',
   'PCI_DSS': 'default',
+  HIPAA: 'default',
+  'NIST_800_53': 'default',
+  'SUPPLY_CHAIN': 'primary',
+  'PQC_READINESS': 'primary',
+  'CUSTOM': 'default',
 };
 
 export const ProfileBrowser = () => {

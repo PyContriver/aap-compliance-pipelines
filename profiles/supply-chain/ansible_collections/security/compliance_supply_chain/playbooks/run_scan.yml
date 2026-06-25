@@ -1,0 +1,199 @@
+---
+# Supply Chain: Run Syft + Grype vulnerability scan on target hosts
+#
+# This playbook contains 2 plays in a single job template (ADR-003 pattern):
+#   Play 1 (targets): runs Syft to generate SBOM, then Grype to match
+#     vulnerabilities, fetches JSON results back to the execution node.
+#   Play 2 (localhost): normalizes Grype JSON to CFF, POSTs to Backstage.
+#
+# Both plays run in the same container, so fetched files are available
+# to the normalize step without cross-container file sharing.
+#
+# Variables:
+#   syft_scope: Syft scan scope (default: squashed — faster, fewer layers)
+#   grype_fail_on_severity: Optional severity threshold to mark scan as failed
+#   target_results_dir: temp directory on targets for scan results
+#   fetch_dest_dir: directory on execution node for fetched results
+
+- name: "Supply Chain: Syft + Grype vulnerability scan"
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  max_fail_percentage: 100
+
+  vars:
+    syft_scope: "{{ scan_scope | default('squashed') }}"
+    target_results_dir: /tmp/supply-chain-scan
+    fetch_dest_dir: /tmp/supply-chain-results
+
+  tasks:
+    - name: Check if Syft is available on target
+      ansible.builtin.command: which syft
+      register: _syft_check
+      failed_when: false
+      changed_when: false
+
+    - name: Copy Syft binary from EE if not on target
+      ansible.builtin.copy:
+        src: /usr/local/bin/syft
+        dest: /tmp/syft
+        mode: '0755'
+      when: _syft_check.rc != 0
+
+    - name: Copy Grype binary from EE if not on target
+      ansible.builtin.copy:
+        src: /usr/local/bin/grype
+        dest: /tmp/grype
+        mode: '0755'
+      when: _syft_check.rc != 0
+
+    - name: Set scanner paths
+      ansible.builtin.set_fact:
+        _syft_bin: "{{ '/tmp/syft' if _syft_check.rc != 0 else 'syft' }}"
+        _grype_bin: "{{ '/tmp/grype' if _syft_check.rc != 0 else 'grype' }}"
+        _scanners_copied: "{{ _syft_check.rc != 0 }}"
+
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ target_results_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Generate SBOM with Syft
+      ansible.builtin.command:
+        cmd: >-
+          {{ _syft_bin }} / --scope {{ syft_scope }}
+          -o cyclonedx-json
+          --file {{ target_results_dir }}/sbom.json
+      register: _syft_result
+      changed_when: false
+      timeout: 900
+
+    - name: Scan SBOM for vulnerabilities with Grype
+      ansible.builtin.command:
+        cmd: >-
+          {{ _grype_bin }} sbom:{{ target_results_dir }}/sbom.json
+          -o json
+          --file {{ target_results_dir }}/grype-results.json
+      register: _grype_result
+      changed_when: false
+      failed_when: false
+      timeout: 300
+
+    - name: Create local results directory
+      ansible.builtin.file:
+        path: "{{ fetch_dest_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+    - name: Fetch Grype results from target
+      ansible.builtin.fetch:
+        src: "{{ target_results_dir }}/grype-results.json"
+        dest: "{{ fetch_dest_dir }}/grype-{{ inventory_hostname }}.json"
+        flat: true
+
+    - name: Remove scan artifacts from target
+      ansible.builtin.file:
+        path: "{{ target_results_dir }}"
+        state: absent
+
+    - name: Remove scanner binaries if we copied them
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/syft
+        - /tmp/grype
+      when: _scanners_copied | default(false) | bool
+
+    - name: Report scan status
+      ansible.builtin.debug:
+        msg: >-
+          Syft+Grype scan complete on {{ inventory_hostname }}.
+          Syft exit: {{ _syft_result.rc }}, Grype exit: {{ _grype_result.rc }}.
+
+# ── Play 2: Normalize Grype results on execution node ─────────────
+
+- name: "Supply Chain: Normalize Grype results"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    fetch_dest_dir: /tmp/supply-chain-results
+    output_file: /tmp/supply-chain-report.json
+
+  tasks:
+    - name: Find all fetched Grype result files
+      ansible.builtin.find:
+        paths: "{{ fetch_dest_dir }}"
+        patterns: "grype-*.json"
+      register: _result_files
+
+    - name: Fail if no results found
+      ansible.builtin.fail:
+        msg: >-
+          No Grype result files found in {{ fetch_dest_dir }}.
+          Ensure the scan play completed successfully.
+      when: _result_files.files | length == 0
+
+    - name: Normalize Grype results to CFF
+      security.compliance_supply_chain.normalize_cyclonedx:
+        grype_files: "{{ _result_files.files | map(attribute='path') | list }}"
+        output_file: "{{ output_file }}"
+        profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
+        framework: "{{ framework | default('SUPPLY_CHAIN') }}"
+      register: _normalized
+
+    - name: Read normalized findings
+      ansible.builtin.slurp:
+        src: "{{ output_file }}"
+      register: _report_raw
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Parse findings
+      ansible.builtin.set_fact:
+        _all_findings: "{{ (_report_raw.content | b64decode | from_json).findings }}"
+      when: backstage_api_url | default('') | length > 0
+
+    - name: POST findings to Backstage compliance API
+      ansible.builtin.uri:
+        url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+        method: POST
+        body_format: json
+        body:
+          scanId: "{{ scan_id }}"
+          ingestToken: "{{ ingest_token | default('') }}"
+          findings: "{{ _all_findings }}"
+        headers:
+          Content-Type: application/json
+        status_code: [201]
+        validate_certs: false
+        timeout: 120
+      when:
+        - backstage_api_url | default('') | length > 0
+        - scan_id | default('') | length > 0
+        - _all_findings | default([]) | length > 0
+      register: _post_result
+      failed_when: false
+
+    - name: Report POST result
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'POSTed ' + (_post_result.json.findingsCount | default('?') | string) + ' findings to ' + backstage_api_url
+             if (_post_result.status | default(0)) == 201
+             else 'Direct POST skipped or failed (status=' + (_post_result.status | default('N/A') | string) + ').' }}
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Display summary
+      ansible.builtin.debug:
+        msg: >-
+          Supply chain scan complete.
+          Hosts: {{ _normalized.hosts_processed }},
+          Packages: {{ _normalized.total_packages }},
+          CVEs: {{ _normalized.total_vulnerabilities }},
+          Findings: {{ _normalized.total_findings }}
+          ({{ _normalized.summary.pass }} pass, {{ _normalized.summary.fail }} fail).

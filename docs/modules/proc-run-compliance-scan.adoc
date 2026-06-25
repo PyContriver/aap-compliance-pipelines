@@ -6,11 +6,11 @@
 
 [role="_abstract"]
 
-Use the compliance pipelines plugin to scan managed hosts against a compliance standard, review findings, build a remediation profile, and apply remediations through {ControllerName} job templates.
+Use the Compliance Dashboard to scan managed hosts against a compliance standard, review findings, build a remediation profile, and apply remediations through {ControllerName} job templates.
 
 .Prerequisites
 
-* A compliance pipeline is configured on your {PlatformNameShort} instance. For more information, see xref:proc-configure-compliance-pipeline_{context}[Configuring a compliance pipeline].
+* A compliance pipeline is configured on your {PlatformNameShort} instance. For more information, see xref:proc-configure-compliance-pipeline_{context}[Configuring the Compliance Dashboard].
 * At least one compliance profile is registered in the plugin *Settings* tab.
 * Target hosts are added to an inventory in {ControllerName} and are accessible over the Receptor mesh.
 * The compliance {ExecEnvShort} is registered and available on your execution nodes.
@@ -149,5 +149,5 @@ The verification scan results include a *comparison view* that displays side-by-
 [role="_additional-resources"]
 .Additional resources
 
-* xref:con-about-compliance-pipelines_{context}[About compliance pipelines]
-* xref:ref-compliance-pipeline-resources_{context}[Compliance pipeline {ControllerName} resources]
+* xref:con-about-compliance-pipelines_{context}[About the Compliance Dashboard]
+* xref:ref-compliance-pipeline-resources_{context}[Compliance Dashboard {ControllerName} resources]

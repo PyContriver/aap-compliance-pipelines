@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ScanCertification } from '@aap-compliance/common';
+import type { ScanCertification, ProfileDisplayConfig } from '@aap-compliance/common';
 import type { ComplianceApi } from '../../../api';
 
 export interface ScanMetadata {
@@ -7,6 +7,7 @@ export interface ScanMetadata {
   profileName: string;
   frameworkLabel: string;
   profileCert: ScanCertification | null;
+  profileDisplayConfig: ProfileDisplayConfig | undefined;
   scanComplianceProfileId: string;
   scanInventoryId: number | null;
   scanInventoryName: string;
@@ -23,6 +24,7 @@ export function useScanMetadata(
   const [profileName, setProfileName] = useState('');
   const [frameworkLabel, setFrameworkLabel] = useState('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
+  const [profileDisplayConfig, setProfileDisplayConfig] = useState<ProfileDisplayConfig | undefined>(undefined);
   const [scanComplianceProfileId, setScanComplianceProfileId] = useState('');
   const [scanInventoryId, setScanInventoryId] = useState<number | null>(null);
   const [scanInventoryName, setScanInventoryName] = useState('');
@@ -54,6 +56,7 @@ export function useScanMetadata(
             setProfileName(cart.displayName);
             setFrameworkLabel(cart.framework);
             setProfileCert(cart.certification);
+            setProfileDisplayConfig(cart.displayConfig);
           }
         }).catch(() => {});
         api.getInventories().then(inventories => {
@@ -75,6 +78,7 @@ export function useScanMetadata(
     profileName,
     frameworkLabel,
     profileCert,
+    profileDisplayConfig,
     scanComplianceProfileId,
     scanInventoryId,
     scanInventoryName,

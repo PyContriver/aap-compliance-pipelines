@@ -7,6 +7,7 @@ on:
       - 'profiles/rhel9-stig/ansible_collections/**'
       - 'profiles/rhel9-cis-l1/ansible_collections/**'
       - 'profiles/rhel9-cis-l2/ansible_collections/**'
+      - 'profiles/supply-chain/ansible_collections/**'
       - 'profiles/_shared/**'
       - '.github/workflows/build-ee.yml'
   workflow_dispatch:
@@ -30,14 +31,22 @@ jobs:
             collection: compliance_rhel9_stig
             image_suffix: stig-rhel9
             ee_verify_file: /usr/share/scap-security-guide/ansible/rhel9-playbook-stig.yml
+            scanner_type: xccdf
           - profile: rhel9-cis-l1
             collection: compliance_rhel9_cis_l1
             image_suffix: cis-l1-rhel9
             ee_verify_file: /usr/share/scap-security-guide/ansible/rhel9-playbook-cis_server_l1.yml
+            scanner_type: xccdf
           - profile: rhel9-cis-l2
             collection: compliance_rhel9_cis_l2
             image_suffix: cis-l2-rhel9
             ee_verify_file: /usr/share/scap-security-guide/ansible/rhel9-playbook-cis.yml
+            scanner_type: xccdf
+          - profile: supply-chain
+            collection: compliance_supply_chain
+            image_suffix: supply-chain
+            ee_verify_file: /usr/local/bin/syft
+            scanner_type: cyclonedx
 
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/compliance-${{ matrix.image_suffix }}
@@ -102,8 +111,10 @@ jobs:
           cp -r $GITHUB_WORKSPACE/$COLLECTION_DIR \
             context/_build/collections/ansible_collections/security/${{ matrix.collection }}
 
-          # Copy extract_rule_metadata.py for EE build step
-          cp $GITHUB_WORKSPACE/scripts/extract_rule_metadata.py context/_build/extract_rule_metadata.py
+          # Copy extract_rule_metadata.py for XCCDF profiles (not needed for CycloneDX)
+          if [ "${{ matrix.scanner_type }}" = "xccdf" ]; then
+            cp $GITHUB_WORKSPACE/scripts/extract_rule_metadata.py context/_build/extract_rule_metadata.py
+          fi
 
       - name: Build EE image
         if: steps.check.outputs.skip != 'true'
@@ -132,8 +143,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify EE contents
-        if: steps.check.outputs.skip != 'true'
+      - name: Verify EE contents (XCCDF)
+        if: steps.check.outputs.skip != 'true' && matrix.scanner_type == 'xccdf'
         run: |
           docker run --rm $IMAGE_NAME:latest \
             rpm -q scap-security-guide openscap-scanner
@@ -143,4 +154,16 @@ jobs:
             test -f /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
           docker run --rm $IMAGE_NAME:latest \
             ansible-galaxy collection list security.${{ matrix.collection }}
-          echo "✓ EE verified: $IMAGE_NAME"
+          echo "EE verified: $IMAGE_NAME (XCCDF)"
+
+      - name: Verify EE contents (CycloneDX)
+        if: steps.check.outputs.skip != 'true' && matrix.scanner_type == 'cyclonedx'
+        run: |
+          docker run --rm $IMAGE_NAME:latest syft version
+          docker run --rm $IMAGE_NAME:latest grype version
+          docker run --rm $IMAGE_NAME:latest jq --version
+          docker run --rm $IMAGE_NAME:latest \
+            test -f ${{ matrix.ee_verify_file }}
+          docker run --rm $IMAGE_NAME:latest \
+            ansible-galaxy collection list security.${{ matrix.collection }}
+          echo "EE verified: $IMAGE_NAME (CycloneDX)"

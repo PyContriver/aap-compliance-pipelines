@@ -76,6 +76,53 @@ const BUILTIN_PROFILES: ComplianceProfile[] = [
     createdAt: '2025-03-20T00:00:00Z',
     updatedAt: '2025-03-20T00:00:00Z',
   },
+  {
+    id: 'supply-chain-vuln',
+    displayName: 'Supply Chain Vulnerability Scan',
+    framework: 'SUPPLY_CHAIN',
+    version: '1.0.0',
+    description: 'Syft/Grype SBOM vulnerability scanning for OS packages and language dependencies.',
+    platform: 'Linux (multi-distro)',
+    platformSpec: { os_family: ['RedHat', 'Debian'], os_version: [] },
+    workflowTemplateId: null,
+    remediateJtId: null,
+    eeId: null,
+    remediationPlaybookPath: 'playbooks/remediate.yml',
+    scanTags: '',
+    certification: { status: 'uncertified' as const, authority: 'N/A', validationId: '', disclaimer: 'Syft and Grype are open-source tools from Anchore.' },
+    ruleCount: 847,
+    displayConfig: {
+      gauge_label: 'vulnerability-free rate',
+      gauge_unit: 'packages',
+      remediation_verb: 'Patch',
+      severity_map: { CAT_I: 'Critical / High', CAT_II: 'Medium', CAT_III: 'Low' },
+      columns: [
+        { field: 'rule_id', label: 'CVE' },
+        { field: 'title', label: 'Package' },
+        { field: 'severity', label: 'CVSS Severity' },
+        { field: 'status', label: 'Status' },
+        { field: 'fix_text', label: 'Remediation' },
+      ],
+      tab: {
+        label: 'Supply Chain',
+        icon: 'security',
+        layout: [
+          { widget: 'summary_card' as const, title: 'SBOM Coverage', metric: 'vulnerability_free_rate', unit: 'packages' },
+          { widget: 'severity_breakdown' as const, group_by: 'severity', labels: { CAT_I: 'Critical / High', CAT_II: 'Medium', CAT_III: 'Low' } },
+          { widget: 'findings_table' as const, columns: [
+            { field: 'rule_id', label: 'CVE' },
+            { field: 'title', label: 'Package' },
+            { field: 'severity', label: 'Severity' },
+            { field: 'fix_text', label: 'Fix' },
+          ] },
+          { widget: 'host_breakdown' as const, title: 'Hosts by Vulnerability Count' },
+        ],
+      },
+    },
+    connectionStatus: 'connected' as const,
+    createdAt: '2026-06-25T00:00:00Z',
+    updatedAt: '2026-06-25T00:00:00Z',
+  },
 ];
 
 // ─── Mock hosts and helper builders ───────────────────────────────────
@@ -274,6 +321,83 @@ const MOCK_FINDINGS: MultiHostFinding[] = [
   return { ...f, ...impact, stateSummary: computeStateSummary(f.hosts) };
 });
 
+// ─── Supply chain mock findings (CVE-style) ─────────────────────────
+
+const SUPPLY_CHAIN_FINDINGS: MultiHostFinding[] = [
+  {
+    ruleId: 'CVE-2026-28439', stigId: 'openssl',
+    title: 'openssl 3.0.7-27.el9 — CVE-2026-28439',
+    description: 'Buffer overflow in openssl TLS handshake allows remote code execution.',
+    fixText: 'Update to openssl-3.0.7-28.el9 via `dnf update openssl`',
+    checkText: 'CVSS: Critical',
+    severity: 'CAT_I' as const, category: '', disruption: 'low' as const,
+    aapImpact: 'safe' as const, aapImpactReason: '',
+    automationAvailable: true, parameters: [],
+    hosts: mostPassSomeFail('3.0.7-28.el9', ['web-prod-01', 'web-prod-02', 'web-prod-03', 'db-prod-01', 'db-prod-02'], {
+      'web-prod-01': '3.0.7-27.el9', 'web-prod-02': '3.0.7-27.el9', 'web-prod-03': '3.0.7-27.el9',
+      'db-prod-01': '3.0.7-27.el9', 'db-prod-02': '3.0.7-27.el9',
+    }, 'active'),
+    passCount: 15, failCount: 5, naCount: 0, totalCount: 20,
+    stateSummary: { new: 0, active: 5, fixed: 0, resurfaced: 0 },
+  },
+  {
+    ruleId: 'CVE-2026-31852', stigId: 'curl',
+    title: 'curl 7.76.1-26.el9 — CVE-2026-31852',
+    description: 'HTTP/2 header injection in curl allows request smuggling.',
+    fixText: 'Update to curl-7.76.1-29.el9 via `dnf update curl`',
+    checkText: 'CVSS: High',
+    severity: 'CAT_I' as const, category: '', disruption: 'low' as const,
+    aapImpact: 'safe' as const, aapImpactReason: '',
+    automationAvailable: true, parameters: [],
+    hosts: allFail('7.76.1-29.el9', () => '7.76.1-26.el9', 'new'),
+    passCount: 0, failCount: 20, naCount: 0, totalCount: 20,
+    stateSummary: { new: 20, active: 0, fixed: 0, resurfaced: 0 },
+  },
+  {
+    ruleId: 'CVE-2026-22105', stigId: 'glibc',
+    title: 'glibc 2.34-83.el9 — CVE-2026-22105',
+    description: 'Integer overflow in glibc malloc allows heap corruption.',
+    fixText: 'Update to glibc-2.34-85.el9 via `dnf update glibc`',
+    checkText: 'CVSS: Medium',
+    severity: 'CAT_II' as const, category: '', disruption: 'low' as const,
+    aapImpact: 'safe' as const, aapImpactReason: '',
+    automationAvailable: true, parameters: [],
+    hosts: mostPassSomeFail('2.34-85.el9', ['web-prod-05', 'app-prod-01', 'app-prod-02'], {
+      'web-prod-05': '2.34-83.el9', 'app-prod-01': '2.34-83.el9', 'app-prod-02': '2.34-83.el9',
+    }),
+    passCount: 17, failCount: 3, naCount: 0, totalCount: 20,
+    stateSummary: { new: 0, active: 3, fixed: 0, resurfaced: 0 },
+  },
+  {
+    ruleId: 'CVE-2026-19477', stigId: 'python3',
+    title: 'python3 3.9.18-3.el9 — CVE-2026-19477',
+    description: 'ReDoS vulnerability in Python email module.',
+    fixText: 'Update to python3-3.9.18-5.el9 via `dnf update python3`',
+    checkText: 'CVSS: Medium',
+    severity: 'CAT_II' as const, category: '', disruption: 'low' as const,
+    aapImpact: 'safe' as const, aapImpactReason: '',
+    automationAvailable: true, parameters: [],
+    hosts: mostPassSomeFail('3.9.18-5.el9', ['db-prod-03', 'db-prod-04'], {
+      'db-prod-03': '3.9.18-3.el9', 'db-prod-04': '3.9.18-3.el9',
+    }, 'resurfaced'),
+    passCount: 18, failCount: 2, naCount: 0, totalCount: 20,
+    stateSummary: { new: 0, active: 0, fixed: 0, resurfaced: 2 },
+  },
+  {
+    ruleId: 'CVE-2026-40891', stigId: 'vim-minimal',
+    title: 'vim-minimal 9.0.2081-2.el9 — CVE-2026-40891',
+    description: 'Use-after-free in vim autocmd handling.',
+    fixText: 'No fix available for vim-minimal. Monitor for vendor updates.',
+    checkText: 'CVSS: Low',
+    severity: 'CAT_III' as const, category: '', disruption: 'low' as const,
+    aapImpact: 'safe' as const, aapImpactReason: '',
+    automationAvailable: false, parameters: [],
+    hosts: allFail('patched', () => '9.0.2081-2.el9'),
+    passCount: 0, failCount: 20, naCount: 0, totalCount: 20,
+    stateSummary: { new: 0, active: 20, fixed: 0, resurfaced: 0 },
+  },
+];
+
 // ─── Mock inventories ─────────────────────────────────────────────────
 
 const MOCK_INVENTORIES = [
@@ -360,12 +484,13 @@ export class MockDataProvider {
       criticalFindingsDelta: -3,
       pendingRemediation: 15,
       pendingRemediationDelta: -5,
-      activeProfiles: 3,
+      activeProfiles: 4,
       recentScans: [
         { id: '1', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 78, timestamp: '2 hours ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
         { id: '2', profileName: 'CIS RHEL 9 L1', inventoryName: 'staging-db-servers', passRate: 85, timestamp: '1 day ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
         { id: '3', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'production-web-servers', passRate: 0, timestamp: '12 hours ago', status: 'successful', scanner: 'remediation' },
         { id: '4', profileName: 'RHEL 9 STIG V2R8', inventoryName: 'dev-servers', passRate: 62, timestamp: '3 days ago', status: 'completed', scanType: 'assessment', scanner: 'oscap' },
+        { id: '5', profileName: 'Supply Chain Vulnerability Scan', inventoryName: 'production-web-servers', passRate: 94, timestamp: '4 hours ago', status: 'completed', scanType: 'assessment', scanner: 'syft-grype' },
       ],
       frameworkScores: [
         { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', target: 'RHEL 9', rules: 366, rate: 78, passCount: 285, failCount: 81, lastScan: '2 hours ago', contributingScans: [
@@ -378,11 +503,15 @@ export class MockDataProvider {
         { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', target: 'RHEL 9', rules: 142, rate: 62, passCount: 88, failCount: 54, lastScan: '3 days ago', contributingScans: [
           { scanId: 's5', inventoryId: 1, inventoryName: 'production-web-servers', passRate: 62, passCount: 88, failCount: 54, ruleCount: 142, timestamp: '3 days ago' },
         ] },
+        { profileId: 'supply-chain-vuln', name: 'Supply Chain', target: 'Linux', rules: 847, rate: 94, passCount: 797, failCount: 50, lastScan: '4 hours ago', contributingScans: [
+          { scanId: 's6', inventoryId: 1, inventoryName: 'production-web-servers', passRate: 94, passCount: 797, failCount: 50, ruleCount: 847, timestamp: '4 hours ago' },
+        ] },
       ],
       postureStatus: [
         { profileId: 'rhel9-stig', name: 'DISA STIG V2R8', rate: 78, aboveTarget: false },
         { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 85, aboveTarget: true },
         { profileId: 'rhel9-pci-dss', name: 'PCI-DSS v4.0', rate: 62, aboveTarget: false },
+        { profileId: 'supply-chain-vuln', name: 'Supply Chain', rate: 94, aboveTarget: true },
       ],
       byInventory: [
         { inventoryId: 1, inventoryName: 'production-web-servers', profileScores: [

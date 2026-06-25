@@ -100,5 +100,5 @@ The normalize play POSTs findings directly to the compliance plugin's `/findings
 .Additional resources
 
 * xref:ref-oscap-requirements_{context}[OpenSCAP scan requirements]
-* xref:ref-compliance-pipeline-resources_{context}[Compliance pipeline {ControllerName} resources]
-* xref:con-about-compliance-pipelines_{context}[About compliance pipelines]
+* xref:ref-compliance-pipeline-resources_{context}[Compliance Dashboard {ControllerName} resources]
+* xref:con-about-compliance-pipelines_{context}[About the Compliance Dashboard]

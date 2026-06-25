@@ -152,6 +152,9 @@ collection-sanity:
       - PROFILE: rhel9-cis-l2
         COLLECTION: compliance_rhel9_cis_l2
         ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: supply-chain
+        COLLECTION: compliance_supply_chain
+        ANSIBLE_VERSION: ["2.17", "2.18"]
   before_script:
     - apt-get update -qq && apt-get install -y -qq git > /dev/null
     - pip install --quiet "ansible-core~=$ANSIBLE_VERSION.0"
@@ -176,6 +179,9 @@ collection-units:
       - PROFILE: rhel9-cis-l2
         COLLECTION: compliance_rhel9_cis_l2
         ANSIBLE_VERSION: ["2.17", "2.18"]
+      - PROFILE: supply-chain
+        COLLECTION: compliance_supply_chain
+        ANSIBLE_VERSION: ["2.17", "2.18"]
   before_script:
     - apt-get update -qq && apt-get install -y -qq git > /dev/null
     - pip install --no-cache-dir --quiet "ansible-core~=$ANSIBLE_VERSION.0" pytest
@@ -198,6 +204,8 @@ collection-lint:
         COLLECTION: compliance_rhel9_cis_l1
       - PROFILE: rhel9-cis-l2
         COLLECTION: compliance_rhel9_cis_l2
+      - PROFILE: supply-chain
+        COLLECTION: compliance_supply_chain
   before_script:
     - apt-get update -qq && apt-get install -y -qq git > /dev/null
     - pip install --quiet 'ansible-lint>=24.0,<25' 'ansible-core>=2.16,<2.19'
@@ -236,6 +244,8 @@ collection-build:
         COLLECTION: compliance_rhel9_cis_l1
       - PROFILE: rhel9-cis-l2
         COLLECTION: compliance_rhel9_cis_l2
+      - PROFILE: supply-chain
+        COLLECTION: compliance_supply_chain
   script:
     - cd "profiles/$PROFILE/ansible_collections/security/$COLLECTION"
     - ansible-galaxy collection build --force

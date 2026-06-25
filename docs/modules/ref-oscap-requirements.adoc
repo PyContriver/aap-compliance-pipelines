@@ -178,7 +178,7 @@ The `compliance-normalize` JT exists as a standalone utility for debugging and T
 
 [IMPORTANT]
 ====
-The remediation job template is launched directly by the Backstage plugin as a standalone job template with `job_tags` for selective rule execution. It is not part of the assessment.
+The remediation job template is launched directly by the compliance plugin as a standalone job template with `job_tags` for selective rule execution. It is not part of the assessment.
 ====
 
 == OpenSCAP exit codes
@@ -220,7 +220,7 @@ The `oscap xccdf eval` command returns these exit codes, all of which are handle
 |`dnf install openscap-scanner` if the package is not pre-installed
 |Outbound from target host
 
-|Backstage backend to {PlatformNameShort} gateway
+|Portal backend to {PlatformNameShort} gateway
 |REST API calls (`/api/controller/v2/`) for launching workflows and reading job events
-|Outbound from Backstage backend
+|Outbound from portal backend
 |===

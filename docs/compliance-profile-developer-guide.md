@@ -1419,6 +1419,12 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Collection named `security.compliance_<platform>_<framework>` (or `security.compliance_<platform>_<scanner>` for Tier 2)
 - [ ] `galaxy.yml` with proper namespace (`security`), name, version, description, authors, tags, and dependencies
 - [ ] `meta/runtime.yml` with `requires_ansible: ">=2.18.0"`
+- [ ] `meta/compliance-profile.yml` with profile metadata and display configuration
+- [ ] `display:` block present in `compliance-profile.yml` (gauge labels, column mappings, optional custom tab)
+- [ ] `backstage/` directory present at profile root (may be empty with `.gitkeep`)
+- [ ] `uninstall.yml` playbook exists with disconnect semantics (deregister from Controller, never delete)
+- [ ] Framework type is one of: `DISA_STIG`, `CIS_BENCHMARK`, `SUPPLY_CHAIN`, `PQC_READINESS`, `CUSTOM`
+- [ ] Profile lifecycle complies with disconnect pattern (resources are never deleted, only disconnected)
 - [ ] `LICENSE` file present
 - [ ] `README.md` with overview, requirements, and usage instructions
 
@@ -1473,6 +1479,8 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] `extensions/patterns/metadata.yml` includes `platform:` spec declaring supported OS/device types (ADR-011). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form.
 - [ ] `extensions/patterns/portal/metadata.yml` with portal-specific metadata
 - [ ] `extensions/patterns/portal/backstage_template.yml` with Software Template (optional but recommended)
+- [ ] Display config (`display:` block in `compliance-profile.yml`) renders correctly with fallback behavior for missing fields
+- [ ] Custom tab (if declared in `display.tab`) loads and displays data correctly
 
 ### Remediation
 
@@ -1565,3 +1573,639 @@ When a user creates a new profile in the Backstage Settings tab and selects a sc
 If the JT has no extra_vars (e.g., a manually created JT without `install.yml`), the user fills in the fields manually. After the first scan, the CFF output confirms the profile metadata via the self-healing path.
 
 **install.yml and extra_vars:** The `install.yml` playbook in each profile reads `meta/compliance-profile.yml` and uses `infra.aap_configuration` to set the values as default `extra_vars` on the scan JT. This is the bridge between the collection metadata and the auto-populate behavior. If you skip `install.yml` and create the JT manually, ensure you set the same extra_vars keys -- in particular `remediate_jt_name` and `remediation_playbook` which link the assessment profile to its remediation JT. Without `remediate_jt_name`, the plugin falls back to a generic name search and may launch the wrong remediation JT in multi-profile deployments. Document all values in the profile README for manual entry.
+
+---
+
+## 12. Custom Dashboard Tabs and Display Configuration
+
+The compliance dashboard supports portable display configuration. Profile creators declare how their data renders in the dashboard via a `display:` block in `compliance-profile.yml`. The frontend reads this configuration at runtime and renders columns, labels, gauges, severity terminology, and even full custom tabs dynamically -- no plugin redeployment required (per ADR-006).
+
+### 12.1 Display Configuration Overview
+
+The `display:` block in `compliance-profile.yml` controls how findings from your profile render in the dashboard. It governs:
+
+- **Gauge label and unit** -- what the main compliance gauge says ("compliance rate" vs "vulnerability-free rate", "rules" vs "packages")
+- **Column definitions** -- which columns appear in the findings table and their display labels
+- **Severity labels** -- how CFF severity categories (CAT_I, CAT_II, CAT_III) are presented to users
+- **Remediation verb** -- the label on the remediate action button ("Remediate" vs "Patch" vs "Harden")
+- **Custom tabs** -- a dedicated tab in the dashboard with profile-specific widgets or a custom React component
+
+**When the `display:` block is absent, the dashboard applies STIG defaults.** This is backward-compatible -- existing profiles that predate the display config continue to work without changes. The defaults are:
+
+| Property | Default Value |
+|----------|--------------|
+| `gauge_label` | `"compliance rate"` |
+| `gauge_unit` | `"rules"` |
+| `columns` | Rule ID, STIG ID, Title, Severity, Status, Check, Fix |
+| `severity_map` | CAT I, CAT II, CAT III (literal) |
+| `remediation_verb` | `"Remediate"` |
+
+**When to declare `display:`:**
+
+- Your profile uses a non-STIG framework (CIS, PCI-DSS, Supply Chain, custom)
+- Your findings table needs different columns (e.g., CVE instead of Rule ID, CVSS Score instead of STIG ID)
+- Your severity terminology differs (e.g., "Critical / High" instead of "CAT I")
+- You want a dedicated dashboard tab with a custom layout
+- Your remediation action has a different name (e.g., "Patch" for package updates)
+
+STIG profiles can still declare `display:` to customize labels, but it is optional since the defaults match STIG conventions.
+
+### 12.2 Display Config Reference
+
+The full `display:` schema with all supported fields:
+
+```yaml
+profile:
+  # ... (name, framework, version, scanner, etc.)
+
+  display:
+    gauge_label: "compliance rate"          # Text shown below the main gauge
+    gauge_unit: "rules"                     # Unit counted by the gauge
+    remediation_verb: "Remediate"           # Label on the remediation action button
+
+    severity_map:                           # Maps CFF severity categories to display labels
+      CAT_I: "CAT I (High)"
+      CAT_II: "CAT II (Medium)"
+      CAT_III: "CAT III (Low)"
+
+    columns:                                # Findings table column definitions
+      - field: rule_id
+        label: "Rule ID"
+        width: 120                          # Optional: column width in pixels
+        sortable: true                      # Optional: enable column sorting
+
+    tab:                                    # Custom dashboard tab (see 12.3 and 12.4)
+      label: "Tab Title"
+      icon: "security"
+      layout: [...]                         # Tier 1: widget composition
+      custom_component:                     # Tier 2: custom React component
+        bundle: "backstage/dist/tab.js"
+        export: "SupplyChainTab"
+```
+
+#### Top-Level Display Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `gauge_label` | `string` | `"compliance rate"` | Descriptive text shown below the main percentage gauge on the overview and results pages. Should be lowercase -- the dashboard capitalizes it contextually. |
+| `gauge_unit` | `string` | `"rules"` | The unit being counted. Appears in the gauge subtitle (e.g., "245 rules evaluated"). |
+| `remediation_verb` | `string` | `"Remediate"` | Label on the primary action button for launching remediation. Use a verb form: "Remediate", "Patch", "Harden". |
+| `severity_map` | `SeverityMap` | CAT I/II/III literal | Maps the three CFF severity categories to profile-specific display labels. All three keys are optional -- missing keys fall back to their defaults. |
+| `columns` | `DisplayColumn[]` | 7-column STIG layout | Ordered list of columns for the findings table. Replaces the entire default column set when present. |
+| `tab` | `TabConfig` | none | Declares a custom tab in the dashboard. See sections 12.3 and 12.4. |
+
+#### DisplayColumn Fields
+
+Each entry in `columns` defines one column in the findings table:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `field` | `string` | Yes | The CFF field to display. Supported values: `rule_id`, `stig_id`, `title`, `severity`, `status`, `check_text`, `fix_text`. Dot-notation fields like `evidence.cvss_score` are also supported for accessing nested evidence data. |
+| `label` | `string` | Yes | Column header text shown in the table. |
+| `width` | `number` | No | Column width in pixels. If omitted, the table auto-sizes. |
+| `sortable` | `boolean` | No | Whether the column supports click-to-sort. Defaults to `false`. |
+
+#### SeverityMap Fields
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `CAT_I` | `"CAT I"` | Label for high-severity findings. |
+| `CAT_II` | `"CAT II"` | Label for medium-severity findings. |
+| `CAT_III` | `"CAT III"` | Label for low-severity findings. |
+
+All three keys are optional. Partially declared maps merge with the defaults -- you can override `CAT_I` while keeping the default labels for `CAT_II` and `CAT_III`.
+
+#### Side-by-Side Example: STIG vs Supply Chain
+
+**DISA STIG profile** -- traditional compliance language, rule-oriented:
+
+```yaml
+display:
+  gauge_label: "compliance rate"
+  gauge_unit: "rules"
+  remediation_verb: "Remediate"
+  severity_map:
+    CAT_I: "CAT I (High)"
+    CAT_II: "CAT II (Medium)"
+    CAT_III: "CAT III (Low)"
+  columns:
+    - field: rule_id
+      label: "Rule ID"
+    - field: stig_id
+      label: "STIG ID"
+    - field: title
+      label: "Title"
+    - field: severity
+      label: "Severity"
+    - field: status
+      label: "Status"
+    - field: check_text
+      label: "Check"
+    - field: fix_text
+      label: "Fix"
+```
+
+**Supply Chain profile** -- vulnerability-oriented, CVSS terminology:
+
+```yaml
+display:
+  gauge_label: "vulnerability-free rate"
+  gauge_unit: "packages"
+  remediation_verb: "Patch"
+  severity_map:
+    CAT_I: "Critical / High"
+    CAT_II: "Medium"
+    CAT_III: "Low"
+  columns:
+    - field: rule_id
+      label: "CVE"
+    - field: title
+      label: "Package"
+    - field: severity
+      label: "CVSS Severity"
+    - field: status
+      label: "Status"
+    - field: fix_text
+      label: "Remediation"
+    - field: evidence.cvss_score
+      label: "Score"
+```
+
+The same dashboard code renders both profiles differently based on these declarations. No framework-specific `if` statements exist in the frontend.
+
+### 12.3 Custom Tabs -- Tier 1: Widget Composition
+
+Tier 1 tabs are declared entirely in YAML. You specify a `tab.layout` array of widget instances, and the dashboard renders them in order using built-in widget components. No TypeScript required.
+
+#### Declaring a Tab
+
+Add a `tab` key under `display` in `compliance-profile.yml`:
+
+```yaml
+display:
+  # ... gauge_label, columns, etc.
+  tab:
+    label: "Supply Chain"          # Tab title in the dashboard navigation
+    icon: "security"               # Material UI icon name (optional)
+    layout:                        # Ordered list of widget instances
+      - widget: summary_card
+        title: "SBOM Coverage"
+        metric: vulnerability_free_rate
+        unit: "packages"
+      - widget: severity_breakdown
+        group_by: severity
+        labels:
+          CAT_I: "Critical / High"
+          CAT_II: "Medium"
+          CAT_III: "Low"
+      - widget: findings_table
+        columns:
+          - field: rule_id
+            label: "CVE"
+          - field: title
+            label: "Package"
+          - field: severity
+            label: "Severity"
+          - field: evidence.cvss_score
+            label: "Score"
+          - field: fix_text
+            label: "Fix"
+      - widget: trend_chart
+        metric: finding_count
+        label: "CVEs Over Time"
+      - widget: host_breakdown
+        title: "Hosts by Vulnerability Count"
+```
+
+When a profile declares `tab.layout`, the dashboard renders a `DynamicProfileTab` component that iterates the widget array and renders each widget in sequence.
+
+#### Available Widgets
+
+Six widget types are available for Tier 1 composition:
+
+##### `summary_card`
+
+Displays a single metric with a progress bar. Suitable for the primary KPI of your profile.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | `"Summary"` | Card heading. |
+| `metric` | `string` | total count | The metric to compute. See metric values below. |
+| `unit` | `string` | `"findings"` | Unit label shown below the metric (e.g., "245 packages evaluated"). |
+
+**Metric values:**
+
+| Value | Computation |
+|-------|-------------|
+| `compliance_rate` | Percentage of findings with zero failures. |
+| `vulnerability_free_rate` | Same computation as `compliance_rate` -- alias for supply chain terminology. |
+| `finding_count` | Count of findings with at least one failure. |
+| *(omitted)* | Total number of findings. |
+
+##### `severity_breakdown`
+
+Horizontal chip display showing finding counts grouped by severity. Each chip is color-coded to the standard severity palette (red / orange / yellow).
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | `"Severity Breakdown"` | Section heading. |
+| `group_by` | `string` | `"severity"` | The field to group by (currently only `severity` is supported). |
+| `labels` | `Record<string, string>` | profile's `severity_map` | Override labels for each category. If omitted, falls back to the profile's `severity_map` config. |
+
+##### `findings_table`
+
+A compact table of failing findings. Renders up to 50 rows. Supports the same `columns` definition as the top-level `display.columns`.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `columns` | `DisplayColumn[]` | Rule ID, Title, Severity | Column definitions. Same schema as top-level `display.columns`. |
+
+The table widget only shows failing findings (where `failCount > 0`). This makes it useful for a "what needs attention" view within the custom tab.
+
+##### `trend_chart`
+
+Placeholder for a time-series chart of a metric across scan history. Requires posture history data from a connected backend.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `metric` | `string` | none | The metric to chart over time (e.g., `finding_count`, `compliance_rate`). |
+| `label` | `string` | `"Trend"` | Chart title. |
+
+Note: The trend chart currently renders a descriptive placeholder when posture history is not available. It activates automatically when connected to a live backend with historical scan data.
+
+##### `gauge`
+
+A centered large-format metric display. Similar to `summary_card` but without the progress bar -- useful for secondary metrics.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `metric` | `string` | total count | Same metric values as `summary_card`. |
+| `label` | `string` | `"Score"` | Text shown below the number. Accepts `title` as an alias. |
+
+##### `host_breakdown`
+
+A table showing per-host pass/fail counts, sorted by failing count (worst hosts first). Renders up to 20 hosts.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | `"Hosts"` | Table heading. |
+
+This widget iterates all host-level results across all findings and aggregates pass/fail counts per hostname.
+
+#### Widget Rendering Order
+
+Widgets render in the order they appear in the `layout` array. There is no grid system -- each widget occupies the full width and stacks vertically. Design your layout top-to-bottom:
+
+1. Start with a `summary_card` or `gauge` for the primary KPI
+2. Follow with `severity_breakdown` for the severity distribution
+3. Add a `findings_table` for the details
+4. Optionally add `trend_chart` and `host_breakdown` at the bottom
+
+### 12.4 Custom Tabs -- Tier 2: Bring Your Own TypeScript
+
+When the built-in widget vocabulary is not enough -- for example, you need interactive drill-downs, custom visualizations, or integration with external APIs -- you can bundle a custom React component.
+
+#### When to Use Tier 2
+
+- You need interactive charts (drill-down, filtering, tooltips)
+- Your tab requires data fetching beyond the standard findings API
+- You need complex layouts (grids, side panels, modals)
+- You want to integrate third-party visualization libraries
+
+For most profiles, Tier 1 widget composition is sufficient. Reach for Tier 2 only when the predefined widgets cannot express your use case.
+
+#### Directory Structure
+
+Add a `backstage/` directory to your collection:
+
+```
+security.compliance_<platform>_<framework>/
+  meta/
+    compliance-profile.yml
+  backstage/
+    src/
+      SupplyChainTab.tsx         # Your custom React component
+      index.ts                   # Export barrel
+    vite.config.ts               # Build configuration
+    package.json                 # Dependencies (React, MUI as externals)
+    tsconfig.json
+    dist/
+      tab.js                     # Built bundle (committed or CI-generated)
+  playbooks/
+    ...
+```
+
+#### Writing a Custom Component
+
+Your component receives a `ProfileTabProps` interface with the profile metadata and a pre-configured API client:
+
+```typescript
+import React, { useState, useEffect } from 'react';
+import { Typography, Box, Paper } from '@material-ui/core';
+
+// ProfileTabProps is injected by the dashboard at runtime.
+// Do not import it -- declare it locally or use `any` for the prop type.
+interface ProfileTabProps {
+  profile: {
+    id: string;
+    displayName: string;
+    framework: string;
+    displayConfig?: {
+      gauge_label?: string;
+      gauge_unit?: string;
+      columns?: Array<{ field: string; label: string }>;
+      severity_map?: Record<string, string>;
+    };
+  };
+  findings: Array<{
+    ruleId: string;
+    title: string;
+    severity: string;
+    status: string;
+    failCount: number;
+    hosts: Array<{ host: string; status: string }>;
+    fixText: string;
+    checkText: string;
+  }>;
+}
+
+export const SupplyChainTab = ({ profile, findings }: ProfileTabProps) => {
+  const critical = findings.filter(
+    f => f.severity === 'CAT_I' && f.failCount > 0,
+  ).length;
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom>
+        {profile.displayName} -- Custom View
+      </Typography>
+      <Paper variant="outlined">
+        <Box p={2}>
+          <Typography variant="h3">{critical}</Typography>
+          <Typography color="textSecondary">
+            Critical vulnerabilities requiring immediate attention
+          </Typography>
+        </Box>
+      </Paper>
+      {/* Add your custom visualizations here */}
+    </Box>
+  );
+};
+```
+
+**Important: Backstage uses Material UI, not PatternFly.** Import from `@material-ui/core` and `@backstage/core-components`. Do not import PatternFly components -- they are not available in the Backstage runtime.
+
+#### Building with Vite
+
+Configure Vite to produce a single-file UMD bundle with React and Material UI as externals (they are provided by the host application):
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      name: 'ComplianceSupplyChainTab',
+      fileName: () => 'tab.js',
+      formats: ['umd'],
+    },
+    rollupOptions: {
+      external: ['react', 'react-dom', '@material-ui/core', '@backstage/core-components'],
+      output: {
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+          '@material-ui/core': 'MaterialUI',
+          '@backstage/core-components': 'BackstageCore',
+        },
+      },
+    },
+  },
+});
+```
+
+Build the bundle:
+
+```bash
+cd backstage/
+npm install
+npx vite build     # produces dist/tab.js
+```
+
+#### Declaring the Custom Component
+
+In `compliance-profile.yml`, reference the bundle instead of (or alongside) a widget layout:
+
+```yaml
+display:
+  tab:
+    label: "Supply Chain"
+    icon: "security"
+    custom_component:
+      bundle: "backstage/dist/tab.js"    # Path to the built bundle within the collection
+      export: "SupplyChainTab"           # Named export from the bundle
+```
+
+If both `layout` and `custom_component` are present, `custom_component` takes precedence.
+
+#### Uploading the Bundle
+
+The `install.yml` playbook uploads the custom tab bundle to the compliance backend during profile installation:
+
+```yaml
+- name: Upload custom tab bundle
+  when: backstage_api_url | length > 0
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/profiles/{{ profile_id }}/bundle"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ backstage_token }}"
+      Content-Type: "application/javascript"
+    src: "{{ collection_path }}/backstage/dist/tab.js"
+    validate_certs: false
+    status_code: [200, 201]
+```
+
+The backend stores the bundle and serves it to the frontend on demand. When the dashboard renders a profile with `custom_component` configured, it fetches the bundle from `/api/compliance/profiles/:id/bundle`, evaluates it in a sandboxed context, and renders the exported component with `ProfileTabProps`.
+
+#### Cleanup on Disconnect
+
+The `uninstall.yml` playbook removes the uploaded bundle when the profile is disconnected:
+
+```yaml
+- name: Remove custom tab bundle (if any)
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/profiles/{{ profile_id }}/bundle"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ backstage_token }}"
+    validate_certs: false
+    status_code: [200, 204, 404]
+  when: profile_id | length > 0
+```
+
+This prevents stale bundles from accumulating after a profile is disconnected.
+
+### 12.5 Profile Lifecycle: Connect / Disconnect
+
+Compliance profiles follow a connect/disconnect lifecycle. Profiles are never deleted -- they transition between `connected` and `disconnected` states. This preserves all historical data (findings, scans, posture snapshots) for audit regardless of whether the profile is currently active.
+
+#### Lifecycle States
+
+| State | Description | Dashboard Behavior |
+|-------|-------------|-------------------|
+| `connected` | Profile is active. Scans can run, findings are ingested, remediation is available. | Fully interactive -- all tabs, actions, and history visible. |
+| `disconnected` | Profile is inactive. No new scans or remediations. | Historical data remains visible (read-only). Profile is dimmed or badged in the profile list. Custom tab bundles are removed. |
+
+The lifecycle state is tracked by the `ProfileLifecycleState` type:
+
+```typescript
+type ProfileConnectionStatus = 'connected' | 'disconnected';
+
+interface ProfileVersion {
+  version: string;             // e.g., "1.0.0", "V2R8"
+  installedAt: string;         // ISO 8601 timestamp
+  previousVersion?: string;    // Version before this install/upgrade
+}
+
+interface ProfileLifecycleState {
+  connectionStatus: ProfileConnectionStatus;
+  currentVersion: ProfileVersion;
+  versionHistory: ProfileVersion[];    // Full upgrade history
+  disconnectedAt?: string;             // When it was last disconnected
+  disconnectedBy?: string;             // Who disconnected it
+}
+```
+
+#### Connecting a Profile (`install.yml`)
+
+The `install.yml` playbook performs two actions:
+
+1. **Creates Controller resources** -- assessment JT, remediation JT, with default extra_vars from `compliance-profile.yml`
+2. **Reconnects the profile in the compliance backend** -- via `POST /api/compliance/profiles/connect`
+
+The connect endpoint is idempotent. If a profile with the same framework already exists in a disconnected state, the endpoint reconnects it and preserves all historical data. If no profile exists, it creates a new one.
+
+```yaml
+- name: Reconnect profile in compliance backend (if available)
+  when: backstage_api_url | length > 0
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/profiles/connect"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ backstage_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      framework: "{{ profile.framework }}"
+      version: "{{ profile.version }}"
+      displayName: "{{ profile.name }}"
+    validate_certs: false
+    status_code: [200, 201]
+```
+
+When reconnecting, the backend:
+- Sets `connectionStatus` to `connected`
+- Records the new version in `versionHistory`
+- Clears `disconnectedAt` and `disconnectedBy`
+- Makes all historical findings/scans immediately visible again
+
+#### Disconnecting a Profile (`uninstall.yml`)
+
+The `uninstall.yml` playbook:
+
+1. **Marks the profile as disconnected** -- via `POST /api/compliance/profiles/disconnect`
+2. **Removes the custom tab bundle** (if any) -- via `DELETE /api/compliance/profiles/:id/bundle`
+3. **Removes Controller resources** -- deletes the assessment and remediation JTs
+
+```yaml
+- name: Mark profile as disconnected
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/profiles/disconnect"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ backstage_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      framework: "{{ profile_framework }}"
+      profileId: "{{ profile_id }}"
+    validate_certs: false
+    status_code: [200, 204, 404]
+```
+
+When disconnecting, the backend:
+- Sets `connectionStatus` to `disconnected`
+- Records `disconnectedAt` timestamp and `disconnectedBy` identity
+- Retains all findings, scans, posture snapshots, and version history
+- Does NOT delete any rows from the database
+
+#### Version Tracking and Upgrades
+
+Every `install.yml` run records a version entry. Re-running install with a newer `version` in `compliance-profile.yml` creates an upgrade record:
+
+```
+versionHistory:
+  - { version: "1.0.0", installedAt: "2026-05-01T...", previousVersion: null }
+  - { version: "1.1.0", installedAt: "2026-06-15T...", previousVersion: "1.0.0" }
+```
+
+This history enables:
+- Auditing which profile version produced which findings
+- Detecting configuration drift between profile versions
+- Rollback planning (the previous version is always recorded)
+
+#### Historical Data Preservation
+
+The connect/disconnect model is designed for regulatory environments where data deletion is unacceptable:
+
+- **Disconnected profiles retain all data.** An auditor can view historical scan results even after a profile is decommissioned.
+- **Reconnection is instant.** Running `install.yml` again restores full functionality with all previous data intact.
+- **No orphaned data.** Because profiles are never deleted, there are no foreign key violations or orphaned findings rows.
+
+This aligns with ADR-006 (self-contained profiles): the lifecycle is managed entirely through the profile's own playbooks. The compliance plugin does not implement "delete profile" -- only connect and disconnect.
+
+### 12.6 Checklist Additions
+
+Add these items to the Section 11 checklist when your profile includes display configuration or custom tabs.
+
+#### Display Configuration
+
+- [ ] `display:` block present in `meta/compliance-profile.yml` (required for non-STIG profiles, optional for STIG)
+- [ ] `gauge_label` and `gauge_unit` set to match the profile's domain terminology
+- [ ] `severity_map` overrides CFF categories to framework-appropriate labels
+- [ ] `remediation_verb` set if the default "Remediate" does not apply (e.g., "Patch", "Harden")
+- [ ] `columns` declared with all fields that matter for the profile's findings table
+- [ ] Column `field` values reference only supported CFF fields (`rule_id`, `stig_id`, `title`, `severity`, `status`, `check_text`, `fix_text`, `evidence.*`)
+
+#### Custom Tab (Tier 1)
+
+- [ ] `display.tab.label` set to a short, descriptive tab title
+- [ ] `display.tab.layout` array declared with at least one widget
+- [ ] Each widget in `layout` uses a supported widget type (`summary_card`, `severity_breakdown`, `findings_table`, `trend_chart`, `gauge`, `host_breakdown`)
+- [ ] Widget `metric` values are valid (`compliance_rate`, `vulnerability_free_rate`, `finding_count`)
+- [ ] `findings_table` widget includes `columns` definition with relevant fields
+- [ ] Tab renders correctly with mock data (`./bin/start.sh mock`)
+
+#### Custom Tab (Tier 2)
+
+- [ ] `backstage/` directory present in the collection with `src/`, `vite.config.ts`, `package.json`
+- [ ] Custom component uses `@material-ui/core` (not PatternFly)
+- [ ] Vite config externalizes `react`, `react-dom`, `@material-ui/core`, `@backstage/core-components`
+- [ ] Bundle builds successfully with `npx vite build`
+- [ ] `display.tab.custom_component.bundle` path matches the actual build output location
+- [ ] `display.tab.custom_component.export` matches the named export from the bundle
+- [ ] `install.yml` includes a task to upload the bundle via `PUT /api/compliance/profiles/:id/bundle`
+- [ ] `uninstall.yml` includes a task to remove the bundle via `DELETE /api/compliance/profiles/:id/bundle`
+
+#### Profile Lifecycle
+
+- [ ] `install.yml` includes a reconnect task (`POST /api/compliance/profiles/connect`) with `framework`, `version`, and `displayName`
+- [ ] `uninstall.yml` includes a disconnect task (`POST /api/compliance/profiles/disconnect`) with `framework` and `profileId`
+- [ ] `uninstall.yml` does NOT delete findings, scans, or historical data
+- [ ] Profile version in `compliance-profile.yml` is incremented on content changes
+- [ ] Reconnection tested: disconnect then reinstall preserves historical scan data

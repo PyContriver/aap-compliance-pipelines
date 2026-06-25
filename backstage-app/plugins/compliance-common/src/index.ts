@@ -49,5 +49,17 @@ export type {
   HostPostureResponse,
   HostFindingSummary,
   HostFindingsResponse,
+  DisplayColumn,
+  SeverityMap,
+  WidgetType,
+  TabWidget,
+  CustomComponentRef,
+  TabConfig,
+  ProfileDisplayConfig,
+  ProfileConnectionStatus,
+  ProfileVersion,
+  ProfileLifecycleState,
 } from './types';
+
+export { FRAMEWORK_OPTIONS } from './types';
 

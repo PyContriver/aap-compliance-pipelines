@@ -2,21 +2,20 @@
 
 [id="proc-configure-compliance-pipeline_{context}"]
 
-= Configuring a compliance pipeline
+= Configuring the Compliance Dashboard
 
 [role="_abstract"]
 
-Configure a compliance pipeline on your {PlatformNameShort} instance to enable automated compliance scanning, remediation, and verification of managed hosts. This procedure creates the required {ControllerName} resources and connects the Backstage compliance plugin to your {PlatformNameShort} deployment.
+Configure the Compliance Dashboard on your {PlatformNameShort} instance to enable automated compliance scanning, remediation, and verification of managed hosts. This procedure creates the required {ControllerName} resources and connects the compliance plugin to your {PlatformNameShort} deployment.
 
 .Prerequisites
 
 * {PlatformNameShort} {PlatformVers} or later is deployed and accessible.
+* The Ansible Automation Portal is deployed with the compliance plugin installed.
 * You have administrator access to {ControllerName}.
 * Target hosts are running RHEL 9 and are registered in an inventory.
-* You have access to the compliance pipelines repository at `https://github.com/cross-logic/aap-compliance-pipelines.git`.
 * `ansible-builder` is installed if you need to build a custom {ExecEnvShort}.
 * `podman` or `docker` is available for building container images.
-* `Node.js` 20 or later and `yarn` are installed for the Backstage application.
 
 .Procedure
 
@@ -226,56 +225,50 @@ Navigate to *Templates* > *Add* > *Add Job Template* and set the following value
 |Prompt on Launch: Job Tags
 |Enabled
 
+|Prompt on Launch: Limit
+|Enabled
+
 |Prompt on Launch: Variables
+|Enabled
+
+|Enable Privilege Escalation
 |Enabled
 |===
 +
-The Backstage plugin passes selected rule IDs as `job_tags` and parameter overrides as `extra_vars` when launching remediation.
+The compliance plugin passes selected rule IDs as `job_tags` and parameter overrides as `extra_vars` when launching remediation.
 
-. Create an API token for the Backstage plugin.
+. Create an API token for the compliance plugin.
 +
 Navigate to your user profile in {ControllerName} and select *Tokens* > *Add*.
 +
-Set the *Scope* to *Write* and note the generated token value. The Backstage plugin uses this token to launch job templates and retrieve results.
+Set the *Scope* to *Write* and note the generated token value. The compliance plugin uses this token to launch job templates and retrieve results.
 +
 [IMPORTANT]
 ====
 Store the API token securely. It provides write access to {ControllerName} resources within the scope of your user permissions.
 ====
 
-. Configure the Backstage compliance plugin.
+. Configure the compliance plugin in the Ansible Automation Portal.
 +
-Copy the example environment file and set your connection values:
+Add the compliance plugin settings to the portal's `app-config.yaml`:
 +
-[source,bash]
+[source,yaml]
 ----
-cd aap-compliance-pipelines/backstage-app
-cp .env.example .env
-----
-+
-Edit the `.env` file with your {PlatformNameShort} connection details:
-+
-[source,bash]
-----
-# Required — AAP Connection
-AAP_HOST=https://<your-aap-gateway-hostname>
-AAP_API_TOKEN=<your-api-token>
+compliance:
+  dataSource: live
+  retentionDays: 90
+  authMode: production
 
-# Optional — auto-generated if empty
-BACKEND_SECRET=
-AUTH_SIGNING_KEY=
+ansible:
+  rhaap:
+    baseUrl: https://<your-aap-gateway-hostname>
+    checkSSL: true
+    token: ${AAP_API_TOKEN}
 ----
 
-. Configure RBAC for production deployment.
+. Configure RBAC.
 +
-When deploying to the Ansible Portal (RHDH), enable RBAC enforcement by setting the auth mode and adding the compliance plugin to the permission evaluation list.
-+
-In your `.env` file, set:
-+
-[source,bash]
-----
-COMPLIANCE_AUTH_MODE=production
-----
+Enable RBAC enforcement by adding the compliance plugin to the permission evaluation list.
 +
 In your `app-config.yaml`, add `compliance` to the RBAC plugins list:
 +
@@ -298,18 +291,11 @@ The compliance plugin uses the same two-tier permission model as the self-servic
 +
 Additionally, the plugin passes each user's AAP OAuth2 token to {ControllerName} API calls, so AAP's native RBAC controls which inventories, job templates, and credentials the user can access.
 
-. Start the Backstage application in live mode:
-+
-[source,bash]
-----
-./bin/start.sh live .env
-----
-+
-The start script launches both the backend (port 7007) and frontend (port 3000) and connects to your {PlatformNameShort} instance using the credentials in the `.env` file.
+. Restart the Ansible Automation Portal to load the compliance plugin with the updated configuration.
 
 .Verification
 
-* Open `http://localhost:3000` in a web browser and navigate to the *Compliance* section.
+* Open the Ansible Automation Portal in a web browser and navigate to the *Compliance* section in the sidebar.
 * Go to the *Settings* tab and register the RHEL 9 STIG compliance profile by selecting the assessment job template and {ExecEnvShort} you created. To modify an existing profile, click the edit icon (pencil) next to the profile row.
 +
 [NOTE]
@@ -322,6 +308,6 @@ When you select a scan job template in the *Settings* form, the plugin fetches t
 [role="_additional-resources"]
 .Additional resources
 
-* xref:con-about-compliance-pipelines_{context}[About compliance pipelines]
-* xref:ref-compliance-pipeline-resources_{context}[Compliance pipeline {ControllerName} resources]
-* xref:ref-compliance-pipeline-configuration_{context}[Compliance pipeline configuration reference]
+* xref:con-about-compliance-pipelines_{context}[About the Compliance Dashboard]
+* xref:ref-compliance-pipeline-resources_{context}[Compliance Dashboard {ControllerName} resources]
+* xref:ref-compliance-pipeline-configuration_{context}[Compliance Dashboard configuration reference]

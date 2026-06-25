@@ -287,6 +287,7 @@ profiles/rhel9-stig/
   ansible_collections/security/compliance_rhel9_stig/
     galaxy.yml                 # Collection metadata
     meta/execution-environment.yml  # EE deps for Hub auto-discovery
+    meta/compliance-profile.yml     # Profile identity, display config, certification
     plugins/modules/           # normalize_xccdf module (thin wrapper)
     plugins/module_utils/      # normalize_common.py (synced from _shared)
     playbooks/                 # run_oscap, remediate, normalize
@@ -294,6 +295,8 @@ profiles/rhel9-stig/
     docs/                      # Automation Hub + community docs
   ee/execution-environment.yml # Standalone EE build definition
   install.yml                  # Controller registration playbook
+  uninstall.yml                # Controller deregistration (disconnect semantics)
+  backstage/                   # Portal-specific assets (may be empty with .gitkeep)
   README.md                    # Profile documentation
 profiles/_shared/              # Shared code synced into all collections
   normalize_common.py          # Single source of truth for XCCDF parsing
@@ -337,11 +340,15 @@ Each compliance profile is self-contained under `profiles/`. To add a new one:
 4. Set the remediation playbook path in `remediate.yml`
 5. Set certification parameters (`certification_status`, `certification_authority`)
 6. Set `remediate_jt_name` in `install.yml` (the scan JT's `extra_vars` must include this so the Settings form can auto-populate the Remediate Job Template). Without it, multi-profile deployments will launch the wrong remediation JT.
-7. Update the EE definition if different scanner packages are needed
-8. Run `ansible-test sanity` and `ansible-test units` to verify
-9. See `docs/compliance-profile-developer-guide.md` for the full guide
+7. Update the framework in `meta/compliance-profile.yml` (supported: `DISA_STIG`, `CIS_BENCHMARK`, `SUPPLY_CHAIN`, `PQC_READINESS`, `CUSTOM`)
+8. Configure the `display:` block in `meta/compliance-profile.yml` (gauge labels, column mappings, optional custom tab)
+9. Create `uninstall.yml` playbook with disconnect semantics (never delete resources, only deregister from Controller)
+10. Create `backstage/` directory (may be empty with `.gitkeep` if no Portal-specific assets)
+11. Update the EE definition if different scanner packages are needed
+12. Run `ansible-test sanity` and `ansible-test units` to verify
+13. See `docs/compliance-profile-developer-guide.md` for the full guide
 
-The normalizer (`normalize_xccdf.py`) is a thin wrapper around shared logic in `module_utils/normalize_common.py`. It is framework-aware and handles STIG, CIS, and custom profiles via the `framework` parameter. After creating a new profile, run `python scripts/sync_shared_modules.py` to populate the new collection's `plugins/module_utils/` directory and add the collection path to the `COLLECTIONS` list in the sync script.
+The normalizer (`normalize_xccdf.py`) is a thin wrapper around shared logic in `module_utils/normalize_common.py`. It is framework-aware and handles STIG, CIS, SUPPLY_CHAIN, PQC_READINESS, and custom profiles via the `framework` parameter. After creating a new profile, run `python scripts/sync_shared_modules.py` to populate the new collection's `plugins/module_utils/` directory and add the collection path to the `COLLECTIONS` list in the sync script.
 
 ### New or modified AAP Controller resources
 

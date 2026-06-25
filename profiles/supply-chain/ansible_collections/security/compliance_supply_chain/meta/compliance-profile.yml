@@ -1,0 +1,77 @@
+---
+# Compliance Profile Metadata — Supply Chain Vulnerability Scanning
+#
+# This profile uses Syft (SBOM generation) and Grype (vulnerability matching)
+# to scan managed hosts for known CVEs in OS packages and language-level
+# dependencies. Findings are normalized to CFF via CycloneDX mapping.
+
+profile:
+  name: "Supply Chain Vulnerability Scan"
+  framework: "SUPPLY_CHAIN"
+  version: "1.0.0"
+  platform: "Linux (multi-distro)"
+  scanner: "syft-grype"
+  remediation_playbook: "playbooks/remediate.yml"
+  remediate_jt_name: "compliance-remediate-supply-chain"
+  certification:
+    status: "uncertified"
+    authority: "N/A"
+    disclaimer: >
+      Syft and Grype are open-source tools from Anchore. Vulnerability data
+      is sourced from NVD and distribution-specific advisory feeds. Results
+      should be validated against vendor security advisories.
+  platform_spec:
+    os_family: ["RedHat", "Debian", "Suse", "Alpine"]
+
+  display:
+    gauge_label: "vulnerability-free rate"
+    gauge_unit: "packages"
+    remediation_verb: "Patch"
+    severity_map:
+      CAT_I: "Critical / High"
+      CAT_II: "Medium"
+      CAT_III: "Low"
+    columns:
+      - field: rule_id
+        label: "CVE"
+      - field: title
+        label: "Package"
+      - field: severity
+        label: "CVSS Severity"
+      - field: status
+        label: "Status"
+      - field: fix_text
+        label: "Remediation"
+      - field: evidence.cvss_score
+        label: "Score"
+    tab:
+      label: "Supply Chain"
+      icon: "security"
+      layout:
+        - widget: summary_card
+          title: "SBOM Coverage"
+          metric: vulnerability_free_rate
+          unit: "packages"
+        - widget: severity_breakdown
+          group_by: severity
+          labels:
+            CAT_I: "Critical / High"
+            CAT_II: "Medium"
+            CAT_III: "Low"
+        - widget: findings_table
+          columns:
+            - field: rule_id
+              label: "CVE"
+            - field: title
+              label: "Package"
+            - field: severity
+              label: "Severity"
+            - field: evidence.cvss_score
+              label: "Score"
+            - field: fix_text
+              label: "Fix"
+        - widget: trend_chart
+          metric: finding_count
+          label: "CVEs Over Time"
+        - widget: host_breakdown
+          title: "Hosts by Vulnerability Count"

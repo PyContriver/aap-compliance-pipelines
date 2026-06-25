@@ -76,7 +76,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const severityLabel: Record<FindingSeverity, string> = {
+const defaultSeverityLabel: Record<FindingSeverity, string> = {
   CAT_I: 'CAT I',
   CAT_II: 'CAT II',
   CAT_III: 'CAT III',
@@ -94,9 +94,10 @@ interface FindingRowProps {
   expanded: boolean;
   onToggle: () => void;
   hostFilter?: string;
+  severityLabelFn?: (key: string) => string;
 }
 
-export const FindingRow = ({ finding, expanded, onToggle, hostFilter }: FindingRowProps) => {
+export const FindingRow = ({ finding, expanded, onToggle, hostFilter, severityLabelFn }: FindingRowProps) => {
   const classes = useStyles();
 
   const getSeverityClass = (severity: FindingSeverity) => {
@@ -135,7 +136,7 @@ export const FindingRow = ({ finding, expanded, onToggle, hostFilter }: FindingR
         <TableCell>
           <Box display="flex" alignItems="center" style={{ gap: 4 }}>
             <Chip
-              label={severityLabel[finding.severity]}
+              label={severityLabelFn ? severityLabelFn(finding.severity) : defaultSeverityLabel[finding.severity]}
               size="small"
               className={`${classes.severityChip} ${getSeverityClass(finding.severity)}`}
             />

@@ -1,0 +1,111 @@
+---
+# Disconnect CIS Benchmark RHEL 9 Level 1 - Server compliance profile
+#
+# Usage:
+#   ansible-playbook uninstall.yml -e aap_host=https://controller.example.com -e aap_token=<token>
+#
+# This playbook:
+#   1. Marks the profile as "disconnected" in the compliance backend
+#      (all historical findings/scans/snapshots are preserved for audit)
+#   2. Removes Controller resources (JTs)
+#
+# The profile can be reconnected at any time by running install.yml again.
+
+- name: "Disconnect: CIS Benchmark RHEL 9 Level 1 - Server Profile"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aap_host: "{{ lookup('env', 'AAP_HOST') }}"
+    aap_token: "{{ lookup('env', 'AAP_API_TOKEN') }}"
+    backstage_api_url: "{{ lookup('env', 'BACKSTAGE_API_URL') | default('', true) }}"
+    backstage_token: "{{ lookup('env', 'BACKSTAGE_TOKEN') | default('', true) }}"
+    profile_id: "{{ compliance_profile_id | default('') }}"
+    profile_framework: "CIS"
+
+    controller_resources:
+      scan_jt: "compliance-scan-cis-l1-rhel9"
+      remediate_jt: "compliance-remediate-cis-l1-rhel9"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - aap_host | length > 0
+          - aap_token | length > 0
+        fail_msg: "Set AAP_HOST and AAP_API_TOKEN environment variables"
+
+    # NOTE: The /profiles/disconnect and /profiles/:id/bundle endpoints are
+    # forward-looking — the backend does not implement them yet. These tasks
+    # will silently skip until lifecycle management endpoints are built (L6).
+    - name: Disconnect profile in compliance backend
+      when: backstage_api_url | length > 0
+      block:
+        - name: Mark profile as disconnected
+          ansible.builtin.uri:
+            url: "{{ backstage_api_url }}/api/compliance/profiles/disconnect"
+            method: POST
+            headers:
+              Authorization: "Bearer {{ backstage_token }}"
+              Content-Type: "application/json"
+            body_format: json
+            body:
+              framework: "{{ profile_framework }}"
+              profileId: "{{ profile_id }}"
+            validate_certs: false
+            status_code: [200, 204, 404]
+          register: _disconnect_result
+
+        - name: Remove custom tab bundle (if any)
+          ansible.builtin.uri:
+            url: "{{ backstage_api_url }}/api/compliance/profiles/{{ profile_id }}/bundle"
+            method: DELETE
+            headers:
+              Authorization: "Bearer {{ backstage_token }}"
+            validate_certs: false
+            status_code: [200, 204, 404]
+          when: profile_id | length > 0
+
+    - name: Remove Controller job templates
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/job_templates/"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+        validate_certs: false
+        status_code: [200]
+      register: _jt_list
+
+    - name: Delete scan job template
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/job_templates/{{ item.id }}/"
+        method: DELETE
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+        validate_certs: false
+        status_code: [200, 202, 204, 404]
+      loop: "{{ _jt_list.json.results | selectattr('name', 'equalto', controller_resources.scan_jt) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Delete remediation job template
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/job_templates/{{ item.id }}/"
+        method: DELETE
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+        validate_certs: false
+        status_code: [200, 202, 204, 404]
+      loop: "{{ _jt_list.json.results | selectattr('name', 'equalto', controller_resources.remediate_jt) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Report disconnection result
+      ansible.builtin.debug:
+        msg: |
+          === CIS L1 RHEL 9 Profile Disconnected ===
+          Backend: {{ 'disconnected' if (_disconnect_result.status | default(0)) in [200, 204] else 'skipped' }}
+          Controller: JTs removed ({{ controller_resources.scan_jt }}, {{ controller_resources.remediate_jt }})
+          Historical data: PRESERVED (findings, scans, snapshots retained for audit)
+          To reconnect: run install.yml again

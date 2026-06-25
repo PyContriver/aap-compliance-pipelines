@@ -1,0 +1,135 @@
+---
+# Register Supply Chain Vulnerability Scan compliance profile on AAP Controller
+#
+# Usage:
+#   ansible-playbook install.yml -e aap_host=https://controller.example.com -e aap_token=<token>
+#
+# This playbook creates the necessary Controller resources:
+#   - Assessment Job Template (run_scan.yml — Syft + Grype on targets)
+#   - Remediation Job Template (remediate.yml — dnf/apt update)
+#
+# If a profile with framework=SUPPLY_CHAIN already exists in the compliance
+# backend, this playbook reconnects it (preserving all historical data).
+#
+# Prerequisites:
+#   - Execution Environment with Syft + Grype
+#   - Target inventory with supported Linux hosts
+#   - Machine credential with SSH access to targets
+
+- name: "Install: Supply Chain Vulnerability Scan Profile"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aap_host: "{{ lookup('env', 'AAP_HOST') }}"
+    aap_token: "{{ lookup('env', 'AAP_API_TOKEN') }}"
+    backstage_api_url: "{{ lookup('env', 'BACKSTAGE_API_URL') | default('', true) }}"
+    backstage_token: "{{ lookup('env', 'BACKSTAGE_TOKEN') | default('', true) }}"
+    org_name: "{{ organization | default('Default') }}"
+    project_name: "{{ project | default('compliance-profile-supply-chain') }}"
+    ee_name: "{{ execution_environment | default('compliance-supply-chain') }}"
+    inventory_name: "{{ inventory | default('compliance-rhel9-inventory') }}"
+
+    profile:
+      name: "Supply Chain Vulnerability Scan"
+      framework: "SUPPLY_CHAIN"
+      version: "1.0.0"
+      certification_status: "uncertified"
+      certification_authority: "N/A"
+      scan_jt_name: "compliance-scan-supply-chain"
+      scan_playbook: "profiles/supply-chain/ansible_collections/security/compliance_supply_chain/playbooks/run_scan.yml"
+      remediate_jt_name: "compliance-remediate-supply-chain"
+      remediate_playbook: "profiles/supply-chain/ansible_collections/security/compliance_supply_chain/playbooks/remediate.yml"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - aap_host | length > 0
+          - aap_token | length > 0
+        fail_msg: "Set AAP_HOST and AAP_API_TOKEN environment variables or pass -e aap_host=... -e aap_token=..."
+
+    - name: Create assessment job template
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/job_templates/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ profile.scan_jt_name }}"
+          organization: "{{ org_name }}"
+          project: "{{ project_name }}"
+          playbook: "{{ profile.scan_playbook }}"
+          inventory: "{{ inventory_name }}"
+          become_enabled: true
+          ask_variables_on_launch: true
+          ask_inventory_on_launch: true
+          use_fact_cache: true
+          extra_vars:
+            profile_name: "{{ profile.name }}"
+            framework: "{{ profile.framework }}"
+            certification_status: "{{ profile.certification_status }}"
+            certification_authority: "{{ profile.certification_authority }}"
+            remediate_jt_name: "{{ profile.remediate_jt_name }}"
+            remediation_playbook: "{{ profile.remediate_playbook }}"
+        validate_certs: false
+        status_code: [200, 201]
+      register: _scan_jt
+      failed_when: false
+
+    - name: Create remediation job template
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/job_templates/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ profile.remediate_jt_name }}"
+          organization: "{{ org_name }}"
+          project: "{{ project_name }}"
+          playbook: "{{ profile.remediate_playbook }}"
+          inventory: "{{ inventory_name }}"
+          become_enabled: true
+          ask_variables_on_launch: true
+          ask_inventory_on_launch: true
+          ask_limit_on_launch: true
+        validate_certs: false
+        status_code: [200, 201]
+      register: _remediate_jt
+      failed_when: false
+
+    # NOTE: The /profiles/connect endpoint is forward-looking — the backend
+    # does not implement it yet. This task will silently skip (failed_when: false)
+    # until the lifecycle management endpoints are built (L6 build plan phase).
+    - name: Reconnect profile in compliance backend (if available)
+      when: backstage_api_url | length > 0
+      ansible.builtin.uri:
+        url: "{{ backstage_api_url }}/api/compliance/profiles/connect"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ backstage_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          framework: "{{ profile.framework }}"
+          version: "{{ profile.version }}"
+          displayName: "{{ profile.name }}"
+        validate_certs: false
+        status_code: [200, 201]
+      register: _backend_connect
+      failed_when: false
+
+    - name: Report installation result
+      ansible.builtin.debug:
+        msg: |
+          === {{ profile.name }} Profile Installed ===
+          Assessment JT: {{ profile.scan_jt_name }} (id={{ _scan_jt.json.id | default('exists') }})
+          Remediation JT: {{ profile.remediate_jt_name }} (id={{ _remediate_jt.json.id | default('exists') }})
+          Framework: {{ profile.framework }}
+          Version: {{ profile.version }}
+          Backend: {{ 'reconnected' if (_backend_connect.status | default(0)) in [200, 201] else 'skipped (no BACKSTAGE_API_URL)' }}

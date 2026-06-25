@@ -54,15 +54,11 @@ import { VerificationComparison } from './VerificationComparison';
 import { FindingRow } from './FindingRow';
 import { FilterGroup } from './FilterGroup';
 import type { FilterOption } from './FilterGroup';
-import { useScanMetadata, useBaselineState, useFindingsFilter } from './hooks';
+import { useScanMetadata, useBaselineState, useFindingsFilter, useDisplayConfig } from './hooks';
 
 // ─── Filter definitions ──────────────────────────────────────────────
 
-const SEVERITY_OPTIONS: FilterOption[] = [
-  { key: 'CAT_I', label: 'CAT I', color: SEVERITY_COLORS.CAT_I },
-  { key: 'CAT_II', label: 'CAT II', color: SEVERITY_COLORS.CAT_II },
-  { key: 'CAT_III', label: 'CAT III', color: SEVERITY_COLORS.CAT_III },
-];
+// Severity options are now derived from displayConfig in the component body.
 
 const STATUS_OPTIONS: FilterOption[] = [
   { key: 'fail', label: 'Failing', color: STATUS_COLORS.error },
@@ -138,8 +134,15 @@ export const ResultsViewer = () => {
 
   // ─── Extracted hooks ─────────────────────────────────────────────
   const meta = useScanMetadata(api, jobId);
+  const displayConfig = useDisplayConfig(meta.profileDisplayConfig);
   const baseline = useBaselineState(api, meta.scanComplianceProfileId, meta.scanInventoryId);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
+
+  const severityOptions: FilterOption[] = useMemo(() => [
+    { key: 'CAT_I', label: displayConfig.severityMap.CAT_I, color: SEVERITY_COLORS.CAT_I },
+    { key: 'CAT_II', label: displayConfig.severityMap.CAT_II, color: SEVERITY_COLORS.CAT_II },
+    { key: 'CAT_III', label: displayConfig.severityMap.CAT_III, color: SEVERITY_COLORS.CAT_III },
+  ], [displayConfig.severityMap]);
   const [previousFindings, setPreviousFindings] = useState<MultiHostFinding[]>([]);
 
   const comparisonMap = useMemo(() => {
@@ -227,7 +230,7 @@ export const ResultsViewer = () => {
   const activeFilterPills = useMemo(() => {
     const pills: Array<{ label: string; key: string; clearKey: string; color: string }> = [];
     if (filters.severity !== 'all') {
-      const opt = SEVERITY_OPTIONS.find(o => o.key === filters.severity);
+      const opt = severityOptions.find(o => o.key === filters.severity);
       if (opt) pills.push({ label: opt.label, key: 'severity', clearKey: 'severity', color: opt.color });
     }
     if (filters.status !== 'all') {
@@ -908,7 +911,7 @@ export const ResultsViewer = () => {
 
           <FilterGroup
             label="Severity"
-            options={SEVERITY_OPTIONS}
+            options={severityOptions}
             activeValue={filters.severity}
             expanded={expandedGroup === 'severity'}
             onToggleExpand={() => handleGroupToggle('severity')}
@@ -971,9 +974,9 @@ export const ResultsViewer = () => {
             <TableHead>
               <TableRow>
                 <TableCell width={40} style={TABLE_STYLES.header} />
-                <TableCell style={TABLE_STYLES.header}>Severity</TableCell>
-                <TableCell style={TABLE_STYLES.header}>Title</TableCell>
-                <TableCell style={TABLE_STYLES.header}>Rule ID</TableCell>
+                <TableCell style={TABLE_STYLES.header}>{displayConfig.columns.find(c => c.field === 'severity')?.label ?? 'Severity'}</TableCell>
+                <TableCell style={TABLE_STYLES.header}>{displayConfig.columns.find(c => c.field === 'title')?.label ?? 'Title'}</TableCell>
+                <TableCell style={TABLE_STYLES.header}>{displayConfig.columns.find(c => c.field === 'rule_id')?.label ?? 'Rule ID'}</TableCell>
                 <TableCell style={TABLE_STYLES.header} align="center">Hosts</TableCell>
                 <TableCell style={TABLE_STYLES.header} width={200}>Pass Rate</TableCell>
               </TableRow>
@@ -986,6 +989,7 @@ export const ResultsViewer = () => {
                   expanded={expandedRule === finding.ruleId}
                   onToggle={() => setExpandedRule(expandedRule === finding.ruleId ? null : finding.ruleId)}
                   hostFilter={filters.host !== 'all' ? filters.host : undefined}
+                  severityLabelFn={displayConfig.severityLabel}
                 />
               ))}
             </TableBody>

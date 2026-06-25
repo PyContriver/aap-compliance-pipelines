@@ -1317,6 +1317,7 @@ export class ComplianceDatabase {
       ee_id: profile.eeId,
       remediation_playbook_path: profile.remediationPlaybookPath || '',
       scan_tags: profile.scanTags || '',
+      display_config: profile.displayConfig ? JSON.stringify(profile.displayConfig) : null,
       updated_at: now,
     };
     if (ruleCount !== undefined) {
@@ -1358,6 +1359,8 @@ export class ComplianceDatabase {
   }
 
   private mapProfileRow(row: Record<string, unknown>): ComplianceProfile {
+    const connectionStatus = (row.connection_status as string) || 'connected';
+    const profileVersion = row.profile_version as string | null;
     return {
       id: row.id as string,
       displayName: row.display_name as string,
@@ -1373,8 +1376,135 @@ export class ComplianceDatabase {
       scanTags: (row.scan_tags as string) || '',
       certification: safeJsonParse(row.certification),
       ruleCount: (row.rule_count as number) ?? undefined,
+      displayConfig: safeJsonParse(row.display_config) ?? undefined,
+      connectionStatus: connectionStatus as 'connected' | 'disconnected',
+      currentVersion: profileVersion ? {
+        version: profileVersion,
+        installedAt: toISOString(row.connected_at ?? row.updated_at),
+      } : undefined,
       createdAt: toISOString(row.created_at),
       updatedAt: toISOString(row.updated_at),
     };
+  }
+
+  // ─── Profile lifecycle ──────────────────────────────────────────────
+
+  private static readonly MAX_VERSION_HISTORY = 50;
+
+  /** Reconnect a previously-disconnected profile by framework. Returns null if no profile with that framework exists. */
+  async connectProfile(
+    framework: string,
+    version: string,
+    displayName?: string,
+  ): Promise<ComplianceProfile | null> {
+    const now = new Date().toISOString();
+    const existing = await this.db('compliance_profile_registry')
+      .where('framework', framework)
+      .first();
+
+    if (existing) {
+      const update: Record<string, unknown> = {
+        connection_status: 'connected',
+        connected_at: now,
+        disconnected_at: null,
+        disconnected_by: null,
+        updated_at: now,
+      };
+      if (version && version !== existing.profile_version) {
+        const history = safeJsonParse<Array<Record<string, unknown>>>(existing.version_history) ?? [];
+        if (existing.profile_version) {
+          history.push({
+            version: existing.profile_version,
+            installedAt: toISOString(existing.connected_at ?? existing.updated_at),
+          });
+        }
+        update.profile_version = version;
+        update.version_history = JSON.stringify(history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY));
+      }
+      if (displayName) update.display_name = displayName;
+
+      await this.db('compliance_profile_registry')
+        .where('id', existing.id)
+        .update(update);
+      const updated = await this.db('compliance_profile_registry')
+        .where('id', existing.id)
+        .first();
+      return updated ? this.mapProfileRow(updated) : null;
+    }
+
+    return null;
+  }
+
+  /** Mark a profile as disconnected. All historical data is preserved. */
+  async disconnectProfile(
+    id: string,
+    by?: string,
+  ): Promise<boolean> {
+    const now = new Date().toISOString();
+    const updated = await this.db('compliance_profile_registry')
+      .where('id', id)
+      .update({
+        connection_status: 'disconnected',
+        disconnected_at: now,
+        disconnected_by: by ?? null,
+        updated_at: now,
+      });
+    return updated > 0;
+  }
+
+  /** Mark a profile as disconnected by framework name. */
+  async disconnectProfileByFramework(
+    framework: string,
+    by?: string,
+  ): Promise<boolean> {
+    const profile = await this.db('compliance_profile_registry')
+      .where('framework', framework)
+      .first();
+    if (!profile) return false;
+    return this.disconnectProfile(profile.id, by);
+  }
+
+  // ─── Bundle storage ─────────────────────────────────────────────────
+
+  /** Store a custom tab JS bundle for a profile. */
+  async saveProfileBundle(
+    id: string,
+    bundleData: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.db('compliance_profile_registry')
+      .where('id', id)
+      .update({
+        bundle_data: bundleData,
+        bundle_metadata: JSON.stringify(metadata),
+        updated_at: new Date().toISOString(),
+      });
+  }
+
+  /** Retrieve a stored bundle. Returns null if profile has no bundle. */
+  async getProfileBundle(
+    id: string,
+  ): Promise<{ data: string; metadata: Record<string, unknown> } | null> {
+    const row = await this.db('compliance_profile_registry')
+      .where('id', id)
+      .select('bundle_data', 'bundle_metadata')
+      .first();
+    if (!row?.bundle_data) return null;
+    return {
+      data: row.bundle_data as string,
+      metadata: safeJsonParse(row.bundle_metadata) ?? {},
+    };
+  }
+
+  /** Remove a stored bundle. Returns false if profile not found. */
+  async deleteProfileBundle(id: string): Promise<boolean> {
+    const updated = await this.db('compliance_profile_registry')
+      .where('id', id)
+      .update({
+        bundle_data: null,
+        bundle_metadata: null,
+        updated_at: new Date().toISOString(),
+      });
+    return updated > 0;
   }
 }

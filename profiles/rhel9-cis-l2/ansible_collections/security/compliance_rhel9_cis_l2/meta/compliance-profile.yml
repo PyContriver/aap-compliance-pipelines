@@ -1,5 +1,10 @@
 ---
 # Compliance Profile Metadata
+#
+# This file declares the profile's identity, capabilities, and display
+# configuration. It is read by the Backstage compliance plugin to:
+#   1. Auto-populate profile registration fields when a user selects a scan JT
+#   2. Render the dashboard dynamically (columns, labels, gauge text, tabs)
 
 profile:
   name: "CIS Benchmark RHEL 9 Level 2 - Server"
@@ -20,3 +25,27 @@ profile:
   platform_spec:
     os_family: ["RedHat"]
     os_version: ["9"]
+
+  display:
+    gauge_label: "compliance rate"
+    gauge_unit: "rules"
+    remediation_verb: "Remediate"
+    severity_map:
+      CAT_I: "CAT I (High)"
+      CAT_II: "CAT II (Medium)"
+      CAT_III: "CAT III (Low)"
+    columns:
+      - field: rule_id
+        label: "Rule ID"
+      - field: stig_id
+        label: "CIS ID"
+      - field: title
+        label: "Title"
+      - field: severity
+        label: "Severity"
+      - field: status
+        label: "Status"
+      - field: check_text
+        label: "Check"
+      - field: fix_text
+        label: "Fix"
