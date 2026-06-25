@@ -217,7 +217,7 @@
         body:
           scanId: "{{ scan_id }}"
           ingestToken: "{{ ingest_token | default('') }}"
-          findings: "{{ lookup('file', item.path) | from_json | json_query('findings') }}"
+          findings: "{{ (lookup('file', item.path) | from_json).findings }}"
         headers:
           Content-Type: application/json
         status_code: [201]
