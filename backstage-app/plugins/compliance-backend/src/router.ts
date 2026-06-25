@@ -21,6 +21,7 @@ import {
   registerProfileRoutes,
 } from './routes';
 import { registerInventoryRoutes } from './routes/inventory';
+import { registerArtifactRoutes } from './routes/artifacts';
 
 export interface RouterOptions {
   logger: LoggerService;
@@ -62,6 +63,7 @@ export async function createRouter(
   registerDashboardRoutes(router, deps);
   registerProfileRoutes(router, deps);
   registerInventoryRoutes(router, deps);
+  registerArtifactRoutes(router, deps);
 
   // One-time backfill: set rule_count for profiles registered before migration 012
   try {

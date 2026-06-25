@@ -456,4 +456,26 @@ export class ComplianceBackendClient implements ComplianceApi {
     );
   }
 
+  getArtifacts(scanId: string) {
+    return this.request<import('@aap-compliance/common').ScanArtifact[]>(
+      `/scans/${encodeURIComponent(scanId)}/artifacts`,
+    );
+  }
+
+  async downloadArtifact(scanId: string, artifactKey: string, filename: string): Promise<void> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('compliance');
+    const url = `${baseUrl}/scans/${encodeURIComponent(scanId)}/artifacts/${encodeURIComponent(artifactKey)}/download`;
+    const resp = await this.fetchApi.fetch(url);
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    const blob = await resp.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(objUrl);
+  }
+
 }

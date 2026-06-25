@@ -41,10 +41,14 @@ additional_build_steps:
     - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin grype
     # Install jq for JSON processing in playbooks
     - RUN microdnf install -y jq && microdnf clean all
+    # Install ORAS for pushing SBOMs to PAH as OCI artifacts (ADR-032)
+    - ENV ORAS_VERSION=1.2.2
+    - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin oras
   append_final:
     - RUN syft version
     - RUN grype version
     - RUN jq --version
+    - RUN oras version
     # Pre-cache the Grype vulnerability database so targets don't need internet.
     # Grype runs on the execution node (not on targets), using this cached DB.
     - RUN grype db update

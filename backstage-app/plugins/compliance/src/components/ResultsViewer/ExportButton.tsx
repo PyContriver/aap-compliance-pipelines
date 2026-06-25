@@ -1,28 +1,49 @@
 /**
- * Export button for compliance findings.
+ * Data-driven export button for compliance findings (ADR-032).
  *
- * Supports CSV, JSON, and CKL (STIG Viewer) export formats.
- * Uses browser-native download (Blob + anchor click) -- no server-side
- * export needed.
+ * Renders export menu items from profile.displayConfig.export_formats.
+ * Supports two export types:
+ *   - cff_derived: client-side generation from CFF findings (CSV, JSON, CKL)
+ *   - artifact: server-proxied download from PAH OCI registry (SBOMs, etc.)
+ *
+ * Falls back to CSV + JSON + CKL when no export_formats are declared.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Menu,
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Divider,
+  CircularProgress,
 } from '@material-ui/core';
 import GetAppIcon from '@material-ui/icons/GetApp';
 import DescriptionIcon from '@material-ui/icons/Description';
 import CodeIcon from '@material-ui/icons/Code';
 import AssignmentTurnedInIcon from '@material-ui/icons/AssignmentTurnedIn';
-import type { MultiHostFinding } from '@aap-compliance/common';
+import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
+import type {
+  MultiHostFinding,
+  ProfileDisplayConfig,
+  ExportFormatSpec,
+  ScanArtifact,
+} from '@aap-compliance/common';
 
 interface ExportButtonProps {
   findings: MultiHostFinding[];
   profileName?: string;
+  displayConfig?: ProfileDisplayConfig;
+  scanId?: string;
+  onDownloadArtifact?: (scanId: string, artifactKey: string, filename: string) => Promise<void>;
+  onFetchArtifacts?: (scanId: string) => Promise<ScanArtifact[]>;
 }
+
+const DEFAULT_FORMATS: ExportFormatSpec[] = [
+  { key: 'csv', label: 'Export as CSV', type: 'cff_derived' },
+  { key: 'json', label: 'Export as JSON', type: 'cff_derived' },
+  { key: 'ckl', label: 'Export as CKL', type: 'cff_derived', description: 'STIG Viewer checklist' },
+];
 
 function downloadBlob(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -45,22 +66,13 @@ function escapeCSVField(value: string): string {
 
 function buildCSV(findings: MultiHostFinding[]): string {
   const headers = [
-    'Rule ID',
-    'STIG ID',
-    'Title',
-    'Severity',
-    'Category',
-    'Host',
-    'Status',
-    'Actual Value',
-    'Expected Value',
+    'Rule ID', 'STIG ID', 'Title', 'Severity', 'Category',
+    'Host', 'Status', 'Actual Value', 'Expected Value',
   ];
-
   const rows: string[] = [headers.join(',')];
-
   for (const finding of findings) {
     for (const host of finding.hosts) {
-      const row = [
+      rows.push([
         escapeCSVField(finding.ruleId),
         escapeCSVField(finding.stigId),
         escapeCSVField(finding.title),
@@ -70,15 +82,11 @@ function buildCSV(findings: MultiHostFinding[]): string {
         escapeCSVField(host.status),
         escapeCSVField(host.actualValue),
         escapeCSVField(host.expectedValue),
-      ];
-      rows.push(row.join(','));
+      ].join(','));
     }
   }
-
   return rows.join('\n');
 }
-
-// ─── CKL (STIG Viewer / Checklist) generation ──────────────────────────
 
 function escapeXml(str: string): string {
   return str
@@ -89,10 +97,6 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * Map our internal severity to CKL severity format.
- * CKL uses lowercase: high, medium, low.
- */
 function toCklSeverity(severity: string): string {
   switch (severity) {
     case 'CAT_I': return 'high';
@@ -102,10 +106,6 @@ function toCklSeverity(severity: string): string {
   }
 }
 
-/**
- * Map our internal status to CKL STATUS values.
- * CKL uses: NotAFinding, Open, Not_Reviewed, Not_Applicable.
- */
 function toCklStatus(status: string): string {
   switch (status) {
     case 'pass': return 'NotAFinding';
@@ -115,26 +115,17 @@ function toCklStatus(status: string): string {
   }
 }
 
-/**
- * Generate a CKL (STIG Viewer Checklist) XML string from findings.
- *
- * CKL is the standard format used by DISA's STIG Viewer tool.
- * This generates a single CKL file for a specific host, containing
- * all VULN entries from the findings.
- */
 export function generateCKL(
   findings: MultiHostFinding[],
   hostname: string,
   profileName: string,
 ): string {
   const vulnEntries = findings.map(finding => {
-    // Find this host's result for this finding
     const hostResult = finding.hosts.find(h => h.host === hostname);
     const status = hostResult ? toCklStatus(hostResult.status) : 'Not_Reviewed';
     const details = hostResult
       ? `Actual: ${escapeXml(hostResult.actualValue)}\nExpected: ${escapeXml(hostResult.expectedValue)}`
       : '';
-
     return `      <VULN>
         <STIG_DATA>
           <VULN_ATTRIBUTE>Vuln_Num</VULN_ATTRIBUTE>
@@ -206,8 +197,36 @@ function getDateStamp(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export const ExportButton = ({ findings, profileName }: ExportButtonProps) => {
+function getFormatIcon(fmt: ExportFormatSpec) {
+  if (fmt.type === 'artifact') return <CloudDownloadIcon fontSize="small" />;
+  switch (fmt.key) {
+    case 'csv': return <DescriptionIcon fontSize="small" />;
+    case 'json': return <CodeIcon fontSize="small" />;
+    case 'ckl': return <AssignmentTurnedInIcon fontSize="small" />;
+    default: return <GetAppIcon fontSize="small" />;
+  }
+}
+
+export const ExportButton = ({
+  findings,
+  profileName,
+  displayConfig,
+  scanId,
+  onDownloadArtifact,
+  onFetchArtifacts,
+}: ExportButtonProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [artifacts, setArtifacts] = useState<ScanArtifact[]>([]);
+  const [downloading, setDownloading] = useState(false);
+
+  const formats = displayConfig?.export_formats ?? DEFAULT_FORMATS;
+  const hasArtifactFormats = formats.some(f => f.type === 'artifact');
+
+  useEffect(() => {
+    if (hasArtifactFormats && scanId && onFetchArtifacts) {
+      onFetchArtifacts(scanId).then(setArtifacts).catch(() => setArtifacts([]));
+    }
+  }, [hasArtifactFormats, scanId, onFetchArtifacts]);
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -217,45 +236,55 @@ export const ExportButton = ({ findings, profileName }: ExportButtonProps) => {
     setAnchorEl(null);
   };
 
-  const handleExportCSV = () => {
-    const csv = buildCSV(findings);
-    const safeName = (profileName || 'scan').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `compliance-findings-${safeName}-${getDateStamp()}.csv`;
-    downloadBlob(csv, filename, 'text/csv;charset=utf-8');
-    handleClose();
-  };
+  const safeName = (profileName || 'scan').replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  const handleExportJSON = () => {
-    const json = JSON.stringify(findings, null, 2);
-    const safeName = (profileName || 'scan').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `compliance-findings-${safeName}-${getDateStamp()}.json`;
-    downloadBlob(json, filename, 'application/json');
-    handleClose();
-  };
-
-  const handleExportCKL = () => {
-    // Use the first host found across all findings as the CKL target
-    const allHosts = new Set<string>();
-    for (const finding of findings) {
-      for (const host of finding.hosts) {
-        allHosts.add(host.host);
+  const handleCffExport = useCallback((fmt: ExportFormatSpec) => {
+    switch (fmt.key) {
+      case 'csv': {
+        const csv = buildCSV(findings);
+        downloadBlob(csv, `compliance-findings-${safeName}-${getDateStamp()}.csv`, 'text/csv;charset=utf-8');
+        break;
+      }
+      case 'json': {
+        const json = JSON.stringify(findings, null, 2);
+        downloadBlob(json, `compliance-findings-${safeName}-${getDateStamp()}.json`, 'application/json');
+        break;
+      }
+      case 'ckl': {
+        const allHosts = new Set<string>();
+        for (const finding of findings) {
+          for (const host of finding.hosts) allHosts.add(host.host);
+        }
+        const hostname = allHosts.values().next().value || 'unknown-host';
+        const ckl = generateCKL(findings, hostname, profileName || 'Compliance Scan');
+        downloadBlob(ckl, `compliance-findings-${safeName}-${getDateStamp()}.ckl`, 'application/xml');
+        break;
       }
     }
-    const hostname = allHosts.values().next().value || 'unknown-host';
-    const ckl = generateCKL(findings, hostname, profileName || 'Compliance Scan');
-    const safeName = (profileName || 'scan').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `compliance-findings-${safeName}-${getDateStamp()}.ckl`;
-    downloadBlob(ckl, filename, 'application/xml');
     handleClose();
-  };
+  }, [findings, safeName, profileName]);
+
+  const handleArtifactExport = useCallback(async (artifact: ScanArtifact) => {
+    if (!scanId || !onDownloadArtifact) return;
+    setDownloading(true);
+    try {
+      await onDownloadArtifact(scanId, artifact.artifactKey, artifact.artifactName);
+    } finally {
+      setDownloading(false);
+      handleClose();
+    }
+  }, [scanId, onDownloadArtifact]);
+
+  const cffFormats = formats.filter(f => f.type === 'cff_derived');
+  const artifactFormats = formats.filter(f => f.type === 'artifact');
 
   return (
     <>
       <Button
         variant="outlined"
-        startIcon={<GetAppIcon />}
+        startIcon={downloading ? <CircularProgress size={16} /> : <GetAppIcon />}
         onClick={handleClick}
-        disabled={findings.length === 0}
+        disabled={findings.length === 0 || downloading}
       >
         Export
       </Button>
@@ -264,33 +293,36 @@ export const ExportButton = ({ findings, profileName }: ExportButtonProps) => {
         open={Boolean(anchorEl)}
         onClose={handleClose}
       >
-        <MenuItem onClick={handleExportCSV}>
-          <ListItemIcon>
-            <DescriptionIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Export as CSV"
-            secondary="For auditors and spreadsheets"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleExportJSON}>
-          <ListItemIcon>
-            <CodeIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Export as JSON"
-            secondary="For integration with other tools"
-          />
-        </MenuItem>
-        <MenuItem onClick={handleExportCKL}>
-          <ListItemIcon>
-            <AssignmentTurnedInIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Export as CKL"
-            secondary="STIG Viewer checklist for DoD auditors"
-          />
-        </MenuItem>
+        {cffFormats.map(fmt => (
+          <MenuItem key={fmt.key} onClick={() => handleCffExport(fmt)}>
+            <ListItemIcon>{getFormatIcon(fmt)}</ListItemIcon>
+            <ListItemText primary={fmt.label} secondary={fmt.description} />
+          </MenuItem>
+        ))}
+
+        {artifactFormats.length > 0 && artifacts.length > 0 && (
+          <>
+            <Divider />
+            {artifacts.map(artifact => {
+              const fmt = artifactFormats.find(f =>
+                f.artifact_key && (
+                  artifact.artifactKey === f.artifact_key ||
+                  (f.artifact_key.endsWith('*') && artifact.artifactKey.startsWith(f.artifact_key.slice(0, -1)))
+                )
+              );
+              if (!fmt) return null;
+              return (
+                <MenuItem key={artifact.id} onClick={() => handleArtifactExport(artifact)}>
+                  <ListItemIcon><CloudDownloadIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText
+                    primary={artifact.artifactName}
+                    secondary={fmt.description || fmt.label}
+                  />
+                </MenuItem>
+              );
+            })}
+          </>
+        )}
       </Menu>
     </>
   );

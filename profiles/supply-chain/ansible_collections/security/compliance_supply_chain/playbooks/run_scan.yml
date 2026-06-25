@@ -179,6 +179,48 @@
         label: "{{ item.path | basename }}"
       register: _normalized
 
+    # ── Push SBOMs to PAH as OCI artifacts (ADR-032) ───────────────
+    # Store raw CycloneDX SBOMs in PAH so the dashboard can serve
+    # them for export. Each host's SBOM becomes a tagged OCI artifact.
+
+    - name: Push SBOMs to PAH as OCI artifacts
+      ansible.builtin.command:
+        cmd: >-
+          oras push {{ pah_registry | default('aap-netrunner.demoredhat.com') }}/compliance-artifacts/{{ scan_id }}:sbom-{{ _hostname }}
+          {{ fetch_dest_dir }}/sbom-{{ _hostname }}.json:application/vnd.cyclonedx+json
+          --plain-http
+      vars:
+        _hostname: "{{ item.path | basename | regex_replace('sbom-(.+)\\.json', '\\1') }}"
+      loop: "{{ _sbom_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      changed_when: false
+      failed_when: false
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Register SBOM artifacts in compliance backend
+      ansible.builtin.uri:
+        url: "{{ backstage_api_url }}/api/compliance/scans/{{ scan_id }}/artifacts"
+        method: POST
+        body_format: json
+        body:
+          artifactKey: "sbom-{{ _hostname }}"
+          ociReference: "{{ pah_registry | default('aap-netrunner.demoredhat.com') }}/compliance-artifacts/{{ scan_id }}:sbom-{{ _hostname }}"
+          artifactName: "sbom-{{ _hostname }}.cdx.json"
+          mimeType: "application/vnd.cyclonedx+json"
+          ingestToken: "{{ ingest_token | default('') }}"
+        headers:
+          Content-Type: application/json
+        validate_certs: false
+        status_code: [200, 201]
+      vars:
+        _hostname: "{{ item.path | basename | regex_replace('sbom-(.+)\\.json', '\\1') }}"
+      loop: "{{ _sbom_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      failed_when: false
+      when: backstage_api_url | default('') | length > 0
+
     # ── Direct POST findings to Backstage plugin API ─────────────────
     # Collect per-host findings files and POST as a single batch.
 

@@ -60,6 +60,10 @@
           - { field: "severity", label: "CVSS Severity" }
           - { field: "status", label: "Status" }
           - { field: "fix_text", label: "Remediation" }
+        export_formats:
+          - { key: "csv", label: "Export as CSV", type: "cff_derived" }
+          - { key: "json", label: "Export as JSON", type: "cff_derived" }
+          - { key: "sbom-cyclonedx", label: "Export SBOMs (CycloneDX)", description: "Original SBOM files per host in CycloneDX JSON format", type: "artifact", artifact_key: "sbom-*", mime_type: "application/vnd.cyclonedx+json", file_extension: ".cdx.json" }
         tab:
           label: "Supply Chain"
           icon: "security"

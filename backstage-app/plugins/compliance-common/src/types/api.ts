@@ -218,6 +218,17 @@ export interface ComplianceScan {
   errorDetails: string | null;
 }
 
+/** A scan artifact stored in PAH as an OCI artifact (ADR-032). */
+export interface ScanArtifact {
+  id: string;
+  scanId: string;
+  artifactKey: string;
+  ociReference: string;
+  artifactName: string;
+  mimeType: string;
+  createdAt: string;
+}
+
 /** Authoritative scan resolution response (ADR-015 §2). */
 export interface AuthoritativeScanResponse {
   scan: ComplianceScan;

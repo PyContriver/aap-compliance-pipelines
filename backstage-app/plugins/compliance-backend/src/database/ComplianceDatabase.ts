@@ -1507,4 +1507,75 @@ export class ComplianceDatabase {
       });
     return updated > 0;
   }
+
+  // ─── Scan Artifacts (ADR-032) ────────────────────────────────────
+
+  async storeArtifact(
+    scanId: string,
+    artifactKey: string,
+    ociReference: string,
+    artifactName: string,
+    mimeType: string,
+  ): Promise<void> {
+    const id = crypto.randomUUID();
+    await this.db('compliance_scan_artifacts')
+      .insert({
+        id,
+        scan_id: scanId,
+        artifact_key: artifactKey,
+        oci_reference: ociReference,
+        artifact_name: artifactName,
+        mime_type: mimeType,
+        created_at: new Date().toISOString(),
+      })
+      .onConflict(['scan_id', 'artifact_key'])
+      .merge(['oci_reference', 'artifact_name', 'mime_type']);
+  }
+
+  async getArtifactsForScan(scanId: string): Promise<Array<{
+    id: string;
+    scanId: string;
+    artifactKey: string;
+    ociReference: string;
+    artifactName: string;
+    mimeType: string;
+    createdAt: string;
+  }>> {
+    const rows = await this.db('compliance_scan_artifacts')
+      .where('scan_id', scanId)
+      .orderBy('artifact_key');
+    return rows.map((r: any) => ({
+      id: r.id,
+      scanId: r.scan_id,
+      artifactKey: r.artifact_key,
+      ociReference: r.oci_reference,
+      artifactName: r.artifact_name,
+      mimeType: r.mime_type,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async getArtifact(scanId: string, artifactKey: string): Promise<{
+    id: string;
+    scanId: string;
+    artifactKey: string;
+    ociReference: string;
+    artifactName: string;
+    mimeType: string;
+    createdAt: string;
+  } | null> {
+    const row = await this.db('compliance_scan_artifacts')
+      .where({ scan_id: scanId, artifact_key: artifactKey })
+      .first();
+    if (!row) return null;
+    return {
+      id: row.id,
+      scanId: row.scan_id,
+      artifactKey: row.artifact_key,
+      ociReference: row.oci_reference,
+      artifactName: row.artifact_name,
+      mimeType: row.mime_type,
+      createdAt: row.created_at,
+    };
+  }
 }

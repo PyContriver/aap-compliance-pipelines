@@ -56,6 +56,8 @@ export type {
   CustomComponentRef,
   TabConfig,
   ProfileDisplayConfig,
+  ExportFormatSpec,
+  ScanArtifact,
   ProfileConnectionStatus,
   ProfileVersion,
   ProfileLifecycleState,

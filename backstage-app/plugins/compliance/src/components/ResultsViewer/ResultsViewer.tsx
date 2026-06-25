@@ -136,6 +136,8 @@ export const ResultsViewer = () => {
   const meta = useScanMetadata(api, jobId);
   const displayConfig = useDisplayConfig(meta.profileDisplayConfig);
   const baseline = useBaselineState(api, meta.scanComplianceProfileId, meta.scanInventoryId);
+  const fetchArtifactsCb = useCallback((scanId: string) => api.getArtifacts(scanId), [api]);
+  const downloadArtifactCb = useCallback((scanId: string, key: string, filename: string) => api.downloadArtifact(scanId, key, filename), [api]);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
 
   const severityOptions: FilterOption[] = useMemo(() => [
@@ -803,7 +805,14 @@ export const ResultsViewer = () => {
         </Button>
 
         <Box display="flex" style={{ gap: 8 }} alignItems="center">
-          <ExportButton findings={filtered} profileName={jobId} />
+          <ExportButton
+            findings={filtered}
+            profileName={jobId}
+            displayConfig={meta.profileDisplayConfig}
+            scanId={meta.resolvedScanId || jobId}
+            onFetchArtifacts={fetchArtifactsCb}
+            onDownloadArtifact={downloadArtifactCb}
+          />
 
           {baseline.baselineForScan ? (
             <Button

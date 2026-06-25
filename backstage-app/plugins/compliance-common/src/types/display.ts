@@ -57,6 +57,17 @@ export interface TabConfig {
   custom_component?: CustomComponentRef;
 }
 
+/** Export format specification — profiles declare available export formats. */
+export interface ExportFormatSpec {
+  key: string;
+  label: string;
+  description?: string;
+  type: 'cff_derived' | 'artifact';
+  artifact_key?: string;
+  mime_type?: string;
+  file_extension?: string;
+}
+
 /** Top-level display configuration declared in compliance-profile.yml. */
 export interface ProfileDisplayConfig {
   gauge_label?: string;
@@ -65,4 +76,5 @@ export interface ProfileDisplayConfig {
   severity_map?: SeverityMap;
   remediation_verb?: string;
   tab?: TabConfig;
+  export_formats?: ExportFormatSpec[];
 }

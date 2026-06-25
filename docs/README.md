@@ -47,6 +47,7 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | [029](../specs/compliance-pipelines/decisions/ADR-029-cyclonedx-normalizer.md) | CycloneDX Normalizer Pattern | Accepted | Supply Chain |
 | [030](../specs/compliance-pipelines/decisions/ADR-030-per-host-normalization.md) | Per-Host Normalization | Accepted | All Profiles |
 | [031](../specs/compliance-pipelines/decisions/ADR-031-pah-for-execution-environments.md) | PAH for Execution Environments | Accepted | Infrastructure |
+| [032](../specs/compliance-pipelines/decisions/ADR-032-pluggable-export-formats.md) | Pluggable Export Formats + OCI Artifact Storage | Accepted | Dashboard + Supply Chain |
 
 ## Feature Specs
 
