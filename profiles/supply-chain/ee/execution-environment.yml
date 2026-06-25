@@ -45,3 +45,6 @@ additional_build_steps:
     - RUN syft version
     - RUN grype version
     - RUN jq --version
+    # Pre-cache the Grype vulnerability database so targets don't need internet.
+    # Grype runs on the execution node (not on targets), using this cached DB.
+    - RUN grype db update

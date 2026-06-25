@@ -1,21 +1,27 @@
 ---
-# Supply Chain: Run Syft + Grype vulnerability scan on target hosts
+# Supply Chain: SBOM collection on targets, vulnerability matching on execution node
 #
 # This playbook contains 2 plays in a single job template (ADR-003 pattern):
-#   Play 1 (targets): runs Syft to generate SBOM, then Grype to match
-#     vulnerabilities, fetches JSON results back to the execution node.
-#   Play 2 (localhost): normalizes Grype JSON to CFF, POSTs to Backstage.
+#   Play 1 (targets): copies Syft from the EE, generates a CycloneDX SBOM,
+#     fetches the SBOM JSON back to the execution node, and cleans up.
+#     Targets do NOT need internet access or Grype.
+#   Play 2 (localhost): runs Grype against each fetched SBOM (using the
+#     EE's cached vulnerability database), normalizes to CFF, POSTs to
+#     the Backstage compliance API.
 #
-# Both plays run in the same container, so fetched files are available
-# to the normalize step without cross-container file sharing.
+# This architecture separates data collection (targets) from intelligence
+# (execution node). Grype's CVE database is maintained in the EE, not on
+# every target — reducing network traffic by ~71% and eliminating the
+# need for internet on managed hosts. When TPA/TSSC replaces Grype,
+# only Play 2 changes.
 #
 # Variables:
 #   syft_scope: Syft scan scope (default: squashed — faster, fewer layers)
-#   grype_fail_on_severity: Optional severity threshold to mark scan as failed
+#   scan_paths: Specific paths to scan (default: / — full filesystem)
 #   target_results_dir: temp directory on targets for scan results
 #   fetch_dest_dir: directory on execution node for fetched results
 
-- name: "Supply Chain: Syft + Grype vulnerability scan"
+- name: "Supply Chain: Collect SBOMs from targets"
   hosts: "{{ target_hosts | default('all') }}"
   become: true
   gather_facts: true
@@ -23,6 +29,7 @@
 
   vars:
     syft_scope: "{{ scan_scope | default('squashed') }}"
+    scan_target: "{{ scan_paths | default('/') }}"
     target_results_dir: /tmp/supply-chain-scan
     fetch_dest_dir: /tmp/supply-chain-results
 
@@ -40,18 +47,10 @@
         mode: '0755'
       when: _syft_check.rc != 0
 
-    - name: Copy Grype binary from EE if not on target
-      ansible.builtin.copy:
-        src: /usr/local/bin/grype
-        dest: /tmp/grype
-        mode: '0755'
-      when: _syft_check.rc != 0
-
-    - name: Set scanner paths
+    - name: Set scanner path
       ansible.builtin.set_fact:
         _syft_bin: "{{ '/tmp/syft' if _syft_check.rc != 0 else 'syft' }}"
-        _grype_bin: "{{ '/tmp/grype' if _syft_check.rc != 0 else 'grype' }}"
-        _scanners_copied: "{{ _syft_check.rc != 0 }}"
+        _syft_copied: "{{ _syft_check.rc != 0 }}"
 
     - name: Create results directory
       ansible.builtin.file:
@@ -62,23 +61,12 @@
     - name: Generate SBOM with Syft
       ansible.builtin.command:
         cmd: >-
-          {{ _syft_bin }} / --scope {{ syft_scope }}
+          {{ _syft_bin }} {{ scan_target }} --scope {{ syft_scope }}
           -o cyclonedx-json
           --file {{ target_results_dir }}/sbom.json
       register: _syft_result
       changed_when: false
       timeout: 900
-
-    - name: Scan SBOM for vulnerabilities with Grype
-      ansible.builtin.command:
-        cmd: >-
-          {{ _grype_bin }} sbom:{{ target_results_dir }}/sbom.json
-          -o json
-          --file {{ target_results_dir }}/grype-results.json
-      register: _grype_result
-      changed_when: false
-      failed_when: false
-      timeout: 300
 
     - name: Create local results directory
       ansible.builtin.file:
@@ -89,10 +77,10 @@
       run_once: true
       become: false
 
-    - name: Fetch Grype results from target
+    - name: Fetch SBOM from target
       ansible.builtin.fetch:
-        src: "{{ target_results_dir }}/grype-results.json"
-        dest: "{{ fetch_dest_dir }}/grype-{{ inventory_hostname }}.json"
+        src: "{{ target_results_dir }}/sbom.json"
+        dest: "{{ fetch_dest_dir }}/sbom-{{ inventory_hostname }}.json"
         flat: true
 
     - name: Remove scan artifacts from target
@@ -100,52 +88,74 @@
         path: "{{ target_results_dir }}"
         state: absent
 
-    - name: Remove scanner binaries if we copied them
+    - name: Remove Syft binary if we copied it
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /tmp/syft
         state: absent
-      loop:
-        - /tmp/syft
-        - /tmp/grype
-      when: _scanners_copied | default(false) | bool
+      when: _syft_copied | default(false) | bool
 
-    - name: Report scan status
+    - name: Report SBOM collection status
       ansible.builtin.debug:
         msg: >-
-          Syft+Grype scan complete on {{ inventory_hostname }}.
-          Syft exit: {{ _syft_result.rc }}, Grype exit: {{ _grype_result.rc }}.
+          SBOM collected from {{ inventory_hostname }}.
+          Syft exit: {{ _syft_result.rc }}.
 
-# ── Play 2: Normalize Grype results on execution node ─────────────
+# ── Play 2: Vulnerability matching + normalization on execution node ──
 
-- name: "Supply Chain: Normalize Grype results"
+- name: "Supply Chain: Match vulnerabilities and normalize"
   hosts: localhost
   connection: local
   gather_facts: false
 
   vars:
     fetch_dest_dir: /tmp/supply-chain-results
+    grype_results_dir: /tmp/supply-chain-grype
     output_file: /tmp/supply-chain-report.json
 
   tasks:
-    - name: Find all fetched Grype result files
+    - name: Find all fetched SBOM files
       ansible.builtin.find:
         paths: "{{ fetch_dest_dir }}"
-        patterns: "grype-*.json"
-      register: _result_files
+        patterns: "sbom-*.json"
+      register: _sbom_files
 
-    - name: Fail if no results found
+    - name: Fail if no SBOMs found
       ansible.builtin.fail:
         msg: >-
-          No Grype result files found in {{ fetch_dest_dir }}.
-          Ensure the scan play completed successfully.
-      when: _result_files.files | length == 0
+          No SBOM files found in {{ fetch_dest_dir }}.
+          Ensure the SBOM collection play completed successfully.
+      when: _sbom_files.files | length == 0
+
+    - name: Create Grype results directory
+      ansible.builtin.file:
+        path: "{{ grype_results_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Run Grype against each SBOM
+      ansible.builtin.command:
+        cmd: >-
+          grype sbom:{{ item.path }}
+          -o json
+          --file {{ grype_results_dir }}/grype-{{ _hostname }}.json
+      vars:
+        _hostname: "{{ item.path | basename | regex_replace('sbom-(.+)\\.json', '\\1') }}"
+      loop: "{{ _sbom_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: _grype_results
+      changed_when: false
+      failed_when: false
+      timeout: 300
 
     - name: Normalize Grype results to CFF
       security.compliance_supply_chain.normalize_cyclonedx:
-        grype_files: "{{ _result_files.files | map(attribute='path') | list }}"
+        grype_files: "{{ _grype_file_list }}"
         output_file: "{{ output_file }}"
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"
+      vars:
+        _grype_file_list: "{{ _sbom_files.files | map(attribute='path') | map('basename') | map('regex_replace', 'sbom-(.+)\\.json', grype_results_dir + '/grype-\\1.json') | list }}"
       register: _normalized
 
     - name: Read normalized findings
