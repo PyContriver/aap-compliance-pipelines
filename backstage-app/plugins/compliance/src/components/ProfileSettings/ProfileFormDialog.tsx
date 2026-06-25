@@ -367,7 +367,7 @@ export const ProfileFormDialog = ({
 
             <TextField select label="Certification Status" value={certStatus}
               onChange={e => setCertStatus(e.target.value)} fullWidth size="small" className={classes.formField}>
-              <MenuItem value="uncertified">Uncertified</MenuItem>
+              <MenuItem value="uncertified">Custom</MenuItem>
               <MenuItem value="conformant">Conformant</MenuItem>
               <MenuItem value="certified">Certified</MenuItem>
             </TextField>

@@ -68,13 +68,7 @@
           ask_variables_on_launch: true
           ask_inventory_on_launch: true
           use_fact_cache: true
-          extra_vars:
-            profile_name: "{{ profile.name }}"
-            framework: "{{ profile.framework }}"
-            certification_status: "{{ profile.certification_status }}"
-            certification_authority: "{{ profile.certification_authority }}"
-            remediate_jt_name: "{{ profile.remediate_jt_name }}"
-            remediation_playbook: "{{ profile.remediate_playbook }}"
+          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': 'Linux (multi-distro)', 'scanner': 'syft-grype'} | to_json }}"
         validate_certs: false
         status_code: [200, 201]
       register: _scan_jt

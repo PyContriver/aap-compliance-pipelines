@@ -12,7 +12,7 @@ const COLORS: Record<CertificationStatus, string> = {
 const LABELS: Record<CertificationStatus, string> = {
   certified: 'Certified',
   conformant: 'Conformant',
-  uncertified: 'Uncertified',
+  uncertified: 'Custom',
 };
 
 interface CertificationBadgeProps extends Omit<ChipProps, 'label'> {
