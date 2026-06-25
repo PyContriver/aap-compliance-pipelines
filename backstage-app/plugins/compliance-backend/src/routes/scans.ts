@@ -40,7 +40,7 @@ export function registerScanRoutes(
             status = await service.getJobStatus(scan.workflowJobId!, userToken);
           }
           if (status.status === 'running' && scan.status === 'pending') {
-            await database.updateScanStatus(scan.id, 'running', null);
+            await database.updateScanStatus(scan.id, 'running');
             scan.status = 'running';
           }
           const terminal = ['successful', 'failed', 'error', 'canceled'];

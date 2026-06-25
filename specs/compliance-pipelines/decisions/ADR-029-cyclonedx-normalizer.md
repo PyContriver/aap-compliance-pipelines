@@ -147,8 +147,8 @@ Test file: `profiles/supply-chain/.../tests/unit/plugins/modules/test_normalize_
 
 The supply chain assessment JT follows the same two-play pattern as XCCDF profiles:
 
-1. **Play 1 (run on target hosts):** Install Grype ephemerally, run `grype <target> -o cyclonedx-json`, fetch CycloneDX JSON to controller.
-2. **Play 2 (run on localhost):** `normalize_cyclonedx` module parses JSON, outputs CFF. `uri` module POSTs findings to `/findings/ingest`.
+1. **Play 1 (run on target hosts):** Install Syft ephemerally, generate CycloneDX SBOM, fetch SBOM JSON to execution node. Targets do not need internet access or Grype.
+2. **Play 2 (run on localhost):** Grype matches each SBOM against pre-cached CVE database. `normalize_cyclonedx` module parses Grype JSON, outputs CFF. `uri` module POSTs findings to `/findings/ingest`.
 
 This reuses the ADR-007 ingest pattern (per-scan security token, direct HTTP POST from playbook).
 
@@ -171,7 +171,7 @@ This reuses the ADR-007 ingest pattern (per-scan security token, direct HTTP POS
 - Establishes the pattern for non-XCCDF scanners. Trivy (container scanning), Snyk (dependency scanning), and custom scanners follow the same model: one normalizer per scanner, CFF as the contract.
 - ADR-020 scope is clarified: `normalize_common.py` is XCCDF-only. It is not a "universal normalizer."
 - Supply chain findings integrate seamlessly with the dashboard — same UI components, same drill-down patterns, same remediation lifecycle.
-- CycloneDX SBOM metadata (purl, CVSS, fix state) is preserved in `evidence`, enabling future integrations (e.g., SBOM export per ADR-027, TPA cross-referencing per Lightwell Phase L2b).
+- CycloneDX SBOM metadata (purl, CVSS, fix state) is preserved in `evidence`, enabling future integrations (e.g., SBOM export, TPA cross-referencing per Lightwell Phase L2b).
 - Package manager remediation commands are generated per finding, matching the InsightVM pattern (granular remediation instructions, not monolithic playbooks).
 
 ### Negative
@@ -185,7 +185,7 @@ This reuses the ADR-007 ingest pattern (per-scan security token, direct HTTP POS
 Key files:
 - **Normalizer:** `profiles/supply-chain/.../plugins/modules/normalize_cyclonedx.py` (~400 lines)
 - **Tests:** `profiles/supply-chain/.../tests/unit/plugins/modules/test_normalize_cyclonedx.py` (23 tests)
-- **Assessment playbook:** `profiles/supply-chain/.../playbooks/run_grype.yml` (two-play pattern)
+- **Assessment playbook:** `profiles/supply-chain/.../playbooks/run_scan.yml` (two-play pattern: Syft on targets, Grype on localhost)
 - **Sync script exclusion:** `scripts/sync_shared_modules.py` should skip `profiles/supply-chain/`
 
 The normalizer is deployed as part of the supply chain EE (`compliance-rhel9-supply-chain`). It is NOT synced to other profiles.

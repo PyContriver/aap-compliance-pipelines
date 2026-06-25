@@ -13,7 +13,7 @@ Two modes: **Netrunner Live** (primary, production-like) and **Local Mock** (off
 | Portal | `https://dev-portal-netrunner.demoredhat.com/compliance` |
 | Controller API | `https://aap-netrunner.demoredhat.com/api/controller/v2/` |
 | Backend API | `https://dev-portal-netrunner.demoredhat.com/api/compliance/` |
-| AAP Token | `OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo` |
+| AAP Token | `<AAP_TOKEN>` |
 | Organization | `compliance-prototype` (ID 2) |
 | Inventory | `compliance-rhel9-inventory` (ID 4) |
 | Supply Chain EE | `ghcr.io/cross-logic/compliance-supply-chain:latest` |
@@ -27,7 +27,7 @@ curl -sk https://dev-portal-netrunner.demoredhat.com/api/compliance/health | jq 
 
 # Check Controller has the compliance project synced
 curl -sk "https://aap-netrunner.demoredhat.com/api/controller/v2/projects/32/" \
-  -H "Authorization: Bearer OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo" | jq '{name, status, scm_revision}'
+  -H "Authorization: Bearer <AAP_TOKEN>" | jq '{name, status, scm_revision}'
 ```
 
 - [ ] Health endpoint returns OK
@@ -37,7 +37,7 @@ curl -sk "https://aap-netrunner.demoredhat.com/api/controller/v2/projects/32/" \
 
 ```bash
 curl -sk -X POST "https://aap-netrunner.demoredhat.com/api/controller/v2/execution_environments/" \
-  -H "Authorization: Bearer OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo" \
+  -H "Authorization: Bearer <AAP_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Compliance Supply Chain",
@@ -55,7 +55,7 @@ curl -sk -X POST "https://aap-netrunner.demoredhat.com/api/controller/v2/executi
 cd profiles/supply-chain
 ansible-playbook install.yml \
   -e aap_host=https://aap-netrunner.demoredhat.com \
-  -e aap_token=OT15ZNf5NsQ7sGRM7qg3GKhOU00YVo \
+  -e aap_token=<AAP_TOKEN> \
   -e organization=compliance-prototype \
   -e inventory=compliance-rhel9-inventory
 ```
@@ -158,7 +158,7 @@ After a supply chain scan completes (Section H):
 
 ---
 
-## F. Bundle CRUD Endpoints (API-level)
+## G. Bundle CRUD Endpoints (API-level)
 
 ### F.1 Create a profile first (needed for bundle ops)
 
@@ -230,7 +230,7 @@ curl -s -X DELETE "https://dev-portal-netrunner.demoredhat.com/api/compliance/co
 
 ---
 
-## G. Existing Features Regression
+## H. Existing Features Regression
 
 ### G.1 Scan Launcher
 
@@ -273,7 +273,7 @@ curl -s -X DELETE "https://dev-portal-netrunner.demoredhat.com/api/compliance/co
 
 ---
 
-## H. Netrunner Live Scan (Layer 3)
+## I. Netrunner Live Scan (Layer 3)
 
 Requires Portal deployed and Controller provisioned (pre-flight steps above).
 
@@ -337,7 +337,7 @@ Requires Portal deployed and Controller provisioned (pre-flight steps above).
 
 ---
 
-## I. EE Build Verification (Layer 2)
+## J. EE Build Verification (Layer 2)
 
 Requires Docker or Podman.
 
@@ -370,7 +370,7 @@ ansible-builder build -f execution-environment.yml -t compliance-supply-chain:la
 
 ---
 
-## J. Collection Structure Validation
+## K. Collection Structure Validation
 
 ```bash
 cd /path/to/aap-compliance-pipelines
@@ -382,7 +382,7 @@ python3 -m pytest profiles/_shared/test_profile_structure.py -v
 
 ---
 
-## K. Normalizer Unit Tests
+## L. Normalizer Unit Tests
 
 ```bash
 cd profiles/supply-chain/ansible_collections/security/compliance_supply_chain
@@ -395,7 +395,7 @@ python3 -m pytest tests/ -v
 
 ---
 
-## L. Full Automated Test Suite
+## M. Full Automated Test Suite
 
 ```bash
 cd backstage-app
