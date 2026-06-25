@@ -45,6 +45,8 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | [027](../specs/compliance-pipelines/decisions/ADR-027-dynamic-tab-system.md) | Dynamic Tab System | Accepted | Dashboard |
 | [028](../specs/compliance-pipelines/decisions/ADR-028-profile-lifecycle.md) | Profile Lifecycle (Connect/Disconnect) | Accepted | Dashboard |
 | [029](../specs/compliance-pipelines/decisions/ADR-029-cyclonedx-normalizer.md) | CycloneDX Normalizer Pattern | Accepted | Supply Chain |
+| [030](../specs/compliance-pipelines/decisions/ADR-030-per-host-normalization.md) | Per-Host Normalization | Accepted | All Profiles |
+| [031](../specs/compliance-pipelines/decisions/ADR-031-pah-for-execution-environments.md) | PAH for Execution Environments | Accepted | Infrastructure |
 
 ## Feature Specs
 

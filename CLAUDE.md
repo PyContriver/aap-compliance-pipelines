@@ -87,5 +87,7 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 57 collection unit tests (19 per profile) + 584 backend/frontend tests across 21 suites
-- 25 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 83 collection unit tests (19 per XCCDF profile + 23 CycloneDX + 3 cross-profile) + 597 backend/frontend tests across 22 suites
+- 31 formal ADRs in `specs/compliance-pipelines/decisions/`
+- EE images hosted in PAH (`aap-netrunner.demoredhat.com/compliance-*:latest`), built via GitHub Actions and mirrored with skopeo (ADR-031)
+- Normalizer playbooks MUST loop per-host to prevent OOM on execution nodes (ADR-030)

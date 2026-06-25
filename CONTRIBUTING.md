@@ -84,15 +84,23 @@ CI is split across **GitHub Actions** (EE builds) and **GitLab CEE** (everything
 
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
-| **`build-ee.yml`** | Push to `main` (profiles paths) / `workflow_dispatch` | Per-collection EE image builds (STIG, CIS L1, CIS L2 matrix, `fail-fast: false`). Pushes to ghcr.io. Requires `REDHAT_REGISTRY_USER`/`TOKEN` secrets |
+| **`build-ee.yml`** | Push to `main` (profiles paths) / `workflow_dispatch` | Per-collection EE image builds (STIG, CIS L1, CIS L2, Supply Chain matrix). Pushes to GHCR, then mirrored to PAH via skopeo (ADR-031). Requires `REDHAT_REGISTRY_USER`/`TOKEN` secrets |
 | **`ci.yml`** | Disabled | Placeholder — backstage CI moved to GitLab |
 | **`collection-tests.yml`** | Disabled | Collection tests moved to GitLab |
 
 ### EE build workflow (`build-ee.yml`)
 
-Builds per-collection EE images from `ee-minimal-rhel9` base with `scap-security-guide` and `openscap-scanner`. Matrix: STIG, CIS L1, CIS L2 with `fail-fast: false`. Each profile's collection is copied into the build context, and `extract_rule_metadata.py` generates the rules YAML from the XCCDF datastream at build time. Images pushed to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9`. Requires `REDHAT_REGISTRY_USER` and `REDHAT_REGISTRY_TOKEN` secrets.
+Builds per-collection EE images from `ee-minimal-rhel9` base. Matrix: STIG, CIS L1, CIS L2 (XCCDF, with `scap-security-guide` + `openscap-scanner`), Supply Chain (CycloneDX, with Syft + Grype + pre-cached CVE DB). Each profile's collection is copied into the build context. XCCDF profiles run `extract_rule_metadata.py` to generate rules YAML from the datastream at build time. Images pushed to `ghcr.io/cross-logic/compliance-*`, then mirrored to PAH (ADR-031).
 
 To trigger manually: `gh workflow run build-ee.yml -f profiles=all`
+
+To mirror to PAH after build:
+```bash
+skopeo copy --src-creds <ghcr-user>:<token> \
+  --dest-creds <pah-user>:<password> --dest-tls-verify=false \
+  docker://ghcr.io/cross-logic/compliance-<profile>:latest \
+  docker://aap-netrunner.demoredhat.com/compliance-<profile>:latest
+```
 
 ## Branching and Workflow
 
