@@ -1683,7 +1683,31 @@ STIG profiles can still declare `display:` to customize labels, but it is option
 
 ### 12.2 Display Config Reference
 
-The full `display:` schema with all supported fields:
+The display configuration lives in a single file: `meta/compliance-profile.yml` inside each profile's collection directory. Everything the dashboard needs to render the profile — labels, columns, scores, exports, and tabs — is declared here.
+
+```
+compliance-profile.yml anatomy
+┌─────────────────────────────────────────────────────────┐
+│ profile:                                                │
+│   name / framework / version / scanner                  │  ← Identity
+│   platform / certification / platform_spec              │  ← Targeting
+│                                                         │
+│   display:                     ← ALL rendering config   │
+│   ├── gauge_label / gauge_unit ← Gauge text             │
+│   ├── score_formula            ← How the % is computed  │
+│   ├── severity_map             ← CAT_I/II/III labels    │
+│   ├── columns                  ← Findings table columns │
+│   ├── remediation_verb         ← Button text            │
+│   ├── export_formats           ← Export menu items      │
+│   │   ├── cff_derived (CSV/JSON/CKL)                    │
+│   │   └── artifact (SBOM/report from PAH)               │
+│   └── tab                      ← Custom dashboard tab   │
+│       ├── layout (Tier 1 widgets)                        │
+│       └── custom_component (Tier 2 JS bundle)            │
+└─────────────────────────────────────────────────────────┘
+```
+
+Full `display:` schema with all supported fields:
 
 ```yaml
 profile:
@@ -1692,6 +1716,7 @@ profile:
   display:
     gauge_label: "compliance rate"          # Text shown below the main gauge
     gauge_unit: "rules"                     # Unit counted by the gauge
+    score_formula: "compliance_rate"        # How the gauge % is computed (see below)
     remediation_verb: "Remediate"           # Label on the remediation action button
 
     severity_map:                           # Maps CFF severity categories to display labels
@@ -1704,6 +1729,17 @@ profile:
         label: "Rule ID"
         width: 120                          # Optional: column width in pixels
         sortable: true                      # Optional: enable column sorting
+
+    export_formats:                         # Export menu items (ADR-032)
+      - key: csv
+        label: "Export as CSV"
+        type: cff_derived                   # Generated client-side from CFF findings
+      - key: sbom-cyclonedx
+        label: "Export SBOMs (CycloneDX)"
+        type: artifact                      # Downloaded from PAH (OCI artifact)
+        artifact_key: "sbom-*"
+        mime_type: "application/vnd.cyclonedx+json"
+        file_extension: ".cdx.json"
 
     tab:                                    # Custom dashboard tab (see 12.3 and 12.4)
       label: "Tab Title"
@@ -1720,10 +1756,23 @@ profile:
 |-------|------|---------|-------------|
 | `gauge_label` | `string` | `"compliance rate"` | Descriptive text shown below the main percentage gauge on the overview and results pages. Should be lowercase -- the dashboard capitalizes it contextually. |
 | `gauge_unit` | `string` | `"rules"` | The unit being counted. Appears in the gauge subtitle (e.g., "245 rules evaluated"). |
+| `score_formula` | `ScoreFormula` | `"compliance_rate"` | Controls how the gauge percentage is computed. See **Score Formulas** below. |
 | `remediation_verb` | `string` | `"Remediate"` | Label on the primary action button for launching remediation. Use a verb form: "Remediate", "Patch", "Harden". |
 | `severity_map` | `SeverityMap` | CAT I/II/III literal | Maps the three CFF severity categories to profile-specific display labels. All three keys are optional -- missing keys fall back to their defaults. |
 | `columns` | `DisplayColumn[]` | 7-column STIG layout | Ordered list of columns for the findings table. Replaces the entire default column set when present. |
+| `export_formats` | `ExportFormatSpec[]` | CSV + JSON + CKL | Export menu items. Type `cff_derived` for client-side exports, `artifact` for OCI artifacts stored in PAH (ADR-032). |
 | `tab` | `TabConfig` | none | Declares a custom tab in the dashboard. See sections 12.3 and 12.4. |
+
+#### Score Formulas
+
+The `score_formula` field controls how the main gauge percentage is computed. If omitted, `compliance_rate` is used (backward compatible).
+
+| Formula | Computation | Use Case |
+|---------|------------|----------|
+| `compliance_rate` | `pass / (pass + fail)` | STIG, CIS — measures rule pass rate |
+| `vulnerability_free_rate` | `(total - fail) / total` | Supply chain — measures packages without CVEs |
+
+The formula is applied consistently across the dashboard overview gauges, scan results gauges, contributing scan rates, and baseline comparisons. Both the backend (`DashboardAggregator`) and frontend (`useDisplayConfig.computeScore`) read the formula from the stored profile display config.
 
 #### DisplayColumn Fields
 
