@@ -434,7 +434,7 @@ export class ComplianceDatabase {
   async getFindingsByScanIdPaginated(
     scanId: string,
     opts: { limit: number; offset: number; severity?: string; status?: string },
-  ): Promise<{ findings: StoredFinding[]; total: number }> {
+  ): Promise<{ findings: StoredFinding[]; total: number; totalFailing: number }> {
     // Paginate at the RULE level (not raw findings) so aggregation into
     // MultiHostFinding objects gets complete host lists per rule.
     // Step 1: Get paginated distinct rule_ids matching filters
@@ -448,16 +448,27 @@ export class ComplianceDatabase {
       ruleQuery = ruleQuery.where('status', opts.status);
     }
 
-    // Count total unique rules (for pagination controls)
-    const countResult = await this.db('compliance_findings')
-      .where('scan_id', scanId)
-      .modify(qb => {
-        if (opts.severity) qb.where('severity', opts.severity);
-        if (opts.status) qb.where('status', opts.status);
-      })
-      .countDistinct('rule_id as cnt')
-      .first();
+    // Count total unique rules + failing rules (for pagination controls and summary)
+    const [countResult, failingResult] = await Promise.all([
+      this.db('compliance_findings')
+        .where('scan_id', scanId)
+        .modify(qb => {
+          if (opts.severity) qb.where('severity', opts.severity);
+          if (opts.status) qb.where('status', opts.status);
+        })
+        .countDistinct('rule_id as cnt')
+        .first(),
+      this.db('compliance_findings')
+        .where('scan_id', scanId)
+        .where('status', 'fail')
+        .modify(qb => {
+          if (opts.severity) qb.where('severity', opts.severity);
+        })
+        .countDistinct('rule_id as cnt')
+        .first(),
+    ]);
     const total = Number((countResult as any)?.cnt ?? 0);
+    const totalFailing = Number((failingResult as any)?.cnt ?? 0);
 
     // Get the rule_ids for this page
     const ruleRows = await ruleQuery
@@ -468,7 +479,7 @@ export class ComplianceDatabase {
     const ruleIds = ruleRows.map((r: any) => r.rule_id as string);
 
     if (ruleIds.length === 0) {
-      return { findings: [], total };
+      return { findings: [], total, totalFailing };
     }
 
     // Step 2: Fetch ALL raw findings for those rules (all hosts)
@@ -478,7 +489,7 @@ export class ComplianceDatabase {
       .orderBy('severity', 'asc')
       .orderBy('rule_id', 'asc');
 
-    return { findings: rows.map(this.mapFindingRow), total };
+    return { findings: rows.map(this.mapFindingRow), total, totalFailing };
   }
 
   async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>> {

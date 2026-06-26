@@ -67,14 +67,14 @@ export function registerFindingsRoutes(
 
     // Paginated path: query DB directly with limit/offset
     if (paginated && resolvedScanId && dbScan) {
-      const { findings: dbFindings, total } = await database.getFindingsByScanIdPaginated(
+      const { findings: dbFindings, total, totalFailing } = await database.getFindingsByScanIdPaginated(
         resolvedScanId,
         { limit, offset, severity: severityParam, status: statusParam },
       );
       const results = dbFindings.length > 0
         ? await service.aggregateFindingsWithMetadata(dbFindings)
         : [];
-      res.json({ findings: results, total, limit, offset });
+      res.json({ findings: results, total, totalFailing, limit, offset });
       return;
     }
 

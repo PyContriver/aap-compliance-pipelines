@@ -143,6 +143,7 @@ export const ResultsViewer = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [totalFindings, setTotalFindings] = useState(0);
+  const [totalFailingRules, setTotalFailingRules] = useState(0);
   const usePagination = totalFindings > 500;
 
   const severityOptions: FilterOption[] = useMemo(() => [
@@ -203,6 +204,9 @@ export const ResultsViewer = () => {
     setLoading(true);
     setError(null);
   }, [jobId]);
+
+  // ─── Scan-level stats (for accurate summary when paginated) ──────
+  const [scanStats, setScanStats] = useState<{ pass: number; fail: number; rules: number; hosts: number } | null>(null);
 
   // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
   const [naCount, setNaCount] = useState<number | null>(null);
@@ -281,8 +285,9 @@ export const ResultsViewer = () => {
     api.getBatchScanStats([resolvedId]).then(stats => {
       if (cancelled) return;
       const s = stats[resolvedId];
-      if (s && typeof s.naCount === 'number') {
-        setNaCount(s.naCount);
+      if (s) {
+        if (typeof s.naCount === 'number') setNaCount(s.naCount);
+        setScanStats({ pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts });
       }
     }).catch(() => { /* non-critical */ });
     return () => { cancelled = true; };
@@ -364,6 +369,7 @@ export const ResultsViewer = () => {
           if (result.total > 0) {
             setFindings(result.findings);
             setTotalFindings(result.total);
+            if (result.totalFailing !== undefined) setTotalFailingRules(result.totalFailing);
             setLoading(false);
             return;
           }
@@ -410,12 +416,13 @@ export const ResultsViewer = () => {
   // ─── Computed metrics ────────────────────────────────────────────
 
   const totalHosts = useMemo(() => {
+    if (usePagination && scanStats) return scanStats.hosts;
     const hostSet = new Set<string>();
     displayFindings.forEach(f => f.hosts.forEach(h => hostSet.add(h.host)));
     return hostSet.size;
-  }, [displayFindings]);
-  const rulesWithFailures = displayFindings.filter(f => f.failCount > 0).length;
-  const totalRules = displayFindings.length;
+  }, [displayFindings, usePagination, scanStats]);
+  const rulesWithFailures = usePagination ? totalFailingRules : displayFindings.filter(f => f.failCount > 0).length;
+  const totalRules = usePagination ? totalFindings : displayFindings.length;
   const totalChecks = displayFindings.reduce((sum, f) => sum + f.totalCount, 0);
   const scoreFromFindings = useCallback((fList: MultiHostFinding[]) => {
     const pass = fList.reduce((sum, f) => sum + f.passCount, 0);
@@ -424,9 +431,16 @@ export const ResultsViewer = () => {
     return displayConfig.computeScore(pass, fail, total);
   }, [displayConfig]);
 
-  const overallPassRate = scoreFromFindings(displayFindings);
+  const overallPassRate = usePagination && scanStats
+    ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanStats.pass + scanStats.fail)
+    : scoreFromFindings(displayFindings);
 
-  const standardPassRate = useMemo(() => scoreFromFindings(findings), [findings, scoreFromFindings]);
+  const standardPassRate = useMemo(
+    () => usePagination && scanStats
+      ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanStats.pass + scanStats.fail)
+      : scoreFromFindings(findings),
+    [findings, scoreFromFindings, usePagination, scanStats, displayConfig],
+  );
 
   const baselinePassRate = useMemo(() => {
     if (baseline.baselineRuleIds.size === 0) return undefined;
@@ -488,6 +502,7 @@ export const ResultsViewer = () => {
         if (result.total > 0) {
           setFindings(result.findings);
           setTotalFindings(result.total);
+          if (result.totalFailing !== undefined) setTotalFailingRules(result.totalFailing);
           setPage(0);
         }
         setLoading(false);
@@ -505,6 +520,7 @@ export const ResultsViewer = () => {
       if (result.total > 0) {
         setFindings(result.findings);
         setTotalFindings(result.total);
+        if (result.totalFailing !== undefined) setTotalFailingRules(result.totalFailing);
         setPage(0);
       } else {
         api.getScan(jobId).then(scan => {
