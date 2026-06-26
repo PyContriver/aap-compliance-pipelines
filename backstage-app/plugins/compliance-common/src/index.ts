@@ -57,6 +57,7 @@ export type {
   CustomComponentRef,
   TabConfig,
   ProfileDisplayConfig,
+  ScoreFormula,
   ExportFormatSpec,
   ScanArtifact,
   ProfileConnectionStatus,

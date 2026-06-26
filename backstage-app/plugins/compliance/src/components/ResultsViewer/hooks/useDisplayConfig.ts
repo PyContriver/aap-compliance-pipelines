@@ -3,6 +3,7 @@ import type {
   ProfileDisplayConfig,
   DisplayColumn,
   SeverityMap,
+  ScoreFormula,
 } from '@aap-compliance/common';
 
 const DEFAULT_COLUMNS: DisplayColumn[] = [
@@ -32,10 +33,12 @@ const DEFAULTS = {
 export interface ResolvedDisplayConfig {
   gaugeLabel: string;
   gaugeUnit: string;
+  scoreFormula: ScoreFormula;
   columns: DisplayColumn[];
   severityMap: Required<SeverityMap>;
   remediationVerb: string;
   severityLabel: (key: string) => string;
+  computeScore: (pass: number, fail: number, total: number) => number;
 }
 
 export function useDisplayConfig(
@@ -50,9 +53,20 @@ export function useDisplayConfig(
       CAT_III: config.severity_map?.CAT_III ?? DEFAULT_SEVERITY_MAP.CAT_III,
     };
 
+    const scoreFormula: ScoreFormula = config.score_formula ?? 'compliance_rate';
+
+    const computeScore = (pass: number, fail: number, total: number): number => {
+      if (scoreFormula === 'vulnerability_free_rate') {
+        return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
+      }
+      const sum = pass + fail;
+      return sum > 0 ? Math.round((pass / sum) * 1000) / 10 : 0;
+    };
+
     return {
       gaugeLabel: config.gauge_label ?? DEFAULTS.gauge_label,
       gaugeUnit: config.gauge_unit ?? DEFAULTS.gauge_unit,
+      scoreFormula,
       columns: config.columns ?? DEFAULTS.columns,
       severityMap,
       remediationVerb: config.remediation_verb ?? DEFAULTS.remediation_verb,
@@ -60,6 +74,7 @@ export function useDisplayConfig(
         if (key in severityMap) return severityMap[key as keyof SeverityMap]!;
         return key;
       },
+      computeScore,
     };
   }, [displayConfig]);
 }

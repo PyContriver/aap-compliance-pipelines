@@ -11,7 +11,16 @@ import type {
   PostureSnapshot,
   RemediationProfile,
   InventoryPosture,
+  ScoreFormula,
 } from '@aap-compliance/common';
+
+function computeRate(pass: number, fail: number, total: number, formula: ScoreFormula = 'compliance_rate'): number {
+  if (formula === 'vulnerability_free_rate') {
+    return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
+  }
+  const sum = pass + fail;
+  return sum > 0 ? Math.round((pass / sum) * 1000) / 10 : 0;
+}
 
 import { ComplianceDatabase } from '../database/ComplianceDatabase';
 import { MockDataProvider } from './MockDataProvider';
@@ -145,12 +154,14 @@ export class DashboardAggregator {
 
       const profileNameMap = new Map(profiles.map(p => [p.id, p.displayName]));
       const profilePlatformMap = new Map(profiles.map(p => [p.id, p.platform || 'RHEL 9']));
+      const profileFormulaMap = new Map(profiles.map(p => [p.id, (p.displayConfig?.score_formula ?? 'compliance_rate') as ScoreFormula]));
       const TARGET_THRESHOLD = 80;
 
       const frameworkScores: DashboardStats['frameworkScores'] = profiles.map(p => {
         const agg = profileAgg.get(p.id);
         const total = agg ? agg.pass + agg.fail : 0;
-        const rate = total > 0 ? Math.round((agg!.pass / total) * 1000) / 10 : 0;
+        const formula = profileFormulaMap.get(p.id) ?? 'compliance_rate';
+        const rate = computeRate(agg?.pass ?? 0, agg?.fail ?? 0, total, formula);
         const contributingScans = (agg?.contributing ?? []).map(c => {
           const cTotal = c.pass + c.fail;
           return {
@@ -158,7 +169,7 @@ export class DashboardAggregator {
             workflowJobId: c.scan.workflowJobId ?? undefined,
             inventoryId: c.scan.inventoryId,
             inventoryName: inventoryNameMap.get(c.scan.inventoryId) || `Inventory ${c.scan.inventoryId}`,
-            passRate: cTotal > 0 ? Math.round((c.pass / cTotal) * 1000) / 10 : 0,
+            passRate: computeRate(c.pass, c.fail, cTotal, formula),
             passCount: c.pass,
             failCount: c.fail,
             ruleCount: c.rules,

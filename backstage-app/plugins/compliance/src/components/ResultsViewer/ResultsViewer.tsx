@@ -417,42 +417,33 @@ export const ResultsViewer = () => {
   const rulesWithFailures = displayFindings.filter(f => f.failCount > 0).length;
   const totalRules = displayFindings.length;
   const totalChecks = displayFindings.reduce((sum, f) => sum + f.totalCount, 0);
-  const overallPassRate = totalChecks > 0
-    ? Math.round((displayFindings.reduce((sum, f) => sum + f.passCount, 0) / totalChecks) * 1000) / 10
-    : 0;
+  const scoreFromFindings = useCallback((fList: MultiHostFinding[]) => {
+    const pass = fList.reduce((sum, f) => sum + f.passCount, 0);
+    const fail = fList.reduce((sum, f) => sum + f.failCount, 0);
+    const total = fList.reduce((sum, f) => sum + f.totalCount, 0);
+    return displayConfig.computeScore(pass, fail, total);
+  }, [displayConfig]);
 
-  const standardPassRate = useMemo(() => {
-    const allChecks = findings.reduce((sum, f) => sum + f.totalCount, 0);
-    return allChecks > 0
-      ? Math.round((findings.reduce((sum, f) => sum + f.passCount, 0) / allChecks) * 1000) / 10
-      : 0;
-  }, [findings]);
+  const overallPassRate = scoreFromFindings(displayFindings);
+
+  const standardPassRate = useMemo(() => scoreFromFindings(findings), [findings, scoreFromFindings]);
 
   const baselinePassRate = useMemo(() => {
     if (baseline.baselineRuleIds.size === 0) return undefined;
     const blFindings = findings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
-    const blChecks = blFindings.reduce((sum, f) => sum + f.totalCount, 0);
-    return blChecks > 0
-      ? Math.round((blFindings.reduce((sum, f) => sum + f.passCount, 0) / blChecks) * 1000) / 10
-      : 0;
-  }, [findings, baseline.baselineRuleIds]);
+    return scoreFromFindings(blFindings);
+  }, [findings, baseline.baselineRuleIds, scoreFromFindings]);
 
   const previousStandardPassRate = useMemo(() => {
     if (previousFindings.length === 0) return 0;
-    const allChecks = previousFindings.reduce((sum, f) => sum + f.totalCount, 0);
-    return allChecks > 0
-      ? Math.round((previousFindings.reduce((sum, f) => sum + f.passCount, 0) / allChecks) * 1000) / 10
-      : 0;
-  }, [previousFindings]);
+    return scoreFromFindings(previousFindings);
+  }, [previousFindings, scoreFromFindings]);
 
   const previousBaselinePassRate = useMemo(() => {
     if (baseline.baselineRuleIds.size === 0 || previousFindings.length === 0) return undefined;
     const blFindings = previousFindings.filter(f => baseline.baselineRuleIds.has(f.ruleId));
-    const blChecks = blFindings.reduce((sum, f) => sum + f.totalCount, 0);
-    return blChecks > 0
-      ? Math.round((blFindings.reduce((sum, f) => sum + f.passCount, 0) / blChecks) * 1000) / 10
-      : 0;
-  }, [previousFindings, baseline.baselineRuleIds]);
+    return scoreFromFindings(blFindings);
+  }, [previousFindings, baseline.baselineRuleIds, scoreFromFindings]);
 
   const isVerification = meta.scanType === 'verification';
   const isComparison = !!compareToScanId || isVerification;
@@ -463,11 +454,8 @@ export const ResultsViewer = () => {
 
   const previousPassRate = useMemo(() => {
     if (displayPreviousFindings.length === 0) return 0;
-    const prevTotalChecks = displayPreviousFindings.reduce((sum, f) => sum + f.totalCount, 0);
-    return prevTotalChecks > 0
-      ? Math.round((displayPreviousFindings.reduce((sum, f) => sum + f.passCount, 0) / prevTotalChecks) * 1000) / 10
-      : 0;
-  }, [displayPreviousFindings]);
+    return scoreFromFindings(displayPreviousFindings);
+  }, [displayPreviousFindings, scoreFromFindings]);
 
   const comparisonStats = useMemo(() => {
     if (!comparisonMap) return { improved: 0, regressed: 0, unchanged: 0 };

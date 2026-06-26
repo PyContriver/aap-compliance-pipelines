@@ -68,10 +68,22 @@ export interface ExportFormatSpec {
   file_extension?: string;
 }
 
+/**
+ * Score formula identifier — controls how the compliance gauge value
+ * is computed. Profiles declare this to override the default pass-rate
+ * calculation (e.g., supply chain uses vulnerability-free rate).
+ *
+ * - compliance_rate: pass / (pass + fail) — default, used by STIG/CIS
+ * - vulnerability_free_rate: (total_rules - fail) / total_rules — for CVE scans
+ *   where "pass" means "no known vulnerability" (supply chain)
+ */
+export type ScoreFormula = 'compliance_rate' | 'vulnerability_free_rate';
+
 /** Top-level display configuration declared in compliance-profile.yml. */
 export interface ProfileDisplayConfig {
   gauge_label?: string;
   gauge_unit?: string;
+  score_formula?: ScoreFormula;
   columns?: DisplayColumn[];
   severity_map?: SeverityMap;
   remediation_verb?: string;

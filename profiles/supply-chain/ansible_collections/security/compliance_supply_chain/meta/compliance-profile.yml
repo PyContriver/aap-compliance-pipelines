@@ -26,6 +26,7 @@ profile:
   display:
     gauge_label: "vulnerability-free rate"
     gauge_unit: "packages"
+    score_formula: "vulnerability_free_rate"
     remediation_verb: "Patch"
     severity_map:
       CAT_I: "Critical / High"
