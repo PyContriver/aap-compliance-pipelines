@@ -37,11 +37,11 @@ describe('ResultsViewer', () => {
   it('displays summary cards with computed values', async () => {
     await renderResults();
     await waitFor(() => {
-      expect(screen.getByText('Overall Compliance')).toBeInTheDocument();
+      expect(screen.getByText(/overall.*compliance/i)).toBeInTheDocument();
     });
     expect(screen.getByText('Hosts Scanned')).toBeInTheDocument();
-    expect(screen.getByText('Rules Evaluated')).toBeInTheDocument();
-    expect(screen.getByText('Rules with Failures')).toBeInTheDocument();
+    expect(screen.getByText(/evaluated/i)).toBeInTheDocument();
+    expect(screen.getByText(/with failures/i)).toBeInTheDocument();
   });
 
   it('displays the build remediation button', async () => {

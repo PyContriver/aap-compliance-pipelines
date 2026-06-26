@@ -2,6 +2,7 @@ import React from 'react';
 import { InfoCard } from '@backstage/core-components';
 import { Typography, makeStyles } from '@material-ui/core';
 import { scoreColor, STATUS_COLORS } from '../shared/colors';
+import type { ResolvedDisplayConfig } from './hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   summarySection: {
@@ -33,6 +34,7 @@ interface SummaryCardsProps {
   baselineRate?: number;
   standardRate?: number;
   isBaselineView?: boolean;
+  displayConfig?: ResolvedDisplayConfig;
 }
 
 const getColor = scoreColor;
@@ -45,6 +47,7 @@ export const SummaryCards = ({
   baselineRate,
   standardRate,
   isBaselineView,
+  displayConfig,
 }: SummaryCardsProps) => {
   const classes = useStyles();
 
@@ -57,8 +60,8 @@ export const SummaryCards = ({
           <Typography className={classes.summaryValue} style={{ color: getColor(displayRate) }}>
             {displayRate}%
           </Typography>
-          <Typography className={classes.summaryLabel}>
-            {isBaselineView ? 'Baseline Compliance' : 'Overall Compliance'}
+          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
+            {isBaselineView ? `Baseline ${displayConfig?.gaugeLabel ?? 'compliance'}` : `Overall ${displayConfig?.gaugeLabel ?? 'compliance'}`}
           </Typography>
           {baselineRate !== undefined && (
             <Typography variant="caption" style={{ display: 'block', marginTop: 4, fontWeight: 600, color: getColor(isBaselineView ? (standardRate ?? overallPassRate) : baselineRate!) }}>
@@ -76,7 +79,9 @@ export const SummaryCards = ({
       <InfoCard>
         <div className={classes.summaryCard}>
           <Typography className={classes.summaryValue}>{totalRules}</Typography>
-          <Typography className={classes.summaryLabel}>Rules Evaluated</Typography>
+          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
+            {displayConfig?.gaugeUnit ?? 'Rules'} Evaluated
+          </Typography>
         </div>
       </InfoCard>
       <InfoCard>
@@ -84,7 +89,9 @@ export const SummaryCards = ({
           <Typography className={classes.summaryValue} style={{ color: STATUS_COLORS.error }}>
             {rulesWithFailures}
           </Typography>
-          <Typography className={classes.summaryLabel}>Rules with Failures</Typography>
+          <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>
+            {displayConfig?.gaugeUnit ?? 'Rules'} with Failures
+          </Typography>
         </div>
       </InfoCard>
     </div>

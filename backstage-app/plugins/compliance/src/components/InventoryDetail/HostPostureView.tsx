@@ -5,6 +5,7 @@ import { computeClusters, CHIP_THRESHOLD, type Cluster } from './hostUtils';
 import { StripPlot } from './StripPlot';
 import { ChipMatrix } from './ChipMatrix';
 import { HostDetailDrawer } from './HostDetailDrawer';
+import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   breadcrumb: {
@@ -32,12 +33,13 @@ interface HostPostureViewProps {
   inventoryId: number;
   profileId: string;
   workflowJobId?: number;
+  displayConfig?: ResolvedDisplayConfig;
 }
 
 type ViewMode = 'auto' | 'chips' | 'distribution';
 
 export const HostPostureView: React.FC<HostPostureViewProps> = ({
-  hosts, osFilter, profileLabel, baseline, scanId, inventoryId, profileId, workflowJobId,
+  hosts, osFilter, profileLabel, baseline, scanId, inventoryId, profileId, workflowJobId, displayConfig,
 }) => {
   const classes = useStyles();
   const [zoomStack, setZoomStack] = useState<ZoomEntry[]>([]);
@@ -116,28 +118,28 @@ export const HostPostureView: React.FC<HostPostureViewProps> = ({
 
       {!currentZoom && effectiveView === 'distribution' && filteredHosts.length > 0 && (
         <StripPlot hosts={filteredHosts} allHosts={filteredHosts} clusters={topClusters}
-          onClusterClick={pushZoom} onDotClick={setDrawerHost} height={180} />
+          onClusterClick={pushZoom} onDotClick={setDrawerHost} height={180} displayConfig={displayConfig} />
       )}
 
       {!currentZoom && effectiveView === 'chips' && filteredHosts.length > 0 && (
-        <ChipMatrix hosts={filteredHosts} allHosts={filteredHosts} onHostClick={setDrawerHost} />
+        <ChipMatrix hosts={filteredHosts} allHosts={filteredHosts} onHostClick={setDrawerHost} displayConfig={displayConfig} />
       )}
 
       {currentZoom?.level === 'zoomed-strip' && (
         <StripPlot hosts={currentZoom.hosts} allHosts={filteredHosts}
           clusters={computeClusters(currentZoom.hosts)}
-          onClusterClick={pushZoom} onDotClick={setDrawerHost} height={160} />
+          onClusterClick={pushZoom} onDotClick={setDrawerHost} height={160} displayConfig={displayConfig} />
       )}
 
       {currentZoom?.level === 'chips' && (
-        <ChipMatrix hosts={currentZoom.hosts} allHosts={filteredHosts} onHostClick={setDrawerHost} />
+        <ChipMatrix hosts={currentZoom.hosts} allHosts={filteredHosts} onHostClick={setDrawerHost} displayConfig={displayConfig} />
       )}
 
       {drawerHost && (
         <HostDetailDrawer host={drawerHost} allHosts={filteredHosts} onClose={() => setDrawerHost(null)}
           profileLabel={profileLabel} baseline={baseline}
           scanId={scanId} inventoryId={inventoryId} profileId={profileId}
-          workflowJobId={workflowJobId} />
+          workflowJobId={workflowJobId} displayConfig={displayConfig} />
       )}
     </div>
   );

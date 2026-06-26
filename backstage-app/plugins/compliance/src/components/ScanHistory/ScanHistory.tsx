@@ -50,8 +50,18 @@ import type {
   ComplianceScan,
   ScanCertification,
   RemediationExecution,
+  ProfileDisplayConfig,
+  ScoreFormula,
 } from '@aap-compliance/common';
 import { ScanProgress } from '../ScanProgress';
+
+function computeGroupScore(pass: number, fail: number, total: number, formula?: ScoreFormula): number {
+  if (formula === 'vulnerability_free_rate') {
+    return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
+  }
+  const sum = pass + fail;
+  return sum > 0 ? Math.round((pass / sum) * 1000) / 10 : 0;
+}
 
 const useStyles = makeStyles(theme => ({
   emptyState: {
@@ -199,7 +209,7 @@ export const ScanHistory = () => {
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
   const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>({});
-  const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null }>>(new Map());
+  const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null; displayConfig?: ProfileDisplayConfig }>>(new Map());
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
@@ -222,7 +232,7 @@ export const ScanHistory = () => {
     Promise.all([
       refreshScans(),
       api.getRegisteredProfiles().then(cs => {
-        setProfileMap(new Map(cs.map(c => [c.id, { name: c.displayName, certification: c.certification }])));
+        setProfileMap(new Map(cs.map(c => [c.id, { name: c.displayName, certification: c.certification, displayConfig: c.displayConfig }])));
       }).catch(e => console.warn('ScanHistory data load:', e)),
       api.getInventories().then(invs => {
         setInventoryMap(new Map(invs.map(inv => [inv.id, inv.name])));
@@ -582,17 +592,18 @@ export const ScanHistory = () => {
                       </Typography>
                     </div>
                     <div className={classes.groupStats}>
-                      {latestScan?.stats && (
-                        <Chip
-                          label={`${Math.round((latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1)) * 100)}% pass`}
-                          size="small"
-                          variant="outlined"
-                          style={{
-                            borderColor: scoreColor(Math.round((latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1)) * 100)),
-                            color: scoreColor(Math.round((latestScan.stats.pass / (latestScan.stats.pass + latestScan.stats.fail || 1)) * 100)),
-                          }}
-                        />
-                      )}
+                      {latestScan?.stats && (() => {
+                        const formula = profileMap.get(group.profileId)?.displayConfig?.score_formula;
+                        const pct = computeGroupScore(latestScan.stats.pass, latestScan.stats.fail, latestScan.stats.pass + latestScan.stats.fail, formula);
+                        return (
+                          <Chip
+                            label={`${pct}% pass`}
+                            size="small"
+                            variant="outlined"
+                            style={{ borderColor: scoreColor(pct), color: scoreColor(pct) }}
+                          />
+                        );
+                      })()}
                       <Typography variant="caption" color="textSecondary">
                         {scanCount} scan{scanCount !== 1 ? 's' : ''}
                         {execCount > 0 && `, ${execCount} remediation${execCount !== 1 ? 's' : ''}`}
@@ -851,7 +862,8 @@ export const ScanHistory = () => {
                       if (!stats || scan.status !== 'completed') return '--';
                       const total = stats.pass + stats.fail;
                       if (total === 0) return '--';
-                      const pct = Math.round((stats.pass / total) * 100);
+                      const formula = profileMap.get(scan.profileId)?.displayConfig?.score_formula;
+                      const pct = computeGroupScore(stats.pass, stats.fail, total, formula);
                       return (
                         <Chip
                           label={`${pct}%`}

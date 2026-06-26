@@ -24,6 +24,8 @@ export type {
   TabWidget,
   CustomComponentRef,
   TabConfig,
+  ExportFormatSpec,
+  ScoreFormula,
   ProfileDisplayConfig,
 } from './display';
 
@@ -75,4 +77,6 @@ export type {
   HostPostureResponse,
   HostFindingSummary,
   HostFindingsResponse,
+  PaginatedFindings,
+  ScanArtifact,
 } from './api';

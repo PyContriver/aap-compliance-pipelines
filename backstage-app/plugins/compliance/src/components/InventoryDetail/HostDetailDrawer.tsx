@@ -21,6 +21,7 @@ import type { HostPosture, HostFindingSummary } from '@aap-compliance/common';
 import { isOutlier } from './hostUtils';
 import { scoreColor, SEVERITY_COLORS, STATUS_COLORS, SURFACE_COLORS } from '../shared/colors';
 import { complianceApiRef } from '../../api';
+import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   drawer: { width: 420, padding: theme.spacing(3) },
@@ -58,10 +59,11 @@ interface HostDetailDrawerProps {
   inventoryId: number;
   profileId: string;
   workflowJobId?: number;
+  displayConfig?: ResolvedDisplayConfig;
 }
 
 export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({
-  host, allHosts, onClose, profileLabel, baseline, scanId, inventoryId, profileId, workflowJobId,
+  host, allHosts, onClose, profileLabel, baseline, scanId, inventoryId, profileId, workflowJobId, displayConfig,
 }) => {
   const classes = useStyles();
   const navigate = useNavigate();
@@ -146,7 +148,9 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({
               <Typography variant="h5" style={{ fontWeight: 700, color: scoreColor(host.compliancePct) }}>
                 {host.compliancePct}%
               </Typography>
-              <Typography variant="caption" color="textSecondary">Compliance</Typography>
+              <Typography variant="caption" color="textSecondary" style={{ textTransform: 'capitalize' }}>
+                {displayConfig?.gaugeLabel ?? 'Compliance'}
+              </Typography>
             </Card>
           )}
           <Card variant="outlined" className={classes.scoreCard}>
@@ -158,16 +162,16 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({
         {/* Clickable severity chips */}
         <div className={classes.chipRow}>
           {host.catIFail > 0 && (
-            <Chip size="small" label={`${host.catIFail} CAT I`}
+            <Chip size="small" label={`${host.catIFail} ${displayConfig?.severityLabel('CAT_I') ?? 'CAT I'}`}
               className={classes.severityChip}
               onClick={() => toggleSeverity('CAT_I')}
               style={severityChipStyle('CAT_I', SEVERITY_COLORS.CAT_I)} />
           )}
-          <Chip size="small" label={`${host.catIIFail} CAT II`}
+          <Chip size="small" label={`${host.catIIFail} ${displayConfig?.severityLabel('CAT_II') ?? 'CAT II'}`}
             className={classes.severityChip}
             onClick={() => toggleSeverity('CAT_II')}
             style={severityChipStyle('CAT_II', SEVERITY_COLORS.CAT_II)} />
-          <Chip size="small" label={`${host.catIIIFail} CAT III`}
+          <Chip size="small" label={`${host.catIIIFail} ${displayConfig?.severityLabel('CAT_III') ?? 'CAT III'}`}
             className={classes.severityChip}
             onClick={() => toggleSeverity('CAT_III')}
             style={severityChipStyle('CAT_III', SEVERITY_COLORS.CAT_III)} />
@@ -197,7 +201,7 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({
 
         {/* Findings list */}
         <Typography variant="subtitle2" gutterBottom>
-          Findings{severityFilter ? ` — ${severityFilter.replace('_', ' ')}` : ''}
+          Findings{severityFilter ? ` — ${displayConfig?.severityLabel(severityFilter) ?? severityFilter.replace('_', ' ')}` : ''}
           {filteredFindings.length > 0 && (
             <Typography component="span" variant="caption" color="textSecondary" style={{ marginLeft: 8 }}>
               ({filteredFindings.filter(f => f.status === 'fail').length} failing)
@@ -222,10 +226,10 @@ export const HostDetailDrawer: React.FC<HostDetailDrawerProps> = ({
                 ) : (
                   <CheckCircleIcon style={{ fontSize: 16, color: STATUS_COLORS.success, flexShrink: 0 }} />
                 )}
-                <Chip size="small" label={f.severity.replace('_', ' ')}
+                <Chip size="small" label={displayConfig?.severityLabel(f.severity) ?? f.severity.replace('_', ' ')}
                   style={{
                     fontSize: '0.55rem', height: 16, flexShrink: 0,
-                    backgroundColor: SEVERITY_COLORS[f.severity], color: SURFACE_COLORS.onDark,
+                    backgroundColor: SEVERITY_COLORS[f.severity as keyof typeof SEVERITY_COLORS] ?? STATUS_COLORS.neutral, color: SURFACE_COLORS.onDark,
                   }} />
                 <Typography className={classes.findingTitle} title={f.title}>
                   {f.title}

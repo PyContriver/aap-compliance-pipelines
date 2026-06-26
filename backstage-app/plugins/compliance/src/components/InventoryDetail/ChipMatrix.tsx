@@ -2,7 +2,8 @@ import React from 'react';
 import { Typography, Chip, makeStyles } from '@material-ui/core';
 import type { HostPosture } from '@aap-compliance/common';
 import { isOutlier, getChipStyle, findSectionGaps } from './hostUtils';
-import { STATUS_COLORS } from '../shared/colors';
+import { STATUS_COLORS, THRESHOLDS } from '../shared/colors';
+import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   section: { marginBottom: theme.spacing(2) },
@@ -27,13 +28,16 @@ interface ChipMatrixProps {
   hosts: HostPosture[];
   allHosts: HostPosture[];
   onHostClick: (host: HostPosture) => void;
+  displayConfig?: ResolvedDisplayConfig;
 }
 
-export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostClick }) => {
+export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostClick, displayConfig }) => {
   const classes = useStyles();
-  const red = hosts.filter(h => isOutlier(h, allHosts)).sort((a, b) => a.compliancePct - b.compliancePct);
-  const yellow = hosts.filter(h => !isOutlier(h, allHosts) && h.catIFail > 0).sort((a, b) => a.compliancePct - b.compliancePct);
-  const green = hosts.filter(h => !isOutlier(h, allHosts) && h.catIFail === 0).sort((a, b) => a.compliancePct - b.compliancePct);
+  const catILabel = displayConfig?.severityLabel('CAT_I') ?? 'CAT I';
+  const outliers = hosts.filter(h => isOutlier(h, allHosts)).sort((a, b) => a.compliancePct - b.compliancePct);
+  const nonCompliant = hosts.filter(h => !isOutlier(h, allHosts) && h.compliancePct < THRESHOLDS.good).sort((a, b) => a.compliancePct - b.compliancePct);
+  const yellow = hosts.filter(h => !isOutlier(h, allHosts) && h.compliancePct >= THRESHOLDS.good && h.catIFail > 0).sort((a, b) => a.compliancePct - b.compliancePct);
+  const green = hosts.filter(h => !isOutlier(h, allHosts) && h.compliancePct >= THRESHOLDS.good && h.catIFail === 0).sort((a, b) => a.compliancePct - b.compliancePct);
 
   const renderChips = (chipHosts: HostPosture[]) =>
     chipHosts.map(host => {
@@ -111,12 +115,14 @@ export const ChipMatrix: React.FC<ChipMatrixProps> = ({ hosts, allHosts, onHostC
   return (
     <div>
       <Typography variant="body2" color="textSecondary" gutterBottom>
-        {hosts.length} hosts · {red.length} outlier{red.length !== 1 ? 's' : ''}
-        {yellow.length > 0 ? ` · ${yellow.length} with CAT I` : ''}
+        {hosts.length} hosts · {outliers.length} outlier{outliers.length !== 1 ? 's' : ''}
+        {nonCompliant.length > 0 ? ` · ${nonCompliant.length} non-compliant` : ''}
+        {yellow.length > 0 ? ` · ${yellow.length} with ${catILabel}` : ''}
         {` · ${green.length} compliant`}
       </Typography>
-      {renderSection('Outliers', STATUS_COLORS.error, red)}
-      {renderSection('CAT I Findings', STATUS_COLORS.warning, yellow)}
+      {renderSection('Outliers', STATUS_COLORS.error, outliers)}
+      {renderSection('Non-Compliant', STATUS_COLORS.error, nonCompliant)}
+      {renderSection(`${catILabel} Findings`, STATUS_COLORS.warning, yellow)}
       {renderSection('Compliant', STATUS_COLORS.success, green)}
     </div>
   );

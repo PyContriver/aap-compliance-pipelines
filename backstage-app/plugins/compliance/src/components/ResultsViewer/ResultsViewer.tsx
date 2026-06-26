@@ -481,40 +481,44 @@ export const ResultsViewer = () => {
   const [scanFailed, setScanFailed] = useState<string | null>(null);
 
   const triggerFetch = useCallback(() => {
-    api.getFindings(jobId).then(data => {
-      if (data.length > 0) setFindings(data);
-      setLoading(false);
-    }).catch(err => {
-      console.error('Failed to fetch findings after scan completion:', err);
-      setLoading(false);
-    });
-  }, [api, jobId]);
+    if (!jobId) return;
+    setLoading(true);
+    api.getFindingsPaginated(jobId, { limit: rowsPerPage, offset: 0 })
+      .then(result => {
+        if (result.total > 0) {
+          setFindings(result.findings);
+          setTotalFindings(result.total);
+          setPage(0);
+        }
+        setLoading(false);
+      })
+      .catch(() => { setLoading(false); });
+  }, [api, jobId, rowsPerPage]);
 
   const handleScanFailed = useCallback((status: string) => {
-    api.getFindings(jobId).then(data => {
-      if (data.length > 0) {
-        setFindings(data);
-      } else {
-        if (jobId) {
-          api.getScan(jobId).then(scan => {
-            setScanFailed(scan?.errorDetails || status);
-          }).catch(() => setScanFailed(status));
-        } else {
-          setScanFailed(status);
-        }
-      }
+    if (!jobId) {
+      setScanFailed(status);
       setLoading(false);
-    }).catch(() => {
-      if (jobId) {
+      return;
+    }
+    api.getFindingsPaginated(jobId, { limit: rowsPerPage, offset: 0 }).then(result => {
+      if (result.total > 0) {
+        setFindings(result.findings);
+        setTotalFindings(result.total);
+        setPage(0);
+      } else {
         api.getScan(jobId).then(scan => {
           setScanFailed(scan?.errorDetails || status);
         }).catch(() => setScanFailed(status));
-      } else {
-        setScanFailed(status);
       }
       setLoading(false);
+    }).catch(() => {
+      api.getScan(jobId).then(scan => {
+        setScanFailed(scan?.errorDetails || status);
+      }).catch(() => setScanFailed(status));
+      setLoading(false);
     });
-  }, [api, jobId]);
+  }, [api, jobId, rowsPerPage]);
 
   // ─── Render states ───────────────────────────────────────────────
 
@@ -733,6 +737,7 @@ export const ResultsViewer = () => {
           baselineRate={baselinePassRate}
           standardRate={standardPassRate}
           isBaselineView={baselineFilterActive}
+          displayConfig={displayConfig}
         />
       )}
 

@@ -84,4 +84,14 @@ describe('hostColor', () => {
     const hosts = Array.from({ length: 5 }, () => host(95));
     expect(hostColor(hosts[0], hosts)).toBe('#3E8635');
   });
+
+  it('returns red for sub-threshold host even with CAT I findings', () => {
+    const hosts = Array.from({ length: 5 }, () => host(60, 1));
+    expect(hostColor(hosts[0], hosts)).toBe('#C9190B');
+  });
+
+  it('returns yellow for above-threshold host with CAT I findings', () => {
+    const hosts = Array.from({ length: 5 }, () => host(75, 1));
+    expect(hostColor(hosts[0], hosts)).toBe('#F0AB00');
+  });
 });
