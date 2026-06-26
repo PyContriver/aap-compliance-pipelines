@@ -74,8 +74,7 @@ export function registerProfileRoutes(
     };
 
     try {
-      const ruleCount = service.getRuleCountForProfile(saveRequest.displayName, saveRequest.framework, saveRequest.version);
-      const profile = await database.saveProfile(saveRequest, ruleCount);
+      const profile = await database.saveProfile(saveRequest);
       res.status(201).json(profile);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -155,7 +154,6 @@ export function registerProfileRoutes(
   // ─── Custom tab bundle ────────────────────────────────────────────
 
   const MAX_BUNDLE_SIZE = 5 * 1024 * 1024; // 5 MB
-  const ALLOWED_BUNDLE_TYPES = ['application/javascript', 'text/javascript'];
 
   router.put('/compliance-profiles/:id/bundle', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;

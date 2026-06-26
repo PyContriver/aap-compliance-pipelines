@@ -114,28 +114,6 @@ export class ComplianceService {
     return this.database;
   }
 
-  /**
-   * Get the rule count for a profile from the DB rule_metadata table.
-   *
-   * Returns the count of distinct rule IDs in the compliance_rule_metadata
-   * table. If the table is empty (ingest pipeline hasn't populated it yet),
-   * returns undefined — callers should surface the gap rather than guess.
-   */
-  getRuleCountForProfile(_displayName: string, _framework?: string, _version?: string): number | undefined {
-    // DB-only: rule counts come from the compliance_rule_metadata table
-    // populated by the ingest pipeline. If the DB hasn't been populated
-    // yet, we return undefined rather than papering over the gap with
-    // YAML files that may not exist.
-    //
-    // The profile registry's rule_count column (migration 012) stores
-    // the count at registration time. The router backfill loop and
-    // saveProfile call handle populating it.
-    //
-    // This method is kept for backward compatibility but no longer
-    // reads YAML files.
-    return undefined;
-  }
-
   // ─── Profiles ───────────────────────────────────────────────────────
 
   async getProfiles(): Promise<ComplianceProfile[]> {

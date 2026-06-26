@@ -6,4 +6,6 @@ export { registerBaselineRoutes } from './baseline';
 export { registerDashboardRoutes } from './dashboard';
 export { registerControllerRoutes } from './controller';
 export { registerProfileRoutes } from './profiles';
+export { registerInventoryRoutes } from './inventory';
+export { registerArtifactRoutes } from './artifacts';
 export type { RouterDependencies, SharedState } from './types';

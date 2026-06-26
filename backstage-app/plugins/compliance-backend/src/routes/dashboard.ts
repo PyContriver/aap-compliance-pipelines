@@ -9,8 +9,14 @@ export function registerDashboardRoutes(
   const { logger, service } = deps;
 
   router.get('/dashboard', async (_req, res) => {
-    const stats = await service.getDashboardStats();
-    res.json(stats);
+    try {
+      const stats = await service.getDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get dashboard stats: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve dashboard statistics' });
+    }
   });
 
   router.get('/dashboard/scans-for-profile/:profileId', async (req, res) => {
@@ -34,8 +40,14 @@ export function registerDashboardRoutes(
       return;
     }
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
-    const history = await service.getPostureHistory(profileId, days, inventoryId);
-    res.json(history);
+    try {
+      const history = await service.getPostureHistory(profileId, days, inventoryId);
+      res.json(history);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get posture history: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve posture history' });
+    }
   });
 
   router.get('/posture/events', async (req, res) => {
@@ -45,7 +57,13 @@ export function registerDashboardRoutes(
       return;
     }
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 90));
-    const events = await service.getRemediationEventsForTrend(days, inventoryId);
-    res.json(events);
+    try {
+      const events = await service.getRemediationEventsForTrend(days, inventoryId);
+      res.json(events);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get remediation events: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve remediation events' });
+    }
   });
 }

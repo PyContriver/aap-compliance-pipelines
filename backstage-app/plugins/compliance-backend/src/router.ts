@@ -65,21 +65,5 @@ export async function createRouter(
   registerInventoryRoutes(router, deps);
   registerArtifactRoutes(router, deps);
 
-  // One-time backfill: set rule_count for profiles registered before migration 012
-  try {
-    const profiles = await database.listProfiles();
-    for (const p of profiles) {
-      if (p.ruleCount === undefined || p.ruleCount === null) {
-        const count = service.getRuleCountForProfile(p.displayName, p.framework, p.version);
-        if (count) {
-          await database.updateProfileRuleCount(p.id, count);
-          logger.info(`Backfilled rule_count=${count} for profile "${p.displayName}"`);
-        }
-      }
-    }
-  } catch (err) {
-    logger.warn(`Rule count backfill failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
   return router;
 }
