@@ -269,6 +269,7 @@ async function handleNdjsonIngest(
   const BATCH_SIZE = 500;
   const MAX_LINE_SIZE = 100 * 1024;
   const MAX_ERRORS = 50;
+  const MAX_FINDINGS = 500_000;
 
   const rl = createInterface({ input: req, crlfDelay: Infinity });
   let preambleParsed = false;
@@ -349,6 +350,11 @@ async function handleNdjsonIngest(
       }
 
       // Subsequent lines are findings
+      if (totalCount >= MAX_FINDINGS) {
+        logger.warn(`NDJSON stream for scan ${scanId} exceeded ${MAX_FINDINGS} findings — truncating`);
+        break;
+      }
+
       const mapped = service.mapRawFindingPublic(
         parsed as IngestFinding,
         (parsed.host as string) || 'unknown',

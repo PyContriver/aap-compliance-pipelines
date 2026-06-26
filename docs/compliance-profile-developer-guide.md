@@ -645,6 +645,74 @@ if __name__ == '__main__':
     main()
 ```
 
+### POST Body Composition Parameters
+
+All normalizer modules (both XCCDF and CycloneDX) accept the following parameters for composing POST bodies on disk (ADR-033, ADR-034):
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `compose_post_body` | `bool` | `false` | When true, writes a POST body file alongside the findings output |
+| `scan_id` | `str` | `''` | Scan identifier for the preamble/metadata |
+| `ingest_token` | `str` | `''` | Per-scan security token (marked `no_log: True`) |
+| `finalize` | `bool` | `false` | Whether this is the last POST for the scan (triggers completion) |
+| `post_body_format` | `str` | `'ndjson'` | Output format: `'ndjson'` (recommended) or `'json'` (legacy) |
+
+When `compose_post_body` is true and `post_body_format` is `'ndjson'` (the default), the normalizer writes a `.ndjson` file containing a preamble line followed by one finding per line:
+
+```
+{"_meta":true,"scanId":"scan-123","ingestToken":"<token>","finalize":true}
+{"rule_id":"CVE-2024-1234","title":"curl: buffer overflow","status":"fail","severity":"high",...}
+{"rule_id":"CVE-2024-5678","title":"openssl: timing attack","status":"fail","severity":"medium",...}
+```
+
+When `post_body_format` is `'json'`, the normalizer writes the legacy `.post.json` format (full JSON body with `findings[]` array).
+
+**Recommended playbook pattern (NDJSON):**
+
+```yaml
+# Normalize per-host with NDJSON POST body composition
+- name: Normalize results to CFF (per-host)
+  <namespace>.<collection>.normalize_<format>:
+    <input_param>:
+      - "{{ item.path }}"
+    output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
+    compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
+    scan_id: "{{ scan_id | default('') }}"
+    ingest_token: "{{ ingest_token | default('') }}"
+    finalize: "{{ ansible_loop.last | default(false) }}"
+    post_body_format: ndjson
+  loop: "{{ _result_files.files }}"
+  loop_control:
+    extended: true
+
+# Find and POST NDJSON files
+- name: Find per-host POST body files
+  ansible.builtin.find:
+    paths: "{{ results_dir }}"
+    patterns: "*.ndjson"
+  register: _post_body_files
+
+- name: POST findings per-host (NDJSON streaming)
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+    method: POST
+    src: "{{ item.path }}"
+    headers:
+      Content-Type: application/x-ndjson
+    status_code: [201]
+    validate_certs: false
+    timeout: 120
+  loop: "{{ _post_body_files.files | sort(attribute='path') }}"
+  no_log: true
+  failed_when: false
+  register: _post_results
+
+- name: Assert at least one POST succeeded
+  ansible.builtin.fail:
+    msg: "All NDJSON POSTs failed -- check backstage_api_url and ingest_token"
+  when: _post_results.results | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length == 0
+```
+
 ### Reference Implementation
 
 See the OpenSCAP normalizer at:
@@ -1470,6 +1538,9 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
 - [ ] Scan results POSTed to Backstage `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
+- [ ] Normalizer accepts `compose_post_body`, `scan_id`, `ingest_token`, `finalize`, and `post_body_format` parameters (ADR-033, ADR-034)
+- [ ] Playbook uses `uri src` with `Content-Type: application/x-ndjson` for NDJSON streaming ingest (ADR-034)
+- [ ] Playbook has assertion task after POST loop (`fail` if zero POSTs succeed)
 - [ ] Assessment JT default `extra_vars` include `remediate_jt_name` for Settings form auto-populate
 - [ ] Assessment JT default `extra_vars` include `remediation_playbook` for auto-populate
 

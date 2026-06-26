@@ -38,7 +38,7 @@ export async function createRouter(
   const { logger, service, database, httpAuth, permissions, configRetentionDays } = options;
   const router = Router();
   router.use((req, res, next) => {
-    if (req.path.startsWith('/findings/ingest')) return next();
+    if (req.path === '/findings/ingest') return next();
     express.json({ limit: '1mb' })(req, res, next);
   });
 

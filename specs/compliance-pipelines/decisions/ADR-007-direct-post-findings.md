@@ -63,6 +63,10 @@ The ingest endpoint now uses `onConflict('scan_id', 'rule_id', 'host').merge()` 
 
 Additionally, `upsertRuleMetadata` now writes `aap_impact` and `aap_impact_reason` fields to the rule metadata table. The `normalize_xccdf` module emits `aap_impact` from the `rules_metadata_file` parameter, and `buildMultiHostFindings` reads impact data exclusively from the DB metadata table. The YAML fallback path has been removed entirely -- the DB is the sole runtime cache for rule enrichment metadata.
 
+## Amendment: NDJSON Content-Type Negotiation (2026-06-26)
+
+The `/findings/ingest` endpoint now accepts both `application/json` (original) and `application/x-ndjson` (streaming). NDJSON uses a preamble line for metadata and streams findings line-by-line in batches of 500. See ADR-034 for full specification.
+
 ## Related
 
 - ADR-005: Slim Findings for Event Storage (fallback channel)
@@ -70,3 +74,4 @@ Additionally, `upsertRuleMetadata` now writes `aap_impact` and `aap_impact_reaso
 - ADR-018: Findings Deduplication
 - ADR-030: Per-Host Normalization
 - ADR-033: File-Streamed API Ingestion
+- ADR-034: NDJSON Content-Type Negotiation

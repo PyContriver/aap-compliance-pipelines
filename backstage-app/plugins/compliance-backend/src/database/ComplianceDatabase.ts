@@ -119,7 +119,7 @@ export class ComplianceDatabase {
     // same package (different match contexts in Grype output). Keep last.
     const deduped = new Map<string, typeof mapped[0]>();
     for (const row of mapped) {
-      deduped.set(`${row.scan_id}|${row.rule_id}|${row.host}`, row);
+      deduped.set(`${row.scan_id}\0${row.rule_id}\0${row.host}`, row);
     }
     const rows = Array.from(deduped.values());
 

@@ -90,8 +90,8 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 154 collection unit tests (19 per XCCDF profile + 37 CycloneDX + 60 cross-profile) + 597 backend/frontend tests across 22 suites
-- 33 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 161 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 597 backend/frontend tests across 22 suites
+- 34 formal ADRs in `specs/compliance-pipelines/decisions/`
 - EE images hosted in PAH (`aap-netrunner.demoredhat.com/compliance-*:latest`), built via GitHub Actions and mirrored with skopeo (ADR-031)
 - Normalizer playbooks MUST loop per-host to prevent OOM on execution nodes (ADR-030)
-- Normalizer modules SHOULD use `compose_post_body` + `uri src` to stream findings to the API without loading them into Jinja2 variable space (ADR-033)
+- Normalizer modules SHOULD use `compose_post_body` + `uri src` to stream findings to the API without loading them into Jinja2 variable space (ADR-033). Default format is NDJSON (`post_body_format: 'ndjson'`) with content-type negotiation on the ingest endpoint (ADR-034)

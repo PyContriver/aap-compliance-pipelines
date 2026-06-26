@@ -152,6 +152,12 @@ Complete per-host normalize-and-POST flow:
 - The `finalize` flag on the last POST triggers scan completion, posture snapshot, and finding state computation. Sort by path ensures deterministic ordering.
 - EE rebuild required for supply chain profile since playbook is baked into the collection.
 
+## Amendment: NDJSON Default Format (2026-06-26)
+
+The `compose_post_body` pattern now defaults to NDJSON format via the `post_body_format` parameter (default: 'ndjson'). The normalizer writes a `.ndjson` file with a preamble line followed by one finding per line. The JSON `.post.json` format remains available as `post_body_format: 'json'` for backward compatibility. See ADR-034 for the NDJSON specification.
+
+The XCCDF normalizer (`normalize_common.py`) has been retrofitted with compose_post_body support, bringing all 4 profiles to the same pattern. exit_json no longer returns slim_findings -- only counts and file paths.
+
 ## Related
 
 - ADR-007: Direct POST Findings
@@ -159,3 +165,4 @@ Complete per-host normalize-and-POST flow:
 - ADR-029: CycloneDX Normalizer Pattern
 - ADR-030: Per-Host Normalization for All Scanner Profiles
 - ADR-032: Pluggable Export Formats
+- ADR-034: NDJSON Content-Type Negotiation

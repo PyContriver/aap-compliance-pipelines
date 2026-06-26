@@ -49,6 +49,7 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | [031](../specs/compliance-pipelines/decisions/ADR-031-pah-for-execution-environments.md) | PAH for Execution Environments | Accepted | Infrastructure |
 | [032](../specs/compliance-pipelines/decisions/ADR-032-pluggable-export-formats.md) | Pluggable Export Formats + OCI Artifact Storage | Accepted | Dashboard + Supply Chain |
 | [033](../specs/compliance-pipelines/decisions/ADR-033-file-streamed-api-ingestion.md) | File-Streamed API Ingestion | Accepted | Supply Chain (XCCDF planned) |
+| [034](../specs/compliance-pipelines/decisions/ADR-034-ndjson-content-type-negotiation.md) | NDJSON Content-Type Negotiation | Accepted | All Profiles |
 
 ## Feature Specs
 

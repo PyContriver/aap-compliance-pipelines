@@ -387,9 +387,10 @@ cd profiles/supply-chain/ansible_collections/security/compliance_supply_chain
 python3 -m pytest tests/ -v
 ```
 
-- [ ] All 37 tests pass
+- [ ] All 44 tests pass (37 original + 7 NDJSON)
 - [ ] CVE matches always produce `status: fail`
 - [ ] All CFF fields present (category, disruption, aap_impact, parameters, scanner)
+- [ ] NDJSON output format: preamble line + one finding per line
 
 ---
 
@@ -409,7 +410,7 @@ cd /path/to/aap-compliance-pipelines
 python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-chain/ansible_collections/security/compliance_supply_chain/tests/ -v
 ```
 
-- [ ] 97 Python tests pass (37 CycloneDX + 60 cross-profile)
+- [ ] 104 Python tests pass (44 CycloneDX + 60 cross-profile)
 
 ---
 
@@ -428,6 +429,6 @@ python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-cha
 | I | 6 | Existing features regression |
 | J | 5 | EE build verification |
 | K | 1 | Cross-profile structure validation (60 sub-tests) |
-| L | 1 | Normalizer correctness (23 sub-tests) |
-| M | 2 | Full automated suite (680 sub-tests) |
+| L | 1 | Normalizer correctness (44 sub-tests) |
+| M | 2 | Full automated suite (687 sub-tests) |
 | **Total** | **69** | |
