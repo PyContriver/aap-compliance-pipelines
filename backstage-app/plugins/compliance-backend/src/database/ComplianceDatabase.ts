@@ -99,7 +99,7 @@ export class ComplianceDatabase {
   ): Promise<number> {
     if (findings.length === 0) return 0;
 
-    const rows = findings.map(f => ({
+    const mapped = findings.map(f => ({
       id: randomUUID(),
       scan_id: scanId,
       rule_id: f.ruleId,
@@ -112,6 +112,16 @@ export class ComplianceDatabase {
       evidence: f.evidence,
       finding_state: f.findingState ?? null,
     }));
+
+    // Deduplicate by (scan_id, rule_id, host) within the batch to avoid
+    // PostgreSQL "ON CONFLICT DO UPDATE cannot affect row a second time"
+    // error. Supply chain scans may produce duplicate CVE matches for the
+    // same package (different match contexts in Grype output). Keep last.
+    const deduped = new Map<string, typeof mapped[0]>();
+    for (const row of mapped) {
+      deduped.set(`${row.scan_id}|${row.rule_id}|${row.host}`, row);
+    }
+    const rows = Array.from(deduped.values());
 
     const batchSize = 100;
     for (let i = 0; i < rows.length; i += batchSize) {
