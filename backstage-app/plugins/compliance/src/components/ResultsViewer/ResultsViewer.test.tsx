@@ -80,15 +80,15 @@ describe('ResultsViewer', () => {
     expect(screen.getByText('V-257856')).toBeInTheDocument();
   });
 
-  it('calls getFindings with the jobId from route params', async () => {
+  it('calls getFindingsPaginated with the jobId from route params', async () => {
     await renderResults();
     await waitFor(() => {
-      expect(mockApi.getFindings).toHaveBeenCalledWith('42');
+      expect(mockApi.getFindingsPaginated).toHaveBeenCalledWith('42', expect.objectContaining({ limit: 100, offset: 0 }));
     });
   });
 
   it('shows empty state when scan completed with no findings', async () => {
-    mockApi.getFindings.mockResolvedValue([]);
+    mockApi.getFindingsPaginated.mockResolvedValue({ findings: [], total: 0, limit: 100, offset: 0 });
     mockApi.getScan.mockResolvedValue({
       id: 'scan-1', profileId: 'rhel9-stig', inventoryId: 1,
       scanner: 'oscap', scanType: 'assessment', workflowJobId: 42,
@@ -101,7 +101,7 @@ describe('ResultsViewer', () => {
   });
 
   it('shows scan not found when scan ID is invalid', async () => {
-    mockApi.getFindings.mockResolvedValue([]);
+    mockApi.getFindingsPaginated.mockResolvedValue({ findings: [], total: 0, limit: 100, offset: 0 });
     mockApi.getScan.mockResolvedValue(null);
     await renderResults();
     await waitFor(() => {
@@ -110,7 +110,7 @@ describe('ResultsViewer', () => {
   });
 
   it('shows error state when API fails', async () => {
-    mockApi.getFindings.mockRejectedValue(new Error('Connection refused'));
+    mockApi.getFindingsPaginated.mockRejectedValue(new Error('Connection refused'));
     await renderResults();
     await waitFor(() => {
       expect(screen.getByText(/Connection refused/)).toBeInTheDocument();

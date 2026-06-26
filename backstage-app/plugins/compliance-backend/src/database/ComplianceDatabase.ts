@@ -431,6 +431,30 @@ export class ComplianceDatabase {
     return rows.map(this.mapFindingRow);
   }
 
+  async getFindingsByScanIdPaginated(
+    scanId: string,
+    opts: { limit: number; offset: number; severity?: string; status?: string },
+  ): Promise<{ findings: StoredFinding[]; total: number }> {
+    let query = this.db('compliance_findings').where('scan_id', scanId);
+    if (opts.severity) {
+      query = query.where('severity', opts.severity);
+    }
+    if (opts.status) {
+      query = query.where('status', opts.status);
+    }
+
+    const countResult = await query.clone().count('* as cnt').first();
+    const total = Number((countResult as any)?.cnt ?? 0);
+
+    const rows = await query
+      .orderBy('severity', 'asc')
+      .orderBy('rule_id', 'asc')
+      .limit(opts.limit)
+      .offset(opts.offset);
+
+    return { findings: rows.map(this.mapFindingRow), total };
+  }
+
   async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>> {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')

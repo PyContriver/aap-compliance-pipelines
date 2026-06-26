@@ -315,6 +315,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
       status: 'pending',
     } as LaunchScanResponse),
     getFindings: jest.fn().mockResolvedValue(MOCK_FINDINGS),
+    getFindingsPaginated: jest.fn().mockResolvedValue({ findings: MOCK_FINDINGS, total: MOCK_FINDINGS.length, limit: 100, offset: 0 }),
     getPreviousFindings: jest.fn().mockResolvedValue([]),
     getWorkflowStatus: jest.fn().mockResolvedValue({
       id: 42,
