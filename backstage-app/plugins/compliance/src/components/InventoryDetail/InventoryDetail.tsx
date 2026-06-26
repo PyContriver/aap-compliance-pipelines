@@ -20,12 +20,13 @@ import AssessmentIcon from '@material-ui/icons/Assessment';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
-import type { DashboardStats, HostPostureResponse } from '@aap-compliance/common';
+import type { DashboardStats, HostPostureResponse, ProfileDisplayConfig } from '@aap-compliance/common';
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
 import { LaunchScanDialog } from './LaunchScanDialog';
 import { isOutlier } from './hostUtils';
 import { STATUS_COLORS, scoreColor } from '../shared/colors';
+import { useDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   summaryRow: {
@@ -85,6 +86,7 @@ export const InventoryDetail: React.FC = () => {
   const [osFilter, setOsFilter] = useState<string | null>(null);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [workflowJobId, setWorkflowJobId] = useState<number | undefined>();
+  const [rawDisplayConfig, setRawDisplayConfig] = useState<ProfileDisplayConfig | undefined>(undefined);
 
   const invId = Number(inventoryId);
 
@@ -118,6 +120,15 @@ export const InventoryDetail: React.FC = () => {
   }, [api, invId, searchParams]);
 
   useEffect(() => {
+    if (!selectedProfileId) return;
+    api.getRegisteredProfile(selectedProfileId).then(profile => {
+      setRawDisplayConfig(profile?.displayConfig);
+    }).catch(err => { console.warn('Failed to load profile display config:', err); });
+  }, [api, selectedProfileId]);
+
+  const displayConfig = useDisplayConfig(rawDisplayConfig);
+
+  useEffect(() => {
     if (!selectedProfileId || !invId) return;
     setLoading(true);
     api.getHostPosture(invId, selectedProfileId)
@@ -138,10 +149,11 @@ export const InventoryDetail: React.FC = () => {
   const { outlierCount, totalPass, totalApplicable, overallCompliance } = useMemo(() => {
     const outliers = filteredHosts.filter(h => isOutlier(h, filteredHosts)).length;
     const pass = filteredHosts.reduce((a, h) => a + h.passCount, 0);
-    const applicable = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
-    const compliance = applicable > 0 ? Math.round(pass / applicable * 1000) / 10 : 0;
-    return { outlierCount: outliers, totalPass: pass, totalApplicable: applicable, overallCompliance: compliance };
-  }, [filteredHosts]);
+    const fail = filteredHosts.reduce((a, h) => a + h.failCount, 0);
+    const total = filteredHosts.reduce((a, h) => a + h.passCount + h.failCount, 0);
+    const compliance = displayConfig.computeScore(pass, fail, total);
+    return { outlierCount: outliers, totalPass: pass, totalApplicable: total, overallCompliance: compliance };
+  }, [filteredHosts, displayConfig]);
 
   const selectedBaseline = useMemo(
     () => inventory?.profileScores.find(ps => ps.profileId === selectedProfileId)?.baseline ?? null,
@@ -277,7 +289,7 @@ export const InventoryDetail: React.FC = () => {
               <Card variant="outlined" className={`${classes.summaryCard} ${classes.clickableCard}`}
                 onClick={e => { e.stopPropagation(); navigateToScanResults(false); }}>
                 <Typography className={classes.summaryValue}>{overallCompliance}%</Typography>
-                <Typography className={classes.summaryLabel}>Overall Compliance</Typography>
+                <Typography className={classes.summaryLabel} style={{ textTransform: 'capitalize' }}>{displayConfig.gaugeLabel}</Typography>
               </Card>
             </Tooltip>
             {selectedBaseline && (
@@ -304,7 +316,7 @@ export const InventoryDetail: React.FC = () => {
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendDot} style={{ borderColor: STATUS_COLORS.warning, backgroundColor: 'rgba(240,171,0,0.08)' }} />
-              CAT I findings
+              {displayConfig.severityLabel('CAT_I')} findings
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendDot} style={{ borderColor: STATUS_COLORS.error, backgroundColor: 'rgba(201,25,11,0.08)' }} />
@@ -324,6 +336,7 @@ export const InventoryDetail: React.FC = () => {
             inventoryId={invId}
             profileId={selectedProfileId}
             workflowJobId={workflowJobId}
+            displayConfig={displayConfig}
           />
         </>
       )}

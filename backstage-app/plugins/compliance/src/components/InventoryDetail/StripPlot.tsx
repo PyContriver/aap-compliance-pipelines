@@ -15,6 +15,7 @@ import {
 import type { HostPosture } from '@aap-compliance/common';
 import { hostColor, type Cluster } from './hostUtils';
 import { STATUS_COLORS } from '../shared/colors';
+import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 
 const useStyles = makeStyles(theme => ({
   hint: {
@@ -71,10 +72,11 @@ interface StripPlotProps {
   onClusterClick: (cluster: Cluster) => void;
   onDotClick: (host: HostPosture) => void;
   height?: number;
+  displayConfig?: ResolvedDisplayConfig;
 }
 
 export const StripPlot: React.FC<StripPlotProps> = ({
-  hosts, allHosts, clusters, onClusterClick, onDotClick, height,
+  hosts, allHosts, clusters, onClusterClick, onDotClick, height, displayConfig,
 }) => {
   const classes = useStyles();
   const rand = seededRand(99);
@@ -110,7 +112,7 @@ export const StripPlot: React.FC<StripPlotProps> = ({
               <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 4, padding: '6px 10px', fontSize: '0.8rem', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
                 <div style={{ fontWeight: 600 }}>{d.host.hostname}</div>
                 <div>{d.host.compliancePct}% · {d.host.failCount} failing</div>
-                {d.host.catIFail > 0 && <div style={{ color: STATUS_COLORS.error }}>{d.host.catIFail} CAT I</div>}
+                {d.host.catIFail > 0 && <div style={{ color: STATUS_COLORS.error }}>{d.host.catIFail} {displayConfig?.severityLabel('CAT_I') ?? 'CAT I'}</div>}
                 {d.host.os && <div style={{ color: STATUS_COLORS.neutral, fontSize: '0.7rem' }}>{d.host.os}</div>}
               </div>
             );
