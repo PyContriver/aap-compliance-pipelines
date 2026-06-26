@@ -220,13 +220,12 @@ export const ExportButton = ({
   const [downloading, setDownloading] = useState(false);
 
   const formats = displayConfig?.export_formats ?? DEFAULT_FORMATS;
-  const hasArtifactFormats = formats.some(f => f.type === 'artifact');
 
   useEffect(() => {
-    if (hasArtifactFormats && scanId && onFetchArtifacts) {
+    if (scanId && onFetchArtifacts) {
       onFetchArtifacts(scanId).then(setArtifacts).catch(() => setArtifacts([]));
     }
-  }, [hasArtifactFormats, scanId, onFetchArtifacts]);
+  }, [scanId, onFetchArtifacts]);
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -300,7 +299,7 @@ export const ExportButton = ({
           </MenuItem>
         ))}
 
-        {artifactFormats.length > 0 && artifacts.length > 0 && (
+        {artifacts.length > 0 && (
           <>
             <Divider />
             {artifacts.map(artifact => {
@@ -310,13 +309,12 @@ export const ExportButton = ({
                   (f.artifact_key.endsWith('*') && artifact.artifactKey.startsWith(f.artifact_key.slice(0, -1)))
                 )
               );
-              if (!fmt) return null;
               return (
                 <MenuItem key={artifact.id} onClick={() => handleArtifactExport(artifact)}>
                   <ListItemIcon><CloudDownloadIcon fontSize="small" /></ListItemIcon>
                   <ListItemText
                     primary={artifact.artifactName}
-                    secondary={fmt.description || fmt.label}
+                    secondary={fmt?.description || fmt?.label || artifact.mimeType}
                   />
                 </MenuItem>
               );

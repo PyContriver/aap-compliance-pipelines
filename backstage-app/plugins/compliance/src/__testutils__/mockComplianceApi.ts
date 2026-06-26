@@ -419,5 +419,7 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
       verificationStats: null,
       delta: null,
     }),
+    getArtifacts: jest.fn().mockResolvedValue([]),
+    downloadArtifact: jest.fn().mockResolvedValue(undefined),
   };
 }

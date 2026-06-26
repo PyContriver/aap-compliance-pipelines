@@ -352,6 +352,11 @@ export const ResultsViewer = () => {
 
   const isWorkflowPoll = jobId ? /^\d+$/.test(jobId) : false;
 
+  const severityParam = searchParams.get('severity');
+  const statusParam = searchParams.get('status');
+  const serverSeverity = usePagination && severityParam ? severityParam : undefined;
+  const serverStatus = usePagination && statusParam ? statusParam : undefined;
+
   useEffect(() => {
     let cancelled = false;
     let retries = 0;
@@ -363,7 +368,7 @@ export const ResultsViewer = () => {
       if (!jobId) { setLoading(false); return; }
 
       // Try paginated fetch first (works for scans with DB findings)
-      api.getFindingsPaginated(jobId, { limit: rowsPerPage, offset: page * rowsPerPage })
+      api.getFindingsPaginated(jobId, { limit: rowsPerPage, offset: page * rowsPerPage, severity: serverSeverity, status: serverStatus })
         .then(result => {
           if (cancelled) return;
           if (result.total > 0) {
@@ -411,7 +416,9 @@ export const ResultsViewer = () => {
 
     fetchFindings();
     return () => { cancelled = true; clearTimeout(timeoutId); };
-  }, [api, jobId, isWorkflowPoll, page, rowsPerPage]);
+  }, [api, jobId, isWorkflowPoll, page, rowsPerPage, serverSeverity, serverStatus]);
+
+  useEffect(() => { setPage(0); }, [serverSeverity, serverStatus]);
 
   // ─── Computed metrics ────────────────────────────────────────────
 
