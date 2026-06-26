@@ -54,23 +54,30 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
     output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
   loop: "{{ _result_files.files }}"
 
-# 3. Find per-host findings files
-- name: Find per-host findings files
+# 3. Find composed POST body files (ADR-033)
+- name: Find per-host POST body files
   ansible.builtin.find:
     paths: "{{ results_dir }}"
-    patterns: "findings-*.json"
-  register: _findings_files
+    patterns: "*.post.json"
+  register: _post_body_files
 
-# 4. POST findings per-host (NOT combined)
+# 4. Stream POST bodies to API — no findings in Ansible variable space
 - name: POST findings per-host to Backstage compliance API
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
-    body:
-      scanId: "{{ scan_id }}"
-      ingestToken: "{{ ingest_token }}"
-      findings: "{{ (lookup('file', item.path) | from_json).findings }}"
-  loop: "{{ _findings_files.files }}"
+    method: POST
+    src: "{{ item.path }}"
+    headers:
+      Content-Type: application/json
+    status_code: [201]
+  loop: "{{ _post_body_files.files | sort(attribute='path') }}"
+  no_log: true
 ```
+
+> **Note:** The normalizer's `compose_post_body` parameter writes the complete
+> POST body (including scanId, ingestToken, finalize) to a `.post.json` file.
+> The `uri` module's `src` parameter streams this file as the HTTP body without
+> loading it into Jinja2 variable space. See ADR-033 for the full pattern.
 
 ### Benefits
 
@@ -98,3 +105,4 @@ Normalizer modules (`normalize_xccdf`, `normalize_cyclonedx`) accept a list inpu
 - ADR-005: Slim Findings for Event Storage
 - ADR-020: Shared Normalizer Module
 - ADR-029: CycloneDX Normalizer Pattern
+- ADR-033: File-Streamed API Ingestion

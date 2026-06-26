@@ -160,11 +160,11 @@
           Ensure the Grype scan completed successfully.
       when: _grype_result_files.files | length == 0
 
-    # Normalize each host's Grype results individually. Each loop
-    # iteration produces a runner_on_ok event with that host's findings.
-    # This avoids loading all hosts' results into memory at once (which
-    # caused OOM on the execution node with 15+ hosts) and stays under
-    # Controller's event size limit for large finding counts.
+    # Normalize each host's Grype results individually (ADR-030).
+    # When backstage_api_url is set, compose_post_body writes a second
+    # .post.json file containing the complete API request body. The POST
+    # task then streams this file via uri+src — zero findings data in
+    # Ansible's Jinja2 variable space (ADR-033).
     - name: Normalize Grype results to CFF (per-host)
       security.compliance_supply_chain.normalize_cyclonedx:
         grype_files:
@@ -172,12 +172,23 @@
         output_file: "{{ grype_results_dir }}/findings-{{ _hostname }}.json"
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"
+        compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
+        scan_id: "{{ scan_id | default('') }}"
+        ingest_token: "{{ ingest_token | default('') }}"
+        finalize: "{{ ansible_loop.last | default(false) }}"
       vars:
         _hostname: "{{ item.path | basename | regex_replace('grype-(.+)\\.json', '\\1') }}"
       loop: "{{ _grype_result_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+        extended: true
       register: _normalized
+
+    # Free accumulated Grype data from worker memory before POST phase
+    - name: Clear accumulated scan data from memory
+      ansible.builtin.set_fact:
+        _grype_results: null
+        _grype_result_files: null
 
     # ── Push SBOMs to PAH as OCI artifacts (ADR-032) ───────────────
     # Store raw CycloneDX SBOMs in PAH so the dashboard can serve
@@ -221,46 +232,42 @@
       failed_when: false
       when: backstage_api_url | default('') | length > 0
 
-    # ── Direct POST findings to Backstage plugin API ─────────────────
-    # POST per-host to avoid loading all findings into one Ansible
-    # variable. Each POST sends one host's findings — safe at any scale.
+    # ── Stream POST bodies to Backstage plugin API (ADR-033) ─────────
+    # The normalizer composed .post.json files containing the complete
+    # request body. uri+src streams each file directly — no lookup(),
+    # no from_json, no findings in Jinja2 variable space.
 
-    - name: Find per-host findings JSON files
+    - name: Find per-host POST body files
       ansible.builtin.find:
         paths: "{{ grype_results_dir }}"
-        patterns: "findings-*.json"
-      register: _findings_files
+        patterns: "*.post.json"
+      register: _post_body_files
       when: backstage_api_url | default('') | length > 0
 
     - name: POST findings per-host to Backstage compliance API
       ansible.builtin.uri:
         url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
         method: POST
-        body_format: json
-        body:
-          scanId: "{{ scan_id }}"
-          ingestToken: "{{ ingest_token | default('') }}"
-          findings: "{{ (lookup('file', item.path) | from_json).findings }}"
-          finalize: "{{ ansible_loop.last | default(true) }}"
+        src: "{{ item.path }}"
         headers:
           Content-Type: application/json
         status_code: [201]
         validate_certs: false
         timeout: 120
-      loop: "{{ _findings_files.files | default([]) }}"
+      loop: "{{ _post_body_files.files | default([]) | sort(attribute='path') }}"
       loop_control:
         label: "{{ item.path | basename }}"
-        extended: true
       when:
         - backstage_api_url | default('') | length > 0
         - scan_id | default('') | length > 0
       register: _post_results
+      no_log: true
       failed_when: false
 
     - name: Report POST results
       ansible.builtin.debug:
         msg: >-
-          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _findings_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
+          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _post_body_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
       when: backstage_api_url | default('') | length > 0
 
     - name: Display summary
@@ -269,4 +276,4 @@
           Supply chain scan complete.
           Hosts: {{ _normalized.results | selectattr('hosts_processed', 'defined') | map(attribute='hosts_processed') | sum }},
           Findings: {{ _normalized.results | selectattr('total_findings', 'defined') | map(attribute='total_findings') | sum }}
-          across {{ _grype_result_files.files | length }} hosts.
+          across {{ _normalized.results | length }} hosts.

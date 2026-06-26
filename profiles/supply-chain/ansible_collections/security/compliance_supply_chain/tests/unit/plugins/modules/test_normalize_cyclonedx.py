@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import pytest
+from unittest.mock import MagicMock
 
 import sys
 sys.path.insert(0, os.path.join(
@@ -17,7 +18,9 @@ from normalize_cyclonedx import (
     map_severity,
     build_fix_text,
     build_evidence,
+    run_normalize,
     CVSS_SEVERITY_MAP,
+    ARGUMENT_SPEC,
 )
 
 
@@ -235,3 +238,239 @@ class TestCvssSeverityMapCompleteness:
         expected = ['Critical', 'High', 'Medium', 'Low', 'Negligible', 'Unknown']
         for sev in expected:
             assert sev in CVSS_SEVERITY_MAP
+
+
+def _make_mock_module(params, check_mode=False):
+    """Create a mock AnsibleModule for run_normalize tests."""
+    module = MagicMock()
+    defaults = {
+        'profile_name': 'Supply Chain Vulnerability Scan',
+        'framework': 'SUPPLY_CHAIN',
+        'compose_post_body': False,
+        'scan_id': '',
+        'ingest_token': '',
+        'finalize': False,
+    }
+    defaults.update(params)
+    module.params = defaults
+    module.check_mode = check_mode
+    module.warn = MagicMock()
+    exit_kwargs = {}
+
+    def capture_exit(**kwargs):
+        exit_kwargs.update(kwargs)
+
+    module.exit_json = capture_exit
+    module._exit_kwargs = exit_kwargs
+    return module
+
+
+class TestRunNormalizeSlimReturn:
+    """Verify exit_json no longer returns full findings list."""
+
+    def test_no_findings_in_return(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-webserver01.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        result = module._exit_kwargs
+        assert 'findings' not in result
+        assert result['total_findings'] == 1
+        assert result['hosts_processed'] == 1
+        assert result['output_file'] == output_file
+
+    def test_findings_written_to_disk(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-webserver01.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        with open(output_file) as f:
+            report = json.load(f)
+        assert len(report['findings']) == 1
+        assert report['findings'][0]['rule_id'] == 'CVE-2026-12345'
+
+    def test_summary_still_returned(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'out.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        result = module._exit_kwargs
+        assert result['summary']['total'] == 1
+        assert result['summary']['fail'] == 1
+        assert result['total_packages'] == 1
+        assert result['total_vulnerabilities'] == 1
+
+
+class TestComposePostBody:
+    """Tests for compose_post_body=True file generation."""
+
+    def test_post_file_created(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-host1.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-123',
+            'ingest_token': 'tok-secret',
+            'finalize': True,
+        })
+        run_normalize(module)
+
+        post_file = output_file + '.post.json'
+        assert os.path.exists(post_file)
+        assert module._exit_kwargs['post_file'] == post_file
+
+    def test_post_body_structure(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-host1.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-456',
+            'ingest_token': 'tok-abc',
+            'finalize': False,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.post.json') as f:
+            body = json.load(f)
+
+        assert body['scanId'] == 'scan-456'
+        assert body['ingestToken'] == 'tok-abc'
+        assert body['finalize'] is False
+        assert len(body['findings']) == 1
+        assert body['findings'][0]['rule_id'] == 'CVE-2026-12345'
+
+    def test_finalize_true_on_last_host(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT, 'last-host')
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-last-host.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-fin',
+            'ingest_token': 'tok',
+            'finalize': True,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.post.json') as f:
+            body = json.load(f)
+        assert body['finalize'] is True
+
+    def test_no_post_file_without_scan_id(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': '',
+        })
+        run_normalize(module)
+
+        assert not os.path.exists(output_file + '.post.json')
+        assert 'post_file' not in module._exit_kwargs
+
+    def test_no_post_file_when_disabled(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': False,
+            'scan_id': 'scan-123',
+        })
+        run_normalize(module)
+
+        assert not os.path.exists(output_file + '.post.json')
+        assert 'post_file' not in module._exit_kwargs
+
+    def test_check_mode_no_files_written(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-chk',
+            'ingest_token': 'tok',
+            'finalize': False,
+        }, check_mode=True)
+        run_normalize(module)
+
+        assert not os.path.exists(output_file)
+        assert not os.path.exists(output_file + '.post.json')
+        assert module._exit_kwargs['changed'] is False
+
+    def test_empty_matches_produces_empty_findings(self):
+        data = {'matches': [], 'descriptor': {}}
+        filepath = _write_grype_file(data, 'clean-host')
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-clean.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-empty',
+            'ingest_token': 'tok',
+            'finalize': True,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.post.json') as f:
+            body = json.load(f)
+        assert body['findings'] == []
+        assert body['finalize'] is True
+
+
+class TestArgumentSpec:
+    """Verify ARGUMENT_SPEC includes new parameters with correct types."""
+
+    def test_compose_post_body_param(self):
+        assert ARGUMENT_SPEC['compose_post_body']['type'] == 'bool'
+        assert ARGUMENT_SPEC['compose_post_body']['default'] is False
+
+    def test_scan_id_param(self):
+        assert ARGUMENT_SPEC['scan_id']['type'] == 'str'
+        assert ARGUMENT_SPEC['scan_id']['default'] == ''
+
+    def test_ingest_token_no_log(self):
+        assert ARGUMENT_SPEC['ingest_token']['no_log'] is True
+
+    def test_finalize_param(self):
+        assert ARGUMENT_SPEC['finalize']['type'] == 'bool'
+        assert ARGUMENT_SPEC['finalize']['default'] is False

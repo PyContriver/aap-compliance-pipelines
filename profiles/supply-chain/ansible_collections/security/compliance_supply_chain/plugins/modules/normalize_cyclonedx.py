@@ -13,6 +13,10 @@ description:
   - Maps CVEs to CFF rules, CVSS scores to severity categories, package
     metadata to the evidence field.
   - Output is the scanner-agnostic format consumed by the Backstage compliance plugin.
+  - When C(compose_post_body) is true, writes a second file containing the
+    complete POST body for the findings ingest API. The playbook can then
+    use C(ansible.builtin.uri) with C(src) to stream the file directly
+    without loading findings into Ansible variable space (ADR-033).
 version_added: "0.1.0"
 options:
   grype_files:
@@ -34,18 +38,69 @@ options:
     type: str
     required: false
     default: "SUPPLY_CHAIN"
+  compose_post_body:
+    description:
+      - When true, write a second file (C(output_file) with C(.post.json)
+        suffix) containing the complete POST body for the findings ingest
+        API endpoint, including scanId, ingestToken, findings, and finalize.
+      - This allows the playbook to POST via C(uri) with C(src) parameter,
+        streaming the file without loading findings into Jinja2 variable
+        space. Prevents OOM on large finding sets.
+    type: bool
+    required: false
+    default: false
+  scan_id:
+    description: Scan identifier for the POST body. Required when C(compose_post_body) is true.
+    type: str
+    required: false
+    default: ""
+  ingest_token:
+    description: Per-scan ingest token for API authentication (ADR-010).
+    type: str
+    required: false
+    default: ""
+  finalize:
+    description:
+      - Whether this is the last per-host POST for the scan. When true,
+        the backend transitions the scan to completed status and computes
+        posture scores. Only the last host in the loop should set this.
+    type: bool
+    required: false
+    default: false
 author:
   - Ansible Security Team (@ansible)
 '''
 
 EXAMPLES = r'''
-- name: Normalize Grype results
+- name: Normalize Grype results (basic)
   security.compliance_supply_chain.normalize_cyclonedx:
     grype_files:
       - /tmp/scan-results/grype-webserver01.json
-      - /tmp/scan-results/grype-dbserver01.json
-    output_file: /tmp/supply-chain-report.json
+    output_file: /tmp/findings-webserver01.json
   register: normalized
+
+- name: Normalize and compose POST body for API ingest
+  security.compliance_supply_chain.normalize_cyclonedx:
+    grype_files:
+      - "{{ item.path }}"
+    output_file: "/tmp/findings-{{ hostname }}.json"
+    compose_post_body: true
+    scan_id: "{{ scan_id }}"
+    ingest_token: "{{ ingest_token }}"
+    finalize: "{{ ansible_loop.last }}"
+  loop: "{{ grype_files.files }}"
+  loop_control:
+    extended: true
+
+- name: Stream POST body to API (no Jinja2 file lookup)
+  ansible.builtin.uri:
+    url: "{{ api_url }}/api/compliance/findings/ingest"
+    method: POST
+    src: "/tmp/findings-{{ hostname }}.json.post.json"
+    headers:
+      Content-Type: application/json
+    status_code: [201]
+  no_log: true
 '''
 
 RETURN = r'''
@@ -70,13 +125,13 @@ summary:
   returned: always
   type: dict
 output_file:
-  description: Path to the written output file
+  description: Path to the written findings file
   returned: always
   type: str
-findings:
-  description: Findings list for ingest
-  returned: always
-  type: list
+post_file:
+  description: Path to the composed POST body file (only when compose_post_body is true)
+  returned: when compose_post_body is true
+  type: str
 '''
 
 import json
@@ -233,6 +288,10 @@ def run_normalize(module):
     output_file = module.params['output_file']
     profile_name = module.params.get('profile_name', 'Supply Chain Vulnerability Scan')
     framework = module.params.get('framework', 'SUPPLY_CHAIN')
+    compose_post_body = module.params.get('compose_post_body', False)
+    scan_id = module.params.get('scan_id', '')
+    ingest_token = module.params.get('ingest_token', '')
+    finalize = module.params.get('finalize', False)
 
     all_findings = []
     hosts_processed = 0
@@ -284,10 +343,24 @@ def run_normalize(module):
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    with open(output_file, 'w') as f:
-        json.dump(report, f, indent=2)
+    if not module.check_mode:
+        with open(output_file, 'w') as f:
+            json.dump(report, f, indent=2)
 
-    module.exit_json(
+    post_file = ''
+    if compose_post_body and scan_id:
+        post_file = output_file + '.post.json'
+        post_body = {
+            'scanId': scan_id,
+            'ingestToken': ingest_token,
+            'findings': all_findings,
+            'finalize': finalize,
+        }
+        if not module.check_mode:
+            with open(post_file, 'w') as f:
+                json.dump(post_body, f)
+
+    result = dict(
         changed=not module.check_mode,
         hosts_processed=hosts_processed,
         total_findings=len(all_findings),
@@ -295,8 +368,11 @@ def run_normalize(module):
         total_vulnerabilities=len(unique_cves),
         summary=summary,
         output_file=output_file,
-        findings=all_findings,
     )
+    if post_file:
+        result['post_file'] = post_file
+
+    module.exit_json(**result)
 
 
 ARGUMENT_SPEC = {
@@ -304,6 +380,10 @@ ARGUMENT_SPEC = {
     'output_file': {'type': 'str', 'required': True},
     'profile_name': {'type': 'str', 'required': False, 'default': 'Supply Chain Vulnerability Scan'},
     'framework': {'type': 'str', 'required': False, 'default': 'SUPPLY_CHAIN'},
+    'compose_post_body': {'type': 'bool', 'required': False, 'default': False},
+    'scan_id': {'type': 'str', 'required': False, 'default': ''},
+    'ingest_token': {'type': 'str', 'required': False, 'default': '', 'no_log': True},
+    'finalize': {'type': 'bool', 'required': False, 'default': False},
 }
 
 
