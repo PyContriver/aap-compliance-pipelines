@@ -163,6 +163,22 @@ export function registerRemediationRoutes(
         });
       }
 
+      // Create a scan record so remediations appear in Recent Activity.
+      // Phase 3a (ADR-014 §3) removed the old dual-write but the
+      // dashboard's getRecentScans reads from compliance_scans — without
+      // this record, remediations are invisible on the Overview tab.
+      await database.createScan({
+        profileId: remediateRequest.profileId,
+        inventoryId: remediateRequest.inventoryId,
+        scanner: 'remediation',
+        scanType: 'remediation',
+        workflowJobId: result.workflowJobId,
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        errorDetails: null,
+      });
+
       res.json({ ...result, executionId: execution?.id ?? null, plan });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
