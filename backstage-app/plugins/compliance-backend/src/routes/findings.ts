@@ -131,7 +131,7 @@ export function registerFindingsRoutes(
     }
   });
 
-  router.post('/findings/ingest', ingestLimiter, express.json({ limit: '50mb' }), async (req, res) => {
+  router.post('/findings/ingest', ingestLimiter, express.json({ limit: '200mb' }), async (req, res) => {
     const body = req.body;
     const scanId = body.scanId as string | undefined;
     const ingestToken = body.ingestToken as string | undefined;
