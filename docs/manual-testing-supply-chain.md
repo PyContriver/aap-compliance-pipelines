@@ -387,7 +387,7 @@ cd profiles/supply-chain/ansible_collections/security/compliance_supply_chain
 python3 -m pytest tests/ -v
 ```
 
-- [ ] All 23 tests pass
+- [ ] All 37 tests pass
 - [ ] CVE matches always produce `status: fail`
 - [ ] All CFF fields present (category, disruption, aap_impact, parameters, scanner)
 
@@ -409,7 +409,7 @@ cd /path/to/aap-compliance-pipelines
 python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-chain/ansible_collections/security/compliance_supply_chain/tests/ -v
 ```
 
-- [ ] 83 Python tests pass
+- [ ] 97 Python tests pass (37 CycloneDX + 60 cross-profile)
 
 ---
 

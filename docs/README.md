@@ -35,7 +35,7 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | [017](../specs/compliance-pipelines/decisions/ADR-017-architect-review-hardening.md) | Architect Review Hardening | Accepted | Dashboard |
 | [018](../specs/compliance-pipelines/decisions/ADR-018-findings-deduplication.md) | Findings Deduplication | Accepted | Dashboard |
 | [019](../specs/compliance-pipelines/decisions/ADR-019-service-decomposition.md) | Service Decomposition | Accepted | Dashboard |
-| [020](../specs/compliance-pipelines/decisions/ADR-020-shared-normalizer-module.md) | Shared Normalizer Module (XCCDF) | Accepted | STIG/CIS |
+| [020](../specs/compliance-pipelines/decisions/ADR-020-shared-normalizer-module.md) | Shared Normalizer Module (module_utils Pattern) | Accepted | STIG/CIS |
 | [021](../specs/compliance-pipelines/decisions/ADR-021-p3-hardening-sprint.md) | P3 Hardening Sprint | Accepted | Dashboard |
 | [022](../specs/compliance-pipelines/decisions/ADR-022-baseline-triggered-auto-remediation.md) | Baseline-Triggered Auto-Remediation | Proposed | Dashboard |
 | [023](../specs/compliance-pipelines/decisions/ADR-023-inventory-centric-compliance-view.md) | Inventory-Centric Compliance View | Accepted | Dashboard |
@@ -48,7 +48,7 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | [030](../specs/compliance-pipelines/decisions/ADR-030-per-host-normalization.md) | Per-Host Normalization | Accepted | All Profiles |
 | [031](../specs/compliance-pipelines/decisions/ADR-031-pah-for-execution-environments.md) | PAH for Execution Environments | Accepted | Infrastructure |
 | [032](../specs/compliance-pipelines/decisions/ADR-032-pluggable-export-formats.md) | Pluggable Export Formats + OCI Artifact Storage | Accepted | Dashboard + Supply Chain |
-| [033](../specs/compliance-pipelines/decisions/ADR-033-file-streamed-api-ingestion.md) | File-Streamed API Ingestion | Accepted | All Profiles |
+| [033](../specs/compliance-pipelines/decisions/ADR-033-file-streamed-api-ingestion.md) | File-Streamed API Ingestion | Accepted | Supply Chain (XCCDF planned) |
 
 ## Feature Specs
 

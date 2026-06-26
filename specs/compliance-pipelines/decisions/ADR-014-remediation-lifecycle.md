@@ -194,7 +194,7 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 
 - Remediations gain a complete audit trail with Controller as source of truth for details
 - Multi-group job IDs (ADR-013) are fully persisted and queryable
-- Dashboard and scan history no longer polluted by remediation scan records
+- Remediation scan records are lightweight dashboard projections for Recent Activity only — the execution table is authoritative (amended 2026-06-26, see §3)
 - Auto-save orphans eliminated by draft status + name uniqueness + cleanup
 - Database growth is negligible: ~555 KB/year at 10 profiles × 2 runs/week
 - Remediation profiles become reusable across inventories, reducing duplication

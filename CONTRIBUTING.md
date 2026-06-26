@@ -62,7 +62,7 @@ yarn test                    # All tests
 yarn test --coverage         # With coverage report
 ```
 
-Target: all tests passing. Collection unit tests: 19 per profile (57 total across 3 profiles).
+Target: all tests passing. Collection unit tests: 19 per XCCDF profile (57 across 3) + 37 CycloneDX + 60 cross-profile = 154 total.
 
 ## CI/CD Pipelines
 

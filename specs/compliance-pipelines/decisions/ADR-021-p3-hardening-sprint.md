@@ -9,7 +9,7 @@
 
 ## Context
 
-ADR-017 identified a B- production readiness grade with 8 HIGH and 13 MEDIUM findings. The P3 hardening sprint addresses the critical and high items from that backlog plus additional UX improvements discovered during testing.
+ADR-017 identified a B+ production readiness grade with 8 HIGH and 13 MEDIUM findings. The P3 hardening sprint addresses the critical and high items from that backlog plus additional UX improvements discovered during testing.
 
 ## Decisions
 

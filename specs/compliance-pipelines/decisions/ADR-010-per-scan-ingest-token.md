@@ -34,5 +34,6 @@ Generate a unique, single-use ingest token per scan. The token is:
 
 ## Related
 
-- ADR-007 -- direct POST findings architecture
+- ADR-007: Direct POST Findings
+- ADR-033: File-Streamed API Ingestion (ingest_token passed via no_log module param)
 - PR #19 -- implementation

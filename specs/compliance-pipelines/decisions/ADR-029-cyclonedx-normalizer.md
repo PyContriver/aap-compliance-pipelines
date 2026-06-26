@@ -192,8 +192,9 @@ The normalizer is deployed as part of the supply chain EE (`compliance-rhel9-sup
 
 ## Related
 
-- ADR-007: Per-scan ingest security tokens (normalizer POSTs findings directly to backend)
-- ADR-020: XCCDF normalizer pattern (established `normalize_common.py` for XCCDF — this ADR clarifies it is XCCDF-specific)
-- ADR-027: SBOM dashboard design (CycloneDX findings can be exported as SBOM artifacts)
+- ADR-007: Direct POST Findings (normalizer POSTs findings directly to backend)
+- ADR-020: Shared Normalizer Module (established `normalize_common.py` for XCCDF — this ADR clarifies it is XCCDF-specific)
+- ADR-027: Dynamic Tab System (supply chain profile declares a custom tab via display config)
+- ADR-033: File-Streamed API Ingestion (compose_post_body pattern for OOM-safe POST)
 - Lightwell Phase L2b: TPA integration (BOMbastic API consumes CycloneDX SBOMs — this normalizer's output is the data source)
 - Feature spec: `specs/compliance-pipelines/features/feature-supply-chain-scanning.md` (to be written)

@@ -62,3 +62,11 @@ The slim-findings-via-events approach (ADR-005) is retained as a fallback but is
 The ingest endpoint now uses `onConflict('scan_id', 'rule_id', 'host').merge()` when saving findings, backed by a unique constraint added in migration 016. This prevents duplicate rows when a playbook retries the POST after a transient failure or when findings for the same `(scan_id, rule_id, host)` tuple arrive via both Direct POST and event fallback. The merge strategy updates all mutable columns (status, severity, evidence, actual/expected values) with the latest data. See ADR-018 for full rationale.
 
 Additionally, `upsertRuleMetadata` now writes `aap_impact` and `aap_impact_reason` fields to the rule metadata table. The `normalize_xccdf` module emits `aap_impact` from the `rules_metadata_file` parameter, and `buildMultiHostFindings` reads impact data exclusively from the DB metadata table. The YAML fallback path has been removed entirely -- the DB is the sole runtime cache for rule enrichment metadata.
+
+## Related
+
+- ADR-005: Slim Findings for Event Storage (fallback channel)
+- ADR-010: Per-Scan Ingest Token
+- ADR-018: Findings Deduplication
+- ADR-030: Per-Host Normalization
+- ADR-033: File-Streamed API Ingestion

@@ -57,17 +57,20 @@ Full guide: `docs/deployment-guide.md`
 
 ## Scanner Architecture
 
-Uses OpenSCAP (`oscap xccdf eval`) with scap-security-guide. Three profiles ship under `profiles/`.
+Four compliance profiles ship under `profiles/`, using two scanner backends.
 
-**Shared normalizer logic:** All profiles share a single `normalize_common.py` at `profiles/_shared/normalize_common.py`. Each collection's `plugins/modules/normalize_xccdf.py` is a thin wrapper that imports from `plugins/module_utils/normalize_common.py` (a synced copy). After editing the shared source, run `python scripts/sync_shared_modules.py` to propagate changes to all collections.
+**XCCDF profiles (STIG, CIS):** Use OpenSCAP (`oscap xccdf eval`) with scap-security-guide. All share a single `normalize_common.py` at `profiles/_shared/normalize_common.py`. Each collection's `plugins/modules/normalize_xccdf.py` is a thin wrapper that imports from `plugins/module_utils/normalize_common.py` (a synced copy). After editing the shared source, run `python scripts/sync_shared_modules.py` to propagate changes.
+
+**Supply chain profile:** Uses Syft (SBOM generation) + Grype (CVE matching). `normalize_cyclonedx.py` is a standalone module (NOT shared from `_shared/`). Play 1 runs Syft on targets, fetches SBOMs back. Play 2 runs Grype on localhost against fetched SBOMs, normalizes per-host to CFF, composes POST body files via `compose_post_body` (ADR-033), streams to API via `uri src`. Exit_json returns only counts — no findings in return value.
 
 | Profile | Framework | XCCDF Profile | Certification |
 |---------|-----------|---------------|---------------|
 | `rhel9-stig` | DISA STIG V2R8 | `stig` | certified (NIST SCAP 1.2) |
 | `rhel9-cis-l1` | CIS L1 Server | `cis_server_l1` | conformant |
 | `rhel9-cis-l2` | CIS L2 Server | `cis` | conformant |
+| `supply-chain` | SUPPLY_CHAIN | Syft + Grype | uncertified |
 
-Each profile has the same pipeline structure:
+Each XCCDF profile has the same pipeline structure:
 1. `run_oscap.yml` (single JT, 2 plays): Play 1 runs on targets -- installs oscap ephemerally, copies datastream from EE, scans, fetches XCCDF XML back, cleans up. Play 2 runs on localhost (same container) -- `normalize_xccdf` module parses XML, outputs CFF JSON with certification metadata. Play 2 then POSTs findings directly to the plugin's `/findings/ingest` endpoint via `uri` module (ADR-007).
 2. `normalize.yml` (standalone utility): same normalization logic, available for debugging and Tier 2 reuse
 3. `remediate.yml` (standalone JT): imports CaC playbook from scap-security-guide, scoped by `job_tags`
@@ -87,7 +90,8 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 83 collection unit tests (19 per XCCDF profile + 23 CycloneDX + 3 cross-profile) + 597 backend/frontend tests across 22 suites
+- 154 collection unit tests (19 per XCCDF profile + 37 CycloneDX + 60 cross-profile) + 597 backend/frontend tests across 22 suites
 - 33 formal ADRs in `specs/compliance-pipelines/decisions/`
 - EE images hosted in PAH (`aap-netrunner.demoredhat.com/compliance-*:latest`), built via GitHub Actions and mirrored with skopeo (ADR-031)
 - Normalizer playbooks MUST loop per-host to prevent OOM on execution nodes (ADR-030)
+- Normalizer modules SHOULD use `compose_post_body` + `uri src` to stream findings to the API without loading them into Jinja2 variable space (ADR-033)

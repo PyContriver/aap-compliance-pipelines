@@ -102,3 +102,4 @@ Supply chain EE adds ORAS CLI (v1.2.2, ~10MB binary).
 - ADR-026: Portable Display Configuration
 - ADR-029: CycloneDX Normalizer Pattern
 - ADR-031: PAH for Execution Environments
+- ADR-033: File-Streamed API Ingestion (ORAS push runs alongside compose_post_body)
