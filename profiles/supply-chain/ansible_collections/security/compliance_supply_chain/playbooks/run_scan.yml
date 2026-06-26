@@ -261,14 +261,28 @@
         - backstage_api_url | default('') | length > 0
         - scan_id | default('') | length > 0
       register: _post_results
-      no_log: true
       failed_when: false
 
     - name: Report POST results
+      vars:
+        _success_count: "{{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}"
+        _total_count: "{{ _post_body_files.files | default([]) | length }}"
       ansible.builtin.debug:
         msg: >-
-          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _post_body_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
+          POSTed findings for {{ _success_count }}/{{ _total_count }} hosts to {{ backstage_api_url }}.
       when: backstage_api_url | default('') | length > 0
+
+    - name: Fail if no findings were ingested
+      ansible.builtin.fail:
+        msg: >-
+          All {{ _post_body_files.files | length }} POST requests failed.
+          The Backstage compliance API at {{ backstage_api_url }} may be
+          unreachable or the ingest token may have expired. Check the
+          POST task output above for HTTP status codes and error details.
+      when:
+        - backstage_api_url | default('') | length > 0
+        - _post_body_files.files | default([]) | length > 0
+        - _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length == 0
 
     - name: Display summary
       ansible.builtin.debug:
