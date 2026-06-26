@@ -29,6 +29,10 @@ export function registerFindingsRoutes(
     const profileId = req.query.profileId as string | undefined;
     const stateFilter = req.query.state as string | undefined;
     const userToken = getUserAapToken(req);
+    const limitParam = req.query.limit as string | undefined;
+    const offsetParam = req.query.offset as string | undefined;
+    const severityParam = req.query.severity as string | undefined;
+    const statusParam = req.query.status as string | undefined;
 
     if (scanId && !isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -39,6 +43,10 @@ export function registerFindingsRoutes(
       return;
     }
 
+    const paginated = limitParam !== undefined;
+    const limit = Math.min(Math.max(1, Number(limitParam) || 100), 500);
+    const offset = Math.max(0, Number(offsetParam) || 0);
+
     const validStates = new Set(['new', 'active', 'fixed', 'resurfaced']);
     const stateFilterSet = stateFilter
       ? new Set(stateFilter.split(',').filter(s => validStates.has(s)))
@@ -46,6 +54,20 @@ export function registerFindingsRoutes(
 
     const { resolvedScanId, workflowJobId, dbScan } = await resolveScanId(database, scanId);
 
+    // Paginated path: query DB directly with limit/offset
+    if (paginated && resolvedScanId && dbScan) {
+      const { findings: dbFindings, total } = await database.getFindingsByScanIdPaginated(
+        resolvedScanId,
+        { limit, offset, severity: severityParam, status: statusParam },
+      );
+      const results = dbFindings.length > 0
+        ? await service.aggregateFindingsWithMetadata(dbFindings)
+        : [];
+      res.json({ findings: results, total, limit, offset });
+      return;
+    }
+
+    // Non-paginated path: backward compat (returns full array)
     let results: import('@aap-compliance/common').MultiHostFinding[] | null = null;
 
     const skipDbLookup = workflowJobId !== undefined && !dbScan;

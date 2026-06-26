@@ -197,6 +197,21 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<MultiHostFinding[]>(`/findings${q}`);
   }
 
+  getFindingsPaginated(
+    scanId: string,
+    opts: { limit: number; offset: number; severity?: string; status?: string },
+  ) {
+    const params = new URLSearchParams();
+    params.set('scanId', scanId);
+    params.set('limit', String(opts.limit));
+    params.set('offset', String(opts.offset));
+    if (opts.severity) params.set('severity', opts.severity);
+    if (opts.status) params.set('status', opts.status);
+    return this.request<import('@aap-compliance/common').PaginatedFindings>(
+      `/findings?${params.toString()}`,
+    );
+  }
+
   getPreviousFindings(scanId: string) {
     return this.request<MultiHostFinding[]>(
       `/previous-findings?scanId=${encodeURIComponent(scanId)}`,

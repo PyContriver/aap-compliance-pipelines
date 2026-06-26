@@ -46,6 +46,7 @@ export interface ComplianceApi {
   getScan(scanId: string): Promise<ComplianceScan | null>;
   launchScan(body: LaunchScanRequest): Promise<LaunchScanResponse>;
   getFindings(scanId?: string, profileId?: string): Promise<MultiHostFinding[]>;
+  getFindingsPaginated(scanId: string, opts: { limit: number; offset: number; severity?: string; status?: string }): Promise<import('@aap-compliance/common').PaginatedFindings>;
   getPreviousFindings(scanId: string): Promise<MultiHostFinding[]>;
   getWorkflowStatus(jobId: number): Promise<WorkflowJobStatus>;
   getJobStatus(jobId: number): Promise<WorkflowJobStatus>;

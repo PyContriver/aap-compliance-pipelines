@@ -21,6 +21,7 @@ export type {
   ComplianceScan,
   StoredFinding,
   MultiHostFinding,
+  PaginatedFindings,
   WorkflowJobStatus,
   WorkflowNode,
   JobEvent,

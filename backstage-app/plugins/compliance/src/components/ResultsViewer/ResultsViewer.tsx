@@ -30,6 +30,7 @@ import {
   CircularProgress,
   IconButton,
   Paper,
+  TablePagination,
   makeStyles,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
@@ -139,6 +140,10 @@ export const ResultsViewer = () => {
   const fetchArtifactsCb = useCallback((scanId: string) => api.getArtifacts(scanId), [api]);
   const downloadArtifactCb = useCallback((scanId: string, key: string, filename: string) => api.downloadArtifact(scanId, key, filename), [api]);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(100);
+  const [totalFindings, setTotalFindings] = useState(0);
+  const usePagination = totalFindings > 500;
 
   const severityOptions: FilterOption[] = useMemo(() => [
     { key: 'CAT_I', label: displayConfig.severityMap.CAT_I, color: SEVERITY_COLORS.CAT_I },
@@ -350,50 +355,45 @@ export const ResultsViewer = () => {
     const pollInterval = 10_000;
 
     const fetchFindings = () => {
-      api.getFindings(jobId)
-        .then(data => {
+      if (!jobId) { setLoading(false); return; }
+
+      // Try paginated fetch first (works for scans with DB findings)
+      api.getFindingsPaginated(jobId, { limit: rowsPerPage, offset: page * rowsPerPage })
+        .then(result => {
           if (cancelled) return;
-          if (data.length > 0) {
-            setFindings(data);
+          if (result.total > 0) {
+            setFindings(result.findings);
+            setTotalFindings(result.total);
             setLoading(false);
-          } else if (jobId) {
-            api.getScan(jobId).then(scan => {
-              if (cancelled) return;
-              if (!scan) {
-                setScanFailed('Scan not found. It may have been deleted or the ID is invalid.');
-                setLoading(false);
-              } else if (scan.status === 'failed' || scan.status === 'cancelled') {
-                setScanFailed(scan.errorDetails || scan.status);
-                setLoading(false);
-              } else if (scan.status === 'completed') {
-                setLoading(false);
-              } else if (scan.status === 'pending' || scan.status === 'running') {
-                if (scan.workflowJobId && !isWorkflowPoll) {
-                  setPendingScanWorkflowJobId(scan.workflowJobId);
-                } else if (retries < maxRetries) {
-                  retries++;
-                  timeoutId = setTimeout(fetchFindings, pollInterval);
-                } else {
-                  setLoading(false);
-                }
+            return;
+          }
+          // No paginated results — fall back to scan status check + legacy path
+          return api.getScan(jobId).then(scan => {
+            if (cancelled) return;
+            if (!scan) {
+              setScanFailed('Scan not found. It may have been deleted or the ID is invalid.');
+              setLoading(false);
+            } else if (scan.status === 'failed' || scan.status === 'cancelled') {
+              setScanFailed(scan.errorDetails || scan.status);
+              setLoading(false);
+            } else if (scan.status === 'completed') {
+              setLoading(false);
+            } else if (scan.status === 'pending' || scan.status === 'running') {
+              if (scan.workflowJobId && !isWorkflowPoll) {
+                setPendingScanWorkflowJobId(scan.workflowJobId);
               } else if (retries < maxRetries) {
                 retries++;
                 timeoutId = setTimeout(fetchFindings, pollInterval);
               } else {
                 setLoading(false);
               }
-            }).catch(() => {
-              if (retries < maxRetries) {
-                retries++;
-                timeoutId = setTimeout(fetchFindings, pollInterval);
-              } else {
-                setScanFailed('Unable to load scan status');
-                setLoading(false);
-              }
-            });
-          } else {
-            setLoading(false);
-          }
+            } else if (retries < maxRetries) {
+              retries++;
+              timeoutId = setTimeout(fetchFindings, pollInterval);
+            } else {
+              setLoading(false);
+            }
+          });
         })
         .catch(err => {
           if (!cancelled) {
@@ -405,7 +405,7 @@ export const ResultsViewer = () => {
 
     fetchFindings();
     return () => { cancelled = true; clearTimeout(timeoutId); };
-  }, [api, jobId, isWorkflowPoll]);
+  }, [api, jobId, isWorkflowPoll, page, rowsPerPage]);
 
   // ─── Computed metrics ────────────────────────────────────────────
 
@@ -1003,6 +1003,18 @@ export const ResultsViewer = () => {
               ))}
             </TableBody>
           </Table>
+          {usePagination && (
+            <TablePagination
+              component="div"
+              count={totalFindings}
+              page={page}
+              onChangePage={(_e, newPage) => { setPage(newPage); setExpandedRule(null); }}
+              rowsPerPage={rowsPerPage}
+              onChangeRowsPerPage={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); setExpandedRule(null); }}
+              rowsPerPageOptions={[50, 100, 250, 500]}
+              labelRowsPerPage="Findings per page:"
+            />
+          )}
         </TableContainer>
       </InfoCard>
       </Collapse>

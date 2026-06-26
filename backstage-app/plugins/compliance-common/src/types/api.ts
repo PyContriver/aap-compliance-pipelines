@@ -305,6 +305,14 @@ export interface MultiHostFinding {
   stateSummary?: FindingStateSummary;
 }
 
+/** Paginated findings response for large result sets (supply chain). */
+export interface PaginatedFindings {
+  findings: MultiHostFinding[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Controller workflow job status response (subset of AWX API). */
 export interface WorkflowJobStatus {
   id: number;
