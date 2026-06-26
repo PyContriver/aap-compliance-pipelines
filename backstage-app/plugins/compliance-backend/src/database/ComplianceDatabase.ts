@@ -435,22 +435,48 @@ export class ComplianceDatabase {
     scanId: string,
     opts: { limit: number; offset: number; severity?: string; status?: string },
   ): Promise<{ findings: StoredFinding[]; total: number }> {
-    let query = this.db('compliance_findings').where('scan_id', scanId);
+    // Paginate at the RULE level (not raw findings) so aggregation into
+    // MultiHostFinding objects gets complete host lists per rule.
+    // Step 1: Get paginated distinct rule_ids matching filters
+    let ruleQuery = this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .distinct('rule_id', 'severity');
     if (opts.severity) {
-      query = query.where('severity', opts.severity);
+      ruleQuery = ruleQuery.where('severity', opts.severity);
     }
     if (opts.status) {
-      query = query.where('status', opts.status);
+      ruleQuery = ruleQuery.where('status', opts.status);
     }
 
-    const countResult = await query.clone().count('* as cnt').first();
+    // Count total unique rules (for pagination controls)
+    const countResult = await this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .modify(qb => {
+        if (opts.severity) qb.where('severity', opts.severity);
+        if (opts.status) qb.where('status', opts.status);
+      })
+      .countDistinct('rule_id as cnt')
+      .first();
     const total = Number((countResult as any)?.cnt ?? 0);
 
-    const rows = await query
+    // Get the rule_ids for this page
+    const ruleRows = await ruleQuery
       .orderBy('severity', 'asc')
       .orderBy('rule_id', 'asc')
       .limit(opts.limit)
       .offset(opts.offset);
+    const ruleIds = ruleRows.map((r: any) => r.rule_id as string);
+
+    if (ruleIds.length === 0) {
+      return { findings: [], total };
+    }
+
+    // Step 2: Fetch ALL raw findings for those rules (all hosts)
+    const rows = await this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .whereIn('rule_id', ruleIds)
+      .orderBy('severity', 'asc')
+      .orderBy('rule_id', 'asc');
 
     return { findings: rows.map(this.mapFindingRow), total };
   }

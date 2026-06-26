@@ -43,6 +43,17 @@ export function registerFindingsRoutes(
       return;
     }
 
+    const VALID_SEVERITIES = new Set(['CAT_I', 'CAT_II', 'CAT_III']);
+    const VALID_STATUSES = new Set(['pass', 'fail', 'not_applicable', 'error']);
+    if (severityParam && !VALID_SEVERITIES.has(severityParam)) {
+      res.status(400).json({ error: `Invalid severity filter. Must be one of: ${[...VALID_SEVERITIES].join(', ')}` });
+      return;
+    }
+    if (statusParam && !VALID_STATUSES.has(statusParam)) {
+      res.status(400).json({ error: `Invalid status filter. Must be one of: ${[...VALID_STATUSES].join(', ')}` });
+      return;
+    }
+
     const paginated = limitParam !== undefined;
     const limit = Math.min(Math.max(1, Number(limitParam) || 100), 500);
     const offset = Math.max(0, Number(offsetParam) || 0);
