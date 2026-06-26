@@ -276,6 +276,18 @@ export function registerRemediationRoutes(
       completedAt, elapsedSeconds, rulesApplied, rulesFailed,
       hostsTargeted, hostsSucceeded, hostsFailed, primaryJobId, allJobIds,
     });
+
+    // When execution reaches a terminal state, update the corresponding
+    // remediation scan record so Recent Activity shows the final status.
+    const terminalStatuses = ['succeeded', 'failed', 'cancelled'];
+    if (status && terminalStatuses.includes(status) && execution.primaryJobId) {
+      const scanRecord = await database.getScanByWorkflowJobId(execution.primaryJobId);
+      if (scanRecord && scanRecord.scanner === 'remediation') {
+        const scanStatus = status === 'succeeded' ? 'completed' : 'failed';
+        await database.updateScanStatus(scanRecord.id, scanStatus, completedAt || new Date().toISOString());
+      }
+    }
+
     const updated = await database.getExecutionById(req.params.id);
     res.json(updated);
   });

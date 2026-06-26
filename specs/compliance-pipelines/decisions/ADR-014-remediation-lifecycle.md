@@ -46,9 +46,13 @@ Execution states: `pending | running | succeeded | failed | cancelled`. System-d
 
 The profile's "latest execution status" is computed at query time by joining to the most recent execution record. This avoids dual-write synchronization where the profile state could diverge from the actual execution outcome.
 
-### 3. Deprecate remediation-as-scan records
+### 3. Remediation scan records for Recent Activity
 
-Stop creating `compliance_scans` rows with `scanner='remediation'`. The execution table replaces this. Transition: dual-write during Phase 1, migrate consumers in Phase 2, stop scan record creation in Phase 3.
+~~Stop creating `compliance_scans` rows with `scanner='remediation'`.~~ **Amended 2026-06-26:** Remediation scan records are retained for the Overview tab's Recent Activity widget. `getRecentScans` reads from `compliance_scans`, not from `compliance_remediation_executions`. Without a scan record, remediations are invisible on the Overview.
+
+The execution table remains authoritative for lifecycle state (status, timing, plan). The scan record is a lightweight projection for dashboard visibility only — it carries `scanner='remediation'`, `scanType='remediation'`, and the `workflowJobId`. No findings are ingested against it. When the execution transitions to a terminal state, the scan record's status is updated to match.
+
+Posture calculations, baseline scoring, and authoritative scan resolution all filter on `scanner !== 'remediation'`, so the record does not affect compliance scores.
 
 ### 4. Verification linkage is explicit
 
@@ -181,7 +185,7 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 1. **States on the profile (Qualys ticket model).** Rejected: dual-write synchronization, profiles are reusable templates not one-shot tickets.
 2. **Infer verification from scan history.** Rejected: ambiguous with multiple scans, InsightVM uses explicit linkage.
 3. **Store per-host execution findings.** Rejected: Controller is the source of truth for task events, no duplication needed, team preferred summary + link approach.
-4. **Keep remediation-as-scan records permanently.** Rejected: scan table lacks remediation-specific fields, requires filtering everywhere.
+4. **Keep remediation-as-scan records permanently.** ~~Rejected~~ Partially reinstated (2026-06-26): lightweight scan records retained for Recent Activity visibility. The execution table is authoritative; the scan record is a dashboard projection only.
 5. **Remediation profiles tied to inventory.** Rejected: same rule set often applies across multiple inventories. Tying to inventory forces duplication and prevents reuse. Industry consensus (Chef policyfiles, Puppet profiles, Insights policies) is that the policy is separate from the target.
 6. **Shrink-the-denominator only (Insights/Drata model).** Rejected as the sole approach: loses reference to the full standard. An auditor asking "where do you stand against STIG?" can't see the answer if the denominator was silently reduced. Dual-layer preserves both views.
 7. **Auto-pin first remediation profile run against an inventory.** Rejected: golden standard must be a conscious choice by someone with authority. Automatic pinning could set an unintentional baseline.

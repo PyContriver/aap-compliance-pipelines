@@ -348,6 +348,8 @@ def run_normalize(module):
             json.dump(report, f, indent=2)
 
     post_file = ''
+    if compose_post_body and not scan_id:
+        module.warn("compose_post_body is true but scan_id is empty — skipping POST body composition")
     if compose_post_body and scan_id:
         post_file = output_file + '.post.json'
         post_body = {

@@ -142,7 +142,7 @@ export interface HostPostureResponse {
   hosts: HostPosture[];
   scanId: string;
   scanTimestamp: string;
-  scanType: 'assessment' | 'verification';
+  scanType: 'assessment' | 'verification' | 'remediation';
   profileId: string;
   inventoryId: number;
 }
@@ -210,7 +210,7 @@ export interface ComplianceScan {
   profileId: string;
   inventoryId: number;
   scanner: string;
-  scanType: 'assessment' | 'verification';
+  scanType: 'assessment' | 'verification' | 'remediation';
   workflowJobId: number | null;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   startedAt: string;
@@ -368,7 +368,7 @@ export interface RecentScan {
   passRate: number;
   timestamp: string;
   status: string;
-  scanType?: 'assessment' | 'verification';
+  scanType?: 'assessment' | 'verification' | 'remediation';
   /** The scanner that produced this entry (e.g. 'oscap', 'remediation'). */
   scanner?: string;
 }

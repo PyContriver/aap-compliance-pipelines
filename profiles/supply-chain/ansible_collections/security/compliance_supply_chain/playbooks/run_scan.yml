@@ -178,7 +178,7 @@
         finalize: "{{ ansible_loop.last | default(false) }}"
       vars:
         _hostname: "{{ item.path | basename | regex_replace('grype-(.+)\\.json', '\\1') }}"
-      loop: "{{ _grype_result_files.files }}"
+      loop: "{{ _grype_result_files.files | sort(attribute='path') }}"
       loop_control:
         label: "{{ item.path | basename }}"
         extended: true
