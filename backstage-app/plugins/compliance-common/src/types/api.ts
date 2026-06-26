@@ -309,6 +309,7 @@ export interface MultiHostFinding {
 export interface PaginatedFindings {
   findings: MultiHostFinding[];
   total: number;
+  totalFailing?: number;
   limit: number;
   offset: number;
 }
