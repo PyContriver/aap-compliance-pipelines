@@ -153,6 +153,9 @@ export const complianceBackendPlugin = createBackendPlugin({
           // and the ingest endpoint rejects requests without a valid matching token.
           httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
           httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
+          // Artifact registration from playbook (ORAS push + pointer registration)
+          // uses the same per-scan ingest token as /findings/ingest (ADR-010, ADR-032)
+          httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
         }
       },
     });

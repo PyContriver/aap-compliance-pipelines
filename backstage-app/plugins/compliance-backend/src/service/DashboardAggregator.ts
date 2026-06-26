@@ -209,11 +209,12 @@ export class DashboardAggregator {
             const stats = inventoryProfileStats.get(`${p.id}::${invId}`);
             if (!stats) return null;
             const total = stats.pass + stats.fail;
+            const pFormula = profileFormulaMap.get(p.id) ?? 'compliance_rate';
             return {
               profileId: p.id,
               name: p.displayName,
               scanTags: p.scanTags,
-              rate: total > 0 ? Math.round((stats.pass / total) * 1000) / 10 : 0,
+              rate: computeRate(stats.pass, stats.fail, total, pFormula),
               passCount: stats.pass,
               failCount: stats.fail,
             };
@@ -257,7 +258,8 @@ export class DashboardAggregator {
         for (const cfg of scoreConfigs) {
           const score = batchScores.get(cfg.key) ?? { passCount: 0, failCount: 0 };
           const total = score.passCount + score.failCount;
-          const baselineRate = total > 0 ? Math.round((score.passCount / total) * 1000) / 10 : 0;
+          const blFormula = profileFormulaMap.get(cfg.baseline.complianceProfileId) ?? 'compliance_rate';
+          const baselineRate = computeRate(score.passCount, score.failCount, total, blFormula);
 
           const invEntry = byInventory.find(inv => inv.inventoryId === cfg.baseline.inventoryId);
           const profileScore = invEntry?.profileScores.find(ps => ps.profileId === cfg.baseline.complianceProfileId);
@@ -300,7 +302,8 @@ export class DashboardAggregator {
           const scanStats = batchStats.get(scan.id);
           if (scanStats) {
             const total = scanStats.pass + scanStats.fail;
-            passRate = total > 0 ? Math.round((scanStats.pass / total) * 1000) / 10 : 0;
+            const scanFormula = profileFormulaMap.get(scan.profileId) ?? 'compliance_rate';
+            passRate = computeRate(scanStats.pass, scanStats.fail, total, scanFormula);
           }
         }
         return {
@@ -374,6 +377,14 @@ export class DashboardAggregator {
     const profilePins = pins.filter(p => p.remediationProfileId === remediationProfileId);
     if (profilePins.length === 0) return [];
 
+    // Resolve score formula from the compliance profile linked to these pins
+    let blScoreFormula: ScoreFormula = 'compliance_rate';
+    if (profilePins[0]) {
+      const allProfiles = await this.database.listProfiles();
+      const cp = allProfiles.find(p => p.id === profilePins[0].complianceProfileId);
+      blScoreFormula = (cp?.displayConfig?.score_formula ?? 'compliance_rate') as ScoreFormula;
+    }
+
     const latestScans = await this.database.getLatestScanPerProfileInventory();
     const scanMap = new Map(latestScans.map(s => [`${s.profileId}::${s.inventoryId}`, s]));
 
@@ -385,7 +396,7 @@ export class DashboardAggregator {
       const total = score.passCount + score.failCount;
       results.push({
         inventoryId: pin.inventoryId,
-        passRate: total > 0 ? Math.round((score.passCount / total) * 1000) / 10 : 0,
+        passRate: computeRate(score.passCount, score.failCount, total, blScoreFormula),
         passCount: score.passCount,
         failCount: score.failCount,
       });
