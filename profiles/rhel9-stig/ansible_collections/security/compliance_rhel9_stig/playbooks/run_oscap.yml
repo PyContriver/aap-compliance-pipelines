@@ -185,59 +185,64 @@
         certification_status: "certified"
         certification_authority: "NIST SCAP 1.2"
         rules_metadata_file: "{{ (_rules_files.files | default([]) | first | default({})).path | default('') }}"
+        compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
+        post_body_format: ndjson
+        scan_id: "{{ scan_id | default('') }}"
+        ingest_token: "{{ ingest_token | default('') }}"
+        finalize: "{{ ansible_loop.last | default(false) }}"
       vars:
         _host_label: "{{ item.path | basename | regex_replace('xccdf-results-(.+)\\.xml', '\\1') }}"
-      loop: "{{ _result_files.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-      register: _normalized
-
-    # ── Direct POST findings to Backstage plugin API ─────────────────
-    # When backstage_api_url and scan_id are provided (by the plugin
-    # backend via extra_vars), POST full findings directly to the
-    # /findings/ingest endpoint. This bypasses Controller event storage
-    # limits and delivers complete metadata (titles, descriptions,
-    # check_text, fix_text, STIG IDs) that would be truncated in events.
-
-    # POST findings per-host to avoid loading all findings into one
-    # Ansible variable. Each POST sends one host's findings (~366 rules)
-    # — safe for memory at any inventory scale.
-    - name: Find per-host findings JSON files
-      ansible.builtin.find:
-        paths: "{{ fetch_dest_dir }}"
-        patterns: "findings-*.json"
-      register: _findings_files
-      when: backstage_api_url | default('') | length > 0
-
-    - name: POST findings per-host to Backstage compliance API
-      ansible.builtin.uri:
-        url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
-        method: POST
-        body_format: json
-        body:
-          scanId: "{{ scan_id }}"
-          ingestToken: "{{ ingest_token | default('') }}"
-          findings: "{{ (lookup('file', item.path) | from_json).findings }}"
-          finalize: "{{ ansible_loop.last | default(true) }}"
-        headers:
-          Content-Type: application/json
-        status_code: [201]
-        validate_certs: false
-        timeout: 60
-      loop: "{{ _findings_files.files | default([]) }}"
+      loop: "{{ _result_files.files | sort(attribute='path') }}"
       loop_control:
         label: "{{ item.path | basename }}"
         extended: true
+      register: _normalized
+
+    # ── Stream NDJSON to Backstage plugin API (ADR-034) ──────────────
+    # The normalizer composed .ndjson files (preamble + one finding per
+    # line). uri+src streams each file — zero findings data in Ansible's
+    # Jinja2 variable space (ADR-033).
+
+    - name: Find per-host NDJSON files
+      ansible.builtin.find:
+        paths: "{{ fetch_dest_dir }}"
+        patterns: "*.ndjson"
+      register: _post_body_files
+      when: backstage_api_url | default('') | length > 0
+
+    - name: Stream NDJSON findings per-host to Backstage compliance API
+      ansible.builtin.uri:
+        url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+        method: POST
+        src: "{{ item.path }}"
+        headers:
+          Content-Type: application/x-ndjson
+        status_code: [201]
+        validate_certs: false
+        timeout: 120
+      loop: "{{ _post_body_files.files | default([]) | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
       when:
         - backstage_api_url | default('') | length > 0
         - scan_id | default('') | length > 0
       register: _post_results
       failed_when: false
 
+    - name: Fail if no findings were ingested
+      ansible.builtin.fail:
+        msg: >-
+          All {{ _post_body_files.files | length }} POST requests failed.
+          Check the POST task output above for HTTP status codes.
+      when:
+        - backstage_api_url | default('') | length > 0
+        - _post_body_files.files | default([]) | length > 0
+        - _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length == 0
+
     - name: Report POST results
       ansible.builtin.debug:
         msg: >-
-          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _findings_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
+          POSTed findings for {{ _post_results.results | default([]) | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length }}/{{ _post_body_files.files | default([]) | length }} hosts to {{ backstage_api_url }}.
       when: backstage_api_url | default('') | length > 0
 
     - name: Display summary

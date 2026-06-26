@@ -295,34 +295,53 @@ def run_normalize(module):
         'summary': summary,
     }
 
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     if not module.check_mode:
-        output_dir = os.path.dirname(output_file)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
         with open(output_file, 'w') as f:
             json.dump(report, f, indent=2)
 
-    slim_findings = [
-        {
-            'rule_id': f['rule_id'],
-            'stig_id': f.get('stig_id', ''),
-            'title': f.get('title', f['rule_id']),
-            'severity': f['severity'],
-            'status': f['status'],
-            'host': f['host'],
-            'evidence': f['evidence'],
-        }
-        for f in all_findings
-    ]
+    compose_post_body = module.params.get('compose_post_body', False)
+    scan_id = module.params.get('scan_id', '')
+    ingest_token = module.params.get('ingest_token', '')
+    finalize = module.params.get('finalize', False)
+    post_body_format = module.params.get('post_body_format', 'ndjson')
 
-    module.exit_json(
+    post_file = ''
+    if compose_post_body and not scan_id:
+        module.warn("compose_post_body is true but scan_id is empty — skipping POST body composition")
+    if compose_post_body and scan_id and not module.check_mode:
+        if post_body_format == 'ndjson':
+            post_file = output_file + '.ndjson'
+            with open(post_file, 'w') as f:
+                preamble = {'_meta': True, 'scanId': scan_id, 'ingestToken': ingest_token, 'finalize': finalize}
+                f.write(json.dumps(preamble, separators=(',', ':')) + '\n')
+                for finding in all_findings:
+                    f.write(json.dumps(finding, separators=(',', ':')) + '\n')
+        else:
+            post_file = output_file + '.post.json'
+            post_body = {
+                'scanId': scan_id,
+                'ingestToken': ingest_token,
+                'findings': all_findings,
+                'finalize': finalize,
+            }
+            with open(post_file, 'w') as f:
+                json.dump(post_body, f)
+
+    result = dict(
         changed=not module.check_mode,
         hosts_processed=hosts_processed,
         total_findings=len(all_findings),
         summary=summary,
         output_file=output_file,
-        findings=slim_findings,
     )
+    if post_file:
+        result['post_file'] = post_file
+
+    module.exit_json(**result)
 
 
 ARGUMENT_SPEC = dict(
@@ -335,4 +354,10 @@ ARGUMENT_SPEC = dict(
                               choices=['certified', 'conformant', 'uncertified']),
     certification_authority=dict(type='str', required=False, default=''),
     rules_metadata_file=dict(type='str', required=False, default=''),
+    compose_post_body=dict(type='bool', required=False, default=False),
+    scan_id=dict(type='str', required=False, default=''),
+    ingest_token=dict(type='str', required=False, default='', no_log=True),
+    finalize=dict(type='bool', required=False, default=False),
+    post_body_format=dict(type='str', required=False, default='ndjson',
+                          choices=['json', 'ndjson']),
 )

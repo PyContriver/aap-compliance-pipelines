@@ -1,11 +1,14 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import { createInterface } from 'readline';
 import type { RouterDependencies } from './types';
-import type { IngestFinding } from '@aap-compliance/common';
+import type { IngestFinding, ComplianceScan } from '@aap-compliance/common';
+import type { LoggerService } from '@backstage/backend-plugin-api';
 import { getUserAapToken } from './permissions';
 import { isValidScanId, isValidProfileId } from './validation';
 import { buildRuleMetadataRecords } from '../service/ComplianceService';
 import { resolveScanId, savePostureFromFindings, fetchLiveFindings } from './helpers';
+import type { ComplianceDatabase } from '../database/ComplianceDatabase';
 
 const ingestLimiter = rateLimit({
   windowMs: 60_000,
@@ -131,96 +134,277 @@ export function registerFindingsRoutes(
     }
   });
 
-  router.post('/findings/ingest', ingestLimiter, express.json({ limit: '200mb' }), async (req, res) => {
-    const body = req.body;
-    const scanId = body.scanId as string | undefined;
-    const ingestToken = body.ingestToken as string | undefined;
-    const findings = body.findings as Array<Record<string, unknown>> | undefined;
-    const finalize = body.finalize === true;
+  // Content-type negotiation: NDJSON streams bypass express.json()
+  const jsonParser = express.json({ limit: '200mb' });
 
-    if (!scanId || !findings || !Array.isArray(findings)) {
-      res.status(400).json({ error: 'scanId (string) and findings (array) are required' });
+  router.post('/findings/ingest', ingestLimiter, (req, res, next) => {
+    const ct = req.headers['content-type'] || '';
+    if (ct.includes('ndjson')) {
+      handleNdjsonIngest(req, res, { logger, service, database });
+    } else {
+      jsonParser(req, res, () => handleJsonIngest(req, res, { logger, service, database }));
+    }
+  });
+}
+
+// ── Shared finalization logic (ADR-033) ─────────────────────────────
+
+async function finalizeIngest(
+  database: ComplianceDatabase,
+  logger: LoggerService,
+  scanId: string,
+  scan: ComplianceScan,
+): Promise<void> {
+  await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
+
+  const allFindings = await database.getFindingsByScanId(scanId);
+  const uniqueRules = new Set(allFindings.map(f => f.ruleId)).size;
+  if (uniqueRules > 0) {
+    await database.updateProfileRuleCount(scan.profileId, uniqueRules);
+  }
+
+  try {
+    await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id);
+  } catch (err) {
+    logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  try {
+    await database.computeFindingStates(scanId, scan.profileId, scan.inventoryId);
+  } catch (err) {
+    logger.warn(`Finding state computation failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── JSON ingest (existing path, unchanged behavior) ─────────────────
+
+type IngestDeps = Pick<RouterDependencies, 'logger' | 'service' | 'database'>;
+
+async function handleJsonIngest(
+  req: express.Request,
+  res: express.Response,
+  deps: IngestDeps,
+): Promise<void> {
+  const { logger, service, database } = deps;
+  const body = req.body;
+  const scanId = body.scanId as string | undefined;
+  const ingestToken = body.ingestToken as string | undefined;
+  const findings = body.findings as Array<Record<string, unknown>> | undefined;
+  const finalize = body.finalize === true;
+
+  if (!scanId || !findings || !Array.isArray(findings)) {
+    res.status(400).json({ error: 'scanId (string) and findings (array) are required' });
+    return;
+  }
+
+  if (!isValidScanId(scanId)) {
+    res.status(400).json({ error: 'Invalid scanId' });
+    return;
+  }
+
+  if (findings.length > 50000) {
+    res.status(400).json({ error: 'Findings count exceeds maximum allowed (50000)' });
+    return;
+  }
+
+  const MAX_FINDING_SIZE = 100 * 1024;
+  for (let i = 0; i < findings.length; i++) {
+    const size = JSON.stringify(findings[i]).length;
+    if (size > MAX_FINDING_SIZE) {
+      res.status(400).json({ error: `findings[${i}] exceeds maximum size (${MAX_FINDING_SIZE} bytes)` });
+      return;
+    }
+  }
+
+  try {
+    const scan = await database.getScanById(scanId);
+    if (!scan) {
+      res.status(404).json({ error: `Scan ${scanId} not found` });
       return;
     }
 
-    if (!isValidScanId(scanId)) {
-      res.status(400).json({ error: 'Invalid scanId' });
+    const expectedToken = await database.getIngestToken(scanId);
+    if (!expectedToken || expectedToken !== ingestToken) {
+      res.status(403).json({ error: 'Invalid ingest token' });
       return;
     }
 
-    if (findings.length > 50000) {
-      res.status(400).json({ error: 'Findings count exceeds maximum allowed (50000)' });
-      return;
-    }
+    const mapped = findings.map(raw => service.mapRawFindingPublic(
+      raw as IngestFinding,
+      (raw.host as string) || 'unknown',
+      scanId,
+    ));
 
-    const MAX_FINDING_SIZE = 100 * 1024;
-    for (let i = 0; i < findings.length; i++) {
-      const size = JSON.stringify(findings[i]).length;
-      if (size > MAX_FINDING_SIZE) {
-        res.status(400).json({ error: `findings[${i}] exceeds maximum size (${MAX_FINDING_SIZE} bytes)` });
-        return;
-      }
-    }
+    const count = await database.saveFindingsForScan(scanId, mapped);
 
     try {
-      const scan = await database.getScanById(scanId);
-      if (!scan) {
-        res.status(404).json({ error: `Scan ${scanId} not found` });
-        return;
-      }
-
-      const expectedToken = await database.getIngestToken(scanId);
-      if (!expectedToken || expectedToken !== ingestToken) {
-        res.status(403).json({ error: 'Invalid ingest token' });
-        return;
-      }
-
-      const mapped = findings.map(raw => service.mapRawFindingPublic(
-        raw as IngestFinding,
-        (raw.host as string) || 'unknown',
-        scanId,
-      ));
-
-      const count = await database.saveFindingsForScan(scanId, mapped);
-
-      try {
-        const metadataRecords = buildRuleMetadataRecords(findings as Array<Record<string, unknown>>);
-        const metaCount = await database.upsertRuleMetadata(metadataRecords);
-        logger.info(`Upserted ${metaCount} rule metadata records`);
-      } catch (metaErr) {
-        logger.warn(`Rule metadata upsert failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
-      }
-
-      // Finalization: only run on the last per-host POST (finalize: true)
-      // or when finalize is not specified (backward compat with single-POST)
-      if (finalize || body.finalize === undefined) {
-        await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
-
-        const allFindings = await database.getFindingsByScanId(scanId);
-        const uniqueRules = new Set(allFindings.map(f => f.ruleId)).size;
-        if (uniqueRules > 0) {
-          await database.updateProfileRuleCount(scan.profileId, uniqueRules);
-        }
-
-        try {
-          await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id);
-        } catch (err) {
-          logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
-        }
-
-        try {
-          await database.computeFindingStates(scanId, scan.profileId, scan.inventoryId);
-        } catch (err) {
-          logger.warn(`Finding state computation failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      }
-
-      logger.info(`Ingested ${count} findings for scan ${scanId} via direct POST (finalize=${finalize})`);
-      res.status(201).json({ scanId, findingsCount: count });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to ingest findings: ${msg}`);
-      res.status(500).json({ error: 'Failed to ingest findings' });
+      const metadataRecords = buildRuleMetadataRecords(findings as Array<Record<string, unknown>>);
+      const metaCount = await database.upsertRuleMetadata(metadataRecords);
+      logger.info(`Upserted ${metaCount} rule metadata records`);
+    } catch (metaErr) {
+      logger.warn(`Rule metadata upsert failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
     }
+
+    if (finalize || body.finalize === undefined) {
+      await finalizeIngest(database, logger, scanId, scan);
+    }
+
+    logger.info(`Ingested ${count} findings for scan ${scanId} via JSON POST (finalize=${finalize})`);
+    res.status(201).json({ scanId, findingsCount: count });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to ingest findings: ${msg}`);
+    res.status(500).json({ error: 'Failed to ingest findings' });
+  }
+}
+
+// ── NDJSON streaming ingest (ADR-034) ───────────────────────────────
+
+async function handleNdjsonIngest(
+  req: express.Request,
+  res: express.Response,
+  deps: IngestDeps,
+): Promise<void> {
+  const { logger, service, database } = deps;
+  const BATCH_SIZE = 500;
+  const MAX_LINE_SIZE = 100 * 1024;
+  const MAX_ERRORS = 50;
+
+  const rl = createInterface({ input: req, crlfDelay: Infinity });
+  let preambleParsed = false;
+  let scanId = '';
+  let finalize = true;
+  let scan: ComplianceScan | null = null;
+
+  let batch: Array<ReturnType<typeof service.mapRawFindingPublic>> = [];
+  let metadataBatch: Array<Record<string, unknown>> = [];
+  let totalCount = 0;
+  let lineNumber = 0;
+  const errors: Array<{ line: number; error: string }> = [];
+
+  try {
+    for await (const line of rl) {
+      lineNumber++;
+      const trimmed = line.trim();
+      if (trimmed.length === 0) continue;
+
+      if (trimmed.length > MAX_LINE_SIZE) {
+        errors.push({ line: lineNumber, error: `Line exceeds ${MAX_LINE_SIZE} bytes` });
+        if (errors.length >= MAX_ERRORS) {
+          res.status(400).json({ error: `Too many malformed lines (${MAX_ERRORS})`, errors: errors.slice(0, 10) });
+          rl.close();
+          return;
+        }
+        continue;
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        errors.push({ line: lineNumber, error: 'Invalid JSON' });
+        if (errors.length >= MAX_ERRORS) {
+          res.status(400).json({ error: `Too many malformed lines (${MAX_ERRORS})`, errors: errors.slice(0, 10) });
+          rl.close();
+          return;
+        }
+        continue;
+      }
+
+      // First line is the preamble with metadata
+      if (!preambleParsed) {
+        preambleParsed = true;
+
+        if (!parsed._meta) {
+          res.status(400).json({ error: 'First NDJSON line must be a preamble with _meta: true' });
+          rl.close();
+          return;
+        }
+
+        scanId = parsed.scanId as string || '';
+        const ingestToken = parsed.ingestToken as string || '';
+        finalize = parsed.finalize !== undefined ? parsed.finalize === true : true;
+
+        if (!scanId || !isValidScanId(scanId)) {
+          res.status(400).json({ error: 'Preamble scanId is required and must be valid' });
+          rl.close();
+          return;
+        }
+
+        scan = await database.getScanById(scanId);
+        if (!scan) {
+          res.status(404).json({ error: `Scan ${scanId} not found` });
+          rl.close();
+          return;
+        }
+
+        const expectedToken = await database.getIngestToken(scanId);
+        if (!expectedToken || expectedToken !== ingestToken) {
+          res.status(403).json({ error: 'Invalid ingest token' });
+          rl.close();
+          return;
+        }
+
+        continue;
+      }
+
+      // Subsequent lines are findings
+      const mapped = service.mapRawFindingPublic(
+        parsed as IngestFinding,
+        (parsed.host as string) || 'unknown',
+        scanId,
+      );
+      batch.push(mapped);
+      metadataBatch.push(parsed);
+      totalCount++;
+
+      if (batch.length >= BATCH_SIZE) {
+        await database.saveFindingsForScan(scanId, batch);
+        try {
+          const records = buildRuleMetadataRecords(metadataBatch);
+          await database.upsertRuleMetadata(records);
+        } catch (metaErr) {
+          logger.warn(`Rule metadata upsert failed for batch: ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+        }
+        batch = [];
+        metadataBatch = [];
+      }
+    }
+  } catch (streamErr) {
+    logger.warn(`NDJSON stream interrupted for scan ${scanId} after ${totalCount} findings: ${streamErr}`);
+    if (batch.length > 0) {
+      try { await database.saveFindingsForScan(scanId, batch); } catch { /* best effort */ }
+    }
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Stream interrupted', findingsCommitted: totalCount });
+    }
+    return;
+  }
+
+  if (!preambleParsed) {
+    res.status(400).json({ error: 'Empty NDJSON body — no preamble line received' });
+    return;
+  }
+
+  // Flush remaining batch
+  if (batch.length > 0) {
+    await database.saveFindingsForScan(scanId, batch);
+    try {
+      const records = buildRuleMetadataRecords(metadataBatch);
+      await database.upsertRuleMetadata(records);
+    } catch (metaErr) {
+      logger.warn(`Rule metadata upsert failed for final batch: ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+    }
+  }
+
+  if (finalize && scan) {
+    await finalizeIngest(database, logger, scanId, scan);
+  }
+
+  logger.info(`Streamed ${totalCount} findings for scan ${scanId} via NDJSON (errors=${errors.length}, finalize=${finalize})`);
+  res.status(201).json({
+    scanId,
+    findingsCount: totalCount,
+    ...(errors.length > 0 ? { warningCount: errors.length, errors: errors.slice(0, 10) } : {}),
   });
 }

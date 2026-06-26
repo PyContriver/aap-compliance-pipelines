@@ -161,10 +161,9 @@
       when: _grype_result_files.files | length == 0
 
     # Normalize each host's Grype results individually (ADR-030).
-    # When backstage_api_url is set, compose_post_body writes a second
-    # .post.json file containing the complete API request body. The POST
-    # task then streams this file via uri+src — zero findings data in
-    # Ansible's Jinja2 variable space (ADR-033).
+    # compose_post_body writes an NDJSON file (preamble + one finding
+    # per line). The POST task streams it via uri+src with content-type
+    # negotiation on the /findings/ingest endpoint (ADR-034).
     - name: Normalize Grype results to CFF (per-host)
       security.compliance_supply_chain.normalize_cyclonedx:
         grype_files:
@@ -173,6 +172,7 @@
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"
         compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
+        post_body_format: ndjson
         scan_id: "{{ scan_id | default('') }}"
         ingest_token: "{{ ingest_token | default('') }}"
         finalize: "{{ ansible_loop.last | default(false) }}"
@@ -232,28 +232,28 @@
       failed_when: false
       when: backstage_api_url | default('') | length > 0
 
-    # ── Stream POST bodies to Backstage plugin API (ADR-033) ─────────
-    # The normalizer composed .post.json files containing the complete
-    # request body. uri+src streams each file directly — no lookup(),
-    # no from_json, no findings in Jinja2 variable space.
+    # ── Stream NDJSON to Backstage plugin API (ADR-034) ────────────────
+    # The normalizer composed .ndjson files (preamble + one finding per
+    # line). uri+src streams each file, the backend parses line-by-line
+    # in batches of 500 — peak memory ~500KB instead of 72MB.
 
-    - name: Find per-host POST body files
+    - name: Find per-host NDJSON files
       ansible.builtin.find:
         paths: "{{ grype_results_dir }}"
-        patterns: "*.post.json"
+        patterns: "*.ndjson"
       register: _post_body_files
       when: backstage_api_url | default('') | length > 0
 
-    - name: POST findings per-host to Backstage compliance API
+    - name: Stream NDJSON findings per-host to Backstage compliance API
       ansible.builtin.uri:
         url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
         method: POST
         src: "{{ item.path }}"
         headers:
-          Content-Type: application/json
+          Content-Type: application/x-ndjson
         status_code: [201]
         validate_certs: false
-        timeout: 120
+        timeout: 300
       loop: "{{ _post_body_files.files | default([]) | sort(attribute='path') }}"
       loop_control:
         label: "{{ item.path | basename }}"

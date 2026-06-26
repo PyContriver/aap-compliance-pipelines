@@ -347,18 +347,27 @@ def run_normalize(module):
         with open(output_file, 'w') as f:
             json.dump(report, f, indent=2)
 
+    post_body_format = module.params.get('post_body_format', 'ndjson')
+
     post_file = ''
     if compose_post_body and not scan_id:
         module.warn("compose_post_body is true but scan_id is empty — skipping POST body composition")
-    if compose_post_body and scan_id:
-        post_file = output_file + '.post.json'
-        post_body = {
-            'scanId': scan_id,
-            'ingestToken': ingest_token,
-            'findings': all_findings,
-            'finalize': finalize,
-        }
-        if not module.check_mode:
+    if compose_post_body and scan_id and not module.check_mode:
+        if post_body_format == 'ndjson':
+            post_file = output_file + '.ndjson'
+            with open(post_file, 'w') as f:
+                preamble = {'_meta': True, 'scanId': scan_id, 'ingestToken': ingest_token, 'finalize': finalize}
+                f.write(json.dumps(preamble, separators=(',', ':')) + '\n')
+                for finding in all_findings:
+                    f.write(json.dumps(finding, separators=(',', ':')) + '\n')
+        else:
+            post_file = output_file + '.post.json'
+            post_body = {
+                'scanId': scan_id,
+                'ingestToken': ingest_token,
+                'findings': all_findings,
+                'finalize': finalize,
+            }
             with open(post_file, 'w') as f:
                 json.dump(post_body, f)
 
@@ -386,6 +395,8 @@ ARGUMENT_SPEC = {
     'scan_id': {'type': 'str', 'required': False, 'default': ''},
     'ingest_token': {'type': 'str', 'required': False, 'default': '', 'no_log': True},
     'finalize': {'type': 'bool', 'required': False, 'default': False},
+    'post_body_format': {'type': 'str', 'required': False, 'default': 'ndjson',
+                         'choices': ['json', 'ndjson']},
 }
 
 

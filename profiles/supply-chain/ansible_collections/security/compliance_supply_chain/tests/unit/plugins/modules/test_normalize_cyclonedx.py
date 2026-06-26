@@ -250,6 +250,7 @@ def _make_mock_module(params, check_mode=False):
         'scan_id': '',
         'ingest_token': '',
         'finalize': False,
+        'post_body_format': 'ndjson',
     }
     defaults.update(params)
     module.params = defaults
@@ -320,7 +321,7 @@ class TestRunNormalizeSlimReturn:
 
 
 class TestComposePostBody:
-    """Tests for compose_post_body=True file generation."""
+    """Tests for compose_post_body=True with post_body_format='json'."""
 
     def test_post_file_created(self):
         filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
@@ -331,6 +332,7 @@ class TestComposePostBody:
             'grype_files': [filepath],
             'output_file': output_file,
             'compose_post_body': True,
+            'post_body_format': 'json',
             'scan_id': 'scan-123',
             'ingest_token': 'tok-secret',
             'finalize': True,
@@ -350,6 +352,7 @@ class TestComposePostBody:
             'grype_files': [filepath],
             'output_file': output_file,
             'compose_post_body': True,
+            'post_body_format': 'json',
             'scan_id': 'scan-456',
             'ingest_token': 'tok-abc',
             'finalize': False,
@@ -374,6 +377,7 @@ class TestComposePostBody:
             'grype_files': [filepath],
             'output_file': output_file,
             'compose_post_body': True,
+            'post_body_format': 'json',
             'scan_id': 'scan-fin',
             'ingest_token': 'tok',
             'finalize': True,
@@ -398,6 +402,7 @@ class TestComposePostBody:
         run_normalize(module)
 
         assert not os.path.exists(output_file + '.post.json')
+        assert not os.path.exists(output_file + '.ndjson')
         assert 'post_file' not in module._exit_kwargs
 
     def test_no_post_file_when_disabled(self):
@@ -414,6 +419,7 @@ class TestComposePostBody:
         run_normalize(module)
 
         assert not os.path.exists(output_file + '.post.json')
+        assert not os.path.exists(output_file + '.ndjson')
         assert 'post_file' not in module._exit_kwargs
 
     def test_check_mode_no_files_written(self):
@@ -425,6 +431,7 @@ class TestComposePostBody:
             'grype_files': [filepath],
             'output_file': output_file,
             'compose_post_body': True,
+            'post_body_format': 'json',
             'scan_id': 'scan-chk',
             'ingest_token': 'tok',
             'finalize': False,
@@ -445,6 +452,7 @@ class TestComposePostBody:
             'grype_files': [filepath],
             'output_file': output_file,
             'compose_post_body': True,
+            'post_body_format': 'json',
             'scan_id': 'scan-empty',
             'ingest_token': 'tok',
             'finalize': True,
@@ -455,6 +463,139 @@ class TestComposePostBody:
             body = json.load(f)
         assert body['findings'] == []
         assert body['finalize'] is True
+
+
+class TestComposeNdjson:
+    """Tests for compose_post_body=True with post_body_format='ndjson' (default)."""
+
+    def test_ndjson_file_created(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-host1.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-ndj',
+            'ingest_token': 'tok',
+            'finalize': False,
+        })
+        run_normalize(module)
+
+        ndjson_file = output_file + '.ndjson'
+        assert os.path.exists(ndjson_file)
+        assert module._exit_kwargs['post_file'] == ndjson_file
+
+    def test_ndjson_preamble_structure(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-host1.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-pre',
+            'ingest_token': 'tok-pre',
+            'finalize': True,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            lines = f.readlines()
+
+        preamble = json.loads(lines[0])
+        assert preamble['_meta'] is True
+        assert preamble['scanId'] == 'scan-pre'
+        assert preamble['ingestToken'] == 'tok-pre'
+        assert preamble['finalize'] is True
+
+    def test_ndjson_one_finding_per_line(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-host1.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-lines',
+            'ingest_token': 'tok',
+            'finalize': False,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            lines = [l.strip() for l in f.readlines() if l.strip()]
+
+        assert len(lines) == 2  # 1 preamble + 1 finding
+        finding = json.loads(lines[1])
+        assert finding['rule_id'] == 'CVE-2026-12345'
+        assert finding['status'] == 'fail'
+
+    def test_ndjson_compact_json(self):
+        filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-compact',
+            'ingest_token': 'tok',
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            line = f.readlines()[1]
+        assert '": "' not in line  # compact separators use ":" not ": "
+
+    def test_ndjson_empty_findings(self):
+        data = {'matches': [], 'descriptor': {}}
+        filepath = _write_grype_file(data, 'clean')
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings-clean.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-empty-ndj',
+            'ingest_token': 'tok',
+            'finalize': True,
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            lines = [l.strip() for l in f.readlines() if l.strip()]
+        assert len(lines) == 1  # preamble only
+        preamble = json.loads(lines[0])
+        assert preamble['finalize'] is True
+
+    def test_ndjson_line_count_matches_findings(self):
+        match2 = dict(SAMPLE_GRYPE_MATCH)
+        match2 = {**match2, 'vulnerability': {**match2['vulnerability'], 'id': 'CVE-2026-99999'}}
+        match2 = {**match2, 'artifact': {**match2['artifact'], 'name': 'curl', 'version': '7.76.1'}}
+        data = {'matches': [SAMPLE_GRYPE_MATCH, match2], 'descriptor': {}}
+        filepath = _write_grype_file(data)
+        tmpdir = os.path.dirname(filepath)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [filepath],
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-count',
+            'ingest_token': 'tok',
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            lines = [l.strip() for l in f.readlines() if l.strip()]
+        assert len(lines) == 3  # 1 preamble + 2 findings
+        assert module._exit_kwargs['total_findings'] == 2
 
 
 class TestArgumentSpec:
@@ -474,3 +615,9 @@ class TestArgumentSpec:
     def test_finalize_param(self):
         assert ARGUMENT_SPEC['finalize']['type'] == 'bool'
         assert ARGUMENT_SPEC['finalize']['default'] is False
+
+    def test_post_body_format_param(self):
+        assert ARGUMENT_SPEC['post_body_format']['type'] == 'str'
+        assert ARGUMENT_SPEC['post_body_format']['default'] == 'ndjson'
+        assert 'json' in ARGUMENT_SPEC['post_body_format']['choices']
+        assert 'ndjson' in ARGUMENT_SPEC['post_body_format']['choices']
