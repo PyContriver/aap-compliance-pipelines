@@ -14,6 +14,7 @@ async function testRequest(
     method?: string;
     path: string;
     body?: unknown;
+    rawBody?: string;
     headers?: Record<string, string>;
   },
 ): Promise<{ status: number; body: unknown }> {
@@ -28,7 +29,9 @@ async function testRequest(
   };
 
   let bodyStr: string | undefined;
-  if (options.body !== undefined) {
+  if (options.rawBody !== undefined) {
+    bodyStr = options.rawBody;
+  } else if (options.body !== undefined) {
     bodyStr = JSON.stringify(options.body);
     headers['content-type'] = 'application/json';
   }
@@ -1729,6 +1732,210 @@ describe('compliance backend router', () => {
       });
       expect(res.status).toBe(403);
       expect((res.body as any).error).toMatch(/Invalid ingest token/);
+    });
+  });
+
+  // ─── POST /findings/ingest (NDJSON streaming, ADR-034) ─────────────
+
+  describe('POST /findings/ingest (NDJSON)', () => {
+    const SCAN_RECORD = {
+      id: 'scan-ndj',
+      profileId: 'supply-chain',
+      inventoryId: 1,
+      scanner: 'syft-grype',
+      scanType: 'assessment' as const,
+      workflowJobId: 99,
+      status: 'running' as const,
+      startedAt: '2026-06-26T00:00:00.000Z',
+      completedAt: null,
+      errorDetails: null,
+    };
+
+    function ndjson(...lines: unknown[]): string {
+      return lines.map(l => JSON.stringify(l)).join('\n') + '\n';
+    }
+
+    it('returns 201 for valid NDJSON stream', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('tok-valid');
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
+
+      const body = ndjson(
+        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok-valid', finalize: false },
+        { rule_id: 'CVE-1', status: 'fail', host: 'web01' },
+        { rule_id: 'CVE-2', status: 'fail', host: 'web01' },
+      );
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(201);
+      expect((res.body as any).findingsCount).toBe(2);
+      expect((res.body as any).scanId).toBe('scan-ndj');
+    });
+
+    it('returns 400 when preamble lacks _meta', async () => {
+      const { app } = await createApp();
+      const body = ndjson(
+        { scanId: 'scan-ndj', ingestToken: 'tok' },
+        { rule_id: 'CVE-1', status: 'fail' },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(400);
+      expect((res.body as any).error).toMatch(/_meta/);
+    });
+
+    it('returns 400 for empty NDJSON body', async () => {
+      const { app } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: '',
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(400);
+      expect((res.body as any).error).toMatch(/preamble/i);
+    });
+
+    it('returns 404 when scan not found', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(null);
+
+      const body = ndjson(
+        { _meta: true, scanId: 'nonexistent', ingestToken: 'tok' },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 403 when ingest token is wrong', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('correct-token');
+
+      const body = ndjson(
+        { _meta: true, scanId: 'scan-ndj', ingestToken: 'wrong-token' },
+      );
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it('skips malformed JSON lines and reports warnings', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('tok');
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
+
+      const body = [
+        JSON.stringify({ _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: false }),
+        'this is not json',
+        JSON.stringify({ rule_id: 'CVE-1', status: 'fail', host: 'web01' }),
+        '{broken json',
+        JSON.stringify({ rule_id: 'CVE-2', status: 'fail', host: 'web01' }),
+      ].join('\n') + '\n';
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(201);
+      expect((res.body as any).findingsCount).toBe(2);
+      expect((res.body as any).warningCount).toBe(2);
+    });
+
+    it('finalizes scan when finalize is true in preamble', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('tok');
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
+      (db.getFindingsByScanId as jest.Mock).mockResolvedValue([]);
+
+      const body = ndjson(
+        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: true },
+        { rule_id: 'CVE-1', status: 'fail', host: 'web01' },
+      );
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(201);
+      expect(db.updateScanStatus).toHaveBeenCalledWith('scan-ndj', 'completed', expect.any(String));
+    });
+
+    it('does NOT finalize when finalize is false', async () => {
+      const { app, database: db, service } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('tok');
+      (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
+
+      const body = ndjson(
+        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: false },
+        { rule_id: 'CVE-1', status: 'fail', host: 'web01' },
+      );
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(201);
+      expect(db.updateScanStatus).not.toHaveBeenCalled();
+    });
+
+    it('returns 201 with 0 findings when only preamble is sent', async () => {
+      const { app, database: db } = await createApp();
+      (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
+      (db.getIngestToken as jest.Mock).mockResolvedValueOnce('tok');
+      (db.getFindingsByScanId as jest.Mock).mockResolvedValue([]);
+
+      const body = ndjson(
+        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: true },
+      );
+
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        rawBody: body,
+        headers: { 'content-type': 'application/x-ndjson' },
+      });
+      expect(res.status).toBe(201);
+      expect((res.body as any).findingsCount).toBe(0);
+      expect(db.updateScanStatus).toHaveBeenCalled();
+    });
+
+    it('falls through to JSON handler when content-type is application/json', async () => {
+      const { app, database: db } = await createApp();
+      const res = await testRequest(app, {
+        method: 'POST',
+        path: '/findings/ingest',
+        body: { scanId: 'scan-1', findings: [] },
+      });
+      expect(res.status).toBe(404);
     });
   });
 
