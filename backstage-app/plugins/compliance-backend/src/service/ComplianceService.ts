@@ -244,6 +244,8 @@ export class ComplianceService {
     // backstage_api_url and scan_id enable the playbook to POST findings
     // directly to the plugin API after normalization (Direct POST pattern).
     const backstageUrl = this.config?.getOptionalString('backend.baseUrl') || '';
+    const pahRegistry = this.config?.getOptionalString('compliance.pahRegistry')
+      || process.env.AAP_HOST_URL?.replace(/^https?:\/\//, '') || '';
     const extraVars: Record<string, unknown> = {
       compliance_profile: request.profileId,
       inventory_id: request.inventoryId,
@@ -251,6 +253,9 @@ export class ComplianceService {
       scan_id: scanId || '',
       ingest_token: ingestToken || '',
       _gather_facts: request.gatherFacts || false,
+      pah_registry: pahRegistry,
+      pah_username: process.env.AAP_REGISTRY_USER || '',
+      pah_password: process.env.AAP_REGISTRY_PASSWORD || '',
     };
 
     // ── Launch the workflow ──────────────────────────────────────────

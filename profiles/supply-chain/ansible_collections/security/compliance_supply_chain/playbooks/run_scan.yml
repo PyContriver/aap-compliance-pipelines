@@ -199,15 +199,20 @@
         cmd: >-
           oras push {{ pah_registry | default('aap-netrunner.demoredhat.com') }}/compliance-artifacts/{{ scan_id }}:sbom-{{ _hostname }}
           {{ fetch_dest_dir }}/sbom-{{ _hostname }}.json:application/vnd.cyclonedx+json
-          --plain-http
+          --insecure
+          --username {{ pah_username | default('') }}
+          --password {{ pah_password | default('') }}
       vars:
         _hostname: "{{ item.path | basename | regex_replace('sbom-(.+)\\.json', '\\1') }}"
       loop: "{{ _sbom_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+      no_log: true
       changed_when: false
       failed_when: false
-      when: backstage_api_url | default('') | length > 0
+      when:
+        - backstage_api_url | default('') | length > 0
+        - pah_username | default('') | length > 0
 
     - name: Register SBOM artifacts in compliance backend
       ansible.builtin.uri:
