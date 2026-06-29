@@ -190,14 +190,19 @@ async function finalizeIngest(
 ): Promise<void> {
   await database.updateScanStatus(scanId, 'completed', new Date().toISOString());
 
-  const allFindings = await database.getFindingsByScanId(scanId);
-  const uniqueRules = new Set(allFindings.map(f => f.ruleId)).size;
+  const uniqueRules = await database.getDistinctRuleCountForScan(scanId);
   if (uniqueRules > 0) {
     await database.updateProfileRuleCount(scan.profileId, uniqueRules);
   }
 
   try {
-    await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id);
+    const allFindings = await database.getFindingsByScanId(scanId);
+    const profile = await database.getProfile(scan.profileId);
+    const scoreFormula = profile?.displayConfig?.score_formula;
+    const freshScan = await database.getScanById(scanId);
+    const scanMetadata = freshScan?.scanMetadata as { totalPackages?: number } | null;
+    await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id,
+      { scoreFormula, scanMetadata });
   } catch (err) {
     logger.debug(`Posture snapshot failed for scan ${scanId}: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -377,6 +382,15 @@ async function handleNdjsonIngest(
           res.status(403).json({ error: 'Invalid ingest token' });
           rl.close();
           return;
+        }
+
+        const preambleTotalPackages = parsed.totalPackages as number | undefined;
+        const preambleTotalVulnerabilities = parsed.totalVulnerabilities as number | undefined;
+        if (preambleTotalPackages !== undefined || preambleTotalVulnerabilities !== undefined) {
+          await database.updateScanMetadata(scanId, {
+            ...(preambleTotalPackages !== undefined ? { totalPackages: preambleTotalPackages } : {}),
+            ...(preambleTotalVulnerabilities !== undefined ? { totalVulnerabilities: preambleTotalVulnerabilities } : {}),
+          });
         }
 
         continue;

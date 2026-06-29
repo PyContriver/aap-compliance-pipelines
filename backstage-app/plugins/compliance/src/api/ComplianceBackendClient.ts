@@ -425,6 +425,20 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
+  async disconnectProfile(profileId: string) {
+    const aapToken = await this.getAapToken();
+    return this.request<void>('/compliance-profiles/disconnect', {
+      method: 'POST',
+      body: { profileId },
+      aapToken,
+    });
+  }
+
+  async getProfileTabData(profileId: string) {
+    const aapToken = await this.getAapToken();
+    return this.request<{ findings: Array<Record<string, unknown>>; summary: { totalPackages: number; totalVulnerabilities: number; fixable: number; unfixable: number; hostsAffected: number; criticalHigh: number }; hostRisk: Array<{ hostname: string; critical: number; medium: number; low: number; total: number; score: number }> }>(`/profile-tab-data/${encodeURIComponent(profileId)}`, { aapToken });
+  }
+
   async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
     return this.request(`/job-templates/${id}`);
   }

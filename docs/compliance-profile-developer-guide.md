@@ -657,10 +657,17 @@ All normalizer modules (both XCCDF and CycloneDX) accept the following parameter
 | `finalize` | `bool` | `false` | Whether this is the last POST for the scan (triggers completion) |
 | `post_body_format` | `str` | `'ndjson'` | Output format: `'ndjson'` (recommended) or `'json'` (legacy) |
 
+The NDJSON `_meta` preamble line also supports optional scanner-specific population counts:
+
+| Preamble Field | Type | Description |
+|----------------|------|-------------|
+| `totalPackages` | `int` | Total unique packages scanned (used as denominator for `vulnerability_free_rate`) |
+| `totalVulnerabilities` | `int` | Total unique CVEs found |
+
 When `compose_post_body` is true and `post_body_format` is `'ndjson'` (the default), the normalizer writes a `.ndjson` file containing a preamble line followed by one finding per line:
 
 ```
-{"_meta":true,"scanId":"scan-123","ingestToken":"<token>","finalize":true}
+{"_meta":true,"scanId":"scan-123","ingestToken":"<token>","finalize":true,"totalPackages":245,"totalVulnerabilities":12}
 {"rule_id":"CVE-2024-1234","title":"curl: buffer overflow","status":"fail","severity":"high",...}
 {"rule_id":"CVE-2024-5678","title":"openssl: timing attack","status":"fail","severity":"medium",...}
 ```
@@ -1770,7 +1777,7 @@ The `score_formula` field controls how the main gauge percentage is computed. If
 | Formula | Computation | Use Case |
 |---------|------------|----------|
 | `compliance_rate` | `pass / (pass + fail)` | STIG, CIS — measures rule pass rate |
-| `vulnerability_free_rate` | `(total - fail) / total` | Supply chain — measures packages without CVEs |
+| `vulnerability_free_rate` | `(totalPackages - packagesWithCVEs) / totalPackages` | Supply chain — measures packages without CVEs. `totalPackages` is passed via the NDJSON preamble `_meta` line and stored in `scan_metadata`. |
 
 The formula is applied consistently across the dashboard overview gauges, scan results gauges, contributing scan rates, and baseline comparisons. Both the backend (`DashboardAggregator`) and frontend (`useDisplayConfig.computeScore`) read the formula from the stored profile display config.
 
@@ -1918,7 +1925,7 @@ Displays a single metric with a progress bar. Suitable for the primary KPI of yo
 | Value | Computation |
 |-------|-------------|
 | `compliance_rate` | Percentage of findings with zero failures. |
-| `vulnerability_free_rate` | Same computation as `compliance_rate` -- alias for supply chain terminology. |
+| `vulnerability_free_rate` | Percentage of packages without CVEs: `(totalPackages - CVEs) / totalPackages`. Requires `totalPackages` in the NDJSON preamble `_meta` line. |
 | `finding_count` | Count of findings with at least one failure. |
 | *(omitted)* | Total number of findings. |
 
@@ -1971,6 +1978,39 @@ A table showing per-host pass/fail counts, sorted by failing count (worst hosts 
 | `title` | `string` | `"Hosts"` | Table heading. |
 
 This widget iterates all host-level results across all findings and aggregates pass/fail counts per hostname.
+
+##### `score_grid`
+
+A horizontal row of 5 color-coded KPI cards showing pre-aggregated summary statistics. Data is fetched server-side via `/profile-tab-data/:profileId` — no client-side findings iteration. Card labels are configurable via `labels`.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | none | Section heading. |
+| `labels` | `Record<string, string>` | see below | Override card labels. Keys: `total`, `active`, `critical`, `fixable`, `hosts`. |
+
+Default labels: "Total Packages", "Active CVEs", "Critical / High", "Fixable", "Hosts Affected". Override via `labels` for non-supply-chain profiles.
+
+##### `action_table`
+
+Two-panel remediation triage view: **Fix Available** (CVEs with vendor patches, checkboxes + Patch buttons) and **No Fix / Monitor** (CVEs without fixes, read-only). Data is server-side pre-aggregated. Tables are capped at 50 rows each.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | none | Section heading. |
+| `fixable_label` | `string` | `"Fix Available"` | Chip label for the fixable panel. |
+| `unfixable_label` | `string` | `"No Fix / Monitor"` | Chip label for the unfixable panel. |
+| `labels` | `Record<string, string>` | see below | Column header overrides. Keys: `cve`, `package`, `installed`, `fix_version`, `severity`. |
+
+Actions: single-row "Patch" launches a quick remediation. Multi-select "Build Remediation (N)" navigates to the RemediationProfileBuilder with pre-selected rules.
+
+##### `host_risk_heatmap`
+
+Hosts sorted by weighted risk score: `(Critical × 10) + (High × 5) + (Medium × 1)`. Each row shows hostname, risk score (color-coded), finding count, and a progress bar (red=vulnerable, green=clean). Data is server-side pre-computed, capped at 50 hosts.
+
+| Config Field | Type | Default | Description |
+|--------------|------|---------|-------------|
+| `title` | `string` | none | Section heading. |
+| `labels` | `Record<string, string>` | `{ findings: "Findings" }` | Override column labels. |
 
 #### Widget Rendering Order
 

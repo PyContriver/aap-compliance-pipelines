@@ -19,6 +19,7 @@ async function createTables(database: Knex): Promise<void> {
     table.timestamp('completed_at').nullable();
     table.string('ingest_token').nullable();
     table.text('error_details').nullable();
+    table.text('scan_metadata').nullable();
   });
 
   await database.schema.createTable('compliance_findings', table => {

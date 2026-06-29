@@ -114,7 +114,7 @@ const ComplianceRouter = () => {
     api.getRegisteredProfiles().then(profiles => {
       if (cancelled) return;
       const tabs: DynamicTabEntry[] = profiles
-        .filter(p => p.displayConfig?.tab)
+        .filter(p => p.displayConfig?.tab && p.connectionStatus !== 'disconnected')
         .map(p => ({
           id: `profile-${p.id}`,
           label: p.displayConfig!.tab!.label,

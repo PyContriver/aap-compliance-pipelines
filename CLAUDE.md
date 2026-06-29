@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 22 suites (597 tests)
+yarn test             # Run tests across 22 suites (609 tests)
 yarn build            # Build all packages
 ```
 
@@ -92,6 +92,8 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
 - 161 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 597 backend/frontend tests across 22 suites
 - 34 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 9 Tier 1 widget types for dynamic tabs: `summary_card`, `severity_breakdown`, `findings_table`, `trend_chart`, `gauge`, `host_breakdown`, `score_grid`, `action_table`, `host_risk_heatmap`
+- `scan_metadata` JSON column on `compliance_scans` stores scanner population counts (totalPackages) for vulnerability-free-rate scoring
 - EE images hosted in PAH (`aap-netrunner.demoredhat.com/compliance-*:latest`), built via GitHub Actions and mirrored with skopeo (ADR-031)
 - Normalizer playbooks MUST loop per-host to prevent OOM on execution nodes (ADR-030)
 - Normalizer modules SHOULD use `compose_post_body` + `uri src` to stream findings to the API without loading them into Jinja2 variable space (ADR-033). Default format is NDJSON (`post_body_format: 'ndjson'`) with content-type negotiation on the ingest endpoint (ADR-034)

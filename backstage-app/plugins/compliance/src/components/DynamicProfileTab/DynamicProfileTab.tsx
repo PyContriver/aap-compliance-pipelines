@@ -13,54 +13,117 @@ import {
   HostBreakdownWidget,
   GaugeWidget,
 } from './widgets';
+import { ScoreGridWidget } from './ScoreGridWidget';
+import { ActionTableWidget } from './ActionTableWidget';
+import { HostRiskHeatmapWidget } from './HostRiskHeatmapWidget';
 
 interface DynamicProfileTabProps {
   profile: ComplianceProfile;
   tabConfig: TabConfig;
 }
 
+interface TabData {
+  findings: Array<Record<string, unknown>>;
+  summary: {
+    totalPackages: number;
+    totalVulnerabilities: number;
+    fixable: number;
+    unfixable: number;
+    hostsAffected: number;
+    criticalHigh: number;
+  };
+  hostRisk: Array<{
+    hostname: string;
+    critical: number;
+    medium: number;
+    low: number;
+    total: number;
+    score: number;
+  }>;
+}
+
 export const DynamicProfileTab = ({ profile, tabConfig }: DynamicProfileTabProps) => {
   const api = useApi(complianceApiRef);
   const displayConfig = useDisplayConfig(profile.displayConfig);
   const [findings, setFindings] = useState<MultiHostFinding[]>([]);
+  const [tabData, setTabData] = useState<TabData | null>(null);
+  const [scanMeta, setScanMeta] = useState<{ totalPackages?: number; totalVulnerabilities?: number } | undefined>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const hasNewWidgets = (tabConfig.layout ?? []).some(
+    w => w.widget === 'score_grid' || w.widget === 'action_table' || w.widget === 'host_risk_heatmap',
+  );
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
 
-    api.getScans().then(scans => {
-      if (cancelled) return;
-      const profileScans = scans
-        .filter(s => s.profileId === profile.id && s.status === 'completed')
-        .sort((a, b) => new Date(b.completedAt ?? b.startedAt).getTime() - new Date(a.completedAt ?? a.startedAt).getTime());
-
-      if (profileScans.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const latestScan = profileScans[0];
-      const jobId = String(latestScan.workflowJobId ?? latestScan.id);
-
-      api.getFindings(jobId).then(f => {
-        if (!cancelled) {
-          setFindings(f);
-          setLoading(false);
+    const loadData = async () => {
+      try {
+        if (hasNewWidgets) {
+          const data = await api.getProfileTabData(profile.id);
+          if (cancelled) return;
+          setTabData(data);
+          setScanMeta({ totalPackages: data.summary.totalPackages, totalVulnerabilities: data.summary.totalVulnerabilities });
         }
-      }).catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    }).catch(() => {
-      if (!cancelled) setLoading(false);
-    });
 
+        const hasLegacyWidgets = (tabConfig.layout ?? []).some(
+          w => !['score_grid', 'action_table', 'host_risk_heatmap'].includes(w.widget),
+        );
+        if (hasLegacyWidgets) {
+          const scans = await api.getScans();
+          if (cancelled) return;
+          const profileScans = scans
+            .filter(s => s.profileId === profile.id && s.status === 'completed' && s.scanner !== 'remediation')
+            .sort((a, b) => new Date(b.completedAt ?? b.startedAt).getTime() - new Date(a.completedAt ?? a.startedAt).getTime());
+
+          if (profileScans.length > 0) {
+            const latestScan = profileScans[0];
+            const jobId = String(latestScan.workflowJobId ?? latestScan.id);
+            const [f, stats] = await Promise.all([
+              api.getFindings(jobId),
+              api.getBatchScanStats([latestScan.id]),
+            ]);
+            if (cancelled) return;
+            setFindings(f);
+            const s = stats[latestScan.id];
+            if (s?.totalPackages !== undefined) {
+              setScanMeta(prev => prev ?? { totalPackages: s.totalPackages, totalVulnerabilities: s.totalVulnerabilities });
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load tab data');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadData();
     return () => { cancelled = true; };
-  }, [api, profile.id]);
+  }, [api, profile.id, hasNewWidgets, tabConfig.layout]);
 
   if (loading) return <Progress />;
 
-  if (findings.length === 0) {
+  if (error) {
+    return (
+      <Box p={4} textAlign="center">
+        <Typography variant="h6" color="error">
+          Failed to load data
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
+
+  const noData = findings.length === 0 && (!tabData || tabData.findings.length === 0);
+  if (noData) {
     return (
       <Box p={4} textAlign="center">
         <Typography variant="h6" color="textSecondary">
@@ -82,25 +145,32 @@ export const DynamicProfileTab = ({ profile, tabConfig }: DynamicProfileTabProps
       </Typography>
       {layout.map((widgetConfig, index) => {
         const key = `${widgetConfig.widget}-${index}`;
-        const props = {
+        const legacyProps = {
           config: widgetConfig,
           findings,
           severityLabel: displayConfig.severityLabel,
+          scanMeta,
         };
 
         switch (widgetConfig.widget) {
           case 'summary_card':
-            return <SummaryCardWidget key={key} {...props} />;
+            return <SummaryCardWidget key={key} {...legacyProps} />;
           case 'severity_breakdown':
-            return <SeverityBreakdownWidget key={key} {...props} />;
+            return <SeverityBreakdownWidget key={key} {...legacyProps} />;
           case 'findings_table':
-            return <FindingsTableWidget key={key} {...props} />;
+            return <FindingsTableWidget key={key} {...legacyProps} />;
           case 'trend_chart':
-            return <TrendChartWidget key={key} {...props} />;
+            return <TrendChartWidget key={key} {...legacyProps} />;
           case 'host_breakdown':
-            return <HostBreakdownWidget key={key} {...props} />;
+            return <HostBreakdownWidget key={key} {...legacyProps} />;
           case 'gauge':
-            return <GaugeWidget key={key} {...props} />;
+            return <GaugeWidget key={key} {...legacyProps} />;
+          case 'score_grid':
+            return <ScoreGridWidget key={key} config={widgetConfig} tabData={tabData} />;
+          case 'action_table':
+            return <ActionTableWidget key={key} config={widgetConfig} tabData={tabData} profile={profile} severityLabel={displayConfig.severityLabel} />;
+          case 'host_risk_heatmap':
+            return <HostRiskHeatmapWidget key={key} config={widgetConfig} tabData={tabData} />;
           default:
             return null;
         }

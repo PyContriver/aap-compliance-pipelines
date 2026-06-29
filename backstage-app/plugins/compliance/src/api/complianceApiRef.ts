@@ -65,7 +65,7 @@ export interface ComplianceApi {
   deleteRemediationProfile(id: string): Promise<void>;
   updateRemediationProfileStatus(id: string, status: RemediationProfileStatus): Promise<RemediationProfile>;
   getRemediationExecutions(profileId: string, limit?: number): Promise<RemediationExecution[]>;
-  getBatchScanStats(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>;
+  getBatchScanStats(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number }>>;
   getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>>;
   getAllRecentExecutions(limit?: number): Promise<RemediationExecution[]>;
   getRemediationExecution(id: string): Promise<RemediationExecution | null>;
@@ -76,6 +76,8 @@ export interface ComplianceApi {
   getRegisteredProfile(id: string): Promise<ComplianceProfile | null>;
   saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
   deleteRegisteredProfile(id: string): Promise<void>;
+  disconnectProfile(profileId: string): Promise<void>;
+  getProfileTabData(profileId: string): Promise<{ findings: Array<Record<string, unknown>>; summary: { totalPackages: number; totalVulnerabilities: number; fixable: number; unfixable: number; hostsAffected: number; criticalHigh: number }; hostRisk: Array<{ hostname: string; critical: number; medium: number; low: number; total: number; score: number }> }>;
   getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }>;
   getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;

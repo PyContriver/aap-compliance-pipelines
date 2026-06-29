@@ -64,14 +64,14 @@
           - { key: "csv", label: "Export as CSV", type: "cff_derived" }
           - { key: "json", label: "Export as JSON", type: "cff_derived" }
           - { key: "sbom-cyclonedx", label: "Export SBOMs (CycloneDX)", description: "Original SBOM files per host in CycloneDX JSON format", type: "artifact", artifact_key: "sbom-*", mime_type: "application/vnd.cyclonedx+json", file_extension: ".cdx.json" }
+        score_formula: "vulnerability_free_rate"
         tab:
           label: "Supply Chain"
           icon: "security"
           layout:
-            - { widget: "summary_card", title: "SBOM Coverage", metric: "vulnerability_free_rate", unit: "packages" }
-            - { widget: "severity_breakdown", group_by: "severity", labels: { CAT_I: "Critical / High", CAT_II: "Medium", CAT_III: "Low" } }
-            - { widget: "findings_table", columns: [{ field: "rule_id", label: "CVE" }, { field: "title", label: "Package" }, { field: "severity", label: "Severity" }, { field: "fix_text", label: "Fix" }] }
-            - { widget: "host_breakdown", title: "Hosts by Vulnerability Count" }
+            - { widget: "score_grid", title: "Vulnerability Overview" }
+            - { widget: "action_table", title: "Remediation Actions", fixable_label: "Fix Available", unfixable_label: "No Fix / Monitor" }
+            - { widget: "host_risk_heatmap", title: "Host Risk" }
 
   tasks:
     - name: Validate required variables

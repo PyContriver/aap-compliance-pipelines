@@ -356,7 +356,14 @@ def run_normalize(module):
         if post_body_format == 'ndjson':
             post_file = output_file + '.ndjson'
             with open(post_file, 'w') as f:
-                preamble = {'_meta': True, 'scanId': scan_id, 'ingestToken': ingest_token, 'finalize': finalize}
+                preamble = {
+                    '_meta': True,
+                    'scanId': scan_id,
+                    'ingestToken': ingest_token,
+                    'finalize': finalize,
+                    'totalPackages': total_packages,
+                    'totalVulnerabilities': len(unique_cves),
+                }
                 f.write(json.dumps(preamble, separators=(',', ':')) + '\n')
                 for finding in all_findings:
                     f.write(json.dumps(finding, separators=(',', ':')) + '\n')

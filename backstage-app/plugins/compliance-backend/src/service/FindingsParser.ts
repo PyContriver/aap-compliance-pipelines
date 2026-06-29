@@ -18,6 +18,10 @@ import type {
 
 import { ComplianceDatabase } from '../database/ComplianceDatabase';
 
+function safeParseEvidence(raw: string): Record<string, unknown> | undefined {
+  try { return JSON.parse(raw); } catch { return undefined; }
+}
+
 // ─── Severity mapping (Track A uses lowercase, stored as CAT_*) ──────
 
 const SEVERITY_MAP: Record<string, string> = {
@@ -158,6 +162,7 @@ export class FindingsParser {
         aapImpact: ((dm?.aapImpact && dm.aapImpact !== 'safe' ? dm.aapImpact : null) || 'safe') as 'safe' | 'caution' | 'breaks-connectivity',
         aapImpactReason: dm?.aapImpactReason || '',
         automationAvailable: !!(dm?.fixText && /^\s*- name:/m.test(dm.fixText)),
+        evidence: entry.finding.evidence ? safeParseEvidence(entry.finding.evidence) : undefined,
         parameters: [],
         hosts: entry.hosts,
         passCount,

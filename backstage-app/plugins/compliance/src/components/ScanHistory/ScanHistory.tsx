@@ -594,7 +594,10 @@ export const ScanHistory = () => {
                     <div className={classes.groupStats}>
                       {latestScan?.stats && (() => {
                         const formula = profileMap.get(group.profileId)?.displayConfig?.score_formula;
-                        const pct = computeGroupScore(latestScan.stats.pass, latestScan.stats.fail, latestScan.stats.pass + latestScan.stats.fail, formula);
+                        const total = formula === 'vulnerability_free_rate' && latestScan.stats.totalPackages
+                          ? latestScan.stats.totalPackages
+                          : latestScan.stats.pass + latestScan.stats.fail;
+                        const pct = computeGroupScore(latestScan.stats.pass, latestScan.stats.fail, total, formula);
                         return (
                           <Chip
                             label={`${pct}% pass`}
@@ -860,9 +863,11 @@ export const ScanHistory = () => {
                     {(() => {
                       const stats = scanStats[scan.id];
                       if (!stats || scan.status !== 'completed') return '--';
-                      const total = stats.pass + stats.fail;
-                      if (total === 0) return '--';
                       const formula = profileMap.get(scan.profileId)?.displayConfig?.score_formula;
+                      const total = formula === 'vulnerability_free_rate' && stats.totalPackages
+                        ? stats.totalPackages
+                        : stats.pass + stats.fail;
+                      if (total === 0) return '--';
                       const pct = computeGroupScore(stats.pass, stats.fail, total, formula);
                       return (
                         <Chip
