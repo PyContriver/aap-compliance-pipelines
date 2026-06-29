@@ -145,7 +145,7 @@ export function registerScanRoutes(
       const allScans = await database.getLatestScanPerProfileInventory();
       const profileScans = allScans.filter(s => s.profileId === profileId);
       if (profileScans.length === 0) {
-        res.json({ findings: [], summary: { totalPackages: 0, totalVulnerabilities: 0, fixable: 0, unfixable: 0, hostsAffected: 0, criticalHigh: 0 }, hostRisk: [] });
+        res.json({ findings: [], summary: { totalPackages: 0, totalVulnerabilities: 0, totalScannedPackages: 0, totalVulnerablePackages: 0, fixable: 0, unfixable: 0, hostsAffected: 0, criticalHigh: 0 }, hostRisk: [] });
         return;
       }
 
@@ -154,6 +154,8 @@ export function registerScanRoutes(
 
       let totalPackages = 0;
       let totalVulnerabilities = 0;
+      let totalScannedPackages = 0;
+      let totalVulnerablePackages = 0;
       let totalFail = 0;
       let totalCriticalHigh = 0;
       for (const sid of scanIds) {
@@ -162,6 +164,8 @@ export function registerScanRoutes(
         totalFail += s.fail;
         if (s.totalPackages) totalPackages += s.totalPackages;
         if (s.totalVulnerabilities) totalVulnerabilities += s.totalVulnerabilities;
+        if (s.totalScannedPackages) totalScannedPackages += s.totalScannedPackages;
+        if (s.totalVulnerablePackages) totalVulnerablePackages += s.totalVulnerablePackages;
       }
 
       const allFindings = await database.getAggregatedFindingsForScans(scanIds, limit);
@@ -196,7 +200,7 @@ export function registerScanRoutes(
 
       res.json({
         findings: allFindings,
-        summary: { totalPackages, totalVulnerabilities, fixable, unfixable, hostsAffected: hostsSet.size, criticalHigh: totalCriticalHigh },
+        summary: { totalPackages, totalVulnerabilities, totalScannedPackages, totalVulnerablePackages, fixable, unfixable, hostsAffected: hostsSet.size, criticalHigh: totalCriticalHigh },
         hostRisk,
       });
     } catch (error) {

@@ -19,6 +19,7 @@ from normalize_cyclonedx import (
     build_fix_text,
     build_evidence,
     run_normalize,
+    count_sbom_packages,
     CVSS_SEVERITY_MAP,
     ARGUMENT_SPEC,
 )
@@ -251,6 +252,7 @@ def _make_mock_module(params, check_mode=False):
         'ingest_token': '',
         'finalize': False,
         'post_body_format': 'ndjson',
+        'sbom_file': '',
     }
     defaults.update(params)
     module.params = defaults
@@ -316,7 +318,8 @@ class TestRunNormalizeSlimReturn:
         result = module._exit_kwargs
         assert result['summary']['total'] == 1
         assert result['summary']['fail'] == 1
-        assert result['total_packages'] == 1
+        assert result['total_vulnerable_packages'] == 1
+        assert result['total_scanned_packages'] == 0
         assert result['total_vulnerabilities'] == 1
 
 
@@ -510,11 +513,13 @@ class TestComposeNdjson:
         assert preamble['scanId'] == 'scan-pre'
         assert preamble['ingestToken'] == 'tok-pre'
         assert preamble['finalize'] is True
-        assert 'totalPackages' in preamble
+        assert preamble['host'] == 'webserver01'
+        assert 'totalScannedPackages' in preamble
+        assert 'totalVulnerablePackages' in preamble
         assert 'totalVulnerabilities' in preamble
-        assert isinstance(preamble['totalPackages'], int)
+        assert isinstance(preamble['totalScannedPackages'], int)
+        assert isinstance(preamble['totalVulnerablePackages'], int)
         assert isinstance(preamble['totalVulnerabilities'], int)
-        assert preamble['totalPackages'] >= preamble['totalVulnerabilities']
 
     def test_ndjson_one_finding_per_line(self):
         filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
@@ -626,3 +631,134 @@ class TestArgumentSpec:
         assert ARGUMENT_SPEC['post_body_format']['default'] == 'ndjson'
         assert 'json' in ARGUMENT_SPEC['post_body_format']['choices']
         assert 'ndjson' in ARGUMENT_SPEC['post_body_format']['choices']
+
+    def test_sbom_file_param(self):
+        assert ARGUMENT_SPEC['sbom_file']['type'] == 'str'
+        assert ARGUMENT_SPEC['sbom_file']['default'] == ''
+        assert ARGUMENT_SPEC['sbom_file']['required'] is False
+
+
+def _write_sbom_file(num_components, hostname='webserver01'):
+    """Write a minimal CycloneDX SBOM with N components."""
+    tmpdir = tempfile.mkdtemp()
+    filepath = os.path.join(tmpdir, f'sbom-{hostname}.json')
+    components = [
+        {'type': 'library', 'name': f'pkg-{i}', 'version': f'1.0.{i}'}
+        for i in range(num_components)
+    ]
+    sbom = {'bomFormat': 'CycloneDX', 'specVersion': '1.5', 'components': components}
+    with open(filepath, 'w') as f:
+        json.dump(sbom, f)
+    return filepath
+
+
+class TestCountSbomPackages:
+    def test_counts_components(self):
+        path = _write_sbom_file(500)
+        assert count_sbom_packages(path) == 500
+
+    def test_empty_sbom(self):
+        path = _write_sbom_file(0)
+        assert count_sbom_packages(path) == 0
+
+    def test_missing_file(self):
+        assert count_sbom_packages('/nonexistent/path.json') == 0
+
+    def test_empty_string(self):
+        assert count_sbom_packages('') == 0
+
+    def test_invalid_json(self):
+        tmpdir = tempfile.mkdtemp()
+        path = os.path.join(tmpdir, 'bad.json')
+        with open(path, 'w') as f:
+            f.write('not json')
+        assert count_sbom_packages(path) == 0
+
+    def test_no_components_key(self):
+        tmpdir = tempfile.mkdtemp()
+        path = os.path.join(tmpdir, 'minimal.json')
+        with open(path, 'w') as f:
+            json.dump({'bomFormat': 'CycloneDX'}, f)
+        assert count_sbom_packages(path) == 0
+
+
+class TestSbomFileIntegration:
+    """Test sbom_file parameter in full normalize pipeline."""
+
+    def test_sbom_file_populates_scanned_packages(self):
+        grype_path = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        sbom_path = _write_sbom_file(500)
+        tmpdir = os.path.dirname(grype_path)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [grype_path],
+            'sbom_file': sbom_path,
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        result = module._exit_kwargs
+        assert result['total_scanned_packages'] == 500
+        assert result['total_vulnerable_packages'] == 1
+
+    def test_ndjson_preamble_with_sbom(self):
+        grype_path = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        sbom_path = _write_sbom_file(300)
+        tmpdir = os.path.dirname(grype_path)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [grype_path],
+            'sbom_file': sbom_path,
+            'output_file': output_file,
+            'compose_post_body': True,
+            'scan_id': 'scan-sbom',
+            'ingest_token': 'tok',
+        })
+        run_normalize(module)
+
+        with open(output_file + '.ndjson') as f:
+            preamble = json.loads(f.readline())
+        assert preamble['totalScannedPackages'] == 300
+        assert preamble['totalVulnerablePackages'] == 1
+        assert preamble['totalVulnerabilities'] == 1
+
+    def test_report_json_has_correct_fields(self):
+        grype_path = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        sbom_path = _write_sbom_file(200)
+        tmpdir = os.path.dirname(grype_path)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [grype_path],
+            'sbom_file': sbom_path,
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        with open(output_file) as f:
+            report = json.load(f)
+        assert report['total_scanned_packages'] == 200
+        assert report['total_vulnerable_packages'] == 1
+        assert report['total_vulnerabilities'] == 1
+
+    def test_vulnerability_free_rate_is_correct(self):
+        """With 500 total packages and 1 vulnerable, rate = (500-1)/500 = 99.8%."""
+        grype_path = _write_grype_file(SAMPLE_GRYPE_OUTPUT)
+        sbom_path = _write_sbom_file(500)
+        tmpdir = os.path.dirname(grype_path)
+        output_file = os.path.join(tmpdir, 'findings.json')
+
+        module = _make_mock_module({
+            'grype_files': [grype_path],
+            'sbom_file': sbom_path,
+            'output_file': output_file,
+        })
+        run_normalize(module)
+
+        result = module._exit_kwargs
+        scanned = result['total_scanned_packages']
+        vulnerable = result['total_vulnerable_packages']
+        rate = round(((scanned - vulnerable) / scanned) * 100, 1)
+        assert rate == 99.8

@@ -46,16 +46,22 @@ interface WidgetProps {
   config: TabWidget;
   findings: MultiHostFinding[];
   severityLabel: (key: string) => string;
-  scanMeta?: { totalPackages?: number; totalVulnerabilities?: number };
+  scanMeta?: { totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number };
 }
 
-function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?: { totalPackages?: number }): { value: number; label: string } {
+function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?: { totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }): { value: number; label: string } {
   const totalFindings = findings.length;
   const failCount = findings.filter(f => f.failCount > 0).length;
   const passCount = totalFindings - failCount;
 
   switch (metric) {
     case 'vulnerability_free_rate': {
+      const scanned = scanMeta?.totalScannedPackages;
+      const vulnerable = scanMeta?.totalVulnerablePackages;
+      if (scanned && scanned > 0 && vulnerable !== undefined) {
+        const rate = Math.round(((scanned - vulnerable) / scanned) * 100);
+        return { value: rate, label: `${rate}%` };
+      }
       const denominator = scanMeta?.totalPackages ?? totalFindings;
       const rate = denominator > 0 ? Math.round(((denominator - failCount) / denominator) * 100) : 100;
       return { value: rate, label: `${rate}%` };
@@ -84,7 +90,7 @@ export const SummaryCardWidget = ({ config, findings, scanMeta }: WidgetProps) =
         </Typography>
         <Typography className={classes.statValue}>{metric.label}</Typography>
         <Typography className={classes.statLabel}>
-          {scanMeta?.totalPackages ?? findings.length} {unit} evaluated
+          {scanMeta?.totalScannedPackages ?? scanMeta?.totalPackages ?? findings.length} {unit} evaluated
         </Typography>
         <LinearProgress
           variant="determinate"

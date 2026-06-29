@@ -206,7 +206,7 @@ export const ResultsViewer = () => {
   }, [jobId]);
 
   // ─── Scan-level stats (for accurate summary when paginated) ──────
-  const [scanStats, setScanStats] = useState<{ pass: number; fail: number; rules: number; hosts: number; totalPackages?: number } | null>(null);
+  const [scanStats, setScanStats] = useState<{ pass: number; fail: number; rules: number; hosts: number; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number } | null>(null);
 
   // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
   const [naCount, setNaCount] = useState<number | null>(null);
@@ -287,7 +287,7 @@ export const ResultsViewer = () => {
       const s = stats[resolvedId];
       if (s) {
         if (typeof s.naCount === 'number') setNaCount(s.naCount);
-        setScanStats({ pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts, totalPackages: s.totalPackages });
+        setScanStats({ pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts, totalPackages: s.totalPackages, totalScannedPackages: s.totalScannedPackages, totalVulnerablePackages: s.totalVulnerablePackages });
       }
     }).catch(() => { /* non-critical */ });
     return () => { cancelled = true; };
@@ -445,15 +445,20 @@ export const ResultsViewer = () => {
       : scanStats.pass + scanStats.fail;
   }, [scanStats, displayConfig.scoreFormula]);
 
+  const scanMetaForScore = useMemo(() => {
+    if (!scanStats) return undefined;
+    return { totalScannedPackages: scanStats.totalScannedPackages, totalVulnerablePackages: scanStats.totalVulnerablePackages };
+  }, [scanStats]);
+
   const overallPassRate = usePagination && scanStats
-    ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal)
+    ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal, scanMetaForScore)
     : scoreFromFindings(displayFindings);
 
   const standardPassRate = useMemo(
     () => usePagination && scanStats
-      ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal)
+      ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal, scanMetaForScore)
       : scoreFromFindings(findings),
-    [findings, scoreFromFindings, usePagination, scanStats, scanTotal, displayConfig],
+    [findings, scoreFromFindings, usePagination, scanStats, scanTotal, scanMetaForScore, displayConfig],
   );
 
   const baselinePassRate = useMemo(() => {
@@ -1031,9 +1036,9 @@ export const ResultsViewer = () => {
               component="div"
               count={totalFindings}
               page={page}
-              onChangePage={(_e, newPage) => { setPage(newPage); setExpandedRule(null); }}
+              onPageChange={(_e, newPage) => { setPage(newPage); setExpandedRule(null); }}
               rowsPerPage={rowsPerPage}
-              onChangeRowsPerPage={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); setExpandedRule(null); }}
+              onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); setExpandedRule(null); }}
               rowsPerPageOptions={[50, 100, 250, 500]}
               labelRowsPerPage="Findings per page:"
             />

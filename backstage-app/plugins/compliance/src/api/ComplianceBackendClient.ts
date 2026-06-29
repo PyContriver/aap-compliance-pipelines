@@ -326,7 +326,7 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getBatchScanStats(scanIds: string[]) {
-    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>(
+    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number }>>(
       `/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`,
     );
   }
@@ -400,8 +400,9 @@ export class ComplianceBackendClient implements ComplianceApi {
     });
   }
 
-  getRegisteredProfiles() {
-    return this.request<ComplianceProfile[]>('/compliance-profiles');
+  getRegisteredProfiles(opts?: { includeDisconnected?: boolean }) {
+    const params = opts?.includeDisconnected ? '?includeDisconnected=true' : '';
+    return this.request<ComplianceProfile[]>(`/compliance-profiles${params}`);
   }
 
   async getRegisteredProfile(id: string): Promise<ComplianceProfile | null> {

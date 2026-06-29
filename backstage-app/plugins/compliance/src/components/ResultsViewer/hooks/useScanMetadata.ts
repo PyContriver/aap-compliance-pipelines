@@ -3,7 +3,7 @@ import type { ScanCertification, ProfileDisplayConfig } from '@aap-compliance/co
 import type { ComplianceApi } from '../../../api';
 
 export interface ScanMetadata {
-  scanType: 'assessment' | 'verification';
+  scanType: 'assessment' | 'verification' | 'remediation';
   profileName: string;
   frameworkLabel: string;
   profileCert: ScanCertification | null;
@@ -20,7 +20,7 @@ export function useScanMetadata(
   api: ComplianceApi,
   jobId: string | undefined,
 ): ScanMetadata {
-  const [scanType, setScanType] = useState<'assessment' | 'verification'>('assessment');
+  const [scanType, setScanType] = useState<'assessment' | 'verification' | 'remediation'>('assessment');
   const [profileName, setProfileName] = useState('');
   const [frameworkLabel, setFrameworkLabel] = useState('');
   const [profileCert, setProfileCert] = useState<ScanCertification | null>(null);
@@ -49,7 +49,7 @@ export function useScanMetadata(
         setScanComplianceProfileId(match.profileId);
         setScanInventoryId(match.inventoryId);
         setScanStartedAt(match.startedAt);
-        api.getRegisteredProfiles().then(profiles => {
+        api.getRegisteredProfiles({ includeDisconnected: true }).then(profiles => {
           if (cancelled) return;
           const cart = profiles.find(c => c.id === match.profileId);
           if (cart) {

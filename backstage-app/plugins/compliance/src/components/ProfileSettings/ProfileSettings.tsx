@@ -170,7 +170,7 @@ export const ProfileSettings = () => {
 
   const loadProfiles = useCallback(async () => {
     try {
-      const data = await api.getRegisteredProfiles();
+      const data = await api.getRegisteredProfiles({ includeDisconnected: true });
       setProfiles(data);
     } catch (err) {
       console.error('Failed to load profiles:', err);

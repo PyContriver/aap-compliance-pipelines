@@ -689,7 +689,9 @@ export const ComplianceDashboard = () => {
                         variant="determinate"
                         value={fw.rate}
                         className={classes.complianceBar}
-                        sx={{ '& .MuiLinearProgress-bar': { backgroundColor: scoreColor(fw.rate) } }}
+                        classes={{ barColorPrimary: '' }}
+                        style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
+                        ref={(el: HTMLElement | null) => { if (el) { const bar = el.querySelector('.MuiLinearProgress-bar') as HTMLElement; if (bar) bar.style.backgroundColor = scoreColor(fw.rate); } }}
                       />
                     </Box>
                     <Box mt={1.5} display="flex" justifyContent="space-between" alignItems="center">

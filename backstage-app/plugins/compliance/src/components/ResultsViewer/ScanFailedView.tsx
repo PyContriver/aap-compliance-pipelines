@@ -10,7 +10,7 @@ interface ScanFailedViewProps {
   scanFailed: string;
   isWorkflowPoll: boolean;
   jobId?: string;
-  scanType?: 'assessment' | 'verification';
+  scanType?: 'assessment' | 'verification' | 'remediation';
   onComplete: () => void;
   onFailed: (status: string) => void;
 }

@@ -55,8 +55,13 @@ export function useDisplayConfig(
 
     const scoreFormula: ScoreFormula = config.score_formula ?? 'compliance_rate';
 
-    const computeScore = (pass: number, fail: number, total: number): number => {
+    const computeScore = (pass: number, fail: number, total: number, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }): number => {
       if (scoreFormula === 'vulnerability_free_rate') {
+        const scanned = scanMeta?.totalScannedPackages;
+        const vulnerable = scanMeta?.totalVulnerablePackages;
+        if (scanned && scanned > 0 && vulnerable !== undefined) {
+          return Math.round(((scanned - vulnerable) / scanned) * 1000) / 10;
+        }
         return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
       }
       const sum = pass + fail;

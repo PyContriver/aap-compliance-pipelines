@@ -200,7 +200,7 @@ async function finalizeIngest(
     const profile = await database.getProfile(scan.profileId);
     const scoreFormula = profile?.displayConfig?.score_formula;
     const freshScan = await database.getScanById(scanId);
-    const scanMetadata = freshScan?.scanMetadata as { totalPackages?: number } | null;
+    const scanMetadata = freshScan?.scanMetadata as { totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number } | null;
     await savePostureFromFindings(database, logger, allFindings, scan.profileId, scan.inventoryId, scan.id,
       { scoreFormula, scanMetadata });
   } catch (err) {
@@ -384,13 +384,24 @@ async function handleNdjsonIngest(
           return;
         }
 
-        const preambleTotalPackages = parsed.totalPackages as number | undefined;
+        const preambleHost = (parsed.host as string) || 'unknown';
+        const preambleTotalScannedPackages = parsed.totalScannedPackages as number | undefined;
+        const preambleTotalVulnerablePackages = parsed.totalVulnerablePackages as number | undefined;
         const preambleTotalVulnerabilities = parsed.totalVulnerabilities as number | undefined;
-        if (preambleTotalPackages !== undefined || preambleTotalVulnerabilities !== undefined) {
-          await database.updateScanMetadata(scanId, {
-            ...(preambleTotalPackages !== undefined ? { totalPackages: preambleTotalPackages } : {}),
-            ...(preambleTotalVulnerabilities !== undefined ? { totalVulnerabilities: preambleTotalVulnerabilities } : {}),
+        if (preambleTotalScannedPackages !== undefined || preambleTotalVulnerablePackages !== undefined || preambleTotalVulnerabilities !== undefined) {
+          await database.mergeScanMetadata(scanId, preambleHost, {
+            totalScannedPackages: preambleTotalScannedPackages,
+            totalVulnerablePackages: preambleTotalVulnerablePackages,
+            totalVulnerabilities: preambleTotalVulnerabilities,
           });
+        } else {
+          const preambleTotalPackages = parsed.totalPackages as number | undefined;
+          if (preambleTotalPackages !== undefined || preambleTotalVulnerabilities !== undefined) {
+            await database.updateScanMetadata(scanId, {
+              ...(preambleTotalPackages !== undefined ? { totalPackages: preambleTotalPackages } : {}),
+              ...(preambleTotalVulnerabilities !== undefined ? { totalVulnerabilities: preambleTotalVulnerabilities } : {}),
+            });
+          }
         }
 
         continue;

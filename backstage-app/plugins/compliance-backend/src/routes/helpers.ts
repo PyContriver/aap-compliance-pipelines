@@ -32,7 +32,7 @@ export async function savePostureFromFindings(
   profileId: string,
   inventoryId?: number,
   scanId?: string,
-  opts?: { scoreFormula?: string; scanMetadata?: { totalPackages?: number } | null },
+  opts?: { scoreFormula?: string; scanMetadata?: { totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number } | null },
 ): Promise<void> {
   const applicable = findings.filter(f => f.host !== 'localhost' && f.status !== 'not_applicable');
   const passCount = applicable.filter(f => f.status === 'pass').length;
@@ -42,9 +42,17 @@ export async function savePostureFromFindings(
   const total = passCount + failCount;
 
   let compliancePct: number;
-  if (opts?.scoreFormula === 'vulnerability_free_rate' && opts.scanMetadata?.totalPackages) {
-    const tp = opts.scanMetadata.totalPackages;
-    compliancePct = tp > 0 ? Math.round(((tp - failCount) / tp) * 100) : 0;
+  if (opts?.scoreFormula === 'vulnerability_free_rate') {
+    const scanned = opts.scanMetadata?.totalScannedPackages;
+    const vulnerable = opts.scanMetadata?.totalVulnerablePackages;
+    if (scanned && scanned > 0 && vulnerable !== undefined) {
+      compliancePct = Math.round(((scanned - vulnerable) / scanned) * 100);
+    } else if (opts.scanMetadata?.totalPackages && opts.scanMetadata.totalPackages > 0) {
+      const tp = opts.scanMetadata.totalPackages;
+      compliancePct = tp > 0 ? Math.round(((tp - failCount) / tp) * 100) : 0;
+    } else {
+      compliancePct = 0;
+    }
   } else {
     compliancePct = total > 0 ? Math.round((passCount / total) * 100) : 0;
   }

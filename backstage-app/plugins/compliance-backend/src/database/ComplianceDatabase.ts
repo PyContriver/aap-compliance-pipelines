@@ -81,6 +81,34 @@ export class ComplianceDatabase {
     });
   }
 
+  async mergeScanMetadata(
+    scanId: string,
+    hostname: string,
+    hostMeta: { totalScannedPackages?: number; totalVulnerablePackages?: number; totalVulnerabilities?: number },
+  ): Promise<void> {
+    await this.db.transaction(async trx => {
+      const row = await trx('compliance_scans').where('id', scanId).select('scan_metadata').first();
+      const existing = row?.scan_metadata ? safeJsonParse<Record<string, unknown>>(row.scan_metadata as string) ?? {} : {};
+      const hosts = (existing.hosts ?? {}) as Record<string, Record<string, number>>;
+      hosts[hostname] = {
+        ...(hostMeta.totalScannedPackages !== undefined ? { totalScannedPackages: hostMeta.totalScannedPackages } : {}),
+        ...(hostMeta.totalVulnerablePackages !== undefined ? { totalVulnerablePackages: hostMeta.totalVulnerablePackages } : {}),
+        ...(hostMeta.totalVulnerabilities !== undefined ? { totalVulnerabilities: hostMeta.totalVulnerabilities } : {}),
+      };
+      let totalScannedPackages = 0;
+      let totalVulnerablePackages = 0;
+      let totalVulnerabilities = 0;
+      for (const h of Object.values(hosts)) {
+        totalScannedPackages += h.totalScannedPackages ?? 0;
+        totalVulnerablePackages += h.totalVulnerablePackages ?? 0;
+        totalVulnerabilities += h.totalVulnerabilities ?? 0;
+      }
+      await trx('compliance_scans').where('id', scanId).update({
+        scan_metadata: JSON.stringify({ hosts, totalScannedPackages, totalVulnerablePackages, totalVulnerabilities }),
+      });
+    });
+  }
+
   async getScanById(id: string): Promise<ComplianceScan | null> {
     const row = await this.db('compliance_scans').where('id', id).first();
     if (!row) return null;
@@ -500,12 +528,12 @@ export class ComplianceDatabase {
     return { findings: rows.map(this.mapFindingRow), total, totalFailing };
   }
 
-  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number }>> {
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>> {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')
       .select('scan_id', 'status', 'severity', 'host', 'rule_id')
       .whereIn('scan_id', scanIds);
-    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number }>();
+    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>();
     for (const row of rows) {
       const sid = row.scan_id as string;
       let entry = result.get(sid);
@@ -532,9 +560,11 @@ export class ComplianceDatabase {
       .whereNotNull('scan_metadata');
     for (const sr of scanMetaRows as Array<Record<string, unknown>>) {
       const meta = safeJsonParse<Record<string, unknown>>(sr.scan_metadata as string);
-      if (meta?.totalPackages !== undefined) {
-        const entry = result.get(sr.id as string);
-        if (entry) entry.totalPackages = Number(meta.totalPackages);
+      const entry = result.get(sr.id as string);
+      if (entry && meta) {
+        if (meta.totalPackages !== undefined) entry.totalPackages = Number(meta.totalPackages);
+        if (meta.totalScannedPackages !== undefined) entry.totalScannedPackages = Number(meta.totalScannedPackages);
+        if (meta.totalVulnerablePackages !== undefined) entry.totalVulnerablePackages = Number(meta.totalVulnerablePackages);
       }
     }
 
@@ -564,7 +594,7 @@ export class ComplianceDatabase {
     };
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
@@ -590,7 +620,7 @@ export class ComplianceDatabase {
       if (parsed) metaMap.set(sr.id as string, parsed);
     }
 
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number }> = {};
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }> = {};
     for (const row of rows as Array<Record<string, unknown>>) {
       const sid = row.scan_id as string;
       const meta = metaMap.get(sid);
@@ -605,6 +635,8 @@ export class ComplianceDatabase {
         stateResurfaced: Number(row.state_resurfaced) || 0,
         ...(meta?.totalPackages !== undefined ? { totalPackages: Number(meta.totalPackages) } : {}),
         ...(meta?.totalVulnerabilities !== undefined ? { totalVulnerabilities: Number(meta.totalVulnerabilities) } : {}),
+        ...(meta?.totalScannedPackages !== undefined ? { totalScannedPackages: Number(meta.totalScannedPackages) } : {}),
+        ...(meta?.totalVulnerablePackages !== undefined ? { totalVulnerablePackages: Number(meta.totalVulnerablePackages) } : {}),
       };
     }
     return result;
@@ -1404,9 +1436,16 @@ export class ComplianceDatabase {
 
   // ─── Profile registry ────────────────────────────────────────────
 
-  async listProfiles(): Promise<ComplianceProfile[]> {
-    const rows = await this.db('compliance_profile_registry')
+  async listProfiles(includeDisconnected = false): Promise<ComplianceProfile[]> {
+    const query = this.db('compliance_profile_registry')
       .orderBy('created_at', 'desc');
+    if (!includeDisconnected) {
+      query.where(function () {
+        this.where('connection_status', 'connected')
+          .orWhereNull('connection_status');
+      });
+    }
+    const rows = await query;
     return rows.map(this.mapProfileRow);
   }
 
@@ -1420,7 +1459,22 @@ export class ComplianceDatabase {
 
   async saveProfile(profile: SaveProfileRequest, ruleCount?: number): Promise<ComplianceProfile> {
     const now = new Date().toISOString();
-    const id = profile.id || randomUUID();
+
+    // When no id is provided, check for an existing (possibly disconnected) profile
+    // with the same framework to prevent duplicates on disconnect→re-add cycles.
+    let existing: Record<string, unknown> | undefined;
+    if (profile.id) {
+      existing = await this.db('compliance_profile_registry')
+        .where('id', profile.id)
+        .first();
+    } else {
+      existing = await this.db('compliance_profile_registry')
+        .where('framework', profile.framework)
+        .orderByRaw("CASE WHEN connection_status = 'connected' THEN 0 ELSE 1 END")
+        .first();
+    }
+
+    const id = existing ? (existing.id as string) : randomUUID();
 
     const row: Record<string, unknown> = {
       id,
@@ -1443,17 +1497,33 @@ export class ComplianceDatabase {
       row.rule_count = ruleCount;
     }
 
-    const existing = await this.db('compliance_profile_registry')
-      .where('id', id)
-      .first();
-
     if (existing) {
+      // Reconnect if it was disconnected, and track version history on upgrade
+      row.connection_status = 'connected';
+      row.connected_at = now;
+      row.disconnected_at = null;
+      row.disconnected_by = null;
+
+      const oldVersion = existing.profile_version as string | undefined;
+      if (profile.version && oldVersion && profile.version !== oldVersion) {
+        const history = safeJsonParse<Array<Record<string, unknown>>>(existing.version_history) ?? [];
+        history.push({
+          version: oldVersion,
+          installedAt: toISOString(existing.connected_at ?? existing.updated_at),
+        });
+        row.profile_version = profile.version;
+        row.version_history = JSON.stringify(history.slice(-ComplianceDatabase.MAX_VERSION_HISTORY));
+      } else if (profile.version) {
+        row.profile_version = profile.version;
+      }
+
       await this.db('compliance_profile_registry')
         .where('id', id)
         .update(row);
     } else {
       await this.db('compliance_profile_registry').insert({
         ...row,
+        connection_status: 'connected',
         created_at: now,
       });
     }

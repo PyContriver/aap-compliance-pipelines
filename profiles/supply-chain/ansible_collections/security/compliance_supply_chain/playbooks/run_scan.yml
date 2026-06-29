@@ -168,6 +168,7 @@
       security.compliance_supply_chain.normalize_cyclonedx:
         grype_files:
           - "{{ item.path }}"
+        sbom_file: "{{ fetch_dest_dir }}/sbom-{{ _hostname }}.json"
         output_file: "{{ grype_results_dir }}/findings-{{ _hostname }}.json"
         profile_name: "{{ profile_name | default('Supply Chain Vulnerability Scan') }}"
         framework: "{{ framework | default('SUPPLY_CHAIN') }}"

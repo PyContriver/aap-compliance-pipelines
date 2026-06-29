@@ -24,6 +24,17 @@ options:
     type: list
     elements: str
     required: true
+  sbom_file:
+    description:
+      - Path to the Syft CycloneDX SBOM JSON file for this host. Used to
+        count the total number of scanned packages (components) for the
+        vulnerability-free rate formula. Without this, the formula can only
+        count vulnerable packages from Grype matches, which produces wrong
+        results. The SBOM is loaded, components counted, then discarded to
+        stay within the ADR-030 per-host memory envelope.
+    type: str
+    required: false
+    default: ""
   output_file:
     description: Path to write the normalized JSON output
     type: str
@@ -83,6 +94,7 @@ EXAMPLES = r'''
   security.compliance_supply_chain.normalize_cyclonedx:
     grype_files:
       - "{{ item.path }}"
+    sbom_file: "/tmp/sbom-{{ hostname }}.json"
     output_file: "/tmp/findings-{{ hostname }}.json"
     compose_post_body: true
     scan_id: "{{ scan_id }}"
@@ -112,8 +124,12 @@ total_findings:
   description: Total number of individual findings across all hosts
   returned: always
   type: int
-total_packages:
-  description: Total unique packages scanned across all hosts
+total_scanned_packages:
+  description: Total packages from Syft SBOM (all packages, including clean ones)
+  returned: always
+  type: int
+total_vulnerable_packages:
+  description: Total unique packages with at least one CVE (from Grype matches)
   returned: always
   type: int
 total_vulnerabilities:
@@ -234,6 +250,20 @@ def build_evidence(match):
     return evidence
 
 
+def count_sbom_packages(sbom_path):
+    """Count total components in a Syft CycloneDX SBOM. Load, count, discard."""
+    if not sbom_path or not os.path.exists(sbom_path):
+        return 0
+    try:
+        with open(sbom_path, 'r') as f:
+            data = json.load(f)
+        count = len(data.get('components', []))
+        del data
+        return count
+    except (json.JSONDecodeError, OSError):
+        return 0
+
+
 def normalize_grype_file(filepath):
     """Parse a single Grype JSON result file into CFF findings."""
     with open(filepath, 'r') as f:
@@ -293,9 +323,12 @@ def run_normalize(module):
     ingest_token = module.params.get('ingest_token', '')
     finalize = module.params.get('finalize', False)
 
+    sbom_file = module.params.get('sbom_file', '')
+
     all_findings = []
     hosts_processed = 0
-    total_packages = 0
+    total_vulnerable_packages = 0
+    total_scanned_packages = 0
     unique_cves = set()
     host_list = []
 
@@ -308,13 +341,17 @@ def run_normalize(module):
             hostname, findings, pkg_count, _ = normalize_grype_file(filepath)
             all_findings.extend(findings)
             hosts_processed += 1
-            total_packages += pkg_count
+            total_vulnerable_packages += pkg_count
             host_list.append(hostname)
             for f in findings:
                 unique_cves.add(f['rule_id'])
         except (json.JSONDecodeError, KeyError) as e:
             module.warn(f"Failed to parse {filepath}: {e}")
             continue
+
+    total_scanned_packages = count_sbom_packages(sbom_file)
+    if total_scanned_packages == 0 and total_vulnerable_packages > 0:
+        module.warn("No SBOM file provided or empty — totalScannedPackages will be 0, score formula will show N/A")
 
     pass_count = sum(1 for f in all_findings if f['status'] == 'pass')
     fail_count = sum(1 for f in all_findings if f['status'] == 'fail')
@@ -333,7 +370,8 @@ def run_normalize(module):
         'framework': framework,
         'scanner': 'syft-grype',
         'hosts': host_list,
-        'total_packages': total_packages,
+        'total_scanned_packages': total_scanned_packages,
+        'total_vulnerable_packages': total_vulnerable_packages,
         'total_vulnerabilities': len(unique_cves),
         'findings': all_findings,
         'summary': summary,
@@ -361,7 +399,9 @@ def run_normalize(module):
                     'scanId': scan_id,
                     'ingestToken': ingest_token,
                     'finalize': finalize,
-                    'totalPackages': total_packages,
+                    'host': host_list[0] if host_list else 'unknown',
+                    'totalScannedPackages': total_scanned_packages,
+                    'totalVulnerablePackages': total_vulnerable_packages,
                     'totalVulnerabilities': len(unique_cves),
                 }
                 f.write(json.dumps(preamble, separators=(',', ':')) + '\n')
@@ -382,7 +422,8 @@ def run_normalize(module):
         changed=not module.check_mode,
         hosts_processed=hosts_processed,
         total_findings=len(all_findings),
-        total_packages=total_packages,
+        total_scanned_packages=total_scanned_packages,
+        total_vulnerable_packages=total_vulnerable_packages,
         total_vulnerabilities=len(unique_cves),
         summary=summary,
         output_file=output_file,
@@ -395,6 +436,7 @@ def run_normalize(module):
 
 ARGUMENT_SPEC = {
     'grype_files': {'type': 'list', 'elements': 'str', 'required': True},
+    'sbom_file': {'type': 'str', 'required': False, 'default': ''},
     'output_file': {'type': 'str', 'required': True},
     'profile_name': {'type': 'str', 'required': False, 'default': 'Supply Chain Vulnerability Scan'},
     'framework': {'type': 'str', 'required': False, 'default': 'SUPPLY_CHAIN'},

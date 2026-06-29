@@ -55,8 +55,13 @@ import type {
 } from '@aap-compliance/common';
 import { ScanProgress } from '../ScanProgress';
 
-function computeGroupScore(pass: number, fail: number, total: number, formula?: ScoreFormula): number {
+function computeGroupScore(pass: number, fail: number, total: number, formula?: ScoreFormula, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }): number {
   if (formula === 'vulnerability_free_rate') {
+    const scanned = scanMeta?.totalScannedPackages;
+    const vulnerable = scanMeta?.totalVulnerablePackages;
+    if (scanned && scanned > 0 && vulnerable !== undefined) {
+      return Math.round(((scanned - vulnerable) / scanned) * 1000) / 10;
+    }
     return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
   }
   const sum = pass + fail;
@@ -194,7 +199,7 @@ interface ScanGroup {
   inventoryName: string;
   certification: ScanCertification | null;
   items: Array<
-    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number } }
+    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number } }
     | { type: 'execution'; execution: RemediationExecution }
   >;
 }
@@ -208,7 +213,7 @@ export const ScanHistory = () => {
 
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
-  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number }>>({});
+  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number }>>({});
   const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null; displayConfig?: ProfileDisplayConfig }>>(new Map());
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -566,7 +571,7 @@ export const ScanHistory = () => {
             const key = `${group.profileId}::${group.inventoryId}`;
             const isExpanded = expandedGroups.has(key);
             const latestScan = group.items.find(i => i.type === 'scan' && authoritativeScanIds.has(i.scan.id)) as
-              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number } }
+              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number } }
               | undefined;
             const scanCount = group.items.filter(i => i.type === 'scan').length;
             const execCount = group.items.filter(i => i.type === 'execution').length;
@@ -597,7 +602,7 @@ export const ScanHistory = () => {
                         const total = formula === 'vulnerability_free_rate' && latestScan.stats.totalPackages
                           ? latestScan.stats.totalPackages
                           : latestScan.stats.pass + latestScan.stats.fail;
-                        const pct = computeGroupScore(latestScan.stats.pass, latestScan.stats.fail, total, formula);
+                        const pct = computeGroupScore(latestScan.stats.pass, latestScan.stats.fail, total, formula, { totalScannedPackages: latestScan.stats.totalScannedPackages, totalVulnerablePackages: latestScan.stats.totalVulnerablePackages });
                         return (
                           <Chip
                             label={`${pct}% pass`}
@@ -868,7 +873,7 @@ export const ScanHistory = () => {
                         ? stats.totalPackages
                         : stats.pass + stats.fail;
                       if (total === 0) return '--';
-                      const pct = computeGroupScore(stats.pass, stats.fail, total, formula);
+                      const pct = computeGroupScore(stats.pass, stats.fail, total, formula, { totalScannedPackages: stats.totalScannedPackages, totalVulnerablePackages: stats.totalVulnerablePackages });
                       return (
                         <Chip
                           label={`${pct}%`}

@@ -14,8 +14,19 @@ import type {
   ScoreFormula,
 } from '@aap-compliance/common';
 
-function computeRate(pass: number, fail: number, total: number, formula: ScoreFormula = 'compliance_rate'): number {
+function computeRate(
+  pass: number,
+  fail: number,
+  total: number,
+  formula: ScoreFormula = 'compliance_rate',
+  scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number },
+): number {
   if (formula === 'vulnerability_free_rate') {
+    const scanned = scanMeta?.totalScannedPackages;
+    const vulnerable = scanMeta?.totalVulnerablePackages;
+    if (scanned && scanned > 0 && vulnerable !== undefined) {
+      return Math.round(((scanned - vulnerable) / scanned) * 1000) / 10;
+    }
     return total > 0 ? Math.round(((total - fail) / total) * 1000) / 10 : 0;
   }
   const sum = pass + fail;
@@ -120,11 +131,11 @@ export class DashboardAggregator {
       let pendingRemediation = 0;
 
       const profileAgg = new Map<string, {
-        pass: number; fail: number; totalPackages: number; rules: Set<string>; lastScan: string;
-        contributing: Array<{ scan: typeof postureScans[0]; pass: number; fail: number; rules: number; totalPackages?: number }>;
+        pass: number; fail: number; totalPackages: number; totalScannedPackages: number; totalVulnerablePackages: number; rules: Set<string>; lastScan: string;
+        contributing: Array<{ scan: typeof postureScans[0]; pass: number; fail: number; rules: number; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>;
       }>();
 
-      const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number; totalPackages?: number }>();
+      const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number; totalPackages?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>();
 
       for (const scan of latestByProfileInventory.values()) {
         const stats = batchStats.get(scan.id);
@@ -136,20 +147,22 @@ export class DashboardAggregator {
         criticalFindings += catI;
 
         const agg = profileAgg.get(scan.profileId) ?? {
-          pass: 0, fail: 0, totalPackages: 0, rules: new Set<string>(), lastScan: '',
+          pass: 0, fail: 0, totalPackages: 0, totalScannedPackages: 0, totalVulnerablePackages: 0, rules: new Set<string>(), lastScan: '',
           contributing: [],
         };
         agg.pass += pass;
         agg.fail += fail;
         agg.totalPackages += stats.totalPackages ?? 0;
+        agg.totalScannedPackages += stats.totalScannedPackages ?? 0;
+        agg.totalVulnerablePackages += stats.totalVulnerablePackages ?? 0;
         for (const r of ruleIds) agg.rules.add(r);
         const scanTs = scan.completedAt || scan.startedAt;
         if (!agg.lastScan || scanTs > agg.lastScan) agg.lastScan = scanTs;
-        agg.contributing.push({ scan, pass, fail, rules: ruleIds.size, totalPackages: stats.totalPackages });
+        agg.contributing.push({ scan, pass, fail, rules: ruleIds.size, totalPackages: stats.totalPackages, totalScannedPackages: stats.totalScannedPackages, totalVulnerablePackages: stats.totalVulnerablePackages });
         profileAgg.set(scan.profileId, agg);
 
         inventoryProfileStats.set(`${scan.profileId}::${scan.inventoryId}`, {
-          profileId: scan.profileId, inventoryId: scan.inventoryId, pass, fail, totalPackages: stats.totalPackages,
+          profileId: scan.profileId, inventoryId: scan.inventoryId, pass, fail, totalPackages: stats.totalPackages, totalScannedPackages: stats.totalScannedPackages, totalVulnerablePackages: stats.totalVulnerablePackages,
         });
       }
 
@@ -164,17 +177,19 @@ export class DashboardAggregator {
         const total = formula === 'vulnerability_free_rate' && agg?.totalPackages
           ? agg.totalPackages
           : (agg ? agg.pass + agg.fail : 0);
-        const rate = computeRate(agg?.pass ?? 0, agg?.fail ?? 0, total, formula);
+        const aggMeta = agg ? { totalScannedPackages: agg.totalScannedPackages, totalVulnerablePackages: agg.totalVulnerablePackages } : undefined;
+        const rate = computeRate(agg?.pass ?? 0, agg?.fail ?? 0, total, formula, aggMeta);
         const contributingScans = (agg?.contributing ?? []).map(c => {
           const cTotal = formula === 'vulnerability_free_rate' && c.totalPackages
             ? c.totalPackages
             : c.pass + c.fail;
+          const cMeta = { totalScannedPackages: c.totalScannedPackages, totalVulnerablePackages: c.totalVulnerablePackages };
           return {
             scanId: c.scan.id,
             workflowJobId: c.scan.workflowJobId ?? undefined,
             inventoryId: c.scan.inventoryId,
             inventoryName: inventoryNameMap.get(c.scan.inventoryId) || `Inventory ${c.scan.inventoryId}`,
-            passRate: computeRate(c.pass, c.fail, cTotal, formula),
+            passRate: computeRate(c.pass, c.fail, cTotal, formula, cMeta),
             passCount: c.pass,
             failCount: c.fail,
             ruleCount: c.rules,
@@ -217,11 +232,12 @@ export class DashboardAggregator {
             const total = pFormula === 'vulnerability_free_rate' && stats.totalPackages
               ? stats.totalPackages
               : stats.pass + stats.fail;
+            const pMeta = { totalScannedPackages: stats.totalScannedPackages, totalVulnerablePackages: stats.totalVulnerablePackages };
             return {
               profileId: p.id,
               name: p.displayName,
               scanTags: p.scanTags,
-              rate: computeRate(stats.pass, stats.fail, total, pFormula),
+              rate: computeRate(stats.pass, stats.fail, total, pFormula, pMeta),
               passCount: stats.pass,
               failCount: stats.fail,
             };
@@ -312,7 +328,8 @@ export class DashboardAggregator {
             const total = scanFormula === 'vulnerability_free_rate' && scanStats.totalPackages
               ? scanStats.totalPackages
               : scanStats.pass + scanStats.fail;
-            passRate = computeRate(scanStats.pass, scanStats.fail, total, scanFormula);
+            const sMeta = { totalScannedPackages: scanStats.totalScannedPackages, totalVulnerablePackages: scanStats.totalVulnerablePackages };
+            passRate = computeRate(scanStats.pass, scanStats.fail, total, scanFormula, sMeta);
           }
         }
         return {

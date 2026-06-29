@@ -215,7 +215,7 @@ export const ActionTableWidget = ({ config, tabData, profile, severityLabel }: P
       await api.launchRemediation({
         profileId: profile.id,
         inventoryId: -1,
-        selections: [{ ruleId: finding.ruleId, enabled: true }],
+        selections: [{ ruleId: finding.ruleId, enabled: true, parameters: {} }],
         limit: finding.hosts.join(','),
       });
       setSnackbar({ message: `Patch launched for ${finding.ruleId}`, severity: 'success' });

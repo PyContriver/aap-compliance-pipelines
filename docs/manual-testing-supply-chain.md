@@ -152,7 +152,7 @@ After a supply chain scan completes (Section H):
 ### F.1 Score Grid
 
 - [ ] **Score grid** renders 5 metric cards in a horizontal row
-- [ ] "Total Packages" card shows package count from scan metadata (blue)
+- [ ] "Total Packages" card shows total scanned packages from Syft SBOM (blue)
 - [ ] "Active CVEs" card shows count of failing findings (red)
 - [ ] "Critical / High" card shows CAT_I fail count (dark red)
 - [ ] "Fixable" card shows findings with `fix_state=fixed` and fix versions available (green)
@@ -334,7 +334,7 @@ Requires Portal deployed and Controller provisioned (pre-flight steps above).
 - [ ] Column headers show "CVE", "Package", "CVSS Severity" (not "Rule ID", "STIG ID")
 - [ ] Severity chips show "Critical / High", "Medium", "Low"
 - [ ] Findings are real CVEs from the scanned hosts
-- [ ] Overall Compliance shows a non-zero vulnerability-free rate (not 0%)
+- [ ] Overall Compliance shows a positive vulnerability-free rate (e.g. 90%+, not 0% or negative)
 
 ### H.5 Verify dynamic tab with live data
 

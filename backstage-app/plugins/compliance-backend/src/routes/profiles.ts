@@ -10,8 +10,9 @@ export function registerProfileRoutes(
 ): void {
   const { logger, service, database, httpAuth, permissions } = deps;
 
-  router.get('/compliance-profiles', async (_req, res) => {
-    const profiles = await database.listProfiles();
+  router.get('/compliance-profiles', async (req, res) => {
+    const includeDisconnected = req.query.includeDisconnected === 'true';
+    const profiles = await database.listProfiles(includeDisconnected);
     res.json(profiles);
   });
 

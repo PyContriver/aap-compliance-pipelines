@@ -656,18 +656,23 @@ All normalizer modules (both XCCDF and CycloneDX) accept the following parameter
 | `ingest_token` | `str` | `''` | Per-scan security token (marked `no_log: True`) |
 | `finalize` | `bool` | `false` | Whether this is the last POST for the scan (triggers completion) |
 | `post_body_format` | `str` | `'ndjson'` | Output format: `'ndjson'` (recommended) or `'json'` (legacy) |
+| `sbom_file` | `str` | `''` | (CycloneDX only) Path to the Syft CycloneDX SBOM JSON file. Used to count total scanned packages for the `vulnerability_free_rate` formula. |
 
-The NDJSON `_meta` preamble line also supports optional scanner-specific population counts:
+The NDJSON `_meta` preamble line also supports optional scanner-specific population counts (ADR-035):
 
 | Preamble Field | Type | Description |
 |----------------|------|-------------|
-| `totalPackages` | `int` | Total unique packages scanned (used as denominator for `vulnerability_free_rate`) |
-| `totalVulnerabilities` | `int` | Total unique CVEs found |
+| `host` | `str` | Hostname for this per-host stream (used for idempotent merge) |
+| `totalScannedPackages` | `int` | Total packages from Syft SBOM (all packages, including clean ones) |
+| `totalVulnerablePackages` | `int` | Unique packages with at least one CVE (from Grype matches) |
+| `totalVulnerabilities` | `int` | Unique CVE IDs found |
+
+The backend stores per-host metadata in a map inside `scan_metadata`, recomputing aggregate totals on each per-host ingest. This is idempotent for retries — resending a host's stream overwrites that host's entry without double-counting.
 
 When `compose_post_body` is true and `post_body_format` is `'ndjson'` (the default), the normalizer writes a `.ndjson` file containing a preamble line followed by one finding per line:
 
 ```
-{"_meta":true,"scanId":"scan-123","ingestToken":"<token>","finalize":true,"totalPackages":245,"totalVulnerabilities":12}
+{"_meta":true,"scanId":"scan-123","ingestToken":"<token>","finalize":true,"host":"webserver01","totalScannedPackages":512,"totalVulnerablePackages":47,"totalVulnerabilities":12}
 {"rule_id":"CVE-2024-1234","title":"curl: buffer overflow","status":"fail","severity":"high",...}
 {"rule_id":"CVE-2024-5678","title":"openssl: timing attack","status":"fail","severity":"medium",...}
 ```
@@ -1777,9 +1782,9 @@ The `score_formula` field controls how the main gauge percentage is computed. If
 | Formula | Computation | Use Case |
 |---------|------------|----------|
 | `compliance_rate` | `pass / (pass + fail)` | STIG, CIS — measures rule pass rate |
-| `vulnerability_free_rate` | `(totalPackages - packagesWithCVEs) / totalPackages` | Supply chain — measures packages without CVEs. `totalPackages` is passed via the NDJSON preamble `_meta` line and stored in `scan_metadata`. |
+| `vulnerability_free_rate` | `(totalScannedPackages - totalVulnerablePackages) / totalScannedPackages` | Supply chain — measures what percentage of packages have zero known CVEs. `totalScannedPackages` comes from the Syft CycloneDX SBOM (all packages), `totalVulnerablePackages` from Grype matches (packages with at least one CVE). Both are passed via the NDJSON preamble `_meta` line and accumulated per-host in `scan_metadata` (ADR-035). |
 
-The formula is applied consistently across the dashboard overview gauges, scan results gauges, contributing scan rates, and baseline comparisons. Both the backend (`DashboardAggregator`) and frontend (`useDisplayConfig.computeScore`) read the formula from the stored profile display config.
+The formula is applied consistently across the dashboard overview gauges, scan results gauges, contributing scan rates, and baseline comparisons. Both the backend (`DashboardAggregator`) and frontend (`useDisplayConfig.computeScore`) read the formula from the stored profile display config. For scans created before ADR-035 (missing the new fields), the formula falls back gracefully to the old computation.
 
 #### DisplayColumn Fields
 
