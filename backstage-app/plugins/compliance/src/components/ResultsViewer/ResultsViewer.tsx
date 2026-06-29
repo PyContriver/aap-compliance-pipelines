@@ -206,7 +206,7 @@ export const ResultsViewer = () => {
   }, [jobId]);
 
   // ─── Scan-level stats (for accurate summary when paginated) ──────
-  const [scanStats, setScanStats] = useState<{ pass: number; fail: number; rules: number; hosts: number } | null>(null);
+  const [scanStats, setScanStats] = useState<{ pass: number; fail: number; rules: number; hosts: number; totalPackages?: number } | null>(null);
 
   // ─── N/A rules state (lazy-loaded on chip click) ─────────────────
   const [naCount, setNaCount] = useState<number | null>(null);
@@ -287,7 +287,7 @@ export const ResultsViewer = () => {
       const s = stats[resolvedId];
       if (s) {
         if (typeof s.naCount === 'number') setNaCount(s.naCount);
-        setScanStats({ pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts });
+        setScanStats({ pass: s.pass, fail: s.fail, rules: s.rules, hosts: s.hosts, totalPackages: s.totalPackages });
       }
     }).catch(() => { /* non-critical */ });
     return () => { cancelled = true; };
@@ -438,15 +438,22 @@ export const ResultsViewer = () => {
     return displayConfig.computeScore(pass, fail, total);
   }, [displayConfig]);
 
+  const scanTotal = useMemo(() => {
+    if (!scanStats) return 0;
+    return displayConfig.scoreFormula === 'vulnerability_free_rate' && scanStats.totalPackages
+      ? scanStats.totalPackages
+      : scanStats.pass + scanStats.fail;
+  }, [scanStats, displayConfig.scoreFormula]);
+
   const overallPassRate = usePagination && scanStats
-    ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanStats.pass + scanStats.fail)
+    ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal)
     : scoreFromFindings(displayFindings);
 
   const standardPassRate = useMemo(
     () => usePagination && scanStats
-      ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanStats.pass + scanStats.fail)
+      ? displayConfig.computeScore(scanStats.pass, scanStats.fail, scanTotal)
       : scoreFromFindings(findings),
-    [findings, scoreFromFindings, usePagination, scanStats, displayConfig],
+    [findings, scoreFromFindings, usePagination, scanStats, scanTotal, displayConfig],
   );
 
   const baselinePassRate = useMemo(() => {

@@ -166,6 +166,13 @@ export function registerProfileRoutes(
     }
 
     try {
+      const contentType = req.headers['content-type'] ?? '';
+      const allowedTypes = ['application/javascript', 'text/javascript', 'application/json'];
+      if (!allowedTypes.some(t => contentType.includes(t))) {
+        res.status(415).json({ error: `Unsupported content type: ${contentType}. Use application/javascript or application/json.` });
+        return;
+      }
+
       const bundleData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       const size = Buffer.byteLength(bundleData, 'utf8');
 

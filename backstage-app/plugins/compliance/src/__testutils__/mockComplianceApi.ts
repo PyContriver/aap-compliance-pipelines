@@ -364,6 +364,8 @@ export function createMockComplianceApi(): jest.Mocked<ComplianceApi> {
     getRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
     saveRegisteredProfile: jest.fn().mockResolvedValue(MOCK_REGISTERED_PROFILES[0]),
     deleteRegisteredProfile: jest.fn().mockResolvedValue(undefined),
+    disconnectProfile: jest.fn().mockResolvedValue(undefined),
+    getProfileTabData: jest.fn().mockResolvedValue({ findings: [], summary: { totalPackages: 0, totalVulnerabilities: 0, fixable: 0, unfixable: 0, hostsAffected: 0, criticalHigh: 0 }, hostRisk: [] }),
     getJobTemplateDetail: jest.fn().mockResolvedValue({ id: 10, name: 'compliance-stig-scan', description: '', extra_vars: '{}' }),
     getControllerJobTemplates: jest.fn().mockResolvedValue([
       { id: 49, name: 'compliance-run-oscap', description: 'STIG assessment' },

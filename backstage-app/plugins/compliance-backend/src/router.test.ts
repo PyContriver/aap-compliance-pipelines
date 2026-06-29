@@ -197,6 +197,7 @@ function createMockDatabase() {
     getProfile: jest.fn().mockResolvedValue(null),
     deleteProfile: jest.fn().mockResolvedValue(true),
     updateProfileRuleCount: jest.fn().mockResolvedValue(undefined),
+    getDistinctRuleCountForScan: jest.fn().mockResolvedValue(0),
     getAggregatedStatsByScanIds: jest.fn().mockResolvedValue(new Map()),
     getAuthoritativeScan: jest.fn().mockResolvedValue({
       id: 'auth-scan-1',

@@ -216,6 +216,7 @@ export interface ComplianceScan {
   startedAt: string;
   completedAt: string | null;
   errorDetails: string | null;
+  scanMetadata?: { totalPackages?: number; totalVulnerabilities?: number } | null;
 }
 
 /** A scan artifact stored in PAH as an OCI artifact (ADR-032). */
@@ -290,6 +291,7 @@ export interface MultiHostFinding {
   aapImpact: 'safe' | 'caution' | 'breaks-connectivity';
   aapImpactReason: string;
   automationAvailable?: boolean;
+  evidence?: Record<string, unknown>;
   parameters: FindingParameter[];
   hosts: Array<{
     host: string;

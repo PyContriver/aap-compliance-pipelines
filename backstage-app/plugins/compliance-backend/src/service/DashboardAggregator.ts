@@ -120,11 +120,11 @@ export class DashboardAggregator {
       let pendingRemediation = 0;
 
       const profileAgg = new Map<string, {
-        pass: number; fail: number; rules: Set<string>; lastScan: string;
-        contributing: Array<{ scan: typeof postureScans[0]; pass: number; fail: number; rules: number }>;
+        pass: number; fail: number; totalPackages: number; rules: Set<string>; lastScan: string;
+        contributing: Array<{ scan: typeof postureScans[0]; pass: number; fail: number; rules: number; totalPackages?: number }>;
       }>();
 
-      const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number }>();
+      const inventoryProfileStats = new Map<string, { profileId: string; inventoryId: number; pass: number; fail: number; totalPackages?: number }>();
 
       for (const scan of latestByProfileInventory.values()) {
         const stats = batchStats.get(scan.id);
@@ -136,19 +136,20 @@ export class DashboardAggregator {
         criticalFindings += catI;
 
         const agg = profileAgg.get(scan.profileId) ?? {
-          pass: 0, fail: 0, rules: new Set<string>(), lastScan: '',
+          pass: 0, fail: 0, totalPackages: 0, rules: new Set<string>(), lastScan: '',
           contributing: [],
         };
         agg.pass += pass;
         agg.fail += fail;
+        agg.totalPackages += stats.totalPackages ?? 0;
         for (const r of ruleIds) agg.rules.add(r);
         const scanTs = scan.completedAt || scan.startedAt;
         if (!agg.lastScan || scanTs > agg.lastScan) agg.lastScan = scanTs;
-        agg.contributing.push({ scan, pass, fail, rules: ruleIds.size });
+        agg.contributing.push({ scan, pass, fail, rules: ruleIds.size, totalPackages: stats.totalPackages });
         profileAgg.set(scan.profileId, agg);
 
         inventoryProfileStats.set(`${scan.profileId}::${scan.inventoryId}`, {
-          profileId: scan.profileId, inventoryId: scan.inventoryId, pass, fail,
+          profileId: scan.profileId, inventoryId: scan.inventoryId, pass, fail, totalPackages: stats.totalPackages,
         });
       }
 
@@ -159,11 +160,15 @@ export class DashboardAggregator {
 
       const frameworkScores: DashboardStats['frameworkScores'] = profiles.map(p => {
         const agg = profileAgg.get(p.id);
-        const total = agg ? agg.pass + agg.fail : 0;
         const formula = profileFormulaMap.get(p.id) ?? 'compliance_rate';
+        const total = formula === 'vulnerability_free_rate' && agg?.totalPackages
+          ? agg.totalPackages
+          : (agg ? agg.pass + agg.fail : 0);
         const rate = computeRate(agg?.pass ?? 0, agg?.fail ?? 0, total, formula);
         const contributingScans = (agg?.contributing ?? []).map(c => {
-          const cTotal = c.pass + c.fail;
+          const cTotal = formula === 'vulnerability_free_rate' && c.totalPackages
+            ? c.totalPackages
+            : c.pass + c.fail;
           return {
             scanId: c.scan.id,
             workflowJobId: c.scan.workflowJobId ?? undefined,
@@ -208,8 +213,10 @@ export class DashboardAggregator {
           .map(p => {
             const stats = inventoryProfileStats.get(`${p.id}::${invId}`);
             if (!stats) return null;
-            const total = stats.pass + stats.fail;
             const pFormula = profileFormulaMap.get(p.id) ?? 'compliance_rate';
+            const total = pFormula === 'vulnerability_free_rate' && stats.totalPackages
+              ? stats.totalPackages
+              : stats.pass + stats.fail;
             return {
               profileId: p.id,
               name: p.displayName,
@@ -301,8 +308,10 @@ export class DashboardAggregator {
         if (scan.status === 'completed' && scan.scanner !== 'remediation') {
           const scanStats = batchStats.get(scan.id);
           if (scanStats) {
-            const total = scanStats.pass + scanStats.fail;
             const scanFormula = profileFormulaMap.get(scan.profileId) ?? 'compliance_rate';
+            const total = scanFormula === 'vulnerability_free_rate' && scanStats.totalPackages
+              ? scanStats.totalPackages
+              : scanStats.pass + scanStats.fail;
             passRate = computeRate(scanStats.pass, scanStats.fail, total, scanFormula);
           }
         }

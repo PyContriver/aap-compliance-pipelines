@@ -1,6 +1,7 @@
 import express from 'express';
 import type { RouterDependencies } from './types';
 import { isValidScanId } from './validation';
+import { getUserAapToken } from './permissions';
 
 const ARTIFACT_KEY_RE = /^[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,254}$/;
 
@@ -59,6 +60,10 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts', async (req, res) => {
+    if (!getUserAapToken(req)) {
+      res.status(401).json({ error: 'AAP token required' });
+      return;
+    }
     const { scanId } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -70,6 +75,10 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts/:key/download', async (req, res) => {
+    if (!getUserAapToken(req)) {
+      res.status(401).json({ error: 'AAP token required for artifact download' });
+      return;
+    }
     const { scanId, key } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -88,8 +97,10 @@ export function registerArtifactRoutes(
 
     try {
       const blob = await fetchOciBlob(artifact.ociReference, logger);
+      const safeName = artifact.artifactName.replace(/["\r\n]/g, '_');
       res.set('Content-Type', artifact.mimeType);
-      res.set('Content-Disposition', `attachment; filename="${artifact.artifactName}"`);
+      res.set('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.set('X-Content-Type-Options', 'nosniff');
       res.send(Buffer.from(blob));
     } catch (err: any) {
       logger.error(`Failed to fetch artifact from PAH: ${err.message}`);

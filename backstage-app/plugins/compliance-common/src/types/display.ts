@@ -29,7 +29,10 @@ export type WidgetType =
   | 'findings_table'
   | 'trend_chart'
   | 'gauge'
-  | 'host_breakdown';
+  | 'host_breakdown'
+  | 'score_grid'
+  | 'action_table'
+  | 'host_risk_heatmap';
 
 /** A widget instance declared in a tab layout. */
 export interface TabWidget {
@@ -41,6 +44,8 @@ export interface TabWidget {
   group_by?: string;
   labels?: Record<string, string>;
   columns?: DisplayColumn[];
+  fixable_label?: string;
+  unfixable_label?: string;
 }
 
 /** Tier 2: custom React component bundled in the collection's backstage/ directory. */

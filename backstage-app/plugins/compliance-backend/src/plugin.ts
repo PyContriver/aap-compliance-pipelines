@@ -50,7 +50,7 @@ export const complianceBackendPlugin = createBackendPlugin({
         //   routes require Backstage auth. Mutating endpoints are
         //   additionally gated by catalogEntityCreatePermission via
         //   the permissions service in the router.
-        const authMode = config.getOptionalString('compliance.authMode') ?? 'development';
+        const authMode = config.getOptionalString('compliance.authMode') ?? 'production';
         logger.info(`Compliance auth mode: ${authMode}`);
 
         // ─── Database ───────────────────────────────────────────

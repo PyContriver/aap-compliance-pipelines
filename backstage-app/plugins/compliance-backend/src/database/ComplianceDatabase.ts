@@ -54,6 +54,7 @@ export class ComplianceDatabase {
       status: row.status,
       started_at: row.startedAt,
       completed_at: row.completedAt,
+      ...(row.scanMetadata ? { scan_metadata: JSON.stringify(row.scanMetadata) } : {}),
     });
     return { ...row, id };
   }
@@ -72,6 +73,12 @@ export class ComplianceDatabase {
       update.completed_at = completedAt;
     }
     await this.db('compliance_scans').where('id', scanId).update(update);
+  }
+
+  async updateScanMetadata(scanId: string, metadata: Record<string, unknown>): Promise<void> {
+    await this.db('compliance_scans').where('id', scanId).update({
+      scan_metadata: JSON.stringify(metadata),
+    });
   }
 
   async getScanById(id: string): Promise<ComplianceScan | null> {
@@ -310,6 +317,7 @@ export class ComplianceDatabase {
       startedAt: toISOString(row.started_at),
       completedAt: toISOStringOrNull(row.completed_at),
       errorDetails: (row.error_details as string) ?? null,
+      scanMetadata: row.scan_metadata ? safeJsonParse(row.scan_metadata as string) : null,
     };
   }
 
@@ -492,12 +500,12 @@ export class ComplianceDatabase {
     return { findings: rows.map(this.mapFindingRow), total, totalFailing };
   }
 
-  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>> {
+  async getAggregatedStatsByScanIds(scanIds: string[]): Promise<Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number }>> {
     if (scanIds.length === 0) return new Map();
     const rows = await this.db('compliance_findings')
       .select('scan_id', 'status', 'severity', 'host', 'rule_id')
       .whereIn('scan_id', scanIds);
-    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string> }>();
+    const result = new Map<string, { pass: number; fail: number; catI: number; na: number; hosts: Set<string>; rules: Set<string>; totalPackages?: number }>();
     for (const row of rows) {
       const sid = row.scan_id as string;
       let entry = result.get(sid);
@@ -517,6 +525,19 @@ export class ComplianceDatabase {
         }
       }
     }
+
+    const scanMetaRows = await this.db('compliance_scans')
+      .select('id', 'scan_metadata')
+      .whereIn('id', scanIds)
+      .whereNotNull('scan_metadata');
+    for (const sr of scanMetaRows as Array<Record<string, unknown>>) {
+      const meta = safeJsonParse<Record<string, unknown>>(sr.scan_metadata as string);
+      if (meta?.totalPackages !== undefined) {
+        const entry = result.get(sr.id as string);
+        if (entry) entry.totalPackages = Number(meta.totalPackages);
+      }
+    }
+
     return result;
   }
 
@@ -543,7 +564,7 @@ export class ComplianceDatabase {
     };
   }
 
-  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }>> {
+  async getBatchScanStatsAggregated(scanIds: string[]): Promise<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number }>> {
     if (scanIds.length === 0) return {};
     const rows = await this.db('compliance_findings')
       .select('scan_id')
@@ -558,9 +579,22 @@ export class ComplianceDatabase {
       .countDistinct({ host_count: this.db.raw("CASE WHEN status != 'not_applicable' THEN host END") })
       .whereIn('scan_id', scanIds)
       .groupBy('scan_id');
-    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number }> = {};
+
+    const scanMetaRows = await this.db('compliance_scans')
+      .select('id', 'scan_metadata')
+      .whereIn('id', scanIds)
+      .whereNotNull('scan_metadata');
+    const metaMap = new Map<string, Record<string, unknown>>();
+    for (const sr of scanMetaRows as Array<Record<string, unknown>>) {
+      const parsed = safeJsonParse<Record<string, unknown>>(sr.scan_metadata as string);
+      if (parsed) metaMap.set(sr.id as string, parsed);
+    }
+
+    const result: Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew: number; stateFixed: number; stateResurfaced: number; totalPackages?: number; totalVulnerabilities?: number }> = {};
     for (const row of rows as Array<Record<string, unknown>>) {
-      result[row.scan_id as string] = {
+      const sid = row.scan_id as string;
+      const meta = metaMap.get(sid);
+      result[sid] = {
         pass: Number(row.pass_count) || 0,
         fail: Number(row.fail_count) || 0,
         rules: Number(row.rule_count) || 0,
@@ -569,9 +603,23 @@ export class ComplianceDatabase {
         stateNew: Number(row.state_new) || 0,
         stateFixed: Number(row.state_fixed) || 0,
         stateResurfaced: Number(row.state_resurfaced) || 0,
+        ...(meta?.totalPackages !== undefined ? { totalPackages: Number(meta.totalPackages) } : {}),
+        ...(meta?.totalVulnerabilities !== undefined ? { totalVulnerabilities: Number(meta.totalVulnerabilities) } : {}),
       };
     }
     return result;
+  }
+
+  async getAggregatedFindingsForScans(scanIds: string[], limit: number = 100): Promise<Array<{ ruleId: string; stigId: string; host: string; status: string; severity: string; evidence: string | null }>> {
+    if (scanIds.length === 0) return [];
+    return this.db('compliance_findings')
+      .select('rule_id as ruleId', 'stig_id as stigId', 'host', 'status', 'severity', 'evidence')
+      .whereIn('scan_id', scanIds)
+      .where('status', '!=', 'not_applicable')
+      .where('host', '!=', 'localhost')
+      .orderBy('severity', 'asc')
+      .orderBy('rule_id', 'asc')
+      .limit(limit * 20);
   }
 
   async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
@@ -1421,6 +1469,13 @@ export class ComplianceDatabase {
       .where('id', id)
       .delete();
     return deleted > 0;
+  }
+
+  async getDistinctRuleCountForScan(scanId: string): Promise<number> {
+    const result = await this.db('compliance_findings')
+      .where('scan_id', scanId)
+      .countDistinct('rule_id as count');
+    return Number((result[0] as Record<string, unknown>).count) || 0;
   }
 
   async updateProfileRuleCount(id: string, ruleCount: number): Promise<void> {

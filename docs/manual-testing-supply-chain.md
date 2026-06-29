@@ -148,11 +148,33 @@ After a supply chain scan completes (Section H):
 After a supply chain scan completes (Section H):
 
 - [ ] Click the **Supply Chain** tab
-- [ ] **Summary card widget** shows "SBOM Coverage" with real vulnerability-free rate
-- [ ] **Severity breakdown widget** shows chips labeled "Critical / High", "Medium", "Low" with actual CVE counts
-- [ ] **Findings table widget** shows real CVEs with columns: CVE | Package | Severity | Fix
-- [ ] **Host breakdown widget** shows hosts sorted by vulnerability count
-- [ ] Findings table fix text shows `dnf update <package>` instructions
+
+### F.1 Score Grid
+
+- [ ] **Score grid** renders 5 metric cards in a horizontal row
+- [ ] "Total Packages" card shows package count from scan metadata (blue)
+- [ ] "Active CVEs" card shows count of failing findings (red)
+- [ ] "Critical / High" card shows CAT_I fail count (dark red)
+- [ ] "Fixable" card shows findings with `fix_state=fixed` and fix versions available (green)
+- [ ] "Hosts Affected" card shows unique hosts with at least one failing finding (grey)
+
+### F.2 Remediate vs Mitigate Split
+
+- [ ] **"Fix Available"** section shows CVEs where a vendor fix exists
+- [ ] Fix Available table has columns: checkbox | CVE | Package | Installed | Fix Version | Severity | Patch button
+- [ ] Clicking **Patch** on a single row launches a quick remediation (no saved profile)
+- [ ] Selecting 2+ checkboxes shows a **"Build Remediation (N)"** toolbar button
+- [ ] Clicking "Build Remediation" navigates to the RemediationProfileBuilder with pre-selected CVEs
+- [ ] Expanding a row shows: description, fix text, CVSS score, affected hosts
+- [ ] **"No Fix / Monitor"** section shows CVEs without a vendor fix (visually de-emphasized)
+- [ ] No Fix table has columns: CVE | Package | Severity | Status chip
+- [ ] Status chips show "No Fix" (grey) or "Won't Fix" (red) based on `fix_state`
+
+### F.3 Host Risk Heatmap
+
+- [ ] **Host risk table** shows hosts sorted by weighted risk score (Critical×10 + High×5 + Medium×1)
+- [ ] Each row shows: hostname | risk score (color-coded) | CVE count | progress bar (red=vulnerable, green=clean)
+- [ ] Risk scores ≥50 show in red, 20-49 in orange, <20 in green
 
 ---
 
@@ -312,18 +334,34 @@ Requires Portal deployed and Controller provisioned (pre-flight steps above).
 - [ ] Column headers show "CVE", "Package", "CVSS Severity" (not "Rule ID", "STIG ID")
 - [ ] Severity chips show "Critical / High", "Medium", "Low"
 - [ ] Findings are real CVEs from the scanned hosts
-- [ ] Fix text shows `dnf update <package>` instructions
+- [ ] Overall Compliance shows a non-zero vulnerability-free rate (not 0%)
 
 ### H.5 Verify dynamic tab with live data
 
 1. Click the **Supply Chain** tab
 
-- [ ] Summary card shows vulnerability-free rate with real data
-- [ ] Severity breakdown shows actual CVE counts
-- [ ] Findings table shows real CVEs
-- [ ] Host breakdown shows hosts sorted by vulnerability count
+- [ ] Score grid shows 5 metric cards with real data (Total Packages, Active CVEs, Critical/High, Fixable, Hosts Affected)
+- [ ] "Fix Available" section lists CVEs with known fixes and Patch buttons
+- [ ] "No Fix / Monitor" section lists CVEs without vendor fixes
+- [ ] Host risk table shows hosts sorted by weighted risk score with progress bars
 
-### H.6 Regression: existing scans still work
+### H.6 Profile disconnect removes tab
+
+1. Navigate to **Settings** tab
+2. Click the disconnect/remove action on the Supply Chain profile
+3. Verify:
+
+- [ ] Supply Chain tab disappears from the header tab bar immediately
+- [ ] Dashboard overview no longer shows the Supply Chain gauge
+- [ ] Navigate to **Results** tab — historical supply chain scans are still visible
+- [ ] Click a historical scan — findings still render correctly (soft delete preserves data)
+
+4. Re-add the Supply Chain profile (repeat Section B)
+
+- [ ] Supply Chain tab reappears with the new 3-section layout
+- [ ] Previous scan data is accessible from the tab
+
+### H.7 Regression: existing scans still work
 
 1. Navigate to **New Scan** and select the STIG profile
 2. Launch a STIG scan against the compliance inventory
@@ -401,7 +439,7 @@ cd backstage-app
 yarn test --watchAll=false
 ```
 
-- [ ] 597 tests pass
+- [ ] 609 tests pass
 - [ ] 22 suites pass
 - [ ] Zero failures
 
@@ -423,12 +461,12 @@ python3 -m pytest profiles/_shared/test_profile_structure.py profiles/supply-cha
 | C | 4 | Dynamic tab appears after profile creation |
 | D | 8 | Framework dropdown includes all new options |
 | E | 4 | Display config column/severity labels (after scan) |
-| F | 6 | Dynamic tab renders live data (after scan) |
+| F | 18 | Dynamic tab: score grid, remediate/mitigate split, host risk heatmap |
 | G | 6 | Bundle API: upload/serve/size-limit/delete |
-| H | 14 | Live scan: launch, verify results, regression |
+| H | 20 | Live scan: launch, verify results, disconnect/reconnect, regression |
 | I | 6 | Existing features regression |
 | J | 5 | EE build verification |
 | K | 1 | Cross-profile structure validation (60 sub-tests) |
 | L | 1 | Normalizer correctness (44 sub-tests) |
-| M | 2 | Full automated suite (687 sub-tests) |
-| **Total** | **69** | |
+| M | 2 | Full automated suite (713 sub-tests) |
+| **Total** | **81** | |

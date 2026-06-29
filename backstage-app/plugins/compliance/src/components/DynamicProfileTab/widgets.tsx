@@ -46,15 +46,20 @@ interface WidgetProps {
   config: TabWidget;
   findings: MultiHostFinding[];
   severityLabel: (key: string) => string;
+  scanMeta?: { totalPackages?: number; totalVulnerabilities?: number };
 }
 
-function computeMetric(findings: MultiHostFinding[], metric?: string): { value: number; label: string } {
+function computeMetric(findings: MultiHostFinding[], metric?: string, scanMeta?: { totalPackages?: number }): { value: number; label: string } {
   const totalFindings = findings.length;
   const failCount = findings.filter(f => f.failCount > 0).length;
   const passCount = totalFindings - failCount;
 
   switch (metric) {
-    case 'vulnerability_free_rate':
+    case 'vulnerability_free_rate': {
+      const denominator = scanMeta?.totalPackages ?? totalFindings;
+      const rate = denominator > 0 ? Math.round(((denominator - failCount) / denominator) * 100) : 100;
+      return { value: rate, label: `${rate}%` };
+    }
     case 'compliance_rate': {
       const rate = totalFindings > 0 ? Math.round((passCount / totalFindings) * 100) : 100;
       return { value: rate, label: `${rate}%` };
@@ -66,9 +71,9 @@ function computeMetric(findings: MultiHostFinding[], metric?: string): { value: 
   }
 }
 
-export const SummaryCardWidget = ({ config, findings }: WidgetProps) => {
+export const SummaryCardWidget = ({ config, findings, scanMeta }: WidgetProps) => {
   const classes = useStyles();
-  const metric = computeMetric(findings, config.metric);
+  const metric = computeMetric(findings, config.metric, scanMeta);
   const unit = config.unit ?? 'findings';
 
   return (
@@ -79,7 +84,7 @@ export const SummaryCardWidget = ({ config, findings }: WidgetProps) => {
         </Typography>
         <Typography className={classes.statValue}>{metric.label}</Typography>
         <Typography className={classes.statLabel}>
-          {findings.length} {unit} evaluated
+          {scanMeta?.totalPackages ?? findings.length} {unit} evaluated
         </Typography>
         <LinearProgress
           variant="determinate"
@@ -234,8 +239,8 @@ export const HostBreakdownWidget = ({ config, findings }: WidgetProps) => {
   );
 };
 
-export const GaugeWidget = ({ config, findings }: WidgetProps) => {
-  const metric = computeMetric(findings, config.metric);
+export const GaugeWidget = ({ config, findings, scanMeta }: WidgetProps) => {
+  const metric = computeMetric(findings, config.metric, scanMeta);
   return (
     <Paper variant="outlined">
       <Box p={2} textAlign="center">

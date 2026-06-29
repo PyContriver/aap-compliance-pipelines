@@ -133,6 +133,79 @@ export function registerScanRoutes(
     }
   });
 
+  router.get('/profile-tab-data/:profileId', async (req, res) => {
+    const { profileId } = req.params;
+    if (!isValidProfileId(profileId)) {
+      res.status(400).json({ error: 'Invalid profileId' });
+      return;
+    }
+    try {
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+
+      const allScans = await database.getLatestScanPerProfileInventory();
+      const profileScans = allScans.filter(s => s.profileId === profileId);
+      if (profileScans.length === 0) {
+        res.json({ findings: [], summary: { totalPackages: 0, totalVulnerabilities: 0, fixable: 0, unfixable: 0, hostsAffected: 0, criticalHigh: 0 }, hostRisk: [] });
+        return;
+      }
+
+      const scanIds = profileScans.map(s => s.id);
+      const stats = await database.getBatchScanStatsAggregated(scanIds);
+
+      let totalPackages = 0;
+      let totalVulnerabilities = 0;
+      let totalFail = 0;
+      let totalCriticalHigh = 0;
+      for (const sid of scanIds) {
+        const s = stats[sid];
+        if (!s) continue;
+        totalFail += s.fail;
+        if (s.totalPackages) totalPackages += s.totalPackages;
+        if (s.totalVulnerabilities) totalVulnerabilities += s.totalVulnerabilities;
+      }
+
+      const allFindings = await database.getAggregatedFindingsForScans(scanIds, limit);
+
+      let fixable = 0;
+      let unfixable = 0;
+      const hostsSet = new Set<string>();
+      const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number }>();
+
+      for (const f of allFindings) {
+        const ev = f.evidence ? (typeof f.evidence === 'string' ? JSON.parse(f.evidence) : f.evidence) : null;
+        const isFixable = ev?.fix_state === 'fixed' && Array.isArray(ev?.fix_versions) && ev.fix_versions.length > 0;
+        if (f.status === 'fail') {
+          if (isFixable) fixable++;
+          else unfixable++;
+          hostsSet.add(f.host);
+          if (f.severity === 'CAT_I') totalCriticalHigh++;
+
+          const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0 };
+          hr.total++;
+          if (f.severity === 'CAT_I') { hr.critical++; hr.score += 10; }
+          else if (f.severity === 'CAT_II') { hr.medium++; hr.score += 5; }
+          else { hr.low++; hr.score += 1; }
+          hostRiskMap.set(f.host, hr);
+        }
+      }
+
+      const hostRisk = Array.from(hostRiskMap.entries())
+        .map(([hostname, r]) => ({ hostname, ...r }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 50);
+
+      res.json({
+        findings: allFindings,
+        summary: { totalPackages, totalVulnerabilities, fixable, unfixable, hostsAffected: hostsSet.size, criticalHigh: totalCriticalHigh },
+        hostRisk,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to get profile tab data for ${profileId}: ${msg}`);
+      res.status(500).json({ error: 'Failed to retrieve profile tab data' });
+    }
+  });
+
   // Must be registered BEFORE /scans/:scanId to avoid wildcard capture.
   router.get('/scans/:scanId/findings/na', async (req, res) => {
     const { scanId: rawScanId } = req.params;

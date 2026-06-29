@@ -510,6 +510,11 @@ class TestComposeNdjson:
         assert preamble['scanId'] == 'scan-pre'
         assert preamble['ingestToken'] == 'tok-pre'
         assert preamble['finalize'] is True
+        assert 'totalPackages' in preamble
+        assert 'totalVulnerabilities' in preamble
+        assert isinstance(preamble['totalPackages'], int)
+        assert isinstance(preamble['totalVulnerabilities'], int)
+        assert preamble['totalPackages'] >= preamble['totalVulnerabilities']
 
     def test_ndjson_one_finding_per_line(self):
         filepath = _write_grype_file(SAMPLE_GRYPE_OUTPUT)

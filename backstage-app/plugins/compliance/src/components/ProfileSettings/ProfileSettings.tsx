@@ -241,13 +241,13 @@ export const ProfileSettings = () => {
     setDeleteError(null);
     try {
       const hadTab = deleteTarget.displayConfig?.tab;
-      await api.deleteRegisteredProfile(deleteTarget.id);
+      await api.disconnectProfile(deleteTarget.id);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
       await loadProfiles();
       if (hadTab) refreshTabs?.();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete profile');
+      setDeleteError(err instanceof Error ? err.message : 'Failed to disconnect profile');
     }
   };
 
@@ -300,7 +300,7 @@ export const ProfileSettings = () => {
           </Button>
         </div>
 
-        {profiles.length === 0 ? (
+        {profiles.filter(p => p.connectionStatus !== 'disconnected').length === 0 ? (
           <div className={classes.emptyState}>
             <SettingsIcon style={{ fontSize: 64, color: STATUS_COLORS.neutral, marginBottom: 16 }} />
             <Typography variant="h6" color="textSecondary" gutterBottom>
@@ -332,7 +332,7 @@ export const ProfileSettings = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {profiles.map(c => (
+                {profiles.filter(c => c.connectionStatus !== 'disconnected').map(c => (
                   <TableRow key={c.id}>
                     <TableCell>
                       <Typography variant="body2" style={{ fontWeight: 500 }}>
@@ -386,12 +386,13 @@ export const ProfileSettings = () => {
       </InfoCard>
 
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Compliance Profile</DialogTitle>
+        <DialogTitle>Disconnect Compliance Profile</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the compliance profile{' '}
-            <strong>{deleteTarget?.displayName}</strong>? This will not affect
-            existing scan results or platform resources.
+            Are you sure you want to disconnect the compliance profile{' '}
+            <strong>{deleteTarget?.displayName}</strong>? Existing scan results
+            and remediation history will be preserved. You can reconnect the
+            profile later by re-adding it from the same framework.
           </Typography>
           {deleteError && (
             <Typography color="error" variant="body2" style={{ marginTop: 8 }}>
@@ -402,7 +403,7 @@ export const ProfileSettings = () => {
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" color="secondary" onClick={handleDeleteConfirm}>
-            Delete
+            Disconnect
           </Button>
         </DialogActions>
       </Dialog>
