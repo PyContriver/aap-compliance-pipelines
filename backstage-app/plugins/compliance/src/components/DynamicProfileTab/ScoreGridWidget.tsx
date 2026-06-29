@@ -35,6 +35,8 @@ const useStyles = makeStyles(theme => ({
 interface TabSummary {
   totalPackages: number;
   totalVulnerabilities: number;
+  totalScannedPackages?: number;
+  totalVulnerablePackages?: number;
   fixable: number;
   unfixable: number;
   hostsAffected: number;
@@ -53,7 +55,7 @@ export const ScoreGridWidget = ({ config, tabData }: Props) => {
 
   const configLabels = config.labels ?? {};
   const cards = [
-    { label: configLabels.total ?? 'Total Packages', value: s.totalPackages || '—', color: '#0066CC' },
+    { label: configLabels.total ?? 'Total Packages', value: s.totalScannedPackages || s.totalPackages || '—', color: '#0066CC' },
     { label: configLabels.active ?? 'Active CVEs', value: s.totalVulnerabilities, color: SEVERITY_COLORS.CAT_I },
     { label: configLabels.critical ?? 'Critical / High', value: s.criticalHigh, color: '#A30000' },
     { label: configLabels.fixable ?? 'Fixable', value: s.fixable, color: '#3E8635' },

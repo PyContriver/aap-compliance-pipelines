@@ -199,7 +199,7 @@ interface ScanGroup {
   inventoryName: string;
   certification: ScanCertification | null;
   items: Array<
-    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number } }
+    | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number } }
     | { type: 'execution'; execution: RemediationExecution }
   >;
 }
@@ -213,7 +213,7 @@ export const ScanHistory = () => {
 
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
-  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number }>>({});
+  const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>>({});
   const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null; displayConfig?: ProfileDisplayConfig }>>(new Map());
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -571,7 +571,7 @@ export const ScanHistory = () => {
             const key = `${group.profileId}::${group.inventoryId}`;
             const isExpanded = expandedGroups.has(key);
             const latestScan = group.items.find(i => i.type === 'scan' && authoritativeScanIds.has(i.scan.id)) as
-              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number } }
+              | { type: 'scan'; scan: ComplianceScan; stats?: { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number } }
               | undefined;
             const scanCount = group.items.filter(i => i.type === 'scan').length;
             const execCount = group.items.filter(i => i.type === 'execution').length;

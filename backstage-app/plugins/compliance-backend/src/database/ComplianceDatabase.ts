@@ -654,6 +654,28 @@ export class ComplianceDatabase {
       .limit(limit * 20);
   }
 
+  async getSummaryCounts(scanIds: string[]): Promise<{ criticalHigh: number; fixable: number; unfixable: number; hostsAffected: number }> {
+    if (scanIds.length === 0) return { criticalHigh: 0, fixable: 0, unfixable: 0, hostsAffected: 0 };
+    const rows = await this.db('compliance_findings')
+      .select('severity', 'evidence', 'host')
+      .whereIn('scan_id', scanIds)
+      .where('status', 'fail')
+      .where('host', '!=', 'localhost');
+    let criticalHigh = 0;
+    let fixable = 0;
+    let unfixable = 0;
+    const hostsSet = new Set<string>();
+    for (const row of rows) {
+      hostsSet.add(row.host as string);
+      if (row.severity === 'CAT_I') criticalHigh++;
+      const ev = row.evidence ? safeJsonParse<Record<string, unknown>>(row.evidence as string) : null;
+      const isFixable = ev?.fix_state === 'fixed' && Array.isArray(ev?.fix_versions) && (ev.fix_versions as unknown[]).length > 0;
+      if (isFixable) fixable++;
+      else unfixable++;
+    }
+    return { criticalHigh, fixable, unfixable, hostsAffected: hostsSet.size };
+  }
+
   async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
     const rows = await this.db('compliance_findings as f')
       .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')

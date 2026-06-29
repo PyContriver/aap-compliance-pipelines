@@ -326,7 +326,7 @@ export class ComplianceBackendClient implements ComplianceApi {
   }
 
   getBatchScanStats(scanIds: string[]) {
-    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number }>>(
+    return this.request<Record<string, { pass: number; fail: number; rules: number; hosts: number; naCount: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>>(
       `/scans/stats?ids=${scanIds.map(encodeURIComponent).join(',')}`,
     );
   }
@@ -437,7 +437,7 @@ export class ComplianceBackendClient implements ComplianceApi {
 
   async getProfileTabData(profileId: string) {
     const aapToken = await this.getAapToken();
-    return this.request<{ findings: Array<Record<string, unknown>>; summary: { totalPackages: number; totalVulnerabilities: number; fixable: number; unfixable: number; hostsAffected: number; criticalHigh: number }; hostRisk: Array<{ hostname: string; critical: number; medium: number; low: number; total: number; score: number }> }>(`/profile-tab-data/${encodeURIComponent(profileId)}`, { aapToken });
+    return this.request<{ findings: Array<Record<string, unknown>>; summary: { totalPackages: number; totalVulnerabilities: number; totalScannedPackages: number; totalVulnerablePackages: number; fixable: number; unfixable: number; hostsAffected: number; criticalHigh: number }; hostRisk: Array<{ hostname: string; critical: number; medium: number; low: number; total: number; score: number }> }>(`/profile-tab-data/${encodeURIComponent(profileId)}`, { aapToken });
   }
 
   async getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {

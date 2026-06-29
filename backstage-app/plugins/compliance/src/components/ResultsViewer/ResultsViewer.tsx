@@ -428,8 +428,18 @@ export const ResultsViewer = () => {
     displayFindings.forEach(f => f.hosts.forEach(h => hostSet.add(h.host)));
     return hostSet.size;
   }, [displayFindings, usePagination, scanStats]);
-  const rulesWithFailures = usePagination ? totalFailingRules : displayFindings.filter(f => f.failCount > 0).length;
-  const totalRules = usePagination ? totalFindings : displayFindings.length;
+  const rulesWithFailures = useMemo(() => {
+    if (displayConfig.scoreFormula === 'vulnerability_free_rate' && scanStats?.totalVulnerablePackages !== undefined) {
+      return scanStats.totalVulnerablePackages;
+    }
+    return usePagination ? totalFailingRules : displayFindings.filter(f => f.failCount > 0).length;
+  }, [displayConfig.scoreFormula, scanStats, usePagination, totalFailingRules, displayFindings]);
+  const totalRules = useMemo(() => {
+    if (displayConfig.scoreFormula === 'vulnerability_free_rate' && scanStats?.totalScannedPackages) {
+      return scanStats.totalScannedPackages;
+    }
+    return usePagination ? totalFindings : displayFindings.length;
+  }, [displayConfig.scoreFormula, scanStats, usePagination, totalFindings, displayFindings]);
   const totalChecks = displayFindings.reduce((sum, f) => sum + f.totalCount, 0);
   const scoreFromFindings = useCallback((fList: MultiHostFinding[]) => {
     const pass = fList.reduce((sum, f) => sum + f.passCount, 0);

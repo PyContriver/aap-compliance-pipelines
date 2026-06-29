@@ -38,7 +38,7 @@ export interface ResolvedDisplayConfig {
   severityMap: Required<SeverityMap>;
   remediationVerb: string;
   severityLabel: (key: string) => string;
-  computeScore: (pass: number, fail: number, total: number) => number;
+  computeScore: (pass: number, fail: number, total: number, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }) => number;
 }
 
 export function useDisplayConfig(

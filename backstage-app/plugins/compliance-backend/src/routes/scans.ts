@@ -156,34 +156,23 @@ export function registerScanRoutes(
       let totalVulnerabilities = 0;
       let totalScannedPackages = 0;
       let totalVulnerablePackages = 0;
-      let totalFail = 0;
-      let totalCriticalHigh = 0;
       for (const sid of scanIds) {
         const s = stats[sid];
         if (!s) continue;
-        totalFail += s.fail;
         if (s.totalPackages) totalPackages += s.totalPackages;
         if (s.totalVulnerabilities) totalVulnerabilities += s.totalVulnerabilities;
         if (s.totalScannedPackages) totalScannedPackages += s.totalScannedPackages;
         if (s.totalVulnerablePackages) totalVulnerablePackages += s.totalVulnerablePackages;
       }
 
-      const allFindings = await database.getAggregatedFindingsForScans(scanIds, limit);
+      const [allFindings, summaryCounts] = await Promise.all([
+        database.getAggregatedFindingsForScans(scanIds, limit),
+        database.getSummaryCounts(scanIds),
+      ]);
 
-      let fixable = 0;
-      let unfixable = 0;
-      const hostsSet = new Set<string>();
       const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number }>();
-
       for (const f of allFindings) {
-        const ev = f.evidence ? (typeof f.evidence === 'string' ? JSON.parse(f.evidence) : f.evidence) : null;
-        const isFixable = ev?.fix_state === 'fixed' && Array.isArray(ev?.fix_versions) && ev.fix_versions.length > 0;
         if (f.status === 'fail') {
-          if (isFixable) fixable++;
-          else unfixable++;
-          hostsSet.add(f.host);
-          if (f.severity === 'CAT_I') totalCriticalHigh++;
-
           const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0 };
           hr.total++;
           if (f.severity === 'CAT_I') { hr.critical++; hr.score += 10; }
@@ -200,7 +189,7 @@ export function registerScanRoutes(
 
       res.json({
         findings: allFindings,
-        summary: { totalPackages, totalVulnerabilities, totalScannedPackages, totalVulnerablePackages, fixable, unfixable, hostsAffected: hostsSet.size, criticalHigh: totalCriticalHigh },
+        summary: { totalPackages, totalVulnerabilities, totalScannedPackages, totalVulnerablePackages, fixable: summaryCounts.fixable, unfixable: summaryCounts.unfixable, hostsAffected: summaryCounts.hostsAffected, criticalHigh: summaryCounts.criticalHigh },
         hostRisk,
       });
     } catch (error) {
