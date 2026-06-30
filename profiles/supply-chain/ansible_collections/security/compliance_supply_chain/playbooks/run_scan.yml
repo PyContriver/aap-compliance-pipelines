@@ -201,6 +201,7 @@
           oras push {{ pah_registry | default('aap-netrunner.demoredhat.com') }}/compliance-artifacts/{{ scan_id }}:sbom-{{ _hostname }}
           {{ fetch_dest_dir }}/sbom-{{ _hostname }}.json:application/vnd.cyclonedx+json
           --insecure
+          --disable-path-validation
           --username {{ pah_username | default('') }}
           --password {{ pah_password | default('') }}
       vars:
@@ -208,12 +209,25 @@
       loop: "{{ _sbom_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+        index_var: _push_idx
+      register: _oras_push_results
       no_log: true
       changed_when: false
       failed_when: false
       when:
         - backstage_api_url | default('') | length > 0
         - pah_username | default('') | length > 0
+
+    - name: Report SBOM push failures
+      ansible.builtin.debug:
+        msg: "SBOM push failed for {{ item.item.path | basename }} (rc={{ item.rc }})"
+      loop: "{{ _oras_push_results.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.path | basename | default('unknown') }}"
+      when:
+        - _oras_push_results.results is defined
+        - item.rc is defined
+        - item.rc != 0
 
     - name: Register SBOM artifacts in compliance backend
       ansible.builtin.uri:
@@ -235,8 +249,12 @@
       loop: "{{ _sbom_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+        index_var: _reg_idx
       failed_when: false
-      when: backstage_api_url | default('') | length > 0
+      when:
+        - backstage_api_url | default('') | length > 0
+        - _oras_push_results.results is defined
+        - _oras_push_results.results[_reg_idx].rc | default(1) == 0
 
     # ── Stream NDJSON to Backstage plugin API (ADR-034) ────────────────
     # The normalizer composed .ndjson files (preamble + one finding per

@@ -162,6 +162,7 @@ jobs:
           docker run --rm $IMAGE_NAME:latest syft version
           docker run --rm $IMAGE_NAME:latest grype version
           docker run --rm $IMAGE_NAME:latest jq --version
+          docker run --rm $IMAGE_NAME:latest oras version
           docker run --rm $IMAGE_NAME:latest \
             test -f ${{ matrix.ee_verify_file }}
           docker run --rm $IMAGE_NAME:latest \

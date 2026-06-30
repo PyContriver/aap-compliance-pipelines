@@ -23,6 +23,7 @@ import DescriptionIcon from '@material-ui/icons/Description';
 import CodeIcon from '@material-ui/icons/Code';
 import AssignmentTurnedInIcon from '@material-ui/icons/AssignmentTurnedIn';
 import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import type {
   MultiHostFinding,
   ProfileDisplayConfig,
@@ -215,6 +216,7 @@ export const ExportButton = ({
   onDownloadArtifact,
   onFetchArtifacts,
 }: ExportButtonProps) => {
+  const alertApi = useApi(alertApiRef);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [artifacts, setArtifacts] = useState<ScanArtifact[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -223,9 +225,13 @@ export const ExportButton = ({
 
   useEffect(() => {
     if (scanId && onFetchArtifacts) {
-      onFetchArtifacts(scanId).then(setArtifacts).catch(() => setArtifacts([]));
+      onFetchArtifacts(scanId).then(setArtifacts).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        alertApi.post({ message: `Failed to load export artifacts: ${msg}`, severity: 'warning' });
+        setArtifacts([]);
+      });
     }
-  }, [scanId, onFetchArtifacts]);
+  }, [scanId, onFetchArtifacts, alertApi]);
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -268,11 +274,14 @@ export const ExportButton = ({
     setDownloading(true);
     try {
       await onDownloadArtifact(scanId, artifact.artifactKey, artifact.artifactName);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to download ${artifact.artifactName}: ${msg}`, severity: 'error' });
     } finally {
       setDownloading(false);
       handleClose();
     }
-  }, [scanId, onDownloadArtifact]);
+  }, [scanId, onDownloadArtifact, alertApi]);
 
   const cffFormats = formats.filter(f => f.type === 'cff_derived');
   const artifactFormats = formats.filter(f => f.type === 'artifact');
