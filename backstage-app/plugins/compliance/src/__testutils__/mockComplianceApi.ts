@@ -28,6 +28,7 @@ import type {
 export const MOCK_PROFILES: ComplianceProfile[] = [
   {
     id: 'rhel9-stig',
+    profileSlug: 'rhel9-stig',
     displayName: 'DISA STIG for RHEL 9',
     framework: 'DISA_STIG',
     version: 'V2R8',
@@ -46,6 +47,7 @@ export const MOCK_PROFILES: ComplianceProfile[] = [
   },
   {
     id: 'rhel9-cis-l1',
+    profileSlug: 'rhel9-cis-l1',
     displayName: 'CIS Benchmark RHEL 9 — Level 1',
     framework: 'CIS',
     version: '1.0.0',
@@ -64,6 +66,7 @@ export const MOCK_PROFILES: ComplianceProfile[] = [
   },
   {
     id: 'rhel9-pci-dss',
+    profileSlug: 'rhel9-pci-dss',
     displayName: 'PCI-DSS v4.0 for RHEL 9',
     framework: 'PCI_DSS',
     version: '4.0',
@@ -231,6 +234,7 @@ export const MOCK_DASHBOARD_STATS: DashboardStats = {
 export const MOCK_REGISTERED_PROFILES: ComplianceProfile[] = [
   {
     id: 'rhel9-stig',
+    profileSlug: 'rhel9-stig',
     displayName: 'DISA STIG for RHEL 9',
     description: 'Defense Information Systems Agency STIG for RHEL 9',
     framework: 'DISA_STIG',

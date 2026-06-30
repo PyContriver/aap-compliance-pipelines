@@ -21,6 +21,7 @@ import type {
 const BUILTIN_PROFILES: ComplianceProfile[] = [
   {
     id: 'rhel9-stig',
+    profileSlug: 'rhel9-stig',
     displayName: 'DISA STIG for RHEL 9',
     framework: 'DISA_STIG',
     version: 'V2R8',
@@ -40,6 +41,7 @@ const BUILTIN_PROFILES: ComplianceProfile[] = [
   },
   {
     id: 'rhel9-cis-l1',
+    profileSlug: 'rhel9-cis-l1',
     displayName: 'CIS Benchmark RHEL 9 — Level 1 Server',
     framework: 'CIS',
     version: '1.0.0',
@@ -59,6 +61,7 @@ const BUILTIN_PROFILES: ComplianceProfile[] = [
   },
   {
     id: 'rhel9-pci-dss',
+    profileSlug: 'rhel9-pci-dss',
     displayName: 'PCI-DSS v4.0 for RHEL 9',
     framework: 'PCI_DSS',
     version: '4.0',
@@ -78,6 +81,7 @@ const BUILTIN_PROFILES: ComplianceProfile[] = [
   },
   {
     id: 'supply-chain-vuln',
+    profileSlug: 'supply-chain-vuln',
     displayName: 'Supply Chain Vulnerability Scan',
     framework: 'SUPPLY_CHAIN',
     version: '1.0.0',

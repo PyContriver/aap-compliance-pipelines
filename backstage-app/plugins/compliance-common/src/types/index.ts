@@ -79,4 +79,6 @@ export type {
   HostFindingsResponse,
   PaginatedFindings,
   ScanArtifact,
+  HostRiskEntry,
+  ProfileTabDataResponse,
 } from './api';

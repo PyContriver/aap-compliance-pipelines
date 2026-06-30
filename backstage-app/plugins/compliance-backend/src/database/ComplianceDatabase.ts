@@ -1665,10 +1665,10 @@ export class ComplianceDatabase {
       if (displayName) update.display_name = displayName;
 
       await this.db('compliance_profile_registry')
-        .where('id', existing.id)
+        .where('id', existing.id as string)
         .update(update);
       const updated = await this.db('compliance_profile_registry')
-        .where('id', existing.id)
+        .where('id', existing.id as string)
         .first();
       return updated ? this.mapProfileRow(updated) : null;
     }
