@@ -1,7 +1,6 @@
 import express from 'express';
 import type { RouterDependencies } from './types';
 import { isValidScanId } from './validation';
-import { getUserAapToken } from './permissions';
 import { resolveScanId } from './helpers';
 
 const ARTIFACT_KEY_RE = /^[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,254}$/;
@@ -61,10 +60,6 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts', async (req, res) => {
-    if (!getUserAapToken(req)) {
-      res.status(401).json({ error: 'AAP token required' });
-      return;
-    }
     const { scanId } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -77,10 +72,6 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts/:key/download', async (req, res) => {
-    if (!getUserAapToken(req)) {
-      res.status(401).json({ error: 'AAP token required for artifact download' });
-      return;
-    }
     const { scanId, key } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
