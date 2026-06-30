@@ -392,11 +392,8 @@ export const ResultsViewer = () => {
             } else if (scan.status === 'pending' || scan.status === 'running') {
               if (scan.workflowJobId && !isWorkflowPoll) {
                 setPendingScanWorkflowJobId(scan.workflowJobId);
-              } else if (retries < maxRetries) {
-                retries++;
-                timeoutId = setTimeout(fetchFindings, pollInterval);
               } else {
-                setLoading(false);
+                timeoutId = setTimeout(fetchFindings, pollInterval);
               }
             } else if (retries < maxRetries) {
               retries++;

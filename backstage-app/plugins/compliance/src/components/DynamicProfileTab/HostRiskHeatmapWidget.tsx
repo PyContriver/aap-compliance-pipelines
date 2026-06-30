@@ -9,11 +9,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  LinearProgress,
+  Tooltip,
   makeStyles,
 } from '@material-ui/core';
-import type { TabWidget } from '@aap-compliance/common';
+import type { HostRiskEntry, TabWidget } from '@aap-compliance/common';
 import { TABLE_STYLES } from '../shared/chipStyles';
+import { STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
   container: {
@@ -24,30 +25,20 @@ const useStyles = makeStyles(theme => ({
     fontFamily: 'monospace',
     fontSize: '0.875rem',
   },
-  progressCell: {
-    minWidth: 120,
-  },
-  progressBar: {
-    height: 10,
-    borderRadius: 5,
-  },
-  barRed: {
-    backgroundColor: '#C9190B',
+  barCell: {
+    minWidth: 160,
   },
   barTrack: {
-    backgroundColor: '#3E8635',
+    display: 'flex',
+    height: 10,
     borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: STATUS_COLORS.success,
   },
+  segCritical: { backgroundColor: STATUS_COLORS.error },
+  segMedium: { backgroundColor: STATUS_COLORS.warning },
+  segLow: { backgroundColor: '#F4C145' },
 }));
-
-interface HostRiskEntry {
-  hostname: string;
-  critical: number;
-  medium: number;
-  low: number;
-  total: number;
-  score: number;
-}
 
 interface Props {
   config: TabWidget;
@@ -59,8 +50,11 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
   if (!tabData || tabData.hostRisk.length === 0) return null;
 
   const hosts = tabData.hostRisk;
-  const totalPkgs = tabData.summary.totalPackages;
   const colLabel = config.labels?.findings ?? 'Findings';
+  const critLabel = config.labels?.critical ?? 'Critical';
+  const medLabel = config.labels?.medium ?? 'Medium';
+  const lowLabel = config.labels?.low ?? 'Low';
+  const cleanLabel = config.labels?.clean ?? 'Clean';
 
   return (
     <Box className={classes.container}>
@@ -76,37 +70,42 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
               <TableCell style={TABLE_STYLES.header}>Host</TableCell>
               <TableCell style={TABLE_STYLES.header} align="right">Risk Score</TableCell>
               <TableCell style={TABLE_STYLES.header} align="right">{colLabel}</TableCell>
-              <TableCell style={TABLE_STYLES.header} className={classes.progressCell}>
+              <TableCell style={TABLE_STYLES.header} className={classes.barCell}>
                 Vulnerable / Clean
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {hosts.map(h => {
-              const denominator = totalPkgs > 0 ? totalPkgs : Math.max(h.total, 1);
-              const vulnPct = Math.min((h.total / denominator) * 100, 100);
+              const denominator = h.scannedPackages > 0
+                ? h.scannedPackages
+                : Math.max(h.total, 1);
+              const critPct = (h.critical / denominator) * 100;
+              const medPct = (h.medium / denominator) * 100;
+              const lowPct = (h.low / denominator) * 100;
+              const cleanPct = Math.max(0, 100 - critPct - medPct - lowPct);
+              const tooltipText = `${critLabel}: ${h.critical} · ${medLabel}: ${h.medium} · ${lowLabel}: ${h.low} · ${cleanLabel}: ${denominator - h.total}`;
+
               return (
                 <TableRow key={h.hostname}>
                   <TableCell>{h.hostname}</TableCell>
                   <TableCell align="right">
                     <Typography
                       className={classes.riskScore}
-                      style={{ color: h.score >= 50 ? '#C9190B' : h.score >= 20 ? '#F0AB00' : '#3E8635' }}
+                      style={{ color: h.score >= 50 ? STATUS_COLORS.error : h.score >= 20 ? STATUS_COLORS.warning : STATUS_COLORS.success }}
                     >
                       {h.score}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">{h.total}</TableCell>
-                  <TableCell className={classes.progressCell}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={vulnPct}
-                      className={classes.progressBar}
-                      classes={{
-                        barColorPrimary: classes.barRed,
-                        colorPrimary: classes.barTrack,
-                      }}
-                    />
+                  <TableCell className={classes.barCell}>
+                    <Tooltip title={tooltipText} arrow>
+                      <div className={classes.barTrack}>
+                        {critPct > 0 && <div className={classes.segCritical} style={{ width: `${critPct}%` }} />}
+                        {medPct > 0 && <div className={classes.segMedium} style={{ width: `${medPct}%` }} />}
+                        {lowPct > 0 && <div className={classes.segLow} style={{ width: `${lowPct}%` }} />}
+                      </div>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               );

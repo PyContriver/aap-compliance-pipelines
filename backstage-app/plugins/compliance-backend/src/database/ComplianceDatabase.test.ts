@@ -20,6 +20,7 @@ async function createTables(database: Knex): Promise<void> {
     table.string('ingest_token').nullable();
     table.text('error_details').nullable();
     table.text('scan_metadata').nullable();
+    table.string('profile_version', 64).nullable();
   });
 
   await database.schema.createTable('compliance_findings', table => {
@@ -144,6 +145,7 @@ async function createTables(database: Knex): Promise<void> {
     'compliance_profile_registry',
     table => {
       table.string('id').primary();
+      table.string('profile_slug', 128).nullable();
       table.string('display_name').notNullable();
       table.text('description').defaultTo('');
       table.string('framework').notNullable();

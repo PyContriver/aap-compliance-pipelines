@@ -40,7 +40,12 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 128);
+}
+
 const EMPTY_FORM: SaveProfileRequest = {
+  profileSlug: '',
   displayName: '',
   description: '',
   framework: 'DISA_STIG',
@@ -107,6 +112,7 @@ export const ProfileFormDialog = ({
     if (editProfile) {
       setAutoPopulateEnabled(false);
       setForm({
+        profileSlug: editProfile.profileSlug,
         displayName: editProfile.displayName,
         description: editProfile.description,
         framework: editProfile.framework,
@@ -166,6 +172,7 @@ export const ProfileFormDialog = ({
 
     setForm(prev => ({
       ...prev,
+      profileSlug: (vars.profile_slug as string) || prev.profileSlug || slugify((vars.profile_name as string) || prev.displayName),
       displayName: (vars.profile_name as string) || prev.displayName,
       description: (vars.description as string) || prev.description,
       framework: (vars.framework as string) || prev.framework,
@@ -290,8 +297,19 @@ export const ProfileFormDialog = ({
             </Typography>
 
             <TextField label="Profile Name" variant="outlined" fullWidth required
-              value={form.displayName} onChange={e => updateForm('displayName', e.target.value)}
+              value={form.displayName} onChange={e => {
+                updateForm('displayName', e.target.value);
+                if (!editProfile && !form.profileSlug) {
+                  updateForm('profileSlug', slugify(e.target.value));
+                }
+              }}
               helperText="e.g. 'DISA STIG for RHEL 9', 'CIS Benchmark RHEL 9 Level 1'"
+              className={classes.formField} />
+
+            <TextField label="Profile Slug" variant="outlined" fullWidth
+              value={form.profileSlug ?? ''} onChange={e => updateForm('profileSlug', e.target.value)}
+              helperText={editProfile ? 'Slug is immutable after creation' : 'Stable identifier for reconnect — auto-derived from name'}
+              disabled={!!editProfile}
               className={classes.formField} />
 
             <TextField label="Description" variant="outlined" fullWidth multiline rows={2}

@@ -181,7 +181,7 @@ export const ComplianceDashboard = () => {
         console.error('Failed to load posture history:', err);
         return [] as PostureSnapshot[];
       }),
-      api.getRegisteredProfiles().catch(() => [] as ComplianceProfile[]),
+      api.getRegisteredProfiles({ includeDisconnected: true }).catch(() => [] as ComplianceProfile[]),
       api.getBaselineTargets().catch(() => [] as BaselineTarget[]),
     ]).then(([dashboardStats, history, carts, baselines]) => {
       if (cancelled) return;
@@ -509,6 +509,7 @@ export const ComplianceDashboard = () => {
           <PostureTrendChart
             initialData={postureHistory}
             stats={stats}
+            allProfiles={profiles}
             api={api}
             onPointClick={snap => {
               const navId = snap.workflowJobId ?? snap.scanId;

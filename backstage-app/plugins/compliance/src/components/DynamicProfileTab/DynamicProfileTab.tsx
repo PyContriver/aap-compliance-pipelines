@@ -3,7 +3,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { Progress } from '@backstage/core-components';
 import { Typography, Box } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
-import type { ComplianceProfile, MultiHostFinding, TabConfig } from '@aap-compliance/common';
+import type { ComplianceProfile, MultiHostFinding, ProfileTabDataResponse, TabConfig } from '@aap-compliance/common';
 import { useDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 import {
   SummaryCardWidget,
@@ -22,25 +22,7 @@ interface DynamicProfileTabProps {
   tabConfig: TabConfig;
 }
 
-interface TabData {
-  findings: Array<Record<string, unknown>>;
-  summary: {
-    totalPackages: number;
-    totalVulnerabilities: number;
-    fixable: number;
-    unfixable: number;
-    hostsAffected: number;
-    criticalHigh: number;
-  };
-  hostRisk: Array<{
-    hostname: string;
-    critical: number;
-    medium: number;
-    low: number;
-    total: number;
-    score: number;
-  }>;
-}
+type TabData = ProfileTabDataResponse;
 
 export const DynamicProfileTab = ({ profile, tabConfig }: DynamicProfileTabProps) => {
   const api = useApi(complianceApiRef);

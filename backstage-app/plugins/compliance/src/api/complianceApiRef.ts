@@ -77,7 +77,7 @@ export interface ComplianceApi {
   saveRegisteredProfile(body: SaveProfileRequest): Promise<ComplianceProfile>;
   deleteRegisteredProfile(id: string): Promise<void>;
   disconnectProfile(profileId: string): Promise<void>;
-  getProfileTabData(profileId: string): Promise<{ findings: Array<Record<string, unknown>>; summary: { totalPackages: number; totalVulnerabilities: number; totalScannedPackages: number; totalVulnerablePackages: number; fixable: number; unfixable: number; hostsAffected: number; criticalHigh: number }; hostRisk: Array<{ hostname: string; critical: number; medium: number; low: number; total: number; score: number }> }>;
+  getProfileTabData(profileId: string): Promise<import('@aap-compliance/common').ProfileTabDataResponse>;
   getJobTemplateDetail(id: number): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }>;
   getControllerJobTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;
   getControllerWorkflowTemplates(): Promise<Array<{ id: number; name: string; description: string }>>;

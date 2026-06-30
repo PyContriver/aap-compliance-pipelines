@@ -16,6 +16,8 @@ export type {
   LaunchRemediationResponse,
   PostureSnapshot,
   ContributingScan,
+  HostRiskEntry,
+  ProfileTabDataResponse,
   ProfilePostureStatus,
   InventoryPosture,
   ComplianceScan,

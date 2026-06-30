@@ -51,6 +51,7 @@ export class ComplianceDatabase {
       scanner: row.scanner,
       scan_type: row.scanType || 'assessment',
       workflow_job_id: row.workflowJobId,
+      profile_version: row.profileVersion ?? null,
       status: row.status,
       started_at: row.startedAt,
       completed_at: row.completedAt,
@@ -337,6 +338,7 @@ export class ComplianceDatabase {
     return {
       id: row.id as string,
       profileId: row.profile_id as string,
+      profileVersion: (row.profile_version as string) ?? undefined,
       inventoryId: row.inventory_id as number,
       scanner: row.scanner as string,
       scanType: (row.scan_type as ComplianceScan['scanType']) || 'assessment',
@@ -1482,24 +1484,26 @@ export class ComplianceDatabase {
   async saveProfile(profile: SaveProfileRequest, ruleCount?: number): Promise<ComplianceProfile> {
     const now = new Date().toISOString();
 
-    // When no id is provided, check for an existing (possibly disconnected) profile
-    // with the same framework to prevent duplicates on disconnect→re-add cycles.
+    // Match by id, then by profile_slug for reconnect on disconnect→re-add cycles.
     let existing: Record<string, unknown> | undefined;
     if (profile.id) {
       existing = await this.db('compliance_profile_registry')
         .where('id', profile.id)
         .first();
-    } else {
+    } else if (profile.profileSlug) {
       existing = await this.db('compliance_profile_registry')
-        .where('framework', profile.framework)
-        .orderByRaw("CASE WHEN connection_status = 'connected' THEN 0 ELSE 1 END")
+        .where('profile_slug', profile.profileSlug)
         .first();
     }
 
     const id = existing ? (existing.id as string) : randomUUID();
+    const slug = existing
+      ? (existing.profile_slug as string)
+      : (profile.profileSlug || ComplianceDatabase.slugify(profile.displayName));
 
     const row: Record<string, unknown> = {
       id,
+      profile_slug: slug,
       display_name: profile.displayName,
       description: profile.description || '',
       framework: profile.framework,
@@ -1581,6 +1585,7 @@ export class ComplianceDatabase {
     const profileVersion = row.profile_version as string | null;
     return {
       id: row.id as string,
+      profileSlug: (row.profile_slug as string) || '',
       displayName: row.display_name as string,
       description: (row.description as string) || '',
       framework: row.framework as string,
@@ -1609,16 +1614,34 @@ export class ComplianceDatabase {
 
   private static readonly MAX_VERSION_HISTORY = 50;
 
-  /** Reconnect a previously-disconnected profile by framework. Returns null if no profile with that framework exists. */
+  static slugify(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 128);
+  }
+
+  /** Reconnect a previously-disconnected profile by slug (preferred) or framework+displayName fallback. */
   async connectProfile(
     framework: string,
     version: string,
     displayName?: string,
+    slug?: string,
   ): Promise<ComplianceProfile | null> {
     const now = new Date().toISOString();
-    const existing = await this.db('compliance_profile_registry')
-      .where('framework', framework)
-      .first();
+    let existing: Record<string, unknown> | undefined;
+    if (slug) {
+      existing = await this.db('compliance_profile_registry')
+        .where('profile_slug', slug)
+        .first();
+    }
+    if (!existing) {
+      let query = this.db('compliance_profile_registry')
+        .where('framework', framework);
+      if (displayName) query = query.where('display_name', displayName);
+      existing = await query.first();
+    }
 
     if (existing) {
       const update: Record<string, unknown> = {
@@ -1670,13 +1693,24 @@ export class ComplianceDatabase {
     return updated > 0;
   }
 
-  /** Mark a profile as disconnected by framework name. */
+  /** @deprecated Use disconnectProfileBySlug. Framework-only match is ambiguous for CIS L1/L2. */
   async disconnectProfileByFramework(
     framework: string,
     by?: string,
   ): Promise<boolean> {
     const profile = await this.db('compliance_profile_registry')
       .where('framework', framework)
+      .first();
+    if (!profile) return false;
+    return this.disconnectProfile(profile.id, by);
+  }
+
+  async disconnectProfileBySlug(
+    slug: string,
+    by?: string,
+  ): Promise<boolean> {
+    const profile = await this.db('compliance_profile_registry')
+      .where('profile_slug', slug)
       .first();
     if (!profile) return false;
     return this.disconnectProfile(profile.id, by);

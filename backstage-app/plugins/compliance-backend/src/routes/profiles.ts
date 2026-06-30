@@ -59,6 +59,7 @@ export function registerProfileRoutes(
 
     const saveRequest: SaveProfileRequest = {
       id: body.id,
+      profileSlug: body.profileSlug?.trim() || undefined, // ignored on update — slug is immutable after creation (ADR-036)
       displayName: body.displayName.trim(),
       description: body.description ?? '',
       framework: body.framework,
@@ -107,13 +108,13 @@ export function registerProfileRoutes(
   router.post('/compliance-profiles/connect', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;
 
-    const { framework, version, displayName } = req.body;
+    const { framework, version, displayName, slug } = req.body;
     if (!isNonEmptyString(framework)) {
       res.status(400).json({ error: 'framework is required' });
       return;
     }
     try {
-      const profile = await database.connectProfile(framework, version ?? '', displayName);
+      const profile = await database.connectProfile(framework, version ?? '', displayName, slug);
       if (!profile) {
         res.status(404).json({ error: `No profile with framework '${framework}' found to reconnect` });
         return;
@@ -129,15 +130,18 @@ export function registerProfileRoutes(
   router.post('/compliance-profiles/disconnect', async (req, res) => {
     if (!await requirePermission(req, res, httpAuth, permissions)) return;
 
-    const { profileId, framework } = req.body;
+    const { profileId, framework, slug } = req.body;
     try {
       let success = false;
       if (isNonEmptyString(profileId)) {
         success = await database.disconnectProfile(profileId);
+      } else if (isNonEmptyString(slug)) {
+        success = await database.disconnectProfileBySlug(slug);
       } else if (isNonEmptyString(framework)) {
+        logger.warn('disconnect-by-framework is deprecated — use profileId or slug');
         success = await database.disconnectProfileByFramework(framework);
       } else {
-        res.status(400).json({ error: 'profileId or framework is required' });
+        res.status(400).json({ error: 'profileId, slug, or framework is required' });
         return;
       }
       if (!success) {

@@ -338,7 +338,12 @@ export const ProfileSettings = () => {
                       <Typography variant="body2" style={{ fontWeight: 500 }}>
                         {c.displayName}
                       </Typography>
-                      {c.description && (
+                      {c.profileSlug && (
+                        <Typography variant="caption" color="textSecondary" style={{ fontFamily: 'monospace' }}>
+                          {c.profileSlug}
+                        </Typography>
+                      )}
+                      {c.description && !c.profileSlug && (
                         <Typography variant="caption" color="textSecondary">
                           {c.description}
                         </Typography>

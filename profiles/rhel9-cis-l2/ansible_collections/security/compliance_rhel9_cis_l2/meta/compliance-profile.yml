@@ -7,6 +7,7 @@
 #   2. Render the dashboard dynamically (columns, labels, gauge text, tabs)
 
 profile:
+  slug: "rhel9-cis-l2"
   name: "CIS Benchmark RHEL 9 Level 2 - Server"
   framework: "CIS"
   version: "v1.0.0"

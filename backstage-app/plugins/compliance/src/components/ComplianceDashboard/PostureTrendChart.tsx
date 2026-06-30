@@ -17,7 +17,7 @@ import {
   Legend,
 } from 'recharts';
 import type { ComplianceApi } from '../../api';
-import type { DashboardStats, PostureSnapshot, RemediationEvent } from '@aap-compliance/common';
+import type { ComplianceProfile, DashboardStats, PostureSnapshot, RemediationEvent } from '@aap-compliance/common';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import {
   detectEvents,
@@ -36,6 +36,7 @@ interface PostureTrendChartProps {
   initialData: PostureSnapshot[];
   remediationEvents?: RemediationEvent[];
   stats: DashboardStats;
+  allProfiles?: ComplianceProfile[];
   api: ComplianceApi;
   onPointClick?: (snapshot: PostureSnapshot) => void;
 }
@@ -168,6 +169,7 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   initialData,
   remediationEvents: initialRemediationEvents,
   stats,
+  allProfiles,
   api,
   onPointClick,
 }) => {
@@ -186,10 +188,20 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
     }
   }, [api, initialRemediationEvents]);
 
-  const profileMap = useMemo(
-    () => new Map(stats.frameworkScores.map(fw => [fw.profileId, fw.name])),
-    [stats.frameworkScores],
-  );
+  const profileMap = useMemo(() => {
+    const map = new Map(stats.frameworkScores.map(fw => [fw.profileId, fw.name]));
+    const allProfileMap = new Map(allProfiles?.map(p => [p.id, p]) ?? []);
+    for (const snap of initialData) {
+      if (!map.has(snap.profileId)) {
+        const profile = allProfileMap.get(snap.profileId);
+        if (profile) {
+          const suffix = profile.connectionStatus === 'disconnected' ? ' (disconnected)' : '';
+          map.set(snap.profileId, `${profile.displayName}${suffix}`);
+        }
+      }
+    }
+    return map;
+  }, [stats.frameworkScores, allProfiles, initialData]);
 
   const inventoryMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -197,14 +209,24 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
     return map;
   }, [stats.byInventory]);
 
-  const profileFilterOptions: FilterOption[] = useMemo(
-    () => stats.frameworkScores.map((fw, i) => ({
+  const profileFilterOptions: FilterOption[] = useMemo(() => {
+    const options: FilterOption[] = stats.frameworkScores.map((fw, i) => ({
       key: fw.profileId,
       label: fw.name,
       color: PROFILE_PALETTE[i % PROFILE_PALETTE.length],
-    })),
-    [stats.frameworkScores],
-  );
+    }));
+    const knownIds = new Set(options.map(o => o.key));
+    for (const [pid, name] of profileMap) {
+      if (!knownIds.has(pid)) {
+        options.push({
+          key: pid,
+          label: name,
+          color: PROFILE_PALETTE[options.length % PROFILE_PALETTE.length],
+        });
+      }
+    }
+    return options;
+  }, [stats.frameworkScores, profileMap]);
 
   const inventoryFilterOptions: FilterOption[] = useMemo(
     () => stats.byInventory.map(inv => ({
@@ -301,10 +323,27 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
     return map;
   }, [filteredData, groupByInventory, selectedProfiles, profileMap, inventoryMap]);
 
+  const disconnectedProfileIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of allProfiles ?? []) {
+      if (p.connectionStatus === 'disconnected') ids.add(p.id);
+    }
+    return ids;
+  }, [allProfiles]);
+
+  const stoppedSeriesIds = useMemo(() => {
+    const stopped = new Set<string>();
+    for (const sid of seriesMap.keys()) {
+      const pid = sid.includes(':') ? sid.split(':')[0] : sid;
+      if (disconnectedProfileIds.has(pid)) stopped.add(sid);
+    }
+    return stopped;
+  }, [seriesMap, disconnectedProfileIds]);
+
   const multiSeries = useMemo(() => {
     if (isSingleLine) return null;
-    return buildFilteredSeries(filteredData, seriesMap, groupByInventory);
-  }, [isSingleLine, filteredData, seriesMap, groupByInventory]);
+    return buildFilteredSeries(filteredData, seriesMap, groupByInventory, stoppedSeriesIds);
+  }, [isSingleLine, filteredData, seriesMap, groupByInventory, stoppedSeriesIds]);
 
   const singleLineData = useMemo(() => {
     if (!isSingleLine) return [];
@@ -394,6 +433,7 @@ const MultiLineChart = React.memo(({
         />
         <YAxis
           domain={[min, max]}
+          allowDataOverflow
           tickFormatter={(v: number) => `${v}%`}
           stroke={TREND_COLORS.axis}
           fontSize={11}
@@ -415,7 +455,6 @@ const MultiLineChart = React.memo(({
             stroke={PROFILE_PALETTE[i % PROFILE_PALETTE.length]}
             strokeWidth={2}
             dot={false}
-            connectNulls
             isAnimationActive={false}
           />
         ))}
@@ -456,6 +495,7 @@ function SingleLineChart({
         />
         <YAxis
           domain={[min, max]}
+          allowDataOverflow
           tickFormatter={(v: number) => `${v}%`}
           stroke={TREND_COLORS.axis}
           fontSize={11}

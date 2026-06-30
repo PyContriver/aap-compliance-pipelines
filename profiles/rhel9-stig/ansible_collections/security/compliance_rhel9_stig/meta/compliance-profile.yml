@@ -10,6 +10,7 @@
 # profile installation (install.yml).
 
 profile:
+  slug: "rhel9-stig"
   name: "DISA STIG RHEL 9"
   framework: "DISA_STIG"
   version: "V2R8"

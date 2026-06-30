@@ -170,15 +170,27 @@ export function registerScanRoutes(
         database.getSummaryCounts(scanIds),
       ]);
 
-      const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number }>();
+      const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number; scannedPackages: number }>();
       for (const f of allFindings) {
         if (f.status === 'fail') {
-          const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0 };
+          const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0, scannedPackages: 0 };
           hr.total++;
           if (f.severity === 'CAT_I') { hr.critical++; hr.score += 10; }
           else if (f.severity === 'CAT_II') { hr.medium++; hr.score += 5; }
           else { hr.low++; hr.score += 1; }
           hostRiskMap.set(f.host, hr);
+        }
+      }
+
+      // Enrich with per-host scanned package counts from scan_metadata
+      for (const scan of profileScans) {
+        const meta = scan.scanMetadata as Record<string, unknown> | null;
+        const hosts = (meta?.hosts ?? {}) as Record<string, { totalScannedPackages?: number }>;
+        for (const [hostname, hostMeta] of Object.entries(hosts)) {
+          const hr = hostRiskMap.get(hostname);
+          if (hr && hostMeta.totalScannedPackages) {
+            hr.scannedPackages = Math.max(hr.scannedPackages, hostMeta.totalScannedPackages);
+          }
         }
       }
 
@@ -397,8 +409,10 @@ export function registerScanRoutes(
     try {
       const ingestToken = randomUUID();
 
+      const profile = await database.getProfile(scanRequest.profileId);
       const scanRecord = await database.createScan({
         profileId: scanRequest.profileId,
+        profileVersion: profile?.version ?? undefined,
         inventoryId: scanRequest.inventoryId,
         scanner: 'oscap',
         scanType: body.scanType || 'assessment',

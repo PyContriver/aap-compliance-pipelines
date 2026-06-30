@@ -112,7 +112,7 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
                 <ListItem
                   key={scan.scanId}
                   className={classes.listItem}
-                  onClick={() => { onClose(); navigate(`/compliance/results/${scan.scanId}`); }}
+                  onClick={() => { onClose(); navigate(`/compliance/results/${scan.workflowJobId ?? scan.scanId}`); }}
                 >
                   <ListItemText
                     primary={`${scan.inventoryName} — ${bl.remediationProfileName}`}
@@ -134,7 +134,7 @@ export const ContributingScansPopover: React.FC<ContributingScansPopoverProps> =
               <ListItem
                 key={scan.scanId}
                 className={classes.listItem}
-                onClick={() => { onClose(); navigate(`/compliance/results/${scan.scanId}`); }}
+                onClick={() => { onClose(); navigate(`/compliance/results/${scan.workflowJobId ?? scan.scanId}`); }}
               >
                 <ListItemText
                   primary={scan.inventoryName}

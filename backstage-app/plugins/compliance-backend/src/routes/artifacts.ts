@@ -2,6 +2,7 @@ import express from 'express';
 import type { RouterDependencies } from './types';
 import { isValidScanId } from './validation';
 import { getUserAapToken } from './permissions';
+import { resolveScanId } from './helpers';
 
 const ARTIFACT_KEY_RE = /^[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,254}$/;
 
@@ -70,7 +71,8 @@ export function registerArtifactRoutes(
       return;
     }
 
-    const artifacts = await database.getArtifactsForScan(scanId);
+    const { resolvedScanId } = await resolveScanId(database, scanId);
+    const artifacts = await database.getArtifactsForScan(resolvedScanId || scanId);
     res.json(artifacts);
   });
 
@@ -89,7 +91,8 @@ export function registerArtifactRoutes(
       return;
     }
 
-    const artifact = await database.getArtifact(scanId, key);
+    const { resolvedScanId: resolvedId } = await resolveScanId(database, scanId);
+    const artifact = await database.getArtifact(resolvedId || scanId, key);
     if (!artifact) {
       res.status(404).json({ error: `Artifact ${key} not found for scan ${scanId}` });
       return;

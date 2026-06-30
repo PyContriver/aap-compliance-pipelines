@@ -32,6 +32,7 @@
     inventory_name: "{{ inventory | default('compliance-rhel9-inventory') }}"
 
     profile:
+      slug: "supply-chain"
       name: "Supply Chain Vulnerability Scan"
       framework: "SUPPLY_CHAIN"
       version: "1.0.0"
@@ -99,7 +100,7 @@
           ask_variables_on_launch: true
           ask_inventory_on_launch: true
           use_fact_cache: true
-          extra_vars: "{{ {'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'description': profile.description, 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'certification_disclaimer': profile.certification_disclaimer, 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': profile.platform, 'scanner': profile.scanner, 'os_family': profile.os_family, 'display_config': profile.display_config} | to_json }}"
+          extra_vars: "{{ {'profile_slug': profile.slug, 'profile_name': profile.name, 'framework': profile.framework, 'version': profile.version, 'description': profile.description, 'certification_status': profile.certification_status, 'certification_authority': profile.certification_authority, 'certification_disclaimer': profile.certification_disclaimer, 'remediate_jt_name': profile.remediate_jt_name, 'remediation_playbook': profile.remediate_playbook, 'platform': profile.platform, 'scanner': profile.scanner, 'os_family': profile.os_family, 'display_config': profile.display_config} | to_json }}"
         validate_certs: false
         status_code: [200, 201]
       register: _scan_jt

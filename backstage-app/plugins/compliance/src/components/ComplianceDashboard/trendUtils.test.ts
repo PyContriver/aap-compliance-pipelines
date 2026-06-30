@@ -225,4 +225,48 @@ describe('buildFilteredSeries', () => {
     expect(data).toEqual([]);
     expect(seriesIds).toEqual([]);
   });
+
+  it('stopped series does not forward-fill past its last data point', () => {
+    const seriesMap = new Map([
+      ['prof-stig', 'DISA STIG'],
+      ['prof-cis', 'CIS L1'],
+    ]);
+    const snapshots = [
+      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z' }),
+    ];
+    const stopped = new Set(['prof-cis']);
+    const { data } = buildFilteredSeries(snapshots, seriesMap, false, stopped);
+    const lastRow = data[data.length - 1];
+    expect(lastRow['prof-stig']).toBe(85);
+    expect(lastRow['prof-cis']).toBeUndefined();
+  });
+
+  it('non-stopped series forward-fills normally', () => {
+    const seriesMap = new Map([
+      ['prof-stig', 'DISA STIG'],
+      ['prof-cis', 'CIS L1'],
+    ]);
+    const snapshots = [
+      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({ profileId: 'prof-cis', compliancePct: 90, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-03T00:00:00Z' }),
+    ];
+    const { data } = buildFilteredSeries(snapshots, seriesMap, false);
+    const lastRow = data[data.length - 1];
+    expect(lastRow['prof-stig']).toBe(85);
+    expect(lastRow['prof-cis']).toBe(90);
+  });
+
+  it('empty stoppedSeriesIds behaves like not passing it', () => {
+    const seriesMap = new Map([['prof-stig', 'DISA STIG']]);
+    const snapshots = [
+      snap({ profileId: 'prof-stig', compliancePct: 80, timestamp: '2026-06-01T00:00:00Z' }),
+      snap({ profileId: 'prof-stig', compliancePct: 85, timestamp: '2026-06-02T00:00:00Z' }),
+    ];
+    const { data } = buildFilteredSeries(snapshots, seriesMap, false, new Set());
+    expect(data).toHaveLength(2);
+    expect(data[1]['prof-stig']).toBe(85);
+  });
 });

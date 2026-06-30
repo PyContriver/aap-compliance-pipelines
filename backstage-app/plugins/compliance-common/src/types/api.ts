@@ -208,6 +208,7 @@ export interface ContributingScan {
 export interface ComplianceScan {
   id: string;
   profileId: string;
+  profileVersion?: string;
   inventoryId: number;
   scanner: string;
   scanType: 'assessment' | 'verification' | 'remediation';
@@ -447,6 +448,7 @@ export interface DashboardStats {
 /** A compliance profile maps a standard (e.g., DISA STIG) to Controller resources. */
 export interface ComplianceProfile {
   id: string;
+  profileSlug: string;
   displayName: string;
   description: string;
   framework: string;
@@ -486,6 +488,7 @@ export interface RemediationPlan {
 /** Request to create or update a compliance profile registration. */
 export interface SaveProfileRequest {
   id?: string;
+  profileSlug?: string;
   displayName: string;
   description: string;
   framework: string;
@@ -530,4 +533,31 @@ export interface IngestFinding {
   fix_text?: string;
   evidence?: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+/** Per-host risk entry for the host risk heatmap widget. */
+export interface HostRiskEntry {
+  hostname: string;
+  critical: number;
+  medium: number;
+  low: number;
+  total: number;
+  score: number;
+  scannedPackages: number;
+}
+
+/** Response from GET /profile-tab-data/:profileId. */
+export interface ProfileTabDataResponse {
+  findings: Array<Record<string, unknown>>;
+  summary: {
+    totalPackages: number;
+    totalVulnerabilities: number;
+    totalScannedPackages: number;
+    totalVulnerablePackages: number;
+    fixable: number;
+    unfixable: number;
+    hostsAffected: number;
+    criticalHigh: number;
+  };
+  hostRisk: HostRiskEntry[];
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   StatusRunning,
   StatusPending,
@@ -90,6 +90,7 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 export const ActiveJobsBanner = () => {
   const classes = useStyles();
   const navigate = useNavigate();
+  const location = useLocation();
   const api = useApi(complianceApiRef);
   const [activeItems, setActiveItems] = useState<ActiveItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
@@ -221,7 +222,9 @@ export const ActiveJobsBanner = () => {
             onClick={() => {
               if (item.kind === 'scan') {
                 const id = item.scan.workflowJobId ?? item.scan.id;
-                navigate(`/compliance/results/${id}`);
+                const target = `/compliance/results/${id}`;
+                if (location.pathname.endsWith(target)) return;
+                navigate(target);
               } else {
                 const id = item.execution.primaryJobId ?? item.execution.id;
                 navigate(`/compliance/remediation-result/${id}`);

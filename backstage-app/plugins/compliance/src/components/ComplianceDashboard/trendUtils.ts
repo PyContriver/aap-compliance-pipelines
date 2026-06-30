@@ -70,6 +70,7 @@ export interface MultiProfileRow {
   [profileKey: string]: number;
 }
 
+/** @deprecated Use buildFilteredSeries which supports composite keys and stoppedSeriesIds. */
 export function buildMultiProfileSeries(
   snapshots: PostureSnapshot[],
   profileMap: Map<string, string>,
@@ -117,6 +118,7 @@ export function buildFilteredSeries(
   snapshots: PostureSnapshot[],
   seriesMap: Map<string, string>,
   groupByInventory: boolean,
+  stoppedSeriesIds?: Set<string>,
 ): { data: MultiProfileRow[]; seriesIds: string[] } {
   const bySeries = new Map<string, PostureSnapshot[]>();
   for (const snap of snapshots) {
@@ -140,7 +142,12 @@ export function buildFilteredSeries(
 
   const lastKnown = new Map<string, number>();
   const indexBySeries = new Map<string, number>();
-  for (const sid of seriesIds) indexBySeries.set(sid, 0);
+  const maxTsBySeries = new Map<string, number>();
+  for (const sid of seriesIds) {
+    indexBySeries.set(sid, 0);
+    const snaps = bySeries.get(sid)!;
+    maxTsBySeries.set(sid, new Date(snaps[snaps.length - 1].timestamp).getTime());
+  }
 
   const data: MultiProfileRow[] = sortedTimestamps.map(ts => {
     const row: MultiProfileRow = { timestamp: ts };
@@ -152,6 +159,7 @@ export function buildFilteredSeries(
         idx++;
       }
       indexBySeries.set(sid, idx);
+      if (stoppedSeriesIds?.has(sid) && ts > maxTsBySeries.get(sid)!) continue;
       const val = lastKnown.get(sid);
       if (val !== undefined) row[sid] = val;
     }

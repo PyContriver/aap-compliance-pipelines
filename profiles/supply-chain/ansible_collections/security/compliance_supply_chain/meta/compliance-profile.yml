@@ -6,6 +6,7 @@
 # dependencies. Findings are normalized to CFF via CycloneDX mapping.
 
 profile:
+  slug: "supply-chain"
   name: "Supply Chain Vulnerability Scan"
   framework: "SUPPLY_CHAIN"
   version: "1.0.0"
@@ -71,3 +72,9 @@ profile:
           unfixable_label: "No Fix / Monitor"
         - widget: host_risk_heatmap
           title: "Host Risk"
+          labels:
+            findings: "Vulnerabilities"
+            critical: "Critical / High"
+            medium: "Medium"
+            low: "Low"
+            clean: "Clean"
