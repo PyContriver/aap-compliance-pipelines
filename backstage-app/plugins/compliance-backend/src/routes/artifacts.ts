@@ -107,7 +107,7 @@ export function registerArtifactRoutes(
       res.send(Buffer.from(blob));
     } catch (err: any) {
       logger.error(`Failed to fetch artifact from PAH: ${err.message}`);
-      res.status(502).json({ error: 'Failed to fetch artifact from registry' });
+      res.status(502).json({ error: `Failed to fetch artifact from registry: ${err.message}` });
     }
   });
 }

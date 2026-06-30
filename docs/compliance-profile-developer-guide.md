@@ -2334,9 +2334,153 @@ The connect/disconnect model is designed for regulatory environments where data 
 
 This aligns with ADR-006 (self-contained profiles): the lifecycle is managed entirely through the profile's own playbooks. The compliance plugin does not implement "delete profile" -- only connect and disconnect.
 
-### 12.6 Checklist Additions
+### 12.6 OCI Artifact Storage in PAH (ADR-032, ADR-037)
 
-Add these items to the Section 11 checklist when your profile includes display configuration or custom tabs.
+Profiles can store scanner-native artifacts (SBOMs, reports, evidence files) in Private Automation Hub as OCI artifacts. The plugin stores only pointers — raw content lives in PAH's container registry.
+
+#### When to Use
+
+Use OCI artifact storage when your scan produces files that:
+- Are too large for Controller's `set_stats` (~32KB limit) — SBOMs are typically 5-20MB
+- Need to be downloaded in their original format (not transformed to CFF)
+- Should be retained alongside scan results for auditing
+
+#### EE Requirements
+
+The Execution Environment must include the ORAS CLI. Add to `execution-environment.yml`:
+
+```yaml
+additional_build_steps:
+  prepend_final:
+    - ENV ORAS_VERSION=1.2.2
+    - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin oras
+  append_final:
+    - RUN oras version
+```
+
+Add `oras version` to your CI verify step to catch missing installs early.
+
+#### Extra Vars
+
+The scan playbook needs these extra vars for artifact push:
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `pah_registry` | JT extra_vars | PAH hostname (e.g., `aap-netrunner.demoredhat.com`) |
+| `pah_username` | JT extra_vars | PAH registry username |
+| `pah_password` | JT extra_vars | PAH registry password |
+| `scan_id` | Plugin launch flow | UUID for the compliance scan |
+| `ingest_token` | Plugin launch flow | Per-scan auth token |
+| `backstage_api_url` | JT extra_vars | Portal base URL |
+
+#### Playbook Pattern: Push-Before-Register
+
+**Critical:** Always gate artifact registration on push success. Never register artifacts that weren't actually pushed — it creates orphaned pointers that cause 502 download errors.
+
+```yaml
+# 1. Push artifacts to PAH
+- name: Push artifacts to PAH as OCI artifacts
+  ansible.builtin.command:
+    cmd: >-
+      oras push {{ pah_registry }}/compliance-artifacts/{{ scan_id }}:{{ artifact_tag }}
+      {{ file_path }}:{{ mime_type }}
+      --insecure
+      --disable-path-validation
+      --username {{ pah_username | default('') }}
+      --password {{ pah_password | default('') }}
+  vars:
+    artifact_tag: "{{ tag_expression }}"
+    file_path: "{{ path_expression }}"
+  loop: "{{ artifact_files }}"
+  loop_control:
+    label: "{{ item | basename }}"
+    index_var: _push_idx
+  register: _push_results
+  no_log: true            # Credentials in command — must not leak
+  changed_when: false
+  failed_when: false      # Scan should complete even if push fails
+  when:
+    - backstage_api_url | default('') | length > 0
+    - pah_username | default('') | length > 0
+
+# 2. Report failures (visible in Controller job events)
+- name: Report artifact push failures
+  ansible.builtin.debug:
+    msg: "Push failed for {{ item.item | basename }} (rc={{ item.rc }})"
+  loop: "{{ _push_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | basename | default('unknown') }}"
+  when:
+    - _push_results.results is defined
+    - item.rc is defined
+    - item.rc != 0
+
+# 3. Register ONLY successfully pushed artifacts
+- name: Register artifacts in compliance backend
+  ansible.builtin.uri:
+    url: "{{ backstage_api_url }}/api/compliance/scans/{{ scan_id }}/artifacts"
+    method: POST
+    body_format: json
+    body:
+      artifactKey: "{{ artifact_tag }}"
+      ociReference: "{{ pah_registry }}/compliance-artifacts/{{ scan_id }}:{{ artifact_tag }}"
+      artifactName: "{{ artifact_filename }}"
+      mimeType: "{{ mime_type }}"
+      ingestToken: "{{ ingest_token | default('') }}"
+    headers:
+      Content-Type: application/json
+    validate_certs: false
+    status_code: [200, 201]
+  loop: "{{ artifact_files }}"
+  loop_control:
+    label: "{{ item | basename }}"
+    index_var: _reg_idx
+  failed_when: false
+  when:
+    - backstage_api_url | default('') | length > 0
+    - _push_results.results is defined
+    - _push_results.results[_reg_idx].rc | default(1) == 0
+```
+
+The `index_var` correlation works because both loops iterate the same list. Skipped items (from `when:` guards) appear in `.results` with no `rc` field — `default(1)` treats them as failures.
+
+#### OCI Reference Convention
+
+```
+{pah_registry}/compliance-artifacts/{scan_id}:{artifact_tag}
+```
+
+One OCI repository per scan, one tag per artifact. PAH's garbage collection manages retention.
+
+#### Profile Declaration
+
+Declare artifact exports in `compliance-profile.yml` so the ExportButton renders download links:
+
+```yaml
+display:
+  export_formats:
+    - key: sbom-cyclonedx
+      label: "Export SBOMs (CycloneDX)"
+      description: "Original SBOM files per host"
+      type: artifact
+      artifact_key: "sbom-*"           # Wildcard matches sbom-hostname
+      mime_type: "application/vnd.cyclonedx+json"
+      file_extension: ".cdx.json"
+```
+
+#### Gotchas
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| `oras push` fails silently | Missing `--disable-path-validation` — oras 1.2+ rejects absolute paths | Always include the flag; Ansible `fetch` writes to absolute paths |
+| 502 on download | Artifacts registered but never pushed (orphaned pointers) | Gate registration on `_push_results.results[idx].rc == 0` |
+| 401 on artifact list/download | Client not passing `x-aap-token` header | Use `getAapToken()` in client methods |
+| Push errors invisible | `no_log: true` censors all output | Add a separate "Report failures" debug task |
+| Push appears to succeed | `failed_when: false` + `no_log: true` hides errors | Check job events for the Report task |
+
+### 12.7 Checklist Additions
+
+Add these items to the Section 11 checklist when your profile includes display configuration, custom tabs, or OCI artifacts.
 
 #### Display Configuration
 
@@ -2366,6 +2510,17 @@ Add these items to the Section 11 checklist when your profile includes display c
 - [ ] `display.tab.custom_component.export` matches the named export from the bundle
 - [ ] `install.yml` includes a task to upload the bundle via `PUT /api/compliance/profiles/:id/bundle`
 - [ ] `uninstall.yml` includes a task to remove the bundle via `DELETE /api/compliance/profiles/:id/bundle`
+
+#### OCI Artifact Storage
+
+- [ ] EE includes ORAS CLI (`oras version` succeeds)
+- [ ] CI verify step includes `oras version` check
+- [ ] Playbook uses `--disable-path-validation` flag on `oras push`
+- [ ] Playbook uses push-before-register pattern (registration gated on `rc == 0`)
+- [ ] Playbook includes "Report push failures" debug task
+- [ ] `export_formats` in `compliance-profile.yml` declares artifact exports with `type: artifact`
+- [ ] JT extra_vars include `pah_registry`, `pah_username`, `pah_password`
+- [ ] Artifact download tested end-to-end: push → register → list → download
 
 #### Profile Lifecycle
 
