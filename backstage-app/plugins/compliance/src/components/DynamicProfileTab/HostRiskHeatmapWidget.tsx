@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Typography,
   Box,
@@ -10,9 +10,14 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  IconButton,
+  CircularProgress,
   makeStyles,
 } from '@material-ui/core';
+import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import type { HostRiskEntry, TabWidget } from '@aap-compliance/common';
+import { complianceApiRef } from '../../api';
 import { TABLE_STYLES } from '../shared/chipStyles';
 import { STATUS_COLORS } from '../shared/colors';
 
@@ -47,6 +52,27 @@ interface Props {
 
 export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
   const classes = useStyles();
+  const api = useApi(complianceApiRef);
+  const alertApi = useApi(alertApiRef);
+  const [downloadingHost, setDownloadingHost] = useState<string | null>(null);
+
+  const downloadAction = config.actions?.find(a => a.type === 'download_artifact');
+
+  const handleDownload = useCallback(async (host: HostRiskEntry) => {
+    if (!downloadAction || !host.latestScanId) return;
+    const artifactKey = `${downloadAction.artifact_key_prefix}${host.hostname}`;
+    const filename = `${artifactKey}.cdx.json`;
+    setDownloadingHost(host.hostname);
+    try {
+      await api.downloadArtifact(host.latestScanId, artifactKey, filename);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alertApi.post({ message: `Failed to download SBOM for ${host.hostname}: ${msg}`, severity: 'error' });
+    } finally {
+      setDownloadingHost(null);
+    }
+  }, [api, alertApi, downloadAction]);
+
   if (!tabData || tabData.hostRisk.length === 0) return null;
 
   const hosts = tabData.hostRisk;
@@ -73,6 +99,11 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
               <TableCell style={TABLE_STYLES.header} className={classes.barCell}>
                 Vulnerable / Clean
               </TableCell>
+              {downloadAction && (
+                <TableCell style={TABLE_STYLES.header} align="center">
+                  {downloadAction.label ?? 'SBOM'}
+                </TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -107,6 +138,23 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
                       </div>
                     </Tooltip>
                   </TableCell>
+                  {downloadAction && (
+                    <TableCell align="center">
+                      <Tooltip title={h.latestScanId ? `Download SBOM for ${h.hostname}` : 'No SBOM available'} arrow>
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={!h.latestScanId || downloadingHost === h.hostname}
+                            onClick={() => handleDownload(h)}
+                          >
+                            {downloadingHost === h.hostname
+                              ? <CircularProgress size={16} />
+                              : <CloudDownloadIcon fontSize="small" />}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

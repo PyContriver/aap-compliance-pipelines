@@ -46,6 +46,15 @@ export interface TabWidget {
   columns?: DisplayColumn[];
   fixable_label?: string;
   unfixable_label?: string;
+  actions?: TabWidgetAction[];
+}
+
+/** An action button declared on a widget (e.g., per-row download). */
+export interface TabWidgetAction {
+  type: 'download_artifact';
+  artifact_key_prefix: string;
+  label?: string;
+  mime_type?: string;
 }
 
 /** Tier 2: custom React component bundled in the collection's backstage/ directory. */

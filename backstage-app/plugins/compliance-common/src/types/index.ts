@@ -25,6 +25,7 @@ export type {
   CustomComponentRef,
   TabConfig,
   ExportFormatSpec,
+  TabWidgetAction,
   ScoreFormula,
   ProfileDisplayConfig,
 } from './display';

@@ -544,6 +544,7 @@ export interface HostRiskEntry {
   total: number;
   score: number;
   scannedPackages: number;
+  latestScanId?: string;
 }
 
 /** Response from GET /profile-tab-data/:profileId. */

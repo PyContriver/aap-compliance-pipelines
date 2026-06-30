@@ -170,7 +170,7 @@ export function registerScanRoutes(
         database.getSummaryCounts(scanIds),
       ]);
 
-      const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number; scannedPackages: number }>();
+      const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number; scannedPackages: number; latestScanId?: string }>();
       for (const f of allFindings) {
         if (f.status === 'fail') {
           const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0, scannedPackages: 0 };
@@ -182,7 +182,7 @@ export function registerScanRoutes(
         }
       }
 
-      // Enrich with per-host scanned package counts from scan_metadata
+      // Enrich with per-host scanned package counts and latest scan ID from scan_metadata
       for (const scan of profileScans) {
         const meta = scan.scanMetadata as Record<string, unknown> | null;
         const hosts = (meta?.hosts ?? {}) as Record<string, { totalScannedPackages?: number }>;
@@ -190,6 +190,9 @@ export function registerScanRoutes(
           const hr = hostRiskMap.get(hostname);
           if (hr && hostMeta.totalScannedPackages) {
             hr.scannedPackages = Math.max(hr.scannedPackages, hostMeta.totalScannedPackages);
+          }
+          if (hr) {
+            hr.latestScanId = String(scan.workflowJobId ?? scan.id);
           }
         }
       }

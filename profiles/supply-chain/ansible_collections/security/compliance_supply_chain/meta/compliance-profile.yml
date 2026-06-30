@@ -78,3 +78,7 @@ profile:
             medium: "Medium"
             low: "Low"
             clean: "Clean"
+          actions:
+            - type: download_artifact
+              artifact_key_prefix: "sbom-"
+              label: "SBOM"
