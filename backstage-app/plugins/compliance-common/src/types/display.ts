@@ -55,6 +55,7 @@ export interface TabWidgetAction {
   artifact_key_prefix: string;
   label?: string;
   mime_type?: string;
+  file_extension?: string;
 }
 
 /** Tier 2: custom React component bundled in the collection's backstage/ directory. */

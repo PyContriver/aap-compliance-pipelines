@@ -486,21 +486,16 @@ export class ComplianceBackendClient implements ComplianceApi {
     );
   }
 
-  async getArtifacts(scanId: string) {
-    const aapToken = await this.getAapToken();
+  getArtifacts(scanId: string) {
     return this.request<import('@aap-compliance/common').ScanArtifact[]>(
       `/scans/${encodeURIComponent(scanId)}/artifacts`,
-      { aapToken },
     );
   }
 
   async downloadArtifact(scanId: string, artifactKey: string, filename: string): Promise<void> {
-    const aapToken = await this.getAapToken();
     const baseUrl = await this.discoveryApi.getBaseUrl('compliance');
     const url = `${baseUrl}/scans/${encodeURIComponent(scanId)}/artifacts/${encodeURIComponent(artifactKey)}/download`;
-    const resp = await this.fetchApi.fetch(url, {
-      headers: aapToken ? { 'x-aap-token': aapToken } : {},
-    });
+    const resp = await this.fetchApi.fetch(url);
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     const blob = await resp.blob();
     const objUrl = URL.createObjectURL(blob);

@@ -182,16 +182,20 @@ export function registerScanRoutes(
         }
       }
 
-      // Enrich with per-host scanned package counts and latest scan ID from scan_metadata
+      // Enrich with per-host scanned package counts and latest scan ID from scan_metadata.
+      // Hosts with zero findings are added here so they appear in the heatmap with a download button.
       for (const scan of profileScans) {
         const meta = scan.scanMetadata as Record<string, unknown> | null;
         const hosts = (meta?.hosts ?? {}) as Record<string, { totalScannedPackages?: number }>;
         for (const [hostname, hostMeta] of Object.entries(hosts)) {
-          const hr = hostRiskMap.get(hostname);
-          if (hr && hostMeta.totalScannedPackages) {
+          if (!hostRiskMap.has(hostname)) {
+            hostRiskMap.set(hostname, { critical: 0, medium: 0, low: 0, total: 0, score: 0, scannedPackages: 0 });
+          }
+          const hr = hostRiskMap.get(hostname)!;
+          if (hostMeta.totalScannedPackages) {
             hr.scannedPackages = Math.max(hr.scannedPackages, hostMeta.totalScannedPackages);
           }
-          if (hr) {
+          if (!hr.latestScanId) {
             hr.latestScanId = String(scan.workflowJobId ?? scan.id);
           }
         }

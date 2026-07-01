@@ -61,13 +61,15 @@ export const HostRiskHeatmapWidget = ({ config, tabData }: Props) => {
   const handleDownload = useCallback(async (host: HostRiskEntry) => {
     if (!downloadAction || !host.latestScanId) return;
     const artifactKey = `${downloadAction.artifact_key_prefix}${host.hostname}`;
-    const filename = `${artifactKey}.cdx.json`;
+    const ext = downloadAction.file_extension ?? '.json';
+    const filename = `${artifactKey}${ext}`;
     setDownloadingHost(host.hostname);
     try {
       await api.downloadArtifact(host.latestScanId, artifactKey, filename);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      alertApi.post({ message: `Failed to download SBOM for ${host.hostname}: ${msg}`, severity: 'error' });
+      const label = downloadAction.label ?? 'artifact';
+      alertApi.post({ message: `Failed to download ${label} for ${host.hostname}: ${msg}`, severity: 'error' });
     } finally {
       setDownloadingHost(null);
     }

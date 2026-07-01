@@ -2,6 +2,22 @@ import express from 'express';
 import type { RouterDependencies } from './types';
 import { isValidScanId } from './validation';
 import { resolveScanId } from './helpers';
+import type { HttpAuthService } from '@backstage/backend-plugin-api';
+
+async function requireUserAuth(
+  httpAuth: HttpAuthService | undefined,
+  req: express.Request,
+  res: express.Response,
+): Promise<boolean> {
+  if (!httpAuth) return true;
+  try {
+    await httpAuth.credentials(req);
+    return true;
+  } catch {
+    res.status(401).json({ error: 'Authentication required' });
+    return false;
+  }
+}
 
 const ARTIFACT_KEY_RE = /^[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,254}$/;
 
@@ -13,7 +29,7 @@ export function registerArtifactRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, database } = deps;
+  const { logger, database, httpAuth } = deps;
 
   router.post('/scans/:scanId/artifacts', express.json({ limit: '1kb' }), async (req, res) => {
     const { scanId } = req.params;
@@ -60,6 +76,7 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts', async (req, res) => {
+    if (!await requireUserAuth(httpAuth, req, res)) return;
     const { scanId } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -72,6 +89,7 @@ export function registerArtifactRoutes(
   });
 
   router.get('/scans/:scanId/artifacts/:key/download', async (req, res) => {
+    if (!await requireUserAuth(httpAuth, req, res)) return;
     const { scanId, key } = req.params;
     if (!isValidScanId(scanId)) {
       res.status(400).json({ error: 'Invalid scanId' });
@@ -98,7 +116,7 @@ export function registerArtifactRoutes(
       res.send(Buffer.from(blob));
     } catch (err: any) {
       logger.error(`Failed to fetch artifact from PAH: ${err.message}`);
-      res.status(502).json({ error: `Failed to fetch artifact from registry: ${err.message}` });
+      res.status(502).json({ error: 'Failed to fetch artifact from registry' });
     }
   });
 }

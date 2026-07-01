@@ -72,7 +72,7 @@
           layout:
             - { widget: "score_grid", title: "Vulnerability Overview" }
             - { widget: "action_table", title: "Remediation Actions", fixable_label: "Fix Available", unfixable_label: "No Fix / Monitor" }
-            - { widget: "host_risk_heatmap", title: "Host Risk", actions: [{ type: "download_artifact", artifact_key_prefix: "sbom-", label: "SBOM" }] }
+            - { widget: "host_risk_heatmap", title: "Host Risk", actions: [{ type: "download_artifact", artifact_key_prefix: "sbom-", label: "SBOM", file_extension: ".cdx.json" }] }
 
   tasks:
     - name: Validate required variables
