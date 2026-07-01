@@ -2474,7 +2474,7 @@ display:
 |-------|-------|-----|
 | `oras push` fails silently | Missing `--disable-path-validation` — oras 1.2+ rejects absolute paths | Always include the flag; Ansible `fetch` writes to absolute paths |
 | 502 on download | Artifacts registered but never pushed (orphaned pointers) | Gate registration on `_push_results.results[idx].rc == 0` |
-| 401 on artifact list/download | Client not passing `x-aap-token` header | Use `getAapToken()` in client methods |
+| 401 on artifact list/download | User not logged into Portal (no Backstage session) | Artifact GET endpoints use Backstage `httpAuth` — user must have a valid Portal session |
 | Push errors invisible | `no_log: true` censors all output | Add a separate "Report failures" debug task |
 | Push appears to succeed | `failed_when: false` + `no_log: true` hides errors | Check job events for the Report task |
 

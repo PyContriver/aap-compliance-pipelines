@@ -67,9 +67,9 @@ Artifact registration in the plugin DB must only happen for successfully pushed 
 
 The `index_var` correlation works because both loops iterate the same list. Skipped push items (from `when:` conditions) appear in `.results` with no `rc` field — `default(1)` treats them as failures.
 
-### 3. All artifact endpoints require AAP token
+### 3. Artifact GET endpoints require Backstage httpAuth
 
-The backend artifact list and download endpoints require the `x-aap-token` header (added during security hardening). Frontend client methods must call `getAapToken()` and pass it, same as all other authenticated endpoints.
+The backend artifact list and download endpoints use Backstage's `httpAuth.credentials()` to verify the caller has a valid session. POST (artifact registration from playbooks) remains unauthenticated, secured by per-scan ingest tokens (ADR-010). The `/scans` prefix is marked `allow: 'unauthenticated'` at the Backstage layer for POST access; GET handlers enforce auth explicitly via `requireUserAuth()`.
 
 ### 4. Error surfacing over silent fallbacks
 
@@ -77,7 +77,7 @@ Frontend components must surface artifact errors to the user via `alertApi`, not
 - "Failed to load export artifacts: ..." on fetch errors
 - "Failed to download {filename}: ..." on download errors
 
-Backend download errors include the registry error message in the 502 response body.
+Backend download errors return a generic message to the client; the registry error detail is logged server-side only (no infrastructure leakage).
 
 ### 5. PAH OCI reference convention
 

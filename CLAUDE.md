@@ -26,7 +26,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 22 suites (609 tests)
+yarn test             # Run tests across 23 suites (619 tests)
 yarn build            # Build all packages
 ```
 
@@ -90,8 +90,8 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 161 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 597 backend/frontend tests across 22 suites
-- 34 formal ADRs in `specs/compliance-pipelines/decisions/`
+- 161 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 619 backend/frontend tests across 23 suites
+- 37 formal ADRs in `specs/compliance-pipelines/decisions/`
 - 9 Tier 1 widget types for dynamic tabs: `summary_card`, `severity_breakdown`, `findings_table`, `trend_chart`, `gauge`, `host_breakdown`, `score_grid`, `action_table`, `host_risk_heatmap`
 - `scan_metadata` JSON column on `compliance_scans` stores per-host package counts via idempotent `mergeScanMetadata` (hosts map + aggregate totals: `totalScannedPackages` from Syft SBOM, `totalVulnerablePackages` from Grype matches, `totalVulnerabilities` unique CVEs). Vulnerability-free rate = `(totalScannedPackages - totalVulnerablePackages) / totalScannedPackages`. Old scans without new fields fall back gracefully.
 - EE images hosted in PAH (`aap-netrunner.demoredhat.com/compliance-*:latest`), built via GitHub Actions and mirrored with skopeo (ADR-031)
