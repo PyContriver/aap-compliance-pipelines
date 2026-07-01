@@ -678,6 +678,29 @@ export class ComplianceDatabase {
     return { criticalHigh, fixable, unfixable, hostsAffected: hostsSet.size };
   }
 
+  async getHostSeverityCounts(scanIds: string[]): Promise<Array<{ host: string; critical: number; medium: number; low: number; total: number }>> {
+    if (scanIds.length === 0) return [];
+    const rows: any[] = await this.db('compliance_findings')
+      .select(
+        'host',
+        this.db.raw("COUNT(*) as total"),
+        this.db.raw("SUM(CASE WHEN severity = 'CAT_I' THEN 1 ELSE 0 END) as critical"),
+        this.db.raw("SUM(CASE WHEN severity = 'CAT_II' THEN 1 ELSE 0 END) as medium"),
+        this.db.raw("SUM(CASE WHEN severity = 'CAT_III' THEN 1 ELSE 0 END) as low"),
+      )
+      .whereIn('scan_id', scanIds)
+      .where('status', 'fail')
+      .where('host', '!=', 'localhost')
+      .groupBy('host');
+    return rows.map(r => ({
+      host: r.host as string,
+      critical: Number(r.critical) || 0,
+      medium: Number(r.medium) || 0,
+      low: Number(r.low) || 0,
+      total: Number(r.total) || 0,
+    }));
+  }
+
   async getNotApplicableRules(scanId: string): Promise<Array<{ ruleId: string; ruleTitle: string; severity: string }>> {
     const rows = await this.db('compliance_findings as f')
       .leftJoin('compliance_rule_metadata as m', 'f.rule_id', 'm.rule_id')

@@ -165,21 +165,16 @@ export function registerScanRoutes(
         if (s.totalVulnerablePackages) totalVulnerablePackages += s.totalVulnerablePackages;
       }
 
-      const [allFindings, summaryCounts] = await Promise.all([
+      const [allFindings, summaryCounts, hostSeverities] = await Promise.all([
         database.getAggregatedFindingsForScans(scanIds, limit),
         database.getSummaryCounts(scanIds),
+        database.getHostSeverityCounts(scanIds),
       ]);
 
       const hostRiskMap = new Map<string, { critical: number; medium: number; low: number; total: number; score: number; scannedPackages: number; latestScanId?: string }>();
-      for (const f of allFindings) {
-        if (f.status === 'fail') {
-          const hr = hostRiskMap.get(f.host) ?? { critical: 0, medium: 0, low: 0, total: 0, score: 0, scannedPackages: 0 };
-          hr.total++;
-          if (f.severity === 'CAT_I') { hr.critical++; hr.score += 10; }
-          else if (f.severity === 'CAT_II') { hr.medium++; hr.score += 5; }
-          else { hr.low++; hr.score += 1; }
-          hostRiskMap.set(f.host, hr);
-        }
+      for (const hs of hostSeverities) {
+        const score = hs.critical * 10 + hs.medium * 5 + hs.low;
+        hostRiskMap.set(hs.host, { ...hs, score, scannedPackages: 0 });
       }
 
       // Enrich with per-host scanned package counts and latest scan ID from scan_metadata.
