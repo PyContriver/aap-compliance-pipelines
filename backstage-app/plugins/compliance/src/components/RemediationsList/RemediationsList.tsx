@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUrlToggle } from '../../hooks/useUrlToggle';
 import {
   InfoCard,
   Progress,
@@ -322,7 +323,7 @@ export const RemediationsList = () => {
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const [inventoryNames, setInventoryNames] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [statusFilter, setStatusFilter] = useUrlToggle<StatusFilter>('statusFilter', 'active');
   const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
   const [executionHistory, setExecutionHistory] = useState<Map<string, RemediationExecution[]>>(new Map());
   const [deleteTarget, setDeleteTarget] = useState<RemediationProfile | null>(null);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUrlToggle } from '../../hooks/useUrlToggle';
 import {
   InfoCard,
   StatusOK,
@@ -156,8 +157,8 @@ export const ComplianceDashboard = () => {
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [postureView, setPostureView] = useState<'profile' | 'inventory'>('profile');
-  const [postureMode, setPostureMode] = useState<'standard' | 'baseline'>('standard');
+  const [postureView, setPostureView] = useUrlToggle<'profile' | 'inventory'>('postureView', 'profile');
+  const [postureMode, setPostureMode] = useUrlToggle<'standard' | 'baseline'>('postureMode', 'standard');
   const [baselineTargets, setBaselineTargets] = useState<BaselineTarget[]>([]);
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const [popoverProfile, setPopoverProfile] = useState<{ name: string; profileId: string; scans: Array<{ scanId: string; inventoryId: number; inventoryName: string; passRate: number; passCount: number; failCount: number; ruleCount: number; timestamp: string }> }>({ name: '', profileId: '', scans: [] });

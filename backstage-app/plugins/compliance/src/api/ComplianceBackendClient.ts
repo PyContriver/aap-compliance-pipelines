@@ -266,9 +266,11 @@ export class ComplianceBackendClient implements ComplianceApi {
     return this.request<import('@aap-compliance/common').RemediationEvent[]>(`/posture/events${q}`);
   }
 
-  getHostPosture(inventoryId: number, profileId: string) {
+  getHostPosture(inventoryId: number, profileId: string, options?: { baselineView?: boolean }) {
+    const params = new URLSearchParams({ profileId });
+    if (options?.baselineView) params.set('baselineView', 'true');
     return this.request<import('@aap-compliance/common').HostPostureResponse>(
-      `/inventory/${inventoryId}/host-posture?profileId=${encodeURIComponent(profileId)}`,
+      `/inventory/${inventoryId}/host-posture?${params.toString()}`,
     );
   }
 

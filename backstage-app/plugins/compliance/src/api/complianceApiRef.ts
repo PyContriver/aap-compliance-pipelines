@@ -57,7 +57,7 @@ export interface ComplianceApi {
   getContributingScans(profileId: string): Promise<ContributingScan[]>;
   getPostureHistory(profileId?: string, days?: number, inventoryId?: number): Promise<PostureSnapshot[]>;
   getRemediationEventsForTrend(days?: number, inventoryId?: number): Promise<RemediationEvent[]>;
-  getHostPosture(inventoryId: number, profileId: string): Promise<HostPostureResponse>;
+  getHostPosture(inventoryId: number, profileId: string, options?: { baselineView?: boolean }): Promise<HostPostureResponse>;
   getHostFindings(inventoryId: number, hostname: string, profileId: string, limit?: number): Promise<HostFindingsResponse>;
   getRemediationProfiles(statusFilter?: RemediationProfileStatus | 'all'): Promise<RemediationProfile[]>;
   getRemediationProfile(id: string): Promise<RemediationProfile | null>;

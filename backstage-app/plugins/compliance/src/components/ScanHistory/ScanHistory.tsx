@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useUrlToggle } from '../../hooks/useUrlToggle';
 import {
   InfoCard,
   Progress,
@@ -208,26 +209,18 @@ export const ScanHistory = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
-  const [searchParams] = useSearchParams();
-  const filterByProfile = searchParams.get('complianceProfileId');
-
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
   const [scanStats, setScanStats] = useState<Record<string, { pass: number; fail: number; rules: number; hosts: number; stateNew?: number; stateFixed?: number; stateResurfaced?: number; totalPackages?: number; totalVulnerabilities?: number; totalScannedPackages?: number; totalVulnerablePackages?: number }>>({});
   const [profileMap, setProfileMap] = useState<Map<string, { name: string; certification: ScanCertification | null; displayConfig?: ProfileDisplayConfig }>>(new Map());
   const [inventoryMap, setInventoryMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
-  const [filterProfile, setFilterProfile] = useState<string>(filterByProfile || '');
-  const [filterInventory, setFilterInventory] = useState<string>('');
+  const [viewMode, setViewMode] = useUrlToggle<'grouped' | 'flat'>('viewMode', 'grouped');
+  const [filterProfile, setFilterProfile] = useUrlToggle<string>('complianceProfileId', '');
+  const [filterInventory, setFilterInventory] = useUrlToggle<string>('inventoryFilter', '');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [compareSelection, setCompareSelection] = useState<{ groupKey: string; scanId: string } | null>(null);
-  const [filterType, setFilterType] = useState<string>('');
-
-  // Sync URL param filter with state
-  useEffect(() => {
-    if (filterByProfile) setFilterProfile(filterByProfile);
-  }, [filterByProfile]);
+  const [filterType, setFilterType] = useUrlToggle<string>('typeFilter', '');
 
   const refreshScans = useCallback(() => api.getScans().then(data => setScans(data)).catch(err => {
     console.error('Failed to refresh scans:', err);

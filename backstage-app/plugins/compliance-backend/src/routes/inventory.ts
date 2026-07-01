@@ -28,7 +28,8 @@ export function registerInventoryRoutes(
     }
 
     try {
-      const result = await service.getHostPosture(inventoryId, profileId, req);
+      const baselineView = req.query.baselineView === 'true';
+      const result = await service.getHostPosture(inventoryId, profileId, req, { baselineView });
       res.json(result);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

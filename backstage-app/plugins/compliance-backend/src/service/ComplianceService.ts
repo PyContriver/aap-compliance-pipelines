@@ -958,6 +958,7 @@ export class ComplianceService {
     inventoryId: number,
     profileId: string,
     req?: any,
+    options?: { baselineView?: boolean },
   ): Promise<import('@aap-compliance/common').HostPostureResponse> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getHostPosture(inventoryId, profileId);
@@ -973,7 +974,24 @@ export class ComplianceService {
       scan = fallback;
     }
 
-    const hosts = await this.database.getHostPosture(scan.id);
+    let hosts: import('@aap-compliance/common').HostPosture[];
+    if (options?.baselineView) {
+      const targets = await this.database.getBaselineTargetsForProfile(profileId);
+      const target = targets.find(t => t.inventoryId === inventoryId);
+      if (target) {
+        const remProfile = await this.database.getRemediationProfile(target.remediationProfileId);
+        const ruleIds = remProfile?.selections
+          .filter((s: any) => s.enabled !== false)
+          .map((s: any) => s.ruleId) ?? [];
+        hosts = ruleIds.length > 0
+          ? await this.database.getHostPostureBaseline(scan.id, ruleIds)
+          : await this.database.getHostPosture(scan.id);
+      } else {
+        hosts = await this.database.getHostPosture(scan.id);
+      }
+    } else {
+      hosts = await this.database.getHostPosture(scan.id);
+    }
 
     let hostFacts: Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string }> = [];
     try {

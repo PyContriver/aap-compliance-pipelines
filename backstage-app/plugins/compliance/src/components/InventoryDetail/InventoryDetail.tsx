@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useUrlToggle } from '../../hooks/useUrlToggle';
 import { InfoCard } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -14,6 +15,7 @@ import {
   InputLabel,
   Tooltip,
   Button,
+  ButtonGroup,
   makeStyles,
 } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
@@ -83,7 +85,8 @@ export const InventoryDetail: React.FC = () => {
   const [hostData, setHostData] = useState<HostPostureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
-  const [osFilter, setOsFilter] = useState<string | null>(null);
+  const [osFilter, setOsFilter] = useUrlToggle<string>('osFilter', '');
+  const [postureMode, setPostureMode] = useUrlToggle<'standard' | 'baseline'>('postureMode', 'standard');
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [workflowJobId, setWorkflowJobId] = useState<number | undefined>();
   const [rawDisplayConfig, setRawDisplayConfig] = useState<ProfileDisplayConfig | undefined>(undefined);
@@ -131,14 +134,14 @@ export const InventoryDetail: React.FC = () => {
   useEffect(() => {
     if (!selectedProfileId || !invId) return;
     setLoading(true);
-    api.getHostPosture(invId, selectedProfileId)
+    api.getHostPosture(invId, selectedProfileId, { baselineView: postureMode === 'baseline' })
       .then(setHostData)
       .catch(err => { console.error('Failed to load host posture:', err); setHostData(null); })
       .finally(() => setLoading(false));
     api.getAuthoritativeScan(selectedProfileId, invId)
       .then(result => setWorkflowJobId(result?.scan.workflowJobId ?? undefined))
       .catch(() => setWorkflowJobId(undefined));
-  }, [api, invId, selectedProfileId]);
+  }, [api, invId, selectedProfileId, postureMode]);
 
   const hosts = hostData?.hosts ?? [];
   const filteredHosts = useMemo(
@@ -236,7 +239,7 @@ export const InventoryDetail: React.FC = () => {
               <FormControl variant="outlined" size="small" className={classes.profileSelect}>
                 <InputLabel id="inv-profile-label">Compliance Profile</InputLabel>
                 <Select labelId="inv-profile-label" value={selectedProfileId}
-                  onChange={e => { setSelectedProfileId(e.target.value as string); setOsFilter(null); }}
+                  onChange={e => { setSelectedProfileId(e.target.value as string); setOsFilter(''); }}
                   label="Compliance Profile"
                 >
                   {profileOptions.map(opt => (
@@ -244,6 +247,34 @@ export const InventoryDetail: React.FC = () => {
                   ))}
                 </Select>
               </FormControl>
+            </div>
+          )}
+
+          {/* Baseline / Standard toggle */}
+          {selectedBaseline && (
+            <div className={classes.controls}>
+              <ButtonGroup size="small" variant="outlined">
+                <Tooltip title="Show compliance against the full standard" arrow>
+                  <Button
+                    variant={postureMode === 'standard' ? 'contained' : 'outlined'}
+                    color={postureMode === 'standard' ? 'primary' : 'default'}
+                    onClick={() => setPostureMode('standard')}
+                    startIcon={<AssessmentIcon style={{ fontSize: 16 }} />}
+                  >
+                    Standard
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Show compliance against your pinned baseline (curated rule set)" arrow>
+                  <Button
+                    variant={postureMode === 'baseline' ? 'contained' : 'outlined'}
+                    color={postureMode === 'baseline' ? 'primary' : 'default'}
+                    onClick={() => setPostureMode('baseline')}
+                    startIcon={<BookmarkIcon style={{ fontSize: 16 }} />}
+                  >
+                    Baseline
+                  </Button>
+                </Tooltip>
+              </ButtonGroup>
             </div>
           )}
 
@@ -266,7 +297,7 @@ export const InventoryDetail: React.FC = () => {
                       <Chip size="small" label={`${os} (${count})`}
                         className={`${classes.osChip} ${osFilter === os ? classes.osChipActive : ''}`}
                         variant={osFilter === os ? 'default' : 'outlined'}
-                        onClick={() => setOsFilter(prev => prev === os ? null : os)}
+                        onClick={() => setOsFilter(osFilter === os ? '' : os)}
                       />
                     </Tooltip>
                   ))}
