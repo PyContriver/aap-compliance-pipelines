@@ -66,7 +66,10 @@ export class DashboardAggregator {
 
   async getDashboardStats(): Promise<DashboardStats> {
     if (this.service.getDataSource() === 'mock') {
-      return MockDataProvider.getDashboardStats();
+      const profiles = await this.database.listProfiles();
+      if (profiles.length === 0) {
+        return MockDataProvider.getDashboardStats();
+      }
     }
 
     const empty: DashboardStats = {

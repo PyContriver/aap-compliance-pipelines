@@ -70,6 +70,7 @@ All feature specs are in [`specs/compliance-pipelines/features/`](../specs/compl
 | Guide | Audience |
 |-------|----------|
 | [compliance-profile-developer-guide.md](compliance-profile-developer-guide.md) | Building new compliance profiles (1-3 tiers, CFF, normalizers, EEs, custom tabs) |
+| [standalone-deployment.md](standalone-deployment.md) | Standalone deployment for internal testing and demos |
 | [deployment-guide.md](deployment-guide.md) | Deploying plugins to Portal/RHDH |
 | [manual-testing-supply-chain.md](manual-testing-supply-chain.md) | Manual testing checklist (69 steps, Netrunner live + mock) |
 | [handover-guide.md](handover-guide.md) | Project handover documentation |

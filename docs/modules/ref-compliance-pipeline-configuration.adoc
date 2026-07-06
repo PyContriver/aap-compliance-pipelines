@@ -139,9 +139,9 @@ The following environment variables are used to configure the compliance plugin.
 |None
 
 |`BACKEND_SECRET`
-|Secret key for portal backend authentication. Auto-generated if not set.
-|Optional
-|Auto-generated
+|Secret key for portal service-to-service authentication between the frontend and backend. Auto-generated in local development, but *must be explicitly set* for standalone or remote deployments to ensure consistent authentication across restarts. Generate a value with `openssl rand -hex 32`. Maps to `backend.auth.keys[0].secret` in `app-config.yaml`.
+|Required for standalone deployment
+|Auto-generated (local dev only)
 
 |`AUTH_SIGNING_KEY`
 |Key for signing authentication tokens. Auto-generated if not set.

@@ -87,6 +87,12 @@ export const complianceBackendPlugin = createBackendPlugin({
         // ─── Service ────────────────────────────────────────────
         const service = new ComplianceService(config, logger);
         service.setDatabase(complianceDb);
+
+        if (service.getDataSource() === 'mock') {
+          const { MockDataSeeder } = await import('./service/MockDataSeeder');
+          await new MockDataSeeder(dbClient, logger).seed();
+        }
+
         logger.info(
           `Compliance service ready (dataSource=${service.getDataSource()})`,
         );

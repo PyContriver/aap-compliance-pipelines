@@ -8,9 +8,10 @@ The compliance plugins support two deployment modes:
 
 | Mode | Use Case | How |
 |------|----------|-----|
-| **Standalone** | Local development, demos, UX reviews | `cd backstage-app && ./bin/start.sh mock` |
+| **Standalone** | Internal testing, demos, UX reviews | `cd backstage-app && ./bin/start.sh mock` |
 | **Portal / RHDH** | Production deployment as dynamic plugins | Build with `export-dynamic`, install in RHDH |
 
+For standalone deployment on a remote server, see [docs/standalone-deployment.md](docs/standalone-deployment.md).
 For Portal/RHDH installation instructions, see [docs/deployment-guide.md](docs/deployment-guide.md).
 
 ## Prerequisites
@@ -151,7 +152,7 @@ Restart the server. No `.env` changes needed — mock mode ignores AAP credentia
 | `AAP_AUTH_CLIENT_ID` | For live mode | OAuth2 client ID for AAP authentication |
 | `AAP_AUTH_CLIENT_SECRET` | For live mode | OAuth2 client secret |
 | `AAP_API_TOKEN` | For live mode | AAP API token for backend API calls |
-| `BACKEND_SECRET` | No | Backend auth secret (auto-generated if empty) |
+| `BACKEND_SECRET` | For standalone | Backstage service-to-service auth secret. Auto-generated in local dev but **must be set** for standalone/remote deployment. Generate with `openssl rand -hex 32`. See [standalone deployment guide](docs/standalone-deployment.md). |
 | `AUTH_SIGNING_KEY` | No | JWT signing key (auto-generated if empty) |
 | `GITHUB_INTEGRATION_TOKEN` | No | GitHub PAT for catalog integration |
 

@@ -118,6 +118,10 @@ export class ComplianceService {
 
   async getProfiles(): Promise<ComplianceProfile[]> {
     if (this.dataSource === 'mock') {
+      if (this.database) {
+        const dbProfiles = await this.database.listProfiles();
+        if (dbProfiles.length > 0) return dbProfiles;
+      }
       return MockDataProvider.getProfiles();
     }
     return [];
@@ -125,6 +129,7 @@ export class ComplianceService {
 
   // ─── Inventories ────────────────────────────────────────────────────
 
+  // Inventories are Controller-managed resources, not in the local DB — always use MockDataProvider in mock mode
   async getInventories(token?: string): Promise<Array<{ id: number; name: string; hostCount: number }>> {
     if (this.dataSource === 'mock') {
       return MockDataProvider.getInventories().map(inv => ({
@@ -445,7 +450,7 @@ export class ComplianceService {
   // ─── Findings (delegated to FindingsParser) ─────────────────────────
 
   async getFindings(scanId?: string, profileId?: string, inventoryId?: number): Promise<MultiHostFinding[]> {
-    if (this.dataSource === 'mock') {
+    if (this.dataSource === 'mock' && !this.database) {
       return MockDataProvider.getFindings();
     }
 
@@ -921,7 +926,7 @@ export class ComplianceService {
   // ─── Dashboard (delegated to DashboardAggregator) ──────────────────
 
   async getDashboardStats(): Promise<DashboardStats> {
-    if (this.dataSource === 'mock') {
+    if (this.dataSource === 'mock' && !this.dashboardAggregator) {
       return MockDataProvider.getDashboardStats();
     }
     if (!this.dashboardAggregator) {
@@ -947,11 +952,14 @@ export class ComplianceService {
     days?: number,
     inventoryId?: number,
   ): Promise<PostureSnapshot[]> {
+    if (this.database) {
+      const snapshots = await this.database.getPostureHistory(profileId, days, inventoryId);
+      if (snapshots.length > 0) return snapshots;
+    }
     if (this.dataSource === 'mock') {
       return MockDataProvider.getPostureHistory(profileId, days);
     }
-    if (!this.database) return [];
-    return this.database.getPostureHistory(profileId, days, inventoryId);
+    return [];
   }
 
   async getHostPosture(
@@ -960,10 +968,10 @@ export class ComplianceService {
     req?: any,
     options?: { baselineView?: boolean },
   ): Promise<import('@aap-compliance/common').HostPostureResponse> {
-    if (this.dataSource === 'mock') {
-      return MockDataProvider.getHostPosture(inventoryId, profileId);
+    if (!this.database) {
+      if (this.dataSource === 'mock') return MockDataProvider.getHostPosture(inventoryId, profileId);
+      throw new Error('Database not available');
     }
-    if (!this.database) throw new Error('Database not available');
 
     let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
     if (!scan) {
@@ -1023,10 +1031,10 @@ export class ComplianceService {
     profileId: string,
     limit: number = 50,
   ): Promise<import('@aap-compliance/common').HostFindingsResponse> {
-    if (this.dataSource === 'mock') {
-      return MockDataProvider.getHostFindings(inventoryId, hostname, profileId);
+    if (!this.database) {
+      if (this.dataSource === 'mock') return MockDataProvider.getHostFindings(inventoryId, hostname, profileId);
+      throw new Error('Database not available');
     }
-    if (!this.database) throw new Error('Database not available');
 
     let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
     if (!scan) {
@@ -1045,7 +1053,6 @@ export class ComplianceService {
     days: number = 90,
     inventoryId?: number,
   ): Promise<import('@aap-compliance/common').RemediationEvent[]> {
-    if (this.dataSource === 'mock') return [];
     if (!this.database) return [];
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
@@ -1055,22 +1062,26 @@ export class ComplianceService {
   // ─── Remediations (saved rule selections) ──────────────────────────
 
   async getRemediationProfiles(statusFilter?: 'draft' | 'saved' | 'archived' | 'all'): Promise<RemediationProfile[]> {
+    if (this.database) {
+      return this.database.listRemediationProfiles(statusFilter);
+    }
     if (this.dataSource === 'mock') {
       const profiles = MockDataProvider.getRemediationProfiles();
       if (!statusFilter || statusFilter === 'all') return profiles;
       return profiles.filter(p => p.status === statusFilter);
     }
-    if (!this.database) return [];
-    return this.database.listRemediationProfiles(statusFilter);
+    return [];
   }
 
   async getRemediationProfile(id: string): Promise<RemediationProfile | null> {
+    if (this.database) {
+      return this.database.getRemediationProfile(id);
+    }
     if (this.dataSource === 'mock') {
       const profiles = await MockDataProvider.getRemediationProfiles();
       return profiles.find(p => p.id === id) ?? null;
     }
-    if (!this.database) return null;
-    return this.database.getRemediationProfile(id);
+    return null;
   }
 
   async saveRemediationProfile(
