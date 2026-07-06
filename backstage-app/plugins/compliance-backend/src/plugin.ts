@@ -25,6 +25,7 @@ import {
 
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
+import { MockDataSeeder } from './service/MockDataSeeder';
 import { createRouter } from './router';
 
 export const complianceBackendPlugin = createBackendPlugin({
@@ -61,10 +62,16 @@ export const complianceBackendPlugin = createBackendPlugin({
         const tsMigrations = path.resolve(__dirname, 'database', 'migrations');
         const jsMigrations = path.resolve(__dirname, '..', 'migrations');
         const migrationsDir = fs.existsSync(tsMigrations) ? tsMigrations : jsMigrations;
+
+        // SQLite ALTER TABLE recreates tables, which fails FK checks inside transactions.
+        // Disable FK checks before migrations, re-enable after.
+        await dbClient.raw('PRAGMA foreign_keys = OFF').catch(() => {});
         await dbClient.migrate.latest({
           directory: migrationsDir,
           tableName: 'compliance_knex_migrations',
+          disableTransactions: true,
         });
+        await dbClient.raw('PRAGMA foreign_keys = ON').catch(() => {});
         logger.info('Compliance database migrations applied');
 
         const complianceDb = new ComplianceDatabase(dbClient);
@@ -89,8 +96,11 @@ export const complianceBackendPlugin = createBackendPlugin({
         service.setDatabase(complianceDb);
 
         if (service.getDataSource() === 'mock') {
-          const { MockDataSeeder } = await import('./service/MockDataSeeder');
-          await new MockDataSeeder(dbClient, logger).seed();
+          try {
+            await new MockDataSeeder(dbClient, logger).seed();
+          } catch (seedErr) {
+            logger.error(`Mock data seeder failed: ${seedErr instanceof Error ? seedErr.message : String(seedErr)}`);
+          }
         }
 
         logger.info(

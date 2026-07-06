@@ -253,15 +253,25 @@ export class MockDataSeeder {
     this.logger.info('Seeding mock data for demo mode...');
     const t0 = Date.now();
 
-    await this.seedProfiles();
-    await this.seedRuleMetadata();
-    await this.seedScans();
-    await this.seedFindings();
-    await this.seedPostureSnapshots();
-    await this.seedRemediationProfiles();
-    await this.seedRemediationExecutions();
-    await this.seedBaselineTargets();
-    await this.seedScanArtifacts();
+    const steps: Array<[string, () => Promise<void>]> = [
+      ['profiles', () => this.seedProfiles()],
+      ['rule metadata', () => this.seedRuleMetadata()],
+      ['scans', () => this.seedScans()],
+      ['findings', () => this.seedFindings()],
+      ['posture snapshots', () => this.seedPostureSnapshots()],
+      ['remediation profiles', () => this.seedRemediationProfiles()],
+      ['remediation executions', () => this.seedRemediationExecutions()],
+      ['baseline targets', () => this.seedBaselineTargets()],
+      ['scan artifacts', () => this.seedScanArtifacts()],
+    ];
+    for (const [name, fn] of steps) {
+      try {
+        await fn();
+      } catch (err) {
+        this.logger.error(`Failed to seed ${name}: ${err instanceof Error ? err.message : String(err)}`);
+        throw err;
+      }
+    }
 
     this.logger.info(`Mock data seeded in ${Date.now() - t0}ms`);
   }
