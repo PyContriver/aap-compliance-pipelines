@@ -1,3 +1,12 @@
+---
+title: "Feature: OpenSCAP Migration"
+description: "The original scanning pipeline used custom `compliance_gather` and `compliance_evaluate` modules with 20 hand-written ST"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: OpenSCAP Migration
 
 **Status:** Shipped (2026-05-26, PRs #4-#13)

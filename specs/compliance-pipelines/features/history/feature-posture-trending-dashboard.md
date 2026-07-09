@@ -1,3 +1,12 @@
+---
+title: "Feature: Posture Trending Dashboard"
+description: "Compliance teams need an at-a-glance view of their security posture over time"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Posture Trending Dashboard
 
 **Status:** Shipped (2026-04-26)

@@ -1,3 +1,12 @@
+---
+title: "Feature: Agentless OpenSCAP Pattern"
+description: "OpenSCAP requires the `openscap-scanner` binary and the SCAP Security Guide datastream on target hosts"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Agentless OpenSCAP Pattern
 
 **Status:** Shipped (2026-05-26, PRs #4-#7)

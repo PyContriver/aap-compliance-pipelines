@@ -1,3 +1,11 @@
+---
+title: "ADR-016: Lifecycle Visualization and Scan History Grouping"
+description: "Phase 1 of the remediation lifecycle (ADR-014) introduced execution history tracking"
+type: adr
+status: accepted
+date: 2026-06-01
+product: "AAP Compliance Dashboard"
+---
 # ADR-016: Lifecycle Visualization and Scan History Grouping
 
 **Status:** Accepted — All Layers Implemented  

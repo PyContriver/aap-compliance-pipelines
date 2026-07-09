@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation Audit — AAP Compliance Dashboard — 2026-07-09</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --surface-2: #f4f4f2;
+    --surface-3: #eaeae7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #8a8985;
+    --border: #d4d4d0;
+    --series-1: #2a78d6;
+    --series-2: #1baf7a;
+    --series-3: #eda100;
+    --series-4: #008300;
+    --status-critical: #c62828;
+    --status-serious: #e65100;
+    --status-warning: #f9a825;
+    --status-good: #2e7d32;
+    --status-critical-bg: #fce4ec;
+    --status-serious-bg: #fff3e0;
+    --status-warning-bg: #fffde7;
+    --status-good-bg: #e8f5e9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19;
+      --surface-2: #242423;
+      --surface-3: #2e2e2d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8a8985;
+      --border: #3d3d3b;
+      --series-1: #3987e5;
+      --series-2: #199e70;
+      --series-3: #c98500;
+      --series-4: #008300;
+      --status-critical: #ef5350;
+      --status-serious: #ff9800;
+      --status-warning: #fdd835;
+      --status-good: #66bb6a;
+      --status-critical-bg: #2c1517;
+      --status-serious-bg: #2c2015;
+      --status-warning-bg: #2c2a15;
+      --status-good-bg: #152c17;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Red Hat Text', 'Inter', -apple-system, sans-serif;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; font-weight: 600; margin: 2rem 0 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--text-secondary); }
+  p { margin-bottom: 0.75rem; }
+  .subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem; }
+  .stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .stat-tile {
+    flex: 1;
+    min-width: 160px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .stat-tile .number { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+  .stat-tile .label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-tile.critical .number { color: var(--status-critical); }
+  .stat-tile.serious .number { color: var(--status-serious); }
+  .stat-tile.warning .number { color: var(--status-warning); }
+  .stat-tile.good .number { color: var(--status-good); }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.875rem; }
+  th { text-align: left; padding: 0.6rem 0.75rem; background: var(--surface-2); border-bottom: 2px solid var(--border); font-weight: 600; color: var(--text-secondary); }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--surface-2); }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge-critical { background: var(--status-critical-bg); color: var(--status-critical); }
+  .badge-serious { background: var(--status-serious-bg); color: var(--status-serious); }
+  .badge-warning { background: var(--status-warning-bg); color: var(--status-warning); }
+  .badge-good { background: var(--status-good-bg); color: var(--status-good); }
+  .finding-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .finding-card.sev-critical { border-left: 4px solid var(--status-critical); }
+  .finding-card.sev-serious { border-left: 4px solid var(--status-serious); }
+  .finding-card.sev-warning { border-left: 4px solid var(--status-warning); }
+  .finding-card.sev-good { border-left: 4px solid var(--status-good); }
+  .finding-title { font-weight: 600; margin-bottom: 0.25rem; }
+  .finding-detail { color: var(--text-secondary); font-size: 0.875rem; }
+  .code { font-family: 'Red Hat Mono', 'JetBrains Mono', monospace; font-size: 0.85em; background: var(--surface-3); padding: 0.1em 0.35em; border-radius: 3px; }
+  .section-intro { color: var(--text-secondary); margin-bottom: 1rem; }
+  .bar-chart { margin: 1rem 0 1.5rem; }
+  .bar-row { display: flex; align-items: center; margin-bottom: 0.5rem; }
+  .bar-label { width: 140px; font-size: 0.8rem; color: var(--text-secondary); text-align: right; padding-right: 0.75rem; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 24px; background: var(--surface-3); border-radius: 4px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 4px 0 0 4px; transition: width 0.3s ease; }
+  .bar-value { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }
+  .toc { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
+  .toc-title { font-weight: 600; margin-bottom: 0.5rem; }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin-bottom: 0.25rem; }
+  .toc a { color: var(--series-1); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .recommendation {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--series-1);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+  }
+  .template-block {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    font-family: 'Red Hat Mono', 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<h1>Documentation Audit Report</h1>
+<p class="subtitle">AAP Compliance Dashboard &mdash; Generated 2026-07-09 &mdash; Verified against backend v0.13.115 / frontend v0.10.105 / 626 tests / 37 ADRs / 23 migrations</p>
+
+<div class="stat-row">
+  <div class="stat-tile critical">
+    <div class="number">14</div>
+    <div class="label">Critical Findings</div>
+  </div>
+  <div class="stat-tile serious">
+    <div class="number">11</div>
+    <div class="label">Serious Findings</div>
+  </div>
+  <div class="stat-tile warning">
+    <div class="number">9</div>
+    <div class="label">Moderate Findings</div>
+  </div>
+  <div class="stat-tile good">
+    <div class="number">4</div>
+    <div class="label">Docs Current</div>
+  </div>
+</div>
+
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li><a href="#q1">Q1: Are documents up to date with current state?</a></li>
+    <li><a href="#q2">Q2: Are documents in the right place? (ADRs in doc folder)</a></li>
+    <li><a href="#q3">Q3: Deployment documentation consistency</a></li>
+    <li><a href="#q4">Q4: Dual-format readability (machine + human)</a></li>
+    <li><a href="#actions">Prioritized Action Plan</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="q1">Q1: Are Documents Up to Date?</h2>
+<!-- ============================================================ -->
+
+<p class="section-intro">Each document was checked against the verified current state: backend v0.13.115, frontend v0.10.105, 626 tests across 24 suites, 37 ADRs, 23 migrations, 4 profiles, MockDataSeeder, production auth default.</p>
+
+<h3>Currency Status by Document</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Document</th>
+      <th>Location</th>
+      <th>Last Updated</th>
+      <th>Status</th>
+      <th>Key Staleness</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SUBMISSION.md</strong></td>
+      <td>Drive: Project/</td>
+      <td>Jun 2</td>
+      <td><span class="badge badge-critical">CRITICAL</span></td>
+      <td>Claims v0.7.6/v0.5.4, 271 tests, 12 suites, 11 ADRs, 3 profiles. Actual: v0.13.115/v0.10.105, 626 tests, 24 suites, 37 ADRs, 4 profiles. Every metric is wrong.</td>
+    </tr>
+    <tr>
+      <td><strong>spec.md</strong></td>
+      <td>Repo: specs/</td>
+      <td>~Jun 10</td>
+      <td><span class="badge badge-critical">CRITICAL</span></td>
+      <td>Claims "641 tests, 21 suites, 25 ADRs". Actual: 626 tests, 24 suites, 37 ADRs. Uses "Backstage" 5 times.</td>
+    </tr>
+    <tr>
+      <td><strong>handover-guide.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>Jun 25</td>
+      <td><span class="badge badge-critical">CRITICAL</span></td>
+      <td>Claims 21 suites, 584 tests, 25 ADRs, 17 migrations. Actual: 24 suites, 626 tests, 37 ADRs, 23 migrations. Uses "Backstage" 6 times.</td>
+    </tr>
+    <tr>
+      <td><strong>plan.md</strong></td>
+      <td>Repo: specs/</td>
+      <td>Jun 18</td>
+      <td><span class="badge badge-critical">CRITICAL</span></td>
+      <td>Missing ADRs 026-037 (12 ADRs), supply chain features, mock mode overhaul, profile identity. Uses "Backstage" 18 times.</td>
+    </tr>
+    <tr>
+      <td><strong>CLAUDE.md</strong></td>
+      <td>Repo root</td>
+      <td>Jul 1</td>
+      <td><span class="badge badge-serious">SERIOUS</span></td>
+      <td>Claims "619 tests, 23 suites". Actual: 626 tests, 24 suites. Uses "Backstage" 3 times.</td>
+    </tr>
+    <tr>
+      <td><strong>deployment-guide.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>May 30</td>
+      <td><span class="badge badge-serious">SERIOUS</span></td>
+      <td>Says auth is "unauthenticated" by default &mdash; wrong, production auth is now default. No mention of standalone deployment. Uses "Backstage" 3 times. Missing BACKEND_SECRET.</td>
+    </tr>
+    <tr>
+      <td><strong>CONTRIBUTING.md</strong></td>
+      <td>Repo root</td>
+      <td>Jun 26</td>
+      <td><span class="badge badge-serious">SERIOUS</span></td>
+      <td>Header says "Backstage/RHDH plugin". Should be "AAP Compliance Dashboard".</td>
+    </tr>
+    <tr>
+      <td><strong>README.md</strong> (Drive)</td>
+      <td>Drive: Project/</td>
+      <td>Jun 2</td>
+      <td><span class="badge badge-serious">SERIOUS</span></td>
+      <td>34 days behind repo version (Jul 6). Missing mock mode overhaul, supply chain, profile identity.</td>
+    </tr>
+    <tr>
+      <td><strong>compliance-profile-developer-guide.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>Jul 1</td>
+      <td><span class="badge badge-warning">MODERATE</span></td>
+      <td>Uses "Backstage" 19 times. Content is otherwise current.</td>
+    </tr>
+    <tr>
+      <td><strong>Managing compliance&hellip;</strong> (Google Doc)</td>
+      <td>Drive: top-level</td>
+      <td>Jul 6</td>
+      <td><span class="badge badge-warning">MODERATE</span></td>
+      <td>Uses "compliance plugin" 26 times (should be "Compliance Dashboard"). References <span class="code">@backstage/plugin-catalog-common</span>. Tab list missing Inventories. 489 vs 366 rule count unexplained.</td>
+    </tr>
+    <tr>
+      <td><strong>AsciiDoc modules</strong> (7 files)</td>
+      <td>Drive: Red Hat Product Guide</td>
+      <td>Jun 2</td>
+      <td><span class="badge badge-warning">MODERATE</span></td>
+      <td>37 days old in Drive. Repo versions may be newer but content is largely stable (architecture unchanged).</td>
+    </tr>
+    <tr>
+      <td><strong>windows-compliance-profile-assessment.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>May 27</td>
+      <td><span class="badge badge-warning">MODERATE</span></td>
+      <td>Uses "Backstage" 6 times. Content is a feasibility study &mdash; static by nature.</td>
+    </tr>
+    <tr>
+      <td><strong>UX Design Brief</strong> (Google Doc)</td>
+      <td>Drive: top-level</td>
+      <td>Jul 7</td>
+      <td><span class="badge badge-good">CURRENT</span></td>
+      <td>All terminology correct. 626 tests, 37 ADRs verified. Minor: says "AAP 2.5+" (should be 2.6), US-2/US-8 unimplemented features not flagged.</td>
+    </tr>
+    <tr>
+      <td><strong>standalone-deployment.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>Jul 6</td>
+      <td><span class="badge badge-good">CURRENT</span></td>
+      <td>Covers MockDataSeeder, BACKEND_SECRET, systemd, troubleshooting. Says "Backstage" 3 times (should be "Portal").</td>
+    </tr>
+    <tr>
+      <td><strong>architecture-diagram.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>Jun 26</td>
+      <td><span class="badge badge-good">CURRENT</span></td>
+      <td>Architecture is stable. Minor "Backstage" references.</td>
+    </tr>
+    <tr>
+      <td><strong>docs/README.md</strong></td>
+      <td>Repo: docs/</td>
+      <td>Jul 6</td>
+      <td><span class="badge badge-good">CURRENT</span></td>
+      <td>Index is complete. Only missing ADRs 035-037 in the table (ends at 034).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Terminology Contamination</h3>
+<p class="section-intro">The product name is "AAP Compliance Dashboard" hosted in "Ansible Portal". The term "Backstage" should not appear in user-facing documentation. Current contamination:</p>
+
+<div class="bar-chart">
+  <div class="bar-row">
+    <div class="bar-label">developer-guide</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 100%; background: var(--status-critical);"></div>
+      <div class="bar-value">19</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">plan.md</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 95%; background: var(--status-critical);"></div>
+      <div class="bar-value">18</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">ADR-002</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 37%; background: var(--status-serious);"></div>
+      <div class="bar-value">7</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">handover-guide</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 32%; background: var(--status-serious);"></div>
+      <div class="bar-value">6</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">windows-assess</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 32%; background: var(--status-serious);"></div>
+      <div class="bar-value">6</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">spec.md</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 26%; background: var(--status-warning);"></div>
+      <div class="bar-value">5</div>
+    </div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label">13 other files</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width: 16%; background: var(--status-warning);"></div>
+      <div class="bar-value">1-4 each</div>
+    </div>
+  </div>
+</div>
+<p><strong>Total: 30+ files with "Backstage" references.</strong> The "Managing compliance" Google Doc uses "compliance plugin" 26 times instead of "Compliance Dashboard".</p>
+
+<!-- ============================================================ -->
+<h2 id="q2">Q2: Are Documents in the Right Place?</h2>
+<!-- ============================================================ -->
+
+<p class="section-intro">The Google Drive folder <span class="code">1OkjXfIgxsxeYsKfzYFJGS7i4FQ7B0LC9</span> has 3 subfolders plus 2 top-level docs. Several documents are misplaced, duplicated, or missing.</p>
+
+<h3>Misplaced: ADRs in "Developer and Deployment Guides"</h3>
+
+<div class="finding-card sev-critical">
+  <div class="finding-title">4 ADRs dumped in the wrong folder</div>
+  <div class="finding-detail">
+    The "Developer and Deployment Guides" folder contains:
+    <ul style="margin-top: 0.5rem;">
+      <li><span class="code">ADR-014-remediation-lifecycle.md</span> &mdash; uploaded Jun 4</li>
+      <li><span class="code">ADR-015-authoritative-scan-and-host-scoping.md</span> &mdash; uploaded Jun 4</li>
+      <li><span class="code">ADR-024-compliance-score-trend-redesign.md</span> &mdash; uploaded Jun 17</li>
+      <li><span class="code">ADR-037-oci-artifact-push-pattern.md</span> &mdash; uploaded Jul 1</li>
+    </ul>
+    <p style="margin-top: 0.5rem;">ADRs are architecture decisions, not developer guides. They belong in a dedicated <strong>"Architecture Decisions"</strong> folder &mdash; or better, should NOT be synced to Drive at all (they live canonically in <span class="code">specs/compliance-pipelines/decisions/</span> in the repo).</p>
+  </div>
+</div>
+
+<h3>Misplaced: Specs and Briefings in "Developer and Deployment Guides"</h3>
+
+<div class="finding-card sev-serious">
+  <div class="finding-title">2 non-guide documents in the guides folder</div>
+  <div class="finding-detail">
+    <ul>
+      <li><span class="code">plan.md</span> &mdash; implementation plan, should be in "Project" folder</li>
+      <li><span class="code">sbom-architect-briefing-2026-06-24.md</span> &mdash; internal briefing, should be in a "Planning" or "Internal" folder</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Duplicates in Drive</h3>
+
+<div class="finding-card sev-serious">
+  <div class="finding-title">manual-testing-supply-chain.md appears 4 times</div>
+  <div class="finding-detail">
+    <table>
+      <tr><th>Format</th><th>Size</th><th>Date</th></tr>
+      <tr><td>text/markdown</td><td>13,468 B</td><td>Jun 25</td></tr>
+      <tr><td>google-apps/document</td><td>16,565 B</td><td>Jun 25</td></tr>
+      <tr><td>google-apps/document</td><td>16,519 B</td><td>Jun 25</td></tr>
+      <tr><td>google-apps/document</td><td>15,488 B</td><td>Jul 4 (latest)</td></tr>
+    </table>
+    <p style="margin-top: 0.5rem;">3 stale copies should be deleted. Keep only the Jul 4 Google Docs version.</p>
+  </div>
+</div>
+
+<div class="finding-card sev-warning">
+  <div class="finding-title">architecture-diagram.md appears 2 times</div>
+  <div class="finding-detail">
+    Both uploaded Jun 26: one as raw markdown (12 KB), one as Google Doc (18 KB). Keep the Google Doc, delete the raw markdown.
+  </div>
+</div>
+
+<h3>Missing from Drive</h3>
+
+<div class="finding-card sev-serious">
+  <div class="finding-title">Key documents never synced to Drive</div>
+  <div class="finding-detail">
+    <ul>
+      <li><strong>standalone-deployment.md</strong> (created Jul 6) &mdash; the new single-server deployment guide</li>
+      <li><strong>No "Architecture Decisions" folder</strong> &mdash; 37 ADRs exist in repo, only 4 cherry-picked to Drive (wrong folder)</li>
+      <li><strong>docs/README.md</strong> (Jul 6) &mdash; Drive copy is Jun 25, 14 days behind</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Recommended Drive Folder Structure</h3>
+
+<div class="recommendation">
+  <strong>Proposed reorganization:</strong>
+  <pre style="margin-top: 0.5rem; font-size: 0.85rem;">
+AAP Compliance Dashboard (GDrive root)
+  ├── Managing compliance with Red Hat AAP          (Google Doc - product guide)
+  ├── AAP Compliance Dashboard — UX Design Brief    (Google Doc - UX handoff)
+  │
+  ├── Project/
+  │   ├── README.md
+  │   ├── CONTRIBUTING.md
+  │   ├── CLAUDE.md
+  │   └── SUBMISSION.md (archive or delete)
+  │
+  ├── Guides/
+  │   ├── standalone-deployment.md          ← NEW, add this
+  │   ├── deployment-guide.md (Portal/RHDH)
+  │   ├── netrunner-portal-deployment.md
+  │   ├── compliance-profile-developer-guide.md
+  │   ├── handover-guide.md
+  │   ├── manual-testing-supply-chain.md (single copy)
+  │   └── architecture-diagram.md (single copy)
+  │
+  ├── Red Hat Product Guide (AsciiDoc)/
+  │   └── (7 modules — keep as-is)
+  │
+  └── Archive/                               ← NEW
+      ├── plan.md
+      ├── sbom-architect-briefing.md
+      └── SUBMISSION.md
+  </pre>
+  <p style="margin-top: 0.5rem;"><strong>ADRs should NOT be in Drive.</strong> They are version-controlled in the repo at <span class="code">specs/compliance-pipelines/decisions/</span> and are developer-internal artifacts. Remove the 4 misplaced ADRs from Drive.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="q3">Q3: Deployment Documentation Consistency</h2>
+<!-- ============================================================ -->
+
+<p class="section-intro">Checking whether the standalone (single-server) deployment path is properly covered and consistent across all deployment-related docs.</p>
+
+<h3>Deployment Docs Matrix</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>standalone-deployment.md<br><span class="badge badge-good">Jul 6</span></th>
+      <th>deployment-guide.md<br><span class="badge badge-serious">May 30</span></th>
+      <th>netrunner-portal-deployment.md<br><span class="badge badge-warning">Jun 12</span></th>
+      <th>Managing compliance (GDoc)<br><span class="badge badge-good">Jul 6</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Mock mode (MockDataSeeder)</td>
+      <td style="color: var(--status-good);">Yes, detailed</td>
+      <td style="color: var(--status-critical);">No mention</td>
+      <td style="color: var(--status-critical);">No</td>
+      <td style="color: var(--status-critical);">No</td>
+    </tr>
+    <tr>
+      <td>BACKEND_SECRET</td>
+      <td style="color: var(--status-good);">Full section</td>
+      <td style="color: var(--status-critical);">Not mentioned</td>
+      <td style="color: var(--status-warning);">Brief</td>
+      <td style="color: var(--status-critical);">No</td>
+    </tr>
+    <tr>
+      <td>Systemd service</td>
+      <td style="color: var(--status-good);">Full unit file</td>
+      <td style="color: var(--status-critical);">No</td>
+      <td style="color: var(--status-critical);">No</td>
+      <td style="color: var(--status-critical);">No</td>
+    </tr>
+    <tr>
+      <td>Network config (remote access)</td>
+      <td style="color: var(--status-good);">CORS + firewall</td>
+      <td style="color: var(--status-critical);">No</td>
+      <td style="color: var(--status-warning);">Partial</td>
+      <td style="color: var(--status-critical);">No</td>
+    </tr>
+    <tr>
+      <td>Auth model (production default)</td>
+      <td style="color: var(--status-warning);">Not explicit</td>
+      <td style="color: var(--status-critical);"><strong>WRONG</strong> &mdash; says "unauthenticated"</td>
+      <td style="color: var(--status-warning);">Assumes OAuth</td>
+      <td style="color: var(--status-good);">Correct</td>
+    </tr>
+    <tr>
+      <td>Portal/RHDH dynamic plugin install</td>
+      <td style="color: var(--text-muted);">N/A (links to deployment-guide)</td>
+      <td style="color: var(--status-good);">Full guide</td>
+      <td style="color: var(--status-good);">Full guide</td>
+      <td style="color: var(--status-good);">Covered</td>
+    </tr>
+    <tr>
+      <td>Cross-references between docs</td>
+      <td style="color: var(--status-good);">Links to deployment-guide</td>
+      <td style="color: var(--status-critical);">No link to standalone</td>
+      <td style="color: var(--status-critical);">No link to standalone</td>
+      <td style="color: var(--status-critical);">No mention of standalone</td>
+    </tr>
+    <tr>
+      <td>Supply chain profile setup</td>
+      <td style="color: var(--status-critical);">Not covered</td>
+      <td style="color: var(--status-critical);">Not covered</td>
+      <td style="color: var(--status-critical);">Not covered</td>
+      <td style="color: var(--status-critical);">Not covered</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Key Deployment Inconsistencies</h3>
+
+<div class="finding-card sev-critical">
+  <div class="finding-title">deployment-guide.md says auth is "unauthenticated" &mdash; this is wrong</div>
+  <div class="finding-detail">
+    <p>The deployment guide states: <em>"All API routes are marked <span class="code">unauthenticated</span> in the backend. This is the default for local development with guest auth."</em></p>
+    <p>Since the security hardening session (Jun 29), <strong>production auth is the default</strong>. The dev config explicitly sets development mode. This doc is actively misleading for anyone deploying to production.</p>
+  </div>
+</div>
+
+<div class="finding-card sev-serious">
+  <div class="finding-title">deployment-guide.md doesn't reference standalone-deployment.md</div>
+  <div class="finding-detail">
+    The standalone deployment guide was created Jul 6, but the main deployment guide has no link to it and no mention that a simpler single-server option exists. Someone reading deployment-guide.md would think Portal/RHDH is the only deployment path.
+  </div>
+</div>
+
+<div class="finding-card sev-serious">
+  <div class="finding-title">"Managing compliance" Google Doc doesn't mention standalone deployment</div>
+  <div class="finding-detail">
+    The Red Hat product doc describes only the Portal deployment model. It should at minimum note that a standalone mode exists for evaluation, with a link to the guide.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="q4">Q4: Dual-Format Readability (Machine + Human)</h2>
+<!-- ============================================================ -->
+
+<p class="section-intro">Checking whether each document has: (1) machine-readable metadata (YAML frontmatter) that lets AI models understand the document without full-text parsing; and (2) human-readable formatting following Red Hat documentation conventions.</p>
+
+<h3>Current State</h3>
+
+<div class="stat-row">
+  <div class="stat-tile critical">
+    <div class="number">0 / 67</div>
+    <div class="label">Have YAML Frontmatter</div>
+  </div>
+  <div class="stat-tile good">
+    <div class="number">7 / 7</div>
+    <div class="label">AsciiDoc Follows RH Convention</div>
+  </div>
+  <div class="stat-tile critical">
+    <div class="number">60 / 60</div>
+    <div class="label">Markdown Files With No Metadata</div>
+  </div>
+</div>
+
+<p><strong>Not a single Markdown file has YAML frontmatter.</strong> All 60 Markdown files start directly with <span class="code"># Title</span>. An AI model encountering any of these files must read and parse the full body to understand purpose, audience, type, and status.</p>
+
+<p>The 7 AsciiDoc modules are the exception &mdash; they follow Red Hat modular doc conventions correctly with <span class="code">:_mod-docs-content-type:</span> attributes, proper module IDs with <span class="code">{context}</span> interpolation, and structured heading patterns.</p>
+
+<h3>Breakdown by Category</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Count</th>
+      <th>Has Frontmatter</th>
+      <th>Has RH Convention</th>
+      <th>Readability</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>docs/*.md (guides, architecture)</td>
+      <td>10</td>
+      <td><span class="badge badge-critical">0/10</span></td>
+      <td>Mixed &mdash; some have tables, procedures</td>
+      <td>Human only</td>
+    </tr>
+    <tr>
+      <td>docs/modules/*.adoc</td>
+      <td>7</td>
+      <td><span class="badge badge-good">N/A (uses AsciiDoc attrs)</span></td>
+      <td><span class="badge badge-good">7/7</span></td>
+      <td>Both</td>
+    </tr>
+    <tr>
+      <td>specs/.../decisions/ADR-*.md</td>
+      <td>37</td>
+      <td><span class="badge badge-critical">0/37</span></td>
+      <td>Inline Status/Date but not in frontmatter</td>
+      <td>Human only</td>
+    </tr>
+    <tr>
+      <td>specs/.../features/feature-*.md</td>
+      <td>8</td>
+      <td><span class="badge badge-critical">0/8</span></td>
+      <td>No standard template</td>
+      <td>Human only</td>
+    </tr>
+    <tr>
+      <td>Root (README, CONTRIBUTING)</td>
+      <td>2</td>
+      <td><span class="badge badge-critical">0/2</span></td>
+      <td>N/A &mdash; project files</td>
+      <td>Human only</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Proposed Dual-Format Template</h3>
+
+<p>Every Markdown document should have a YAML frontmatter preamble for machine readability, followed by content formatted per Red Hat documentation conventions. Here are templates by document type:</p>
+
+<h4>Template A: Guides and Reference Docs</h4>
+
+<div class="template-block">---
+title: "Standalone Deployment Guide"
+description: "Deploy the AAP Compliance Dashboard as a standalone application for demos and testing"
+type: guide                    # guide | reference | concept | procedure
+audience: [operator, developer] # developer | operator | architect | auditor
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current                # current | draft | deprecated
+last_verified: 2026-07-06
+prerequisites:
+  - Node.js 20+
+  - Corepack enabled
+related:
+  - deployment-guide.md
+  - architecture-diagram.md
+---
+
+# Standalone Deployment Guide
+
+[Red Hat documentation body follows &mdash; structured with Prerequisites,
+Procedure, Verification, Troubleshooting sections per RH conventions]</div>
+
+<h4>Template B: Architecture Decision Records</h4>
+
+<div class="template-block">---
+title: "ADR-037: OCI Artifact Push Pattern"
+description: "How compliance profiles push SBOM artifacts to PAH via oras"
+type: adr
+status: accepted               # proposed | accepted | deprecated | superseded
+date: 2026-07-01
+supersedes: null
+superseded_by: null
+decision_drivers:
+  - OCI artifact storage
+  - PAH registry integration
+related_adrs: [ADR-031, ADR-032]
+---
+
+# ADR-037: OCI Artifact Push Pattern
+
+## Status
+Accepted (2026-07-01)
+
+## Context
+[body follows standard ADR format: Context, Decision, Consequences]</div>
+
+<h4>Template C: Feature Specs</h4>
+
+<div class="template-block">---
+title: "Supply Chain Vulnerability Scanning"
+description: "Syft/Grype SBOM pipeline for container and host vulnerability detection"
+type: feature-spec
+status: implemented            # proposed | in-progress | implemented | deferred
+priority: P2a
+implements_adrs: [ADR-029, ADR-033, ADR-034]
+last_verified: 2026-07-01
+---
+
+# Feature: Supply Chain Vulnerability Scanning
+
+[body follows]</div>
+
+<div class="recommendation">
+  <strong>Why this matters:</strong> With 67 documentation files and growing, AI models (Claude, internal tools, future doc search) cannot efficiently triage which document answers a question without reading all of them. YAML frontmatter enables:
+  <ul style="margin-top: 0.5rem;">
+    <li>Instant document classification and filtering</li>
+    <li>Automated staleness detection (<span class="code">last_verified</span> vs today)</li>
+    <li>Dependency graphing (<span class="code">related</span>, <span class="code">implements_adrs</span>)</li>
+    <li>Audience-aware retrieval (show operators the deployment guide, not ADRs)</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="actions">Prioritized Action Plan</h2>
+<!-- ============================================================ -->
+
+<h3>Phase 1: Critical Fixes (do immediately)</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>Files</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><strong>Fix deployment-guide.md auth claim</strong> &mdash; remove "unauthenticated" statement, document production-by-default auth model, add BACKEND_SECRET section, add link to standalone-deployment.md</td>
+      <td><span class="code">docs/deployment-guide.md</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Update spec.md metrics</strong> &mdash; fix test count (626), suite count (24), ADR count (37), migration count (23). Replace "Backstage" with "Ansible Portal" (5 instances).</td>
+      <td><span class="code">specs/compliance-pipelines/spec.md</span></td>
+      <td>20 min</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Update handover-guide.md</strong> &mdash; fix all stale metrics (tests, suites, ADRs, migrations), replace "Backstage" (6 instances)</td>
+      <td><span class="code">docs/handover-guide.md</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Update CLAUDE.md</strong> &mdash; fix test count (626, not 619), suite count (24, not 23), replace "Backstage" (3 instances)</td>
+      <td><span class="code">CLAUDE.md</span></td>
+      <td>10 min</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>Fix "Managing compliance" Google Doc</strong> &mdash; replace 26 "compliance plugin" → "Compliance Dashboard", remove <span class="code">@backstage</span> reference, update tab list</td>
+      <td>Google Doc (1xnDGjum...)</td>
+      <td>45 min</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Phase 2: Drive Cleanup (this week)</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>6</td>
+      <td><strong>Remove 4 ADRs from "Developer and Deployment Guides"</strong> &mdash; they belong in the repo only</td>
+      <td>5 min</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><strong>Delete 3 duplicate manual-testing-supply-chain.md copies</strong> &mdash; keep only Jul 4 Google Doc version</td>
+      <td>5 min</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><strong>Delete duplicate architecture-diagram.md</strong> &mdash; keep Google Doc version only</td>
+      <td>2 min</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><strong>Move plan.md and sbom-architect-briefing to Archive folder</strong></td>
+      <td>5 min</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><strong>Upload standalone-deployment.md to Drive "Guides" folder</strong></td>
+      <td>10 min</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td><strong>Re-sync stale Drive files</strong>: README.md, CONTRIBUTING.md, handover-guide.md, deployment-guide.md, AsciiDoc modules</td>
+      <td>30 min</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Phase 3: Terminology Sweep (this sprint)</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>Files</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>12</td>
+      <td><strong>Replace "Backstage" → "Ansible Portal"</strong> in all 30+ files. Keep only where it refers to the upstream project technically (e.g., <span class="code">@backstage/</span> package names in code).</td>
+      <td>30+ files across docs/ and specs/</td>
+      <td>2 hrs</td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td><strong>Replace "compliance plugin" → "Compliance Dashboard"</strong> in the Managing compliance Google Doc (26 instances)</td>
+      <td>Google Doc</td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td><strong>Update CONTRIBUTING.md header</strong> from "Backstage/RHDH plugin" to "AAP Compliance Dashboard"</td>
+      <td><span class="code">CONTRIBUTING.md</span></td>
+      <td>5 min</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Phase 4: Add Frontmatter (next sprint)</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>15</td>
+      <td><strong>Add YAML frontmatter to all 10 docs/*.md files</strong> using Template A</td>
+      <td>1 hr</td>
+    </tr>
+    <tr>
+      <td>16</td>
+      <td><strong>Add YAML frontmatter to all 37 ADRs</strong> using Template B (scriptable &mdash; parse existing Status/Date lines)</td>
+      <td>1 hr (scripted)</td>
+    </tr>
+    <tr>
+      <td>17</td>
+      <td><strong>Add YAML frontmatter to all 8 feature specs</strong> using Template C</td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>18</td>
+      <td><strong>Add frontmatter to root docs</strong> (README, CONTRIBUTING, CLAUDE.md) &mdash; minimal metadata</td>
+      <td>15 min</td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td><strong>Consider Red Hat doc formatting</strong> for guides &mdash; add Prerequisites, Procedure, Verification sections where missing. The AsciiDoc modules already follow this pattern; the Markdown guides should mirror it.</td>
+      <td>2-3 hrs</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Phase 5: Archive or Delete (cleanup)</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Action</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20</td>
+      <td><strong>Archive SUBMISSION.md</strong> &mdash; catastrophically stale (May 29 state). Either update completely or move to Archive with a "historical" disclaimer.</td>
+      <td>5 min (archive) or 1 hr (update)</td>
+    </tr>
+    <tr>
+      <td>21</td>
+      <td><strong>Update plan.md</strong> &mdash; or mark as historical. Missing ADRs 026-037, all supply chain work, mock mode overhaul.</td>
+      <td>2 hrs (update) or 5 min (archive)</td>
+    </tr>
+  </tbody>
+</table>
+
+<footer>
+  <p>Generated by Claude Code &mdash; AAP Compliance Dashboard Documentation Audit</p>
+  <p>Data sources: Google Drive API, git log, yarn test (626 tests verified), package.json (v0.13.115/v0.10.105), ADR directory listing (37 files), migration directory (23 files)</p>
+</footer>
+
+</body>
+</html>

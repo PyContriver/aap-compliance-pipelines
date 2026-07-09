@@ -1,3 +1,16 @@
+---
+title: "Netrunner Portal Deployment"
+description: "Internal reference for the Netrunner demo lab deployment at dev-portal-netrunner.demoredhat.com"
+type: reference
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+related:
+  - deployment-guide.md
+---
+
 # Netrunner Portal Deployment
 
 Step-by-step record of deploying the compliance plugins on the Netrunner demo lab Portal (QCOW-based RHDH appliance). This documents the exact friction points, workarounds, and final working configuration.

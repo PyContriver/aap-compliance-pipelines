@@ -1,3 +1,12 @@
+---
+title: "Feature: Remediation Builder"
+description: "Users need to select which non-compliant findings to remediate, set parameter overrides where applicable, and scope reme"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Remediation Builder
 
 **Status:** Shipped (2026-04-28 initial, 2026-05-27 enhanced with PR #18)

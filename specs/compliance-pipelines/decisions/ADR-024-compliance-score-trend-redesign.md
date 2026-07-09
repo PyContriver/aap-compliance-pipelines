@@ -1,3 +1,11 @@
+---
+title: "ADR-024: Compliance Score Trend Chart Redesign"
+description: "The original compliance score trend chart was a hand-rolled SVG component (160 lines inline in `ComplianceDashboard"
+type: adr
+status: accepted
+date: 2026-06-11
+product: "AAP Compliance Dashboard"
+---
 # ADR-024: Compliance Score Trend Chart Redesign
 
 **Status:** Accepted (Implemented 2026-06-11)  

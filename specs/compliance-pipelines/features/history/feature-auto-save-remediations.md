@@ -1,3 +1,12 @@
+---
+title: "Feature: Auto-Save Remediations (Insights Pattern)"
+description: "Traditional save-dialog patterns (explicit Save button, unsaved changes warnings) add friction to the remediation workfl"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Auto-Save Remediations (Insights Pattern)
 
 **Status:** Shipped (2026-04-29)

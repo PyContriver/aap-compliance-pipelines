@@ -1,3 +1,11 @@
+---
+title: "ADR-029: CycloneDX Normalizer Pattern"
+description: "The existing normalizer pattern (ADR-020) parses XCCDF XML from OpenSCAP scans and converts to the Common Findings Forma"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-029: CycloneDX Normalizer Pattern
 
 **Status:** Accepted  

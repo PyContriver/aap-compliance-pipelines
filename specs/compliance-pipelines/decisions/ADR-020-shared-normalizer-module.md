@@ -1,3 +1,11 @@
+---
+title: "ADR-020: Shared Normalizer Module via module_utils Pattern"
+description: "The `normalize_xccdf` Ansible module is the core of the scan normalization pipeline (ADR-004)"
+type: adr
+status: accepted
+date: 2026-06-06
+product: "AAP Compliance Dashboard"
+---
 # ADR-020: Shared Normalizer Module via module_utils Pattern
 
 **Status:** Accepted (implemented 2026-06-06, updated 2026-06-16)  

@@ -1,3 +1,11 @@
+---
+title: "ADR-010: Per-Scan Ingest Token for Findings Submission Security"
+description: "ADR-007 introduces direct POST of findings from the playbook to the plugin's `/findings/ingest` endpoint"
+type: adr
+status: accepted
+date: 2026-05-27
+product: "AAP Compliance Dashboard"
+---
 # ADR-010: Per-Scan Ingest Token for Findings Submission Security
 
 **Status:** Accepted (implemented in PR #19)

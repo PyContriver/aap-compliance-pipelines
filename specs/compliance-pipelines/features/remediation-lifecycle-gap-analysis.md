@@ -1,3 +1,12 @@
+---
+title: "Remediation Lifecycle Gap Analysis"
+description: "Gap analysis between current remediation implementation and target lifecycle architecture"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Remediation Lifecycle Gap Analysis
 
 **Date:** 2026-05-31

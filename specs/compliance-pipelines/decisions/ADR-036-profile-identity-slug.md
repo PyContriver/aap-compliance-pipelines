@@ -1,3 +1,11 @@
+---
+title: "ADR-036: Stable Profile Identity via Slug"
+description: "Migration 021 added `UNIQUE(framework)` to prevent duplicate profiles on disconnect→re-add cycles"
+type: adr
+status: accepted
+date: 2026-06-30
+product: "AAP Compliance Dashboard"
+---
 # ADR-036: Stable Profile Identity via Slug
 
 **Status:** Accepted (Implemented 2026-06-30)  

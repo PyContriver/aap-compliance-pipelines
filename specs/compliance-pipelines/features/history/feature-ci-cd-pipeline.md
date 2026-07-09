@@ -1,3 +1,12 @@
+---
+title: "Feature: CI/CD Pipeline"
+description: "The project had no automated testing or build pipeline"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: CI/CD Pipeline
 
 **Status:** Shipped (2026-05-26, PRs #2-#3)

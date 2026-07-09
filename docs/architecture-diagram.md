@@ -1,3 +1,14 @@
+---
+title: "AAP Compliance Pipelines — System Architecture"
+description: "System architecture diagram — components, data flow, auth model, and service decomposition"
+type: reference
+audience: [developer, architect]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # AAP Compliance Pipelines — System Architecture
 
 Generated 2026-06-26 by architect review.
@@ -8,7 +19,7 @@ Generated 2026-06-26 by architect review.
 
                            EXTERNAL SYSTEMS
  +-----------+    +-------------------+    +-------------------+    +---------+
- |  Backstage|    | AAP Controller    |    | Private Automation|    | OCI/PAH |
+ |  Ansible  |    | AAP Controller    |    | Private Automation|    | OCI/PAH |
  |  Portal   |    | (AWX)             |    | Hub (PAH)         |    | Registry|
  |  (RHDH)   |    | - WJTs / JTs      |    | - EE images       |    | - SBOM  |
  |           |    | - Inventories     |    | - Collections     |    | artifacts|
@@ -16,7 +27,7 @@ Generated 2026-06-26 by architect review.
  |  Identity |    | - Host Facts      |    |                   |    |         |
  +-----------+    +-------------------+    +-------------------+    +---------+
        |                    |                       |                     |
-       | Backstage Auth     | REST API              | EE pull             | OCI v2
+       | Portal Auth        | REST API              | EE pull             | OCI v2
        | (httpAuth +        | (Bearer token         | (podman)            | (oras
        |  permissions)      |  + x-aap-token)       |                     |  push/pull)
        |                    |                       |                     |
@@ -54,7 +65,7 @@ Generated 2026-06-26 by architect review.
  |    +--> AUTH LAYER (routes/permissions.ts)                                |
  |          - requirePermission() -> catalogEntityCreatePermission          |
  |          - getUserAapToken()   -> x-aap-token header extraction          |
- |          - extractUserIdentity() -> Backstage userEntityRef              |
+ |          - extractUserIdentity() -> Portal userEntityRef                 |
  |          - Ingest token auth   -> per-scan UUID (ADR-010)                |
  |                                                                          |
  |  SERVICE LAYER                                                           |

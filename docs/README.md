@@ -1,3 +1,14 @@
+---
+title: "Documentation Map"
+description: "Index of all project documentation — start here"
+type: reference
+audience: [developer, operator]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # Documentation Map
 
 Guide to all project documentation. Start here if you're new to the project.
@@ -17,7 +28,7 @@ All ADRs are in [`specs/compliance-pipelines/decisions/`](../specs/compliance-pi
 | ADR | Title | Status | Scope |
 |-----|-------|--------|-------|
 | [001](../specs/compliance-pipelines/decisions/ADR-001-scanner-orchestrator-architecture.md) | Scanner Orchestrator Architecture (CFF) | Accepted | Dashboard |
-| [002](../specs/compliance-pipelines/decisions/ADR-002-two-tier-rbac.md) | Two-Tier RBAC (Backstage + AAP) | Accepted | Dashboard |
+| [002](../specs/compliance-pipelines/decisions/ADR-002-two-tier-rbac.md) | Two-Tier RBAC (Portal + AAP) | Accepted | Dashboard |
 | [003](../specs/compliance-pipelines/decisions/ADR-003-single-assessment-jt.md) | Single Assessment JT with 2 Plays | Accepted | Dashboard |
 | [004](../specs/compliance-pipelines/decisions/ADR-004-oscap-replaces-custom-evaluate.md) | OpenSCAP Replaces Custom Evaluate | Accepted | STIG/CIS |
 | [005](../specs/compliance-pipelines/decisions/ADR-005-slim-findings-for-event-storage.md) | Slim Findings for Event Storage | Accepted | Dashboard |

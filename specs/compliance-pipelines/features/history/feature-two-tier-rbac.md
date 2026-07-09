@@ -1,3 +1,12 @@
+---
+title: "Feature: Two-Tier RBAC"
+description: "The compliance plugin needs access control for scan, remediate, configure, and view operations"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Two-Tier RBAC
 
 **Status:** Shipped (2026-05-21)

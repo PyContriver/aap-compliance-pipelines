@@ -1,3 +1,11 @@
+---
+title: "ADR-012: Dashboard UX — Competitive Alignment"
+description: "The compliance dashboard had a "PostureOverviewCard" showing "X of Y profiles above 80% target" — a metric with no compe"
+type: adr
+status: accepted
+date: 2026-05-31
+product: "AAP Compliance Dashboard"
+---
 # ADR-012: Dashboard UX — Competitive Alignment
 
 **Status:** Accepted  

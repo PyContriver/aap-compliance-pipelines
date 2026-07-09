@@ -1,3 +1,12 @@
+---
+title: "Failed Scan Real Error Details"
+description: "Surface real error details from Controller when scans fail"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Failed Scan Real Error Details
 
 **Status:** Shipped (commits `11d7534`, `36d8f99`, 2026-05-27/28)

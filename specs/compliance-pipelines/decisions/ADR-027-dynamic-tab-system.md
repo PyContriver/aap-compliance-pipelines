@@ -1,3 +1,11 @@
+---
+title: "ADR-027: Dynamic Tab System"
+description: "The compliance dashboard has a fixed set of tabs: Overview, New Scan, Results, Remediations, Inventories, and Settings"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-027: Dynamic Tab System
 
 **Status:** Accepted

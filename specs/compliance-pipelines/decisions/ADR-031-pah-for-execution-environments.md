@@ -1,3 +1,11 @@
+---
+title: "ADR-031: Private Automation Hub for Execution Environment Images"
+description: "Compliance profile Execution Environments (EEs) are OCI container images built via GitHub Actions (`"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-031: Private Automation Hub for Execution Environment Images
 
 **Status:** Accepted  

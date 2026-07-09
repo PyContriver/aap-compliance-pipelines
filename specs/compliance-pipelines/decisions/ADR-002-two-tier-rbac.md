@@ -1,3 +1,11 @@
+---
+title: "ADR-002: Two-Tier RBAC (Backstage + AAP Pass-Through)"
+description: "The compliance plugin needs access control that determines who can view, scan, remediate, and configure"
+type: adr
+status: accepted
+date: 2026-05-21
+product: "AAP Compliance Dashboard"
+---
 # ADR-002: Two-Tier RBAC (Backstage + AAP Pass-Through)
 
 **Status:** Accepted

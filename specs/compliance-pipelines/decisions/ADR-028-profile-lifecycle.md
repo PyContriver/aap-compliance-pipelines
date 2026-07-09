@@ -1,3 +1,11 @@
+---
+title: "ADR-028: Profile Lifecycle — Connect/Disconnect"
+description: "Compliance profiles may need to be decommissioned without losing historical scan data"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-028: Profile Lifecycle — Connect/Disconnect
 
 **Status:** Accepted  

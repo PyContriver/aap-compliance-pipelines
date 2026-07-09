@@ -1,3 +1,11 @@
+---
+title: "ADR-017: Architect Review — Hardening Backlog"
+description: "Post-MVP architect review of the compliance plugin codebase"
+type: adr
+status: accepted
+date: 2026-06-03
+product: "AAP Compliance Dashboard"
+---
 # ADR-017: Architect Review — Hardening Backlog
 
 **Status:** Accepted  

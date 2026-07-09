@@ -1,3 +1,11 @@
+---
+title: "ADR-033: File-Streamed API Ingestion"
+description: "ADR-030 mandates per-host normalization to prevent OOM during the normalize step"
+type: adr
+status: accepted
+date: 2026-06-26
+product: "AAP Compliance Dashboard"
+---
 # ADR-033: File-Streamed API Ingestion
 
 **Status:** Accepted  
@@ -73,7 +81,7 @@ No `findings` list in the return value. This prevents Ansible from accumulating 
 ### 3. Playbooks use `uri` with `src` to stream POST bodies
 
 ```yaml
-- name: POST findings per-host to Backstage compliance API
+- name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
     method: POST
@@ -130,7 +138,7 @@ Complete per-host normalize-and-POST flow:
     patterns: "*.post.json"
   register: _post_body_files
 
-- name: POST findings per-host to Backstage compliance API
+- name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
     method: POST

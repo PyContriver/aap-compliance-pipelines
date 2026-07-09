@@ -1,3 +1,11 @@
+---
+title: "ADR-032: Pluggable Export Formats and OCI Artifact Storage"
+description: "The compliance dashboard exports scan results in three hardcoded formats: CSV, JSON, and CKL (STIG Viewer)"
+type: adr
+status: accepted
+date: 2026-06-26
+product: "AAP Compliance Dashboard"
+---
 # ADR-032: Pluggable Export Formats and OCI Artifact Storage
 
 **Status:** Accepted  

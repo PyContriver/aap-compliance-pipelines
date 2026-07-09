@@ -1,3 +1,11 @@
+---
+title: "ADR-021: P3 Hardening Sprint — Router Decomposition, Security, and UX"
+description: "ADR-017 identified a B+ production readiness grade with 8 HIGH and 13 MEDIUM findings"
+type: adr
+status: accepted
+date: 2026-04-23
+product: "AAP Compliance Dashboard"
+---
 # ADR-021: P3 Hardening Sprint — Router Decomposition, Security, and UX
 
 | Field | Value |

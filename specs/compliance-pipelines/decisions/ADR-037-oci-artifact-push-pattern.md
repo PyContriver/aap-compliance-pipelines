@@ -1,3 +1,12 @@
+---
+title: "ADR-037: OCI Artifact Push Pattern and PAH Integration"
+description: "ADR-032 established the two-layer export system — CFF-derived client-side exports and OCI artifact passthrough via PAH"
+type: adr
+status: accepted
+date: 2026-06-30
+product: "AAP Compliance Dashboard"
+amends: ADR-032
+---
 # ADR-037: OCI Artifact Push Pattern and PAH Integration
 
 **Status:** Accepted  
@@ -67,9 +76,9 @@ Artifact registration in the plugin DB must only happen for successfully pushed 
 
 The `index_var` correlation works because both loops iterate the same list. Skipped push items (from `when:` conditions) appear in `.results` with no `rc` field — `default(1)` treats them as failures.
 
-### 3. Artifact GET endpoints require Backstage httpAuth
+### 3. Artifact GET endpoints require Portal httpAuth
 
-The backend artifact list and download endpoints use Backstage's `httpAuth.credentials()` to verify the caller has a valid session. POST (artifact registration from playbooks) remains unauthenticated, secured by per-scan ingest tokens (ADR-010). The `/scans` prefix is marked `allow: 'unauthenticated'` at the Backstage layer for POST access; GET handlers enforce auth explicitly via `requireUserAuth()`.
+The backend artifact list and download endpoints use Portal's `httpAuth.credentials()` to verify the caller has a valid session. POST (artifact registration from playbooks) remains unauthenticated, secured by per-scan ingest tokens (ADR-010). The `/scans` prefix is marked `allow: 'unauthenticated'` at the Backstage layer for POST access; GET handlers enforce auth explicitly via `requireUserAuth()`.
 
 ### 4. Error surfacing over silent fallbacks
 

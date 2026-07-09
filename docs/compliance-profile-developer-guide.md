@@ -1,3 +1,16 @@
+---
+title: "How to Build a Compliance Profile"
+description: "Build new compliance profiles — scanners, normalizers, EEs, custom tabs, and CFF integration"
+type: guide
+audience: [developer, architect]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+related:
+  - architecture-diagram.md
+---
+
 # How to Build a Compliance Profile
 
 A practical, checklist-style guide for contributors who want to create a new compliance profile collection -- for a new platform (Windows, network devices), a new compliance framework (PCI-DSS, CIS Benchmark), or a new scanner integration (Qualys, Tenable).
@@ -77,7 +90,7 @@ security.compliance_<platform>_<framework>/
       workflow.yml                      # Workflow definition
       job_templates.yml                 # Job template definitions
       surveys.yml                       # Survey definitions
-    portal/                             # Backstage discovery
+    portal/                             # Portal discovery
       metadata.yml                      # Portal metadata
       backstage_template.yml            # Software Template for one-click setup
 
@@ -180,7 +193,7 @@ security.compliance_enterprise_<scanner>/
 
 ## 3. Common Findings Format (CFF) v1.0.0
 
-This is THE contract. Every normalizer must produce output conforming to this schema. The Backstage plugin consumes ONLY this format. Scanners are opaque to the UI -- the CFF is the single integration surface.
+This is THE contract. Every normalizer must produce output conforming to this schema. The dashboard plugin consumes ONLY this format. Scanners are opaque to the UI -- the CFF is the single integration surface.
 
 ### JSON Schema
 
@@ -542,7 +555,7 @@ All normalizers must map scanner-specific severity to the common format:
 
 ## 4. Normalizer Requirements
 
-Every compliance profile MUST include a normalizer module. The normalizer is the only scanner-specific code in the pipeline. Everything upstream (the scanner) and downstream (the Backstage plugin, remediation roles) is decoupled from the scanner.
+Every compliance profile MUST include a normalizer module. The normalizer is the only scanner-specific code in the pipeline. Everything upstream (the scanner) and downstream (the dashboard plugin, remediation roles) is decoupled from the scanner.
 
 ### What the Normalizer Must Do
 
@@ -903,7 +916,7 @@ For profiles using different scanners, the full pipeline supports up to 7 stages
 |-------|---------|---------|----------|
 | **1. Scan** | Execute scanner on targets or fetch from API | Targets (Tier 1) or localhost (Tier 2) | `playbooks/run_oscap.yml` or `playbooks/fetch_<scanner>.yml` |
 | **2. Normalize** | Transform scanner output to CFF JSON | localhost | `playbooks/normalize.yml` |
-| **3. Report** | POST results to Backstage `/findings/ingest` endpoint (or write to Controller artifacts for fallback) | localhost | `playbooks/report.yml` |
+| **3. Report** | POST results to the Portal `/findings/ingest` endpoint (or write to Controller artifacts for fallback) | localhost | `playbooks/report.yml` |
 | **4. Remediate** | Execute approved remediations (behind approval gate) | Target hosts | `playbooks/remediate.yml` |
 | **5. Verify** | Re-scan to confirm remediation effectiveness | Target hosts | (re-run scan playbook) |
 
@@ -1121,9 +1134,9 @@ For compliance profiles that cannot use CaC playbooks (Windows, network devices,
 
 ---
 
-## 7. Portal/Backstage Metadata
+## 7. Portal Metadata
 
-The compliance profile must include discovery metadata so the Backstage plugin can identify and present it.
+The compliance profile must include discovery metadata so the dashboard plugin can identify and present it.
 
 ### Pattern Metadata
 
@@ -1154,7 +1167,7 @@ platform:                             # ADR-011: platform guards
 
 ### Portal Metadata
 
-The `extensions/patterns/portal/metadata.yml` file is consumed by the Backstage plugin for UI rendering:
+The `extensions/patterns/portal/metadata.yml` file is consumed by the dashboard plugin for UI rendering:
 
 ```yaml
 name: compliance-<platform>-<framework>
@@ -1215,7 +1228,7 @@ spec:
 
 ## 8. Compliance Profile Registration
 
-When a compliance profile collection is installed, an administrator registers it in the Backstage compliance plugin Settings page. This creates the mapping between the portal and the AAP resources.
+When a compliance profile collection is installed, an administrator registers it in the Compliance Dashboard Settings page. This creates the mapping between the portal and the AAP resources.
 
 ### Registration Fields
 
@@ -1301,7 +1314,7 @@ A well-built compliance profile must ensure that scanners are swappable without 
 
 ### Compatibility Requirements
 
-1. **The Backstage plugin renders identically regardless of scanner.** The UI consumes CFF JSON -- it never inspects the scanner name for rendering decisions.
+1. **The Compliance Dashboard renders identically regardless of scanner.** The UI consumes CFF JSON -- it never inspects the scanner name for rendering decisions.
 
 2. **Remediation roles work regardless of which scanner discovered the finding.** The same `remediate_sshd_idle_timeout` role fixes the finding whether OpenSCAP or Qualys found it.
 
@@ -1318,7 +1331,7 @@ A well-built compliance profile must ensure that scanners are swappable without 
 
 | Component | Changes on Scanner Swap? |
 |-----------|--------------------------|
-| Backstage plugin | NO |
+| Compliance Dashboard | NO |
 | Common Findings JSON schema | NO (same schema) |
 | Remediation roles | NO |
 | Dashboard views and filters | NO |
@@ -1378,7 +1391,7 @@ The normalizer module accepts `certification_status` and `certification_authorit
     certification_authority: "NIST SCAP 1.2"
 ```
 
-The certification metadata flows through the CFF JSON output into the Backstage plugin, where it can be displayed as a badge on scan results.
+The certification metadata flows through the CFF JSON output into the Compliance Dashboard, where it can be displayed as a badge on scan results.
 
 ### CFF Output
 
@@ -1549,14 +1562,14 @@ Use this checklist when building a new compliance profile. Every item must be sa
 - [ ] For Tier 2/3 profiles only: workflow template has `ask_inventory_on_launch: true` and child nodes have `inventory: null` (inherit from workflow)
 - [ ] Remediation job template has `ask_tags_on_launch: true` (direct launch with job_tags)
 - [ ] Remediation job template has `ask_variables_on_launch: true`
-- [ ] Scan results POSTed to Backstage `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
+- [ ] Scan results POSTed to the Portal `/findings/ingest` endpoint (primary, ADR-007) with per-scan ingest token (ADR-010), or available via Controller events (fallback)
 - [ ] Normalizer accepts `compose_post_body`, `scan_id`, `ingest_token`, `finalize`, and `post_body_format` parameters (ADR-033, ADR-034)
 - [ ] Playbook uses `uri src` with `Content-Type: application/x-ndjson` for NDJSON streaming ingest (ADR-034)
 - [ ] Playbook has assertion task after POST loop (`fail` if zero POSTs succeed)
 - [ ] Assessment JT default `extra_vars` include `remediate_jt_name` for Settings form auto-populate
 - [ ] Assessment JT default `extra_vars` include `remediation_playbook` for auto-populate
 
-### Portal / Backstage Integration
+### Portal Integration
 
 - [ ] `extensions/patterns/metadata.yml` with discovery metadata (name, display_name, version, domain, tags, applicable_os, frameworks, source)
 - [ ] `extensions/patterns/metadata.yml` includes `platform:` spec declaring supported OS/device types (ADR-011). Optional but recommended for auto-populate. If omitted, users must configure this manually in the Settings form.
@@ -1606,7 +1619,7 @@ The `security.compliance_rhel9_stig` collection in this repository is the refere
 
 Each compliance collection MUST include a `meta/compliance-profile.yml` file declaring the profile's identity and capabilities. This file is the single source of truth for profile metadata and drives two critical behaviors:
 
-1. **Settings form auto-populate** — the `install.yml` playbook reads this file and sets its fields as default `extra_vars` on the scan Job Template. When an admin selects that JT in the Backstage Settings form, the plugin fetches the JT's default extra_vars and auto-populates the form fields. This is the primary UX benefit of a well-configured profile.
+1. **Settings form auto-populate** — the `install.yml` playbook reads this file and sets its fields as default `extra_vars` on the scan Job Template. When an admin selects that JT in the Compliance Dashboard Settings form, the plugin fetches the JT's default extra_vars and auto-populates the form fields. This is the primary UX benefit of a well-configured profile.
 
 2. **Self-documentation** — the file declares what scanner, framework, XCCDF profile, and certification status the collection provides. Even if auto-populate is not used, these values tell the admin exactly what to enter manually.
 
@@ -1651,7 +1664,7 @@ profile:
 
 **Auto-populate flow:**
 
-When a user creates a new profile in the Backstage Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, `certification_authority`, `remediate_jt_name`, and `remediation_playbook` keys, the form fields auto-populate. For `remediate_jt_name`, the plugin resolves the name against the Controller's JT list to set the Remediate Job Template ID. All fields remain editable -- the auto-populate provides defaults, not constraints.
+When a user creates a new profile in the Compliance Dashboard Settings tab and selects a scan Job Template, the plugin fetches the JT's default `extra_vars` via the Controller API (`GET /job-templates/:id`). If the extra_vars contain `profile_name`, `framework`, `certification_status`, `certification_authority`, `remediate_jt_name`, and `remediation_playbook` keys, the form fields auto-populate. For `remediate_jt_name`, the plugin resolves the name against the Controller's JT list to set the Remediate Job Template ID. All fields remain editable -- the auto-populate provides defaults, not constraints.
 
 If the JT has no extra_vars (e.g., a manually created JT without `install.yml`), the user fills in the fields manually. After the first scan, the CFF output confirms the profile metadata via the self-healing path.
 
@@ -2118,7 +2131,7 @@ export const SupplyChainTab = ({ profile, findings }: ProfileTabProps) => {
 };
 ```
 
-**Important: Backstage uses Material UI, not PatternFly.** Import from `@material-ui/core` and `@backstage/core-components`. Do not import PatternFly components -- they are not available in the Backstage runtime.
+**Important: The Portal uses Material UI, not PatternFly.** Import from `@material-ui/core` and `@backstage/core-components`. Do not import PatternFly components -- they are not available in the Portal runtime.
 
 #### Building with Vite
 
@@ -2474,7 +2487,7 @@ display:
 |-------|-------|-----|
 | `oras push` fails silently | Missing `--disable-path-validation` — oras 1.2+ rejects absolute paths | Always include the flag; Ansible `fetch` writes to absolute paths |
 | 502 on download | Artifacts registered but never pushed (orphaned pointers) | Gate registration on `_push_results.results[idx].rc == 0` |
-| 401 on artifact list/download | User not logged into Portal (no Backstage session) | Artifact GET endpoints use Backstage `httpAuth` — user must have a valid Portal session |
+| 401 on artifact list/download | User not logged into Portal (no active session) | Artifact GET endpoints use Portal `httpAuth` — user must have a valid session |
 | Push errors invisible | `no_log: true` censors all output | Add a separate "Report failures" debug task |
 | Push appears to succeed | `failed_when: false` + `no_log: true` hides errors | Check job events for the Report task |
 

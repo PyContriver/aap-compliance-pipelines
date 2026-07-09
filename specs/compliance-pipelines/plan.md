@@ -1,14 +1,26 @@
+---
+title: "Implementation Plan: Compliance Pipelines"
+description: "Implementation plan -- architecture, phased delivery, component inventory, and deployment strategy"
+type: plan
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # Implementation Plan: Compliance Pipelines
 
-**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-06-18) | **Spec**: [spec.md](./spec.md)
+**Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-07-09) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`
-**Research**: [Competitor Analysis](../../prototypes/compliance-pipelines/context/competitor-analysis.md), [Content Delivery Strategy](../../prototypes/compliance-pipelines/context/content-delivery-strategy.md), [Ansible Content Ecosystem](../../prototypes/compliance-pipelines/context/ansible-content-ecosystem.md)
+
+> **Current state (2026-07-09):** Backend v0.13.115, frontend v0.10.105. 626 tests across 24 suites + 127 collection unit tests. 37 ADRs, 23 migrations, 4 profiles (STIG, CIS L1, CIS L2, Supply Chain). P1 and P2a complete. Features shipped since this plan was last updated (Jun 18): portable display configuration (ADR-026), dynamic tab system (ADR-027), profile lifecycle (ADR-028), CycloneDX normalizer (ADR-029), per-host normalization (ADR-030), PAH for EEs (ADR-031), pluggable exports (ADR-032), file-streamed ingestion (ADR-033), NDJSON negotiation (ADR-034), vulnerability-free rate fix (ADR-035), profile identity/slug (ADR-036), OCI artifact push (ADR-037), mock mode overhaul (MockDataSeeder), security hardening (production auth default). The architecture sections below remain accurate; phase completion tracking is stale past Phase 4.
 
 ## Summary
 
 Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automation Platform today must manually source ComplianceAsCode content, build scan/remediate workflows, parse XCCDF results, and manage remediation decisions — with no integrated portal experience. This feature delivers an end-to-end compliance pipeline within the Ansible Portal that enables administrators to add compliance profiles (EE + workflow mappings), launch scans, review host-level findings, build selective remediations, execute remediation, and verify results — all without leaving the portal or requiring Controller expertise.
 
-**Technical Approach**: The compliance plugin operates as a scanner orchestrator, not a scanner. It invokes AAP job templates via the Gateway API, receives normalized findings, and stores them in Backstage PostgreSQL. A remediation builder translates user decisions into `--limit`, `--tags`, and `--extra-vars` parameters for the remediation job template. ComplianceAsCode's `rhel9-playbook-stig.yml` (55K+ lines, 4400+ tasks) from the `scap-security-guide` RPM IS the remediation engine -- we consume it, not author it.
+**Technical Approach**: The compliance plugin operates as a scanner orchestrator, not a scanner. It invokes AAP job templates via the Gateway API, receives normalized findings, and stores them in Portal PostgreSQL. A remediation builder translates user decisions into `--limit`, `--tags`, and `--extra-vars` parameters for the remediation job template. ComplianceAsCode's `rhel9-playbook-stig.yml` (55K+ lines, 4400+ tasks) from the `scap-security-guide` RPM IS the remediation engine -- we consume it, not author it.
 
 **Key Architecture Decisions**:
 
@@ -26,9 +38,9 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 **Storage**: PostgreSQL (production), SQLite (local dev) for compliance tables (compliance profiles, scans, findings, remediations, posture)
 **Testing**: Jest (unit), Playwright (E2E), supertest (API contract)
 **Target Platform**: Ansible Portal (RHDH) on RHEL 9+ or OpenShift 4.14+, local dev (yarn start)
-**Project Type**: Backstage plugin suite (1 frontend plugin, 1 backend plugin, 1 common package)
+**Project Type**: Ansible Portal plugin suite (1 frontend plugin, 1 backend plugin, 1 common package)
 **Performance Goals**: Scan launch <5 seconds, findings parse <10 seconds per scan, profile builder renders 300 rules <3 seconds, dashboard loads <2 seconds for 1000 scan records
-**Constraints**: All AAP API calls via Gateway URL, per-user tokens via `x-aap-token`, no direct Controller access, no custom Backstage permissions (reuse catalog entity permissions)
+**Constraints**: All AAP API calls via Gateway URL, per-user tokens via `x-aap-token`, no direct Controller access, no custom Portal permissions (reuse catalog entity permissions)
 **Scale/Scope**: Supports 20,000+ hosts per scan via dynamic host grouping, 300+ rules per profile, 1000+ historical scans
 
 ## High-Level Architecture
@@ -48,7 +60,7 @@ Regulated enterprises managing DISA STIG and CIS compliance with Ansible Automat
 │  └─ ExportDialog/ - CSV/JSON export configuration                   │
 └─────────────────────────────────────────────────────────────────────┘
                               │
-                              ▼ HTTPS (via Backstage discoveryApi)
+                              ▼ HTTPS (via Portal discoveryApi)
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Backend (plugins/compliance-backend)                                │
 │  ├─ REST API Router - Express routes                                │
@@ -189,7 +201,7 @@ specs/compliance-pipelines/
 │   └── requirements.md      # Spec quality validation checklist
 ```
 
-### Source Code (Backstage plugins)
+### Source Code (Portal plugins)
 
 ```text
 # Frontend plugin
@@ -479,11 +491,11 @@ GET  /api/compliance/posture
 
 **API Characteristics**:
 
-- All endpoints require authentication via Backstage identity + `x-aap-token` header for AAP operations
+- All endpoints require authentication via Portal identity + `x-aap-token` header for AAP operations
 - Pagination via `limit` + `offset` query parameters
 - Findings export is streamed for large result sets
 - Secrets (AAP tokens) are never stored in the compliance database — they are passed per-request via headers
-- Error responses follow standard Backstage error format: `{ error: { name, message, statusCode } }`
+- Error responses follow standard Portal error format: `{ error: { name, message, statusCode } }`
 
 ## Dependencies
 
@@ -511,10 +523,10 @@ GET  /api/compliance/posture
 
 ```
 Browser → Portal Frontend → Portal Backend → AAP Gateway
-           (Backstage auth)   (x-aap-token)    (OAuth2)
+           (Portal auth)   (x-aap-token)    (OAuth2)
 ```
 
-- Frontend authenticates via Backstage identity (AAP OAuth2 PKCE flow)
+- Frontend authenticates via Portal identity (AAP OAuth2 PKCE flow)
 - Backend receives per-user AAP token via `x-aap-token` request header
 - Backend forwards AAP token to Gateway API calls
 - No AAP credentials stored in the compliance database
@@ -522,7 +534,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 ### Authorization
 
-- Compliance profile registration: requires admin role (Backstage RBAC)
+- Compliance profile registration: requires admin role (Portal RBAC)
 - Scan launch: requires authenticated user with AAP inventory access
 - Findings view: requires authenticated user
 - Remediation execution: requires authenticated user with AAP job template execute permission
@@ -540,7 +552,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 ### Phase 1: Content Packaging and Backend Foundation (2 weeks) -- COMPLETE
 
-- [x] Create `compliance-backend` plugin scaffold with Backstage plugin API
+- [x] Create `compliance-backend` plugin scaffold with Portal plugin API
 - [x] Create `compliance-common` package with shared TypeScript types
 - [x] Write Knex database migrations for all compliance tables (5 migrations, including multi-inventory support)
 - [x] Implement `DatabaseHandler` with CRUD operations for all entities
@@ -598,7 +610,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 
 **Inventory view improvements (2026-06-16)**: 5 features added — short profile links (scanTags), chip cluster blocks, view toggle, host findings endpoint, enhanced host drawer with baseline scores/findings list/clickable severity filters. Host filter in ResultsViewer: `?host=X` URL param filters findings, blue pill indicator, host highlighting in expanded rows.
 
-**CI migration (2026-06-16)**: Backstage CI disabled on GitHub Actions. GitLab CEE now owns backstage pipeline (backstage-test → backstage-export → deploy-netrunner). Collection tests also on GitLab (sanity, units, lint, build).
+**CI migration (2026-06-16)**: Plugin CI disabled on GitHub Actions. GitLab CEE now owns plugin pipeline (backstage-test → backstage-export → deploy-netrunner). Collection tests also on GitLab (sanity, units, lint, build).
 
 **EE build pipeline + ingest fix (2026-06-18)**: Per-collection EE build pipeline added to GitHub Actions (`build-ee.yml` matrix: STIG, CIS L1, CIS L2, `fail-fast: false`). GitHub Actions retained for EE builds because they require container tooling (docker) which GitLab CEE runners lack. Images pushed to `ghcr.io/cross-logic/compliance-{stig,cis-l1,cis-l2}-rhel9:latest`. Controller EE mappings corrected (CIS L1/L2 were pointing to STIG image). GHCR Container Registry credential created for private package pull. Ingest body limit restored to 50MB (P3 hardening had reduced to 10MB, but fix_text enrichment from ADR-020 made payloads exceed 10MB with 18+ hosts). Metadata upsert guard added to prevent slim Controller event fallback from overwriting full metadata. Pass-rate color thresholds aligned across all views — `hostColor()`, ScanHistory, and ComplianceDashboard now all use `scoreColor()` / `THRESHOLDS` (90/70) instead of ad-hoc inline values.
 

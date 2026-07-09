@@ -1,3 +1,11 @@
+---
+title: "ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping"
+description: "Three interrelated design questions arose during Phase 1 testing of the remediation lifecycle (ADR-014):"
+type: adr
+status: accepted
+date: 2026-06-01
+product: "AAP Compliance Dashboard"
+---
 # ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping
 
 **Status:** Accepted (Implemented 2026-06-02, updated 2026-06-11)  

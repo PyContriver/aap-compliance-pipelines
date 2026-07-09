@@ -1,8 +1,19 @@
+---
+title: "Contributing to AAP Compliance Pipelines"
+description: "Contributing guide -- setup, branching, CI/CD, coding standards, adding features"
+type: project
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # Contributing to AAP Compliance Pipelines
 
 ## Project Overview
 
-This repository contains a compliance vertical for Ansible Automation Platform, delivered as a Backstage/RHDH plugin. It can run standalone (local development) or as a dynamic plugin inside the Ansible Portal (RHDH).
+This repository contains a compliance vertical for Ansible Automation Platform, delivered as the AAP Compliance Dashboard plugin for Ansible Portal (RHDH). It can run standalone (local development or demo server) or as a dynamic plugin inside Ansible Portal.
 
 **Jira Feature:** [ANSTRAT-2216](https://redhat.atlassian.net/browse/ANSTRAT-2216) (Red Hat internal)
 **GitLab:** [gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines](https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines) (Red Hat internal)
@@ -229,8 +240,8 @@ Install in RHDH via `dynamic-plugins.yaml`. See `docs/deployment-guide.md` for f
 
 The `compliance.authMode` setting in `app-config.yaml` controls authentication:
 
-- **`development`** (default): All routes unauthenticated. For local dev with guest auth.
-- **`production`**: Only `/health` is unauthenticated. All other routes require Backstage identity. Mutating endpoints require `catalogEntityCreatePermission` (admin tier).
+- **`development`**: All routes unauthenticated. For local dev with guest auth. Must be set explicitly in `app-config.local.yaml`.
+- **`production`** (default): Only `/health` is unauthenticated. All other routes require Portal identity. Mutating endpoints require `catalogEntityCreatePermission` (admin tier).
 
 ```yaml
 compliance:
@@ -241,7 +252,7 @@ compliance:
 
 ## RBAC Model (Option A+C)
 
-### Backstage layer (Option A)
+### Portal layer (Option A)
 
 Two-tier, matching the self-service plugin pattern:
 
@@ -250,7 +261,7 @@ Two-tier, matching the self-service plugin pattern:
 | **Operator** (authenticated) | Yes | No | No | No |
 | **Admin** (catalogEntityCreatePermission) | Yes | Yes | Yes | Yes |
 
-Admin maps to AAP superusers via `aap-admins` Backstage group.
+Admin maps to AAP superusers via `aap-admins` Portal group.
 
 ### AAP layer (Option C)
 
@@ -259,7 +270,7 @@ Per-user AAP OAuth2 tokens are passed to every Controller API call. AAP's native
 - Which job templates the user can launch
 - Which credentials the user can use
 
-This provides implicit organization/team scoping without Backstage-level org policies.
+This provides implicit organization/team scoping without Portal-level org policies.
 
 ## Plugin Structure
 
@@ -267,7 +278,7 @@ This provides implicit organization/team scoping without Backstage-level org pol
 
 - **Components**: `src/components/` — React components using Material UI
 - **API client**: `src/api/ComplianceBackendClient.ts` — calls backend REST API
-- **API ref**: `src/api/complianceApiRef.ts` — Backstage API factory pattern
+- **API ref**: `src/api/complianceApiRef.ts` — Portal API factory pattern
 - **Plugin**: `src/plugin.ts` — registration, routes, API factories
 
 ### Backend (`plugins/compliance-backend/`)

@@ -1,3 +1,11 @@
+---
+title: "ADR-022: Baseline-Triggered Auto-Remediation"
+description: "The compliance plugin's remediation lifecycle (ADR-014) is human-in-the-loop by design: a user scans, reviews findings, "
+type: adr
+status: proposed
+date: 2026-06-09
+product: "AAP Compliance Dashboard"
+---
 # ADR-022: Baseline-Triggered Auto-Remediation
 
 **Status:** Proposed (design phase)  

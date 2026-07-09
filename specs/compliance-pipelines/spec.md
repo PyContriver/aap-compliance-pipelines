@@ -1,8 +1,19 @@
+---
+title: "Feature Specification: Compliance Pipelines"
+description: "Feature specification -- user stories, acceptance scenarios, functional requirements, and constraints"
+type: spec
+audience: [architect, developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # Feature Specification: Compliance Pipelines
 
 **Feature Branch**: `compliance-pipelines`
 **Created**: 2026-04-23
-**Status**: Active — Production MVP (all P1 complete, remediation lifecycle shipped with baseline scoring + chain view, 641 tests (584 backend/frontend + 57 collection) across 21 suites, 25 ADRs, deployed to Netrunner via GitLab CEE CI)
+**Status**: Active — Production MVP (all P1 complete, P2a complete, remediation lifecycle shipped with baseline scoring + chain view + finding-level states, 626 tests across 24 suites + 127 collection unit tests, 37 ADRs, 23 migrations, 4 profiles, deployed to Netrunner via GitLab CEE CI)
 **Input**: User description: "End-to-end compliance pipeline experience (scan, review, remediate, verify) for regulated infrastructure within the Ansible Automation Platform Portal"
 **Related**: ANSTRAT-1670 (Evolve Ansible Content — Initiative 3: Strategic Domain Content), ANSTRAT-1285 (Pattern Loading Service), ANSTRAT-1534 (Content Discovery), ANSTRAT-2122 (Skill Content Type)
 **Research**: Competitor Analysis, Content Delivery Strategy, Jira Feature Template Analysis <!-- Original links removed: prototypes/compliance-pipelines/context/ directory no longer exists -->
@@ -250,7 +261,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - **SC-007**: Verification re-scan runs automatically after remediation and provides before/after compliance posture comparison
 - **SC-008**: Event-driven scans triggered via EDA produce findings indistinguishable from manual scans in the portal dashboard
 - **SC-009**: All AAP API calls route through the Gateway URL using per-user tokens — zero direct Controller API calls from the portal
-- **SC-010**: Compliance data (findings, profiles, posture history) persists in Backstage PostgreSQL and survives portal restarts with clean removal via down migrations
+- **SC-010**: Compliance data (findings, profiles, posture history) persists in Portal PostgreSQL and survives portal restarts with clean removal via down migrations
 
 ## Assumptions
 
@@ -260,7 +271,7 @@ Automation architects need infrastructure changes (new host provisioned, configu
 - Compliance profiles use the collection + EE packaging model: an Ansible collection (e.g., `security.compliance_rhel9_stig`) ships an EE profile definition, and the EE Builder constructs the EE from it
 - AAP job templates for compliance pipelines (assessment JT running `run_oscap.yml` with 2 plays, remediation JT running `remediate.yml`) are pre-created in the Controller before compliance profile registration (see ADR-003, ADR-009)
 - The AAP Gateway is the sole API entry point — direct Controller API access is not used (aligns with AAP 2.7+ architecture)
-- Backstage PostgreSQL is available for compliance data persistence (findings, remediations, posture history, compliance profile registry)
+- Portal PostgreSQL is available for compliance data persistence (findings, remediations, posture history, compliance profile registry)
 - Per-user AAP tokens are available via the `x-aap-token` header pattern established by the Portal authentication flow
 - OpenSCAP is the Tier 1 scanner for RHEL STIG/CIS benchmarks; the architecture supports pluggable Tier 2 (BYOS: Qualys, Tenable) and Tier 3 (hybrid) scanners via additional compliance profile types
 - EDA integration (User Story 8) depends on EDA Server being deployed and configured with appropriate rulebooks — this is a stretch goal

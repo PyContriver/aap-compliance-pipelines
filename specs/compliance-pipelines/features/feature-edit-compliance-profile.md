@@ -1,3 +1,12 @@
+---
+title: "Edit Compliance Profile"
+description: "Edit registered compliance profiles in the Settings tab"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Edit Compliance Profile
 
 **Status:** Shipped (commits `91b6184`, `35e0625`, 2026-05-28)

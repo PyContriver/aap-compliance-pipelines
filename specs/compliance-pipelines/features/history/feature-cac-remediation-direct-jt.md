@@ -1,3 +1,12 @@
+---
+title: "Feature: CaC Remediation via Direct JT"
+description: "The plugin needs selective remediation -- applying only specific STIG rules to specific hosts with optional parameter ov"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: CaC Remediation via Direct JT
 
 **Status:** Shipped (2026-04-23, formalized 2026-05-26)

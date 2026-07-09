@@ -1,3 +1,11 @@
+---
+title: "ADR-001: Scanner Orchestrator Architecture (CFF as Contract)"
+description: "The compliance plugin needs to support multiple scanner backends (OpenSCAP, PowerSTIG, Qualys, Tenable, Insights, CIS-CA"
+type: adr
+status: accepted
+date: 2026-04-23
+product: "AAP Compliance Dashboard"
+---
 # ADR-001: Scanner Orchestrator Architecture (CFF as Contract)
 
 **Status:** Accepted
@@ -12,7 +20,7 @@ Puppet SCE and Chef Compliance both embed their scanners directly, tying their c
 
 ## Decision
 
-The compliance plugin is a **scanner orchestrator, not a scanner**. Our value is the UX, orchestration, and remediation profile builder. The plugin never knows which scanner produced the findings -- it consumes a **Common Findings Format (CFF)** JSON document regardless of the underlying scanner.
+The compliance dashboard is a **scanner orchestrator, not a scanner**. Our value is the UX, orchestration, and remediation profile builder. The dashboard never knows which scanner produced the findings — it consumes a **Common Findings Format (CFF)** JSON document regardless of the underlying scanner.
 
 Three scanner tiers:
 
@@ -22,7 +30,7 @@ Three scanner tiers:
 | **Tier 2** | BYOS | Adapter, normalizer, remediation, pipeline | Scanner deployment, credentials, licenses |
 | **Tier 3** | Hybrid | Multi-domain adapters + per-platform normalizers | Same as Tier 2 |
 
-Every scanner normalizer must produce CFF v1.0.0 JSON. The CFF is the single integration surface between the Ansible collection layer and the Backstage plugin layer.
+Every scanner normalizer must produce CFF v1.0.0 JSON. The CFF is the single integration surface between the Ansible collection layer and the dashboard plugin layer.
 
 ## Consequences
 

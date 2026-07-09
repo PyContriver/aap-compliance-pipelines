@@ -1,3 +1,12 @@
+---
+title: "Requirements Checklist"
+description: "Quality checklist for the compliance pipelines feature specification"
+type: reference
+audience: [developer, architect]
+product: "AAP Compliance Dashboard"
+status: current
+---
+
 # Specification Quality Checklist: Compliance Pipelines
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning

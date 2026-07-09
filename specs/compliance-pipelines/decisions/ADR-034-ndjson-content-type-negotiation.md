@@ -1,3 +1,11 @@
+---
+title: "ADR-034: NDJSON Content-Type Negotiation"
+description: "Supply chain scans produce 40,000+ findings per host (CVE matches against every installed package)"
+type: adr
+status: accepted
+date: 2026-06-26
+product: "AAP Compliance Dashboard"
+---
 # ADR-034: NDJSON Content-Type Negotiation
 
 **Status:** Accepted  
@@ -144,7 +152,7 @@ All profiles now use the same NDJSON playbook pattern:
     patterns: "*.ndjson"
   register: _post_body_files
 
-- name: POST findings per-host to Backstage compliance API (NDJSON)
+- name: POST findings per-host to Portal compliance API (NDJSON)
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
     method: POST

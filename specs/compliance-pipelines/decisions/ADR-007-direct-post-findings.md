@@ -1,3 +1,11 @@
+---
+title: "ADR-007: Direct POST Findings from Playbook to Plugin API"
+description: "The current approach parses compliance findings from Controller job events (`runner_on_ok` / `runner_item_on_ok` events)"
+type: adr
+status: accepted
+date: 2026-05-26
+product: "AAP Compliance Dashboard"
+---
 # ADR-007: Direct POST Findings from Playbook to Plugin API
 
 **Status:** Accepted (implemented in PRs #17, #19)
@@ -22,7 +30,7 @@ Have the playbook POST findings directly to the plugin's REST API, bypassing Con
 
 Implementation (PRs #17, #19):
 1. Added `/api/compliance/findings/ingest` endpoint accepting CFF JSON + scanId
-2. Added `uri` task in the normalize play to POST findings to the Backstage backend URL (passed as `backstage_api_url` extra_var)
+2. Added `uri` task in the normalize play to POST findings to the Portal backend URL (passed as `backstage_api_url` extra_var)
 3. `scan_id` passed as extra_var so playbook knows which scan to associate findings with
 4. Event parsing retained as fallback when `backstage_api_url` is not set
 
@@ -45,7 +53,7 @@ The slim-findings-via-events approach (ADR-005) is retained as a fallback but is
 - **Positive:** Testable in isolation (POST JSON to endpoint, verify storage).
 - **Positive:** Full CFF metadata can be transmitted (no stripping needed).
 - **Positive:** Per-scan ingest tokens prevent unauthorized submissions (ADR-010).
-- **Negative:** Requires EE network access to Portal/Backstage backend -- may not work in air-gapped environments without additional network configuration.
+- **Negative:** Requires EE network access to Portal backend -- may not work in air-gapped environments without additional network configuration.
 - **Negative:** Adds a new auth surface (mitigated by per-scan tokens, ADR-010).
 - **Negative:** Two data channels during transition (events as fallback, direct POST as primary).
 

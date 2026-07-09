@@ -1,10 +1,21 @@
+---
+title: "AAP Compliance Pipelines Prototype"
+description: "AI assistant context -- component architecture, key paths, terminology, engineering standards"
+type: project
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # AAP Compliance Pipelines Prototype
 
-Self-contained MVP for an AAP compliance vertical — Backstage plugin + RHEL STIG content.
+Self-contained MVP for an AAP compliance vertical — Ansible Portal plugin + RHEL STIG content.
 
 ## Structure
 
-- `backstage-app/` — Backstage application with compliance plugins
+- `backstage-app/` — Ansible Portal application with compliance plugins
   - `plugins/compliance/` — Frontend plugin (6 tabs, 12 routes: overview, profiles, scan, results, remediations, settings)
   - `plugins/compliance-backend/` — Backend plugin (REST API, Controller client, DB)
   - `plugins/compliance-common/` — Shared types
@@ -26,7 +37,7 @@ yarn install
 ./bin/start.sh live   # Connect to lab AAP (needs VM running + aap-lab start)
 ./bin/start.sh mock   # Demo mode with hardcoded data
 ./bin/stop.sh         # Stop frontend + backend
-yarn test             # Run tests across 23 suites (619 tests)
+yarn test             # Run tests across 24 suites (626 tests)
 yarn build            # Build all packages
 ```
 
@@ -85,12 +96,12 @@ Key files in the EE (same for all profiles — `scap-security-guide` ships all d
 
 ## Engineering Standards
 
-- Material UI themed to PatternFly 6 (Backstage exemption from direct PatternFly)
+- Material UI themed to PatternFly 6 (Portal exemption from direct PatternFly)
 - All API calls through platform gateway (`/api/controller/v2/`)
 - Per-user AAP tokens via `x-aap-token` header
 - RHDH dynamic plugin packaging
 - Match Ansible Portal look and feel (ansible-backstage-plugins reference)
-- 161 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 619 backend/frontend tests across 23 suites
+- 127 collection unit tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile) + 626 backend/frontend tests across 24 suites
 - 37 formal ADRs in `specs/compliance-pipelines/decisions/`
 - 9 Tier 1 widget types for dynamic tabs: `summary_card`, `severity_breakdown`, `findings_table`, `trend_chart`, `gauge`, `host_breakdown`, `score_grid`, `action_table`, `host_risk_heatmap`
 - `scan_metadata` JSON column on `compliance_scans` stores per-host package counts via idempotent `mergeScanMetadata` (hosts map + aggregate totals: `totalScannedPackages` from Syft SBOM, `totalVulnerablePackages` from Grype matches, `totalVulnerabilities` unique CVEs). Vulnerability-free rate = `(totalScannedPackages - totalVulnerablePackages) / totalScannedPackages`. Old scans without new fields fall back gracefully.

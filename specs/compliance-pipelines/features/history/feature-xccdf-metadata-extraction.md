@@ -1,3 +1,12 @@
+---
+title: "Feature: XCCDF Metadata Extraction"
+description: "After the oscap migration, the normalizer extracted rule_id, status, and severity from XCCDF results, but title, descrip"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: XCCDF Metadata Extraction
 
 **Status:** Shipped (2026-05-27, v0.4.0)

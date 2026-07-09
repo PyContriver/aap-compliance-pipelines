@@ -1,3 +1,12 @@
+---
+title: "Feature: Slim Findings for Controller Event Storage"
+description: "The backend parses compliance findings from Controller job events"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Slim Findings for Controller Event Storage
 
 **Status:** Shipped (2026-05-26, PRs #10-#11)

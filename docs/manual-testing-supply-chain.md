@@ -1,3 +1,14 @@
+---
+title: "Manual Testing Suite — Supply Chain & Portable Profiles"
+description: "69-step manual testing checklist for supply chain vulnerability scanning features"
+type: guide
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+---
+
 # Manual Testing Suite — Supply Chain & Portable Profiles
 
 This document is a step-by-step verification checklist for all features added in the supply chain / portable profiles work. Walk through each section in order. Mark items as you go.

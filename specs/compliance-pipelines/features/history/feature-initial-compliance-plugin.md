@@ -1,3 +1,12 @@
+---
+title: "Feature: Initial Compliance Plugin"
+description: "Puppet SCE and Chef Compliance are the only remaining revenue drivers for those platforms, both selling premium complian"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Initial Compliance Plugin
 
 **Status:** Shipped (2026-04-26 to 2026-04-29)

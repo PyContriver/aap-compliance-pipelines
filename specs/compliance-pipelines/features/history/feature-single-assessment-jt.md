@@ -1,3 +1,12 @@
+---
+title: "Feature: Single Assessment JT with 2 Plays"
+description: "The original assessment architecture used a 2-node workflow: Node 1 ran the scan on targets, Node 2 processed results on"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Single Assessment JT with 2 Plays
 
 **Status:** Shipped (2026-05-26, PRs #7-#9)

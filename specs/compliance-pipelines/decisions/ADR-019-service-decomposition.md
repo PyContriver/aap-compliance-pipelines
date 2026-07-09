@@ -1,3 +1,11 @@
+---
+title: "ADR-019: ComplianceService Decomposition"
+description: "`ComplianceService"
+type: adr
+status: accepted
+date: 2026-06-06
+product: "AAP Compliance Dashboard"
+---
 # ADR-019: ComplianceService Decomposition
 
 **Status:** Accepted (implemented 2026-06-06)  

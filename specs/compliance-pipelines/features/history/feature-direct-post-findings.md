@@ -1,3 +1,12 @@
+---
+title: "Feature: Direct POST Findings from Playbook to Plugin API"
+description: "The original approach parsed compliance findings from Controller job events"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Direct POST Findings from Playbook to Plugin API
 
 **Status:** Shipped (2026-05-27, PRs #17, #19)

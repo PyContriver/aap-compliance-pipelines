@@ -1,3 +1,11 @@
+---
+title: "ADR-013: Multi-Group Remediation with Per-Host Scoping"
+description: "When a user selects multiple rules for remediation and those rules fail on different subsets of hosts, the original impl"
+type: adr
+status: accepted
+date: 2026-05-31
+product: "AAP Compliance Dashboard"
+---
 # ADR-013: Multi-Group Remediation with Per-Host Scoping
 
 **Status:** Accepted  

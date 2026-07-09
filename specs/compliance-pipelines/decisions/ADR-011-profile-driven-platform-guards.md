@@ -1,3 +1,11 @@
+---
+title: "ADR-011: Profile-Driven Platform Guards"
+description: "The compliance plugin currently has no mechanism to prevent launching a scan against incompatible hosts"
+type: adr
+status: accepted
+date: 2026-05-27
+product: "AAP Compliance Dashboard"
+---
 # ADR-011: Profile-Driven Platform Guards
 
 **Status:** Accepted

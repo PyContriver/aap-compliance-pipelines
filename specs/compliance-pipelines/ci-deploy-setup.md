@@ -1,3 +1,13 @@
+---
+title: "CI/CD Deploy Setup"
+description: "GitLab CEE CI configuration for Netrunner Portal deployment"
+type: reference
+audience: [developer]
+product: "AAP Compliance Dashboard"
+status: current
+last_verified: 2026-07-09
+---
+
 # GitLab CI/CD Setup — Netrunner Portal Deploy
 
 Pipeline file: `.gitlab-ci.yml` (already in repo)  
@@ -9,7 +19,7 @@ GitLab project: `https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines
 deploy-netrunner (manual trigger on main)
 ```
 
-Build happens locally via `./scripts/deploy-netrunner.sh` — the CEE shared runners OOM on Backstage monorepo `yarn install` (~4GB peak, runners have ~2GB). The CI just handles the deploy step: update Portal config with integrity hashes and restart.
+Build happens locally via `./scripts/deploy-netrunner.sh` — the CEE shared runners OOM on Portal monorepo `yarn install` (~4GB peak, runners have ~2GB). The CI just handles the deploy step: update Portal config with integrity hashes and restart.
 
 - **deploy-netrunner**: SSH to Portal VM, detect latest tarballs, update config, restart — manual trigger on main
 

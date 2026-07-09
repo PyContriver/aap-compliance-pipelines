@@ -1,3 +1,11 @@
+---
+title: "ADR-009: CaC Remediation via Direct JT with job_tags"
+description: "The compliance plugin needs to execute selective remediation -- applying only specific STIG rules to specific hosts with"
+type: adr
+status: accepted
+date: 2026-04-23
+product: "AAP Compliance Dashboard"
+---
 # ADR-009: CaC Remediation via Direct JT with job_tags
 
 **Status:** Accepted

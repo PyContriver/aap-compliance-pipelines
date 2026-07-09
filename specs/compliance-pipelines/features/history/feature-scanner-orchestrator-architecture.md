@@ -1,3 +1,12 @@
+---
+title: "Feature: Scanner Orchestrator Architecture"
+description: "Building scanner-specific rendering logic in the Backstage plugin would create tight coupling and require plugin redeplo"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Scanner Orchestrator Architecture
 
 **Status:** Shipped (2026-04-23, formalized 2026-05-26)

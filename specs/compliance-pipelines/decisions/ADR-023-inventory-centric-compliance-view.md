@@ -1,3 +1,11 @@
+---
+title: "ADR-023: Inventory-Centric Compliance View"
+description: "The plugin's navigation is profile-centric: everything flows from "which compliance standard are you checking?" (Overvie"
+type: adr
+status: accepted
+date: 2026-06-09
+product: "AAP Compliance Dashboard"
+---
 # ADR-023: Inventory-Centric Compliance View
 
 **Status:** Accepted (design validated via mockup 2026-06-11)  

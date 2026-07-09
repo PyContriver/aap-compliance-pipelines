@@ -1,3 +1,11 @@
+---
+title: "ADR-026: Portable Display Configuration"
+description: "The dashboard previously hardcoded column labels ("Rule ID", "STIG ID"), severity labels ("CAT I", "CAT II", "CAT III"),"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-026: Portable Display Configuration
 
 **Status:** Accepted

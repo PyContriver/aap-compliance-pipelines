@@ -1,3 +1,12 @@
+---
+title: "Feature: Per-Scan Ingest Token"
+description: "Direct POST findings (ADR-007) creates a new auth surface: any entity with network access to the Backstage backend could"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Per-Scan Ingest Token
 
 **Status:** Shipped (2026-05-27, PR #19)

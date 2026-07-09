@@ -1,3 +1,12 @@
+---
+title: "Profile-Driven Platform Guards"
+description: "Pre-launch inventory validation against compliance profile platform requirements"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Profile-Driven Platform Guards
 
 **Status:** Shipped (commits `02268a2`–`4988627`, 2026-05-28)

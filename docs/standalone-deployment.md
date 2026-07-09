@@ -1,6 +1,23 @@
+---
+title: "Standalone Deployment Guide"
+description: "Deploy the AAP Compliance Dashboard as a standalone application for demos and testing"
+type: guide
+audience: [operator]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+prerequisites:
+  - Node.js 20+
+  - Corepack enabled
+related:
+  - deployment-guide.md
+  - architecture-diagram.md
+---
+
 # Standalone Deployment Guide
 
-Deploy the compliance dashboard as a standalone Backstage application on a server for internal testing and demos. This guide covers both mock mode (no AAP required) and live mode (connected to an AAP Controller).
+Deploy the AAP Compliance Dashboard as a standalone application on a server for internal testing and demos. This guide covers both mock mode (no AAP required) and live mode (connected to an AAP Controller).
 
 > **Audience:** Internal teams evaluating or demo-ing the compliance dashboard without access to a full Portal/RHDH deployment.
 
@@ -57,12 +74,12 @@ backend:
 
 ## BACKEND_SECRET
 
-Backstage uses `BACKEND_SECRET` for service-to-service authentication between the frontend and backend. Without it, API calls from the frontend will fail with auth errors.
+The Portal backend uses `BACKEND_SECRET` for service-to-service authentication between the frontend and backend. Without it, API calls from the frontend will fail with auth errors.
 
 **How it works:**
 - Referenced in `app-config.yaml` at `backend.auth.keys[0].secret`
 - Value comes from the `BACKEND_SECRET` environment variable
-- In local dev (`yarn dev`), Backstage auto-generates a secret per startup
+- In local dev (`yarn dev`), the backend auto-generates a secret per startup
 - For standalone deployment, set a fixed value so it persists across restarts
 
 **Set it via environment variable:**

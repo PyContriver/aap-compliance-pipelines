@@ -1,3 +1,12 @@
+---
+title: "Feature: Self-Contained Compliance Profiles"
+description: "When adding a new compliance profile (CIS Benchmark, PCI-DSS, etc"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Self-Contained Compliance Profiles
 
 **Status:** Shipped (2026-05-26)

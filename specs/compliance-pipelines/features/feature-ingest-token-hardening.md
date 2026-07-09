@@ -1,3 +1,12 @@
+---
+title: "Ingest Token Security Hardening"
+description: "Per-scan cryptographic ingest tokens for secure findings delivery"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Ingest Token Security Hardening
 
 **Status:** Shipped (commit `9597ba3`, 2026-05-27)
@@ -20,7 +29,7 @@ The `/findings/ingest` endpoint had three security gaps identified during archit
 
 ### Alternatives Considered
 
-- *Add Backstage auth to the endpoint:* Rejected — the playbook runs in an EE container that cannot authenticate as a Backstage user
+- *Add Portal auth to the endpoint:* Rejected — the playbook runs in an EE container that cannot authenticate as a Portal user
 - *Static API key:* Rejected in ADR-010 — key rotation burden, no per-scan scoping
 - *Fix validation only (keep in-memory):* Rejected — doesn't survive restarts or scale to multi-replica
 

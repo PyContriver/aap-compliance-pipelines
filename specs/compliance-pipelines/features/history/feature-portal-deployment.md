@@ -1,3 +1,12 @@
+---
+title: "Feature: Portal Deployment"
+description: "The compliance plugin ran only in local development mode (standalone Backstage app shell, SQLite, hot reload)"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Portal Deployment
 
 **Status:** Shipped (2026-05-21, updated through 2026-05-27)

@@ -1,3 +1,11 @@
+---
+title: "ADR-018: Findings Deduplication via Unique Constraint"
+description: "Duplicate findings rows were observed in the `compliance_findings` table under several scenarios:"
+type: adr
+status: accepted
+date: 2026-06-06
+product: "AAP Compliance Dashboard"
+---
 # ADR-018: Findings Deduplication via Unique Constraint
 
 **Status:** Accepted (implemented 2026-06-06)  

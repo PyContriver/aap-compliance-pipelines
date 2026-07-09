@@ -1,3 +1,12 @@
+---
+title: "Remediation Lifecycle"
+description: "Remediation execution tracking, chain view, baseline targets, and lifecycle states"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Remediation Lifecycle
 
 **Status:** Accepted  

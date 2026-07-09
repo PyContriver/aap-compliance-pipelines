@@ -1,3 +1,12 @@
+---
+title: "Feature: Export Formats (CSV, JSON, CKL)"
+description: "Compliance teams need to export scan results for audit evidence, offline review, and submission to external compliance s"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Export Formats (CSV, JSON, CKL)
 
 **Status:** Shipped (2026-04-29)

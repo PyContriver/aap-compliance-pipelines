@@ -1,3 +1,11 @@
+---
+title: "ADR-030: Per-Host Normalization for All Scanner Profiles"
+description: "The compliance dashboard uses a two-play architecture (ADR-003): Play 1 collects scan data from target hosts, Play 2 nor"
+type: adr
+status: accepted
+date: 2026-06-25
+product: "AAP Compliance Dashboard"
+---
 # ADR-030: Per-Host Normalization for All Scanner Profiles
 
 **Status:** Accepted  
@@ -62,7 +70,7 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
   register: _post_body_files
 
 # 4. Stream POST bodies to API — no findings in Ansible variable space
-- name: POST findings per-host to Backstage compliance API
+- name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
     url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
     method: POST

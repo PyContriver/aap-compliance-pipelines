@@ -1,3 +1,11 @@
+---
+title: "ADR-014: Remediation Lifecycle Architecture"
+description: "Remediations are stateless"
+type: adr
+status: accepted
+date: 2026-05-31
+product: "AAP Compliance Dashboard"
+---
 # ADR-014: Remediation Lifecycle Architecture
 
 **Status:** Accepted  

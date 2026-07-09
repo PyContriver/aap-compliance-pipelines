@@ -1,3 +1,14 @@
+---
+title: "Assessment: infra.windows_ops Integration with the Compliance Profile Model"
+description: "Feasibility assessment for integrating Windows Server STIG with the compliance profile model"
+type: reference
+audience: [architect]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: draft
+last_verified: 2026-07-09
+---
+
 # Assessment: infra.windows_ops Integration with the Compliance Profile Model
 
 **Date:** 2026-05-13

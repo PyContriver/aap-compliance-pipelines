@@ -1,3 +1,12 @@
+---
+title: "Feature: Verification Scan Comparison"
+description: "After remediating findings, users need to re-scan to verify effectiveness"
+type: feature-spec
+status: implemented
+product: "AAP Compliance Dashboard"
+last_verified: 2026-07-09
+---
+
 # Feature: Verification Scan Comparison
 
 **Status:** Shipped (2026-05-21)

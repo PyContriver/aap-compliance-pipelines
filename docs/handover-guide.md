@@ -1,6 +1,20 @@
-# Compliance Plugin — Handover Guide
+---
+title: "AAP Compliance Dashboard — Handover Guide"
+description: "Project handover documentation — architecture, patterns, gaps, and alignment with downstream Portal conventions"
+type: guide
+audience: [developer]
+product: "AAP Compliance Dashboard"
+product_version: "2.6"
+status: current
+last_verified: 2026-07-09
+related:
+  - deployment-guide.md
+  - architecture-diagram.md
+---
 
-This document is for the team taking over the AAP Compliance Plugin. It covers how the plugin aligns with downstream Portal conventions, the architecture, and what to know to be productive immediately.
+# AAP Compliance Dashboard — Handover Guide
+
+This document is for the team taking over the AAP Compliance Dashboard. It covers how the dashboard aligns with downstream Ansible Portal conventions, the architecture, and what to know to be productive immediately.
 
 ## 1. Alignment with ansible-backstage-plugins
 
@@ -10,12 +24,12 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 |---------|-----------|-------------|-------|
 | Plugin structure | `plugins/<name>/`, `plugins/<name>-backend/` | Same | + `compliance-common` for shared types |
 | MUI version | Material-UI v4 (`makeStyles`) | Same | No MUI v5 migration needed |
-| Backstage components | `Page`, `Header`, `Content`, `InfoCard` | Same | Standard Backstage wrappers |
+| Portal components | `Page`, `Header`, `Content`, `InfoCard` | Same | Standard Portal wrappers |
 | API client | `createApiRef` + class, `discoveryApi.getBaseUrl()` | Same | Uses `fetchApi.fetch()` |
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
 | Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
-| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 21 suites, 584 backend/frontend tests + 57 collection unit tests (641 total) |
+| Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 24 suites, 626 backend/frontend tests + 127 collection unit tests |
 
 ### Where we extend beyond downstream
 
@@ -27,13 +41,13 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | `react-window` virtualization | `VariableSizeList` for 100+ rule lists in remediation builder — downstream doesn't use virtualization, we add it because STIG profiles have 200+ rules | `plugins/compliance/src/components/RemediationProfileBuilder/VirtualizedFindingsList.tsx` |
 | `compliance-common` package | Shared TypeScript types between frontend and backend — downstream uses `backstage-rhaap-common` for the same purpose | `plugins/compliance-common/` |
 | Error boundary | Class component in `ComplianceRouter.tsx` wrapping all routes — downstream doesn't use error boundaries | `plugins/compliance/src/components/ComplianceRouter.tsx` |
-| `<Progress />` loading states | Standard Backstage component — downstream uses plain text `"Loading..."` | Consistent throughout |
+| `<Progress />` loading states | Standard Portal component — downstream uses plain text `"Loading..."` | Consistent throughout |
 
 ## 2. Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Backstage Frontend                        │
+│                    Ansible Portal Frontend                   │
 │                                                             │
 │  ComplianceRouter (6 tabs, 14 routes)                       │
 │  ├── Overview      — ComplianceDashboard (gauges, trend)    │
@@ -47,7 +61,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 └──────────────────────┬──────────────────────────────────────┘
                        │ REST API
 ┌──────────────────────▼──────────────────────────────────────┐
-│                   Backstage Backend                          │
+│                   Ansible Portal Backend                     │
 │                                                             │
 │  ComplianceService (orchestration layer)                    │
 │  ├── ControllerClient  — AAP Gateway API proxy              │
@@ -55,7 +69,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 │  ├── DashboardAggregator — posture calculations             │
 │  └── RemediationPlanBuilder — rule selection → JT params    │
 │                                                             │
-│  ComplianceDatabase (Knex, 17 migrations)                   │
+│  ComplianceDatabase (Knex, 23 migrations)                   │
 │  ├── SQLite (local dev) / PostgreSQL (Portal)               │
 │  └── Tables: scans, findings, profiles, remediations,       │
 │              executions, posture_snapshots, baselines        │
@@ -101,7 +115,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | `components/RemediationProfileBuilder/FindingCard.tsx` | Memoized finding card (extracted from builder) |
 | `components/RemediationProfileBuilder/VirtualizedFindingsList.tsx` | react-window virtualized rule list |
 | `api/ComplianceBackendClient.ts` | API client (all backend calls) |
-| `api/complianceApiRef.ts` | Backstage API ref registration |
+| `api/complianceApiRef.ts` | API ref registration |
 | `__testutils__/mockComplianceApi.ts` | Centralized mock factory for tests |
 
 ### Backend (`plugins/compliance-backend/src/`)
@@ -114,7 +128,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | `service/DashboardAggregator.ts` | Posture calculations |
 | `service/RemediationPlanBuilder.ts` | Rule selections → JT launch params |
 | `database/ComplianceDatabase.ts` | All CRUD (Knex, 1340 lines — candidate for decomposition) |
-| `database/migrations/` | 17 migrations (001-017) |
+| `database/migrations/` | 23 migrations (001-023) |
 | `routes/` | 9 route modules |
 
 ### Shared (`plugins/compliance-common/src/`)
@@ -126,7 +140,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 
 ## 4. Architectural Decisions
 
-25 ADRs document every significant decision: `specs/compliance-pipelines/decisions/ADR-001` through `ADR-025`. Key ones:
+37 ADRs document every significant decision: `specs/compliance-pipelines/decisions/ADR-001` through `ADR-037`. Key ones:
 
 | ADR | Decision | Impact |
 |-----|----------|--------|
@@ -138,6 +152,14 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | 016 | Lifecycle visualization | Finding states (new/active/fixed/resurfaced), scan grouping, chain view |
 | 019 | Service decomposition | ComplianceService delegates to 4 focused classes |
 | 025 | Visual consistency | Centralized colors, filled chips, 3-tier thresholds |
+| 026 | Portable display configuration | Profile-driven labels, columns, score formulas |
+| 027 | Dynamic tab system | Tier 1 (9 widgets) + Tier 2 (BYOT) |
+| 029 | CycloneDX normalizer | Syft/Grype SBOM pipeline |
+| 030 | Per-host normalization | Loop-per-host prevents OOM |
+| 033 | File-streamed API ingestion | compose_post_body + uri src |
+| 034 | NDJSON content-type negotiation | Preamble + line-by-line parsing |
+| 036 | Profile identity (slug) | Stable profile_slug for routing |
+| 037 | OCI artifact push pattern | oras push to PAH, httpAuth for GET |
 
 ## 5. Development
 
@@ -146,7 +168,7 @@ cd backstage-app
 yarn install
 ./bin/start.sh mock   # Demo mode (hardcoded data)
 ./bin/start.sh live   # Connect to AAP lab
-yarn test             # 21 suites, 584 tests (+ 57 collection unit tests)
+yarn test             # 24 suites, 626 tests (+ 127 collection unit tests)
 yarn build            # Build all packages
 ```
 
@@ -166,7 +188,7 @@ Registration config: `plugins/*/app-config.janus-idp.yaml`
 Portal deploys use the generic tarball names `backend.tgz` / `frontend.tgz` in `deploy-artifacts/`. CI auto-bumps versions and commits tarballs to this directory. The `deploy-netrunner` job uploads tarballs to the Portal host, updates integrity hashes, and restarts the service.
 
 **CI/CD split (GitHub + GitLab)**:
-- **GitLab CEE** (`.gitlab-ci.yml`): Backstage tests, plugin export, deploy to Netrunner. Collection sanity/unit/lint tests and tarball builds.
+- **GitLab CEE** (`.gitlab-ci.yml`): Plugin tests, export, deploy to Netrunner. Collection sanity/unit/lint tests and tarball builds.
 - **GitHub Actions** (`build-ee.yml`): Per-collection EE image builds (STIG, CIS L1, CIS L2, Supply Chain). Matrix with `fail-fast: false`. Pushes to GHCR, then mirrored to PAH via `skopeo copy` (ADR-031). Triggers on changes to `profiles/**` or manual `workflow_dispatch`.
 - **GitHub Actions** (`ci.yml`): Disabled — placeholder only.
 - **EE registry**: Images hosted in Private Automation Hub (PAH) at `aap-netrunner.demoredhat.com/compliance-*:latest`. Controller trusts PAH natively — no external registry credential needed (ADR-031).
@@ -196,7 +218,7 @@ Each profile is a self-contained Ansible collection with: `run_oscap.yml` (asses
 | 5 components have no tests (ActiveJobsBanner, FilterGroup, FindingRow, ExportButton, ScanFailedView) | P2 | 3-4h |
 | 7 `any` types in Recharts components | P3 | 1h |
 | Custom RBAC permissions (placeholder `catalogEntityCreatePermission`) | P3 | 2-3 days |
-| MockDataProvider not updated for inventory views, trend charts | P3 | 1-2 days |
+| ~~MockDataProvider not updated~~ | ~~P3~~ | Resolved — MockDataSeeder (Jul 2026) seeds all 9 DB tables |
 | ADR-022 (auto-remediation) is "Proposed" — accept or reject | P3 | 1 day |
 
 ## 8. Cross-Cutting Navigation Patterns
@@ -226,4 +248,4 @@ The inventory detail page reads `?profileId=` from the URL to pre-select the cor
 - **Rate limiting**: 30 req/min on `/findings/ingest`
 - **Input validation**: Body size (50MB — raised from 10MB because fix_text enrichment produces large payloads), finding count (50K), parameterized SQL queries throughout
 - **No XSS**: Zero `dangerouslySetInnerHTML` usage
-- **Auth mode**: Baked into `app-config.janus-idp.yaml` (`authMode: development` for demo, `oauth` for production)
+- **Auth mode**: Default is `production` (enforces RBAC). Development mode (`compliance.authMode: development`) must be set explicitly in `app-config.local.yaml`
