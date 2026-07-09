@@ -1,5 +1,5 @@
 ---
-title: "Feature Specification: Compliance Pipelines"
+title: "Feature Specification: AAP Compliance Dashboard"
 description: "Feature specification -- user stories, acceptance scenarios, functional requirements, and constraints"
 type: spec
 audience: [architect, developer]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# Feature Specification: Compliance Pipelines
+# Feature Specification: AAP Compliance Dashboard
 
 **Feature Branch**: `compliance-pipelines`
 **Created**: 2026-04-23

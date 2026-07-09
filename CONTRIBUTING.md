@@ -1,5 +1,5 @@
 ---
-title: "Contributing to AAP Compliance Pipelines"
+title: "Contributing to AAP Compliance Dashboard"
 description: "Contributing guide -- setup, branching, CI/CD, coding standards, adding features"
 type: project
 audience: [developer]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# Contributing to AAP Compliance Pipelines
+# Contributing to AAP Compliance Dashboard
 
 ## Project Overview
 

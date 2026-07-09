@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# Compliance Pipelines: Downstream Submission Guide
+# AAP Compliance Dashboard: Downstream Submission Guide
 
 This document describes how to submit the AAP Compliance Dashboard from this standalone repo (`aap-compliance-pipelines`) to the downstream Ansible Portal repo (`ansible/ansible-rhdh-plugins`).
 

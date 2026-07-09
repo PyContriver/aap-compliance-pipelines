@@ -1,5 +1,5 @@
 ---
-title: "AAP Compliance Pipelines Prototype"
+title: "AAP Compliance Dashboard"
 description: "AI assistant context -- component architecture, key paths, terminology, engineering standards"
 type: project
 audience: [developer]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# AAP Compliance Pipelines Prototype
+# AAP Compliance Dashboard
 
 Self-contained MVP for an AAP compliance vertical — Ansible Portal plugin + RHEL STIG content.
 

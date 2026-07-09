@@ -1,5 +1,5 @@
 ---
-title: "AAP Compliance Pipelines"
+title: "AAP Compliance Dashboard"
 description: "Project overview -- deployment options, quick start, configuration, repository structure"
 type: project
 audience: [developer, operator]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# AAP Compliance Pipelines
+# AAP Compliance Dashboard
 
 The AAP Compliance Dashboard — a compliance management solution for Ansible Automation Platform, delivered as a plugin for Ansible Portal (RHDH). Provides self-service compliance scanning, results analysis, and selective remediation for RHEL infrastructure.
 

@@ -1,5 +1,5 @@
 ---
-title: "Implementation Plan: Compliance Pipelines"
+title: "Implementation Plan: AAP Compliance Dashboard"
 description: "Implementation plan -- architecture, phased delivery, component inventory, and deployment strategy"
 type: plan
 audience: [developer]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# Implementation Plan: Compliance Pipelines
+# Implementation Plan: AAP Compliance Dashboard
 
 **Branch**: `compliance-pipelines` | **Date**: 2026-04-23 (updated 2026-07-09) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/compliance-pipelines/spec.md`

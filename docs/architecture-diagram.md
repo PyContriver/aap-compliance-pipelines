@@ -1,5 +1,5 @@
 ---
-title: "AAP Compliance Pipelines — System Architecture"
+title: "AAP Compliance Dashboard — System Architecture"
 description: "System architecture diagram — components, data flow, auth model, and service decomposition"
 type: reference
 audience: [developer, architect]
@@ -9,7 +9,7 @@ status: current
 last_verified: 2026-07-09
 ---
 
-# AAP Compliance Pipelines — System Architecture
+# AAP Compliance Dashboard — System Architecture
 
 Generated 2026-06-26 by architect review.
 
