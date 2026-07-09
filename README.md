@@ -13,6 +13,10 @@ last_verified: 2026-07-09
 
 The AAP Compliance Dashboard — a compliance management solution for Ansible Automation Platform, delivered as a plugin for Ansible Portal (RHDH). Provides self-service compliance scanning, results analysis, and selective remediation for RHEL infrastructure.
 
+> **Source repositories:** This project is maintained on [GitHub](https://github.com/cross-logic/aap-compliance-pipelines) (public, primary) and mirrored to [GitLab CEE](https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines) (Red Hat internal, CI/CD and deploy). Both repos are kept in sync. GitHub Actions builds EE images; GitLab CEE runs plugin tests and deploys to Netrunner.
+>
+> **Jira:** [ANSTRAT-2216](https://redhat.atlassian.net/browse/ANSTRAT-2216) | **Live demo:** [dev-portal-netrunner.demoredhat.com/compliance](https://dev-portal-netrunner.demoredhat.com/compliance) | **Docs:** [Google Drive](https://drive.google.com/drive/folders/1OkjXfIgxsxeYsKfzYFJGS7i4FQ7B0LC9)
+
 ## Deployment Options
 
 The compliance plugins support two deployment modes:
@@ -82,9 +86,12 @@ specs/compliance-pipelines/
 ## Quick Start
 
 ```bash
-# Clone the repository (pick one)
-git clone https://github.com/cross-logic/aap-compliance-pipelines.git          # GitHub (public)
-git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git  # GitLab (Red Hat internal, requires VPN)
+# Clone the repository
+# GitHub (public, primary):
+git clone https://github.com/cross-logic/aap-compliance-pipelines.git
+# GitLab CEE (Red Hat internal, CI/CD and deploy — requires VPN):
+git clone https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines.git
+
 cd aap-compliance-pipelines/backstage-app
 
 # Install dependencies and set up hooks
