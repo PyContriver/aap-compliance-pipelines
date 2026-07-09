@@ -25,6 +25,53 @@ The compliance plugins support two deployment modes:
 For standalone deployment on a remote server, see [docs/standalone-deployment.md](docs/standalone-deployment.md).
 For Portal/RHDH installation instructions, see [docs/deployment-guide.md](docs/deployment-guide.md).
 
+## Documentation
+
+All documentation lives in `docs/` and `specs/`, and is mirrored to [Google Drive](https://drive.google.com/drive/folders/1OkjXfIgxsxeYsKfzYFJGS7i4FQ7B0LC9) for non-developer access. Start at [docs/README.md](docs/README.md) for the full index.
+
+### What are you trying to do?
+
+| Goal | Start here |
+|------|-----------|
+| **Build a demo** for a customer or stakeholder | [Standalone Deployment Guide](docs/standalone-deployment.md) — mock mode, single server, 5-minute setup |
+| **Install into an existing Ansible Portal** (OpenShift or RHEL) | [Deployment Guide](docs/deployment-guide.md) — dynamic plugin packaging, Portal config, auth setup |
+| **Use the dashboard** (run scans, review findings, remediate) | [Managing compliance with Red Hat AAP](https://docs.google.com/document/d/1xnDGjum7vF0Bu5aX3QW8hGtZ4XLffCbD-RnsJBPdW7Y/edit) — Red Hat-style user guide |
+| **Build a new compliance profile** (new scanner/framework) | [Compliance Profile Developer Guide](docs/compliance-profile-developer-guide.md) — CFF, normalizers, EEs, custom tabs |
+| **Understand the architecture** | [Architecture Diagram](docs/architecture-diagram.md) — system components, data flow, auth model |
+| **Debug the Netrunner demo lab** | [Netrunner Portal Deployment](docs/netrunner-portal-deployment.md) — internal reference for our lab |
+| **Hand over the project** to another team | [Handover Guide](docs/handover-guide.md) — patterns, alignment, gaps |
+| **Review a design decision** | [Architecture Decisions](specs/compliance-pipelines/decisions/) — 37 ADRs |
+| **Understand the UX design** | [UX Design Brief](https://docs.google.com/document/d/1CWPfbsxKO58gYxfwlhvyEnyH3fKJ1etzEM6l7XDSsHU/edit) — personas, user stories, visual specs |
+
+### Documentation structure
+
+```
+docs/
+  README.md                          Documentation index — start here
+  standalone-deployment.md           Single-server demo setup (mock or live)
+  deployment-guide.md                Install into Ansible Portal (OpenShift/RHEL)
+  netrunner-portal-deployment.md     Internal: Netrunner lab reference
+  compliance-profile-developer-guide.md  Building new compliance profiles
+  architecture-diagram.md            System architecture diagram
+  handover-guide.md                  Project handover for receiving team
+  manual-testing-supply-chain.md     69-step manual testing checklist
+  ux-handoff.md                      UX Design Brief (source for Google Doc)
+  windows-compliance-profile-assessment.md  Windows STIG feasibility study
+  modules/                           Red Hat product documentation (AsciiDoc)
+    con-about-compliance-pipelines.adoc
+    proc-configure-compliance-pipeline.adoc
+    proc-run-compliance-scan.adoc
+    ref-compliance-pipeline-configuration.adoc
+    ref-compliance-pipeline-resources.adoc
+    ref-oscap-requirements.adoc
+
+specs/compliance-pipelines/
+  spec.md                            Feature specification
+  plan.md                            Implementation plan
+  decisions/                         37 Architecture Decision Records (ADR-001 through ADR-037)
+  features/                          Feature specs (active + history/)
+```
+
 ## Prerequisites
 
 - Node.js 20 or 22
@@ -174,53 +221,6 @@ Restart the server. No `.env` changes needed — mock mode ignores AAP credentia
 | `compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
 | `ansible.rhaap.baseUrl` | `${AAP_HOST}` | AAP Controller URL (from .env) |
 | `ansible.rhaap.checkSSL` | `false` | Verify SSL certificates (set `true` in production) |
-
-## Documentation
-
-All documentation lives in `docs/` and `specs/`, and is mirrored to [Google Drive](https://drive.google.com/drive/folders/1OkjXfIgxsxeYsKfzYFJGS7i4FQ7B0LC9) for non-developer access. Start at [docs/README.md](docs/README.md) for the full index.
-
-### What are you trying to do?
-
-| Goal | Start here |
-|------|-----------|
-| **Build a demo** for a customer or stakeholder | [Standalone Deployment Guide](docs/standalone-deployment.md) — mock mode, single server, 5-minute setup |
-| **Install into an existing Ansible Portal** (OpenShift or RHEL) | [Deployment Guide](docs/deployment-guide.md) — dynamic plugin packaging, Portal config, auth setup |
-| **Use the dashboard** (run scans, review findings, remediate) | [Managing compliance with Red Hat AAP](https://docs.google.com/document/d/1xnDGjum7vF0Bu5aX3QW8hGtZ4XLffCbD-RnsJBPdW7Y/edit) — Red Hat-style user guide |
-| **Build a new compliance profile** (new scanner/framework) | [Compliance Profile Developer Guide](docs/compliance-profile-developer-guide.md) — CFF, normalizers, EEs, custom tabs |
-| **Understand the architecture** | [Architecture Diagram](docs/architecture-diagram.md) — system components, data flow, auth model |
-| **Debug the Netrunner demo lab** | [Netrunner Portal Deployment](docs/netrunner-portal-deployment.md) — internal reference for our lab |
-| **Hand over the project** to another team | [Handover Guide](docs/handover-guide.md) — patterns, alignment, gaps |
-| **Review a design decision** | [Architecture Decisions](specs/compliance-pipelines/decisions/) — 37 ADRs |
-| **Understand the UX design** | [UX Design Brief](https://docs.google.com/document/d/1CWPfbsxKO58gYxfwlhvyEnyH3fKJ1etzEM6l7XDSsHU/edit) — personas, user stories, visual specs |
-
-### Documentation structure
-
-```
-docs/
-  README.md                          Documentation index — start here
-  standalone-deployment.md           Single-server demo setup (mock or live)
-  deployment-guide.md                Install into Ansible Portal (OpenShift/RHEL)
-  netrunner-portal-deployment.md     Internal: Netrunner lab reference
-  compliance-profile-developer-guide.md  Building new compliance profiles
-  architecture-diagram.md            System architecture diagram
-  handover-guide.md                  Project handover for receiving team
-  manual-testing-supply-chain.md     69-step manual testing checklist
-  ux-handoff.md                      UX Design Brief (source for Google Doc)
-  windows-compliance-profile-assessment.md  Windows STIG feasibility study
-  modules/                           Red Hat product documentation (AsciiDoc)
-    con-about-compliance-pipelines.adoc
-    proc-configure-compliance-pipeline.adoc
-    proc-run-compliance-scan.adoc
-    ref-compliance-pipeline-configuration.adoc
-    ref-compliance-pipeline-resources.adoc
-    ref-oscap-requirements.adoc
-
-specs/compliance-pipelines/
-  spec.md                            Feature specification
-  plan.md                            Implementation plan
-  decisions/                         37 Architecture Decision Records (ADR-001 through ADR-037)
-  features/                          Feature specs (active + history/)
-```
 
 ## Repository Structure
 
