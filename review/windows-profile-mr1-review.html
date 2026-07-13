@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architect Review: Windows Server Compliance Profile (MR #1)</title>
+<style>
+  :root {
+    --surface:       #fcfcfb;
+    --page:          #f9f9f7;
+    --ink-primary:   #0b0b0b;
+    --ink-secondary: #52514e;
+    --ink-muted:     #898781;
+    --gridline:      #e1e0d9;
+    --baseline:      #c3c2b7;
+    --border:        rgba(11,11,11,0.10);
+    --blue:          #2a78d6;
+    --aqua:          #1baf7a;
+    --yellow:        #eda100;
+    --green-dark:    #008300;
+    --violet:        #4a3aa7;
+    --red:           #e34948;
+    --magenta:       #e87ba4;
+    --orange:        #eb6834;
+    --good:          #0ca30c;
+    --warning:       #fab219;
+    --serious:       #ec835a;
+    --critical:      #d03b3b;
+    --seq-100:       #cde2fb;
+    --seq-200:       #9ec5f4;
+    --seq-400:       #3987e5;
+    --seq-600:       #184f95;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface:       #1a1a19;
+      --page:          #0d0d0d;
+      --ink-primary:   #ffffff;
+      --ink-secondary: #c3c2b7;
+      --ink-muted:     #898781;
+      --gridline:      #2c2c2a;
+      --baseline:      #383835;
+      --border:        rgba(255,255,255,0.10);
+      --blue:          #3987e5;
+      --aqua:          #199e70;
+      --yellow:        #c98500;
+      --green-dark:    #008300;
+      --violet:        #9085e9;
+      --red:           #e66767;
+      --magenta:       #d55181;
+      --orange:        #d95926;
+      --good:          #0ca30c;
+      --warning:       #fab219;
+      --serious:       #ec835a;
+      --critical:      #d03b3b;
+      --seq-100:       #104281;
+      --seq-200:       #184f95;
+      --seq-400:       #3987e5;
+      --seq-600:       #9ec5f4;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--ink-primary);
+    line-height: 1.6;
+    padding: 0;
+  }
+
+  .page-header {
+    background: var(--seq-600);
+    color: #fff;
+    padding: 3rem 2rem 2rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    .page-header { background: #184f95; color: #fff; }
+  }
+  .page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .page-header .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.85;
+    margin-bottom: 1rem;
+  }
+  .page-header .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+  .page-header .meta-row a { color: inherit; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+  }
+
+  /* Score banner */
+  .score-banner {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--gridline);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin: -1.5rem 0 2rem;
+    position: relative;
+    z-index: 1;
+  }
+  .score-ring {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 5px solid var(--critical);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .score-text h2 { font-size: 1.1rem; font-weight: 600; }
+  .score-text p { font-size: 0.9rem; color: var(--ink-secondary); }
+
+  /* Stat tiles */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .stat-tile {
+    background: var(--surface);
+    border: 1px solid var(--gridline);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-tile .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-tile .label {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat-tile.blocker .value { color: var(--critical); }
+  .stat-tile.quality .value { color: var(--serious); }
+  .stat-tile.keep .value { color: var(--good); }
+
+  /* Section headings */
+  .section {
+    margin-top: 2.5rem;
+  }
+  .section > h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    border-bottom: 2px solid var(--blue);
+    padding-bottom: 0.4rem;
+    margin-bottom: 1.25rem;
+  }
+  .section > h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+    color: var(--ink-primary);
+  }
+
+  p, li { font-size: 0.92rem; }
+  p { margin-bottom: 0.75rem; }
+  ul, ol { margin: 0 0 1rem 1.5rem; }
+  li { margin-bottom: 0.35rem; }
+
+  /* Finding cards */
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--gridline);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    border-left: 4px solid var(--gridline);
+  }
+  .finding.blocker { border-left-color: var(--critical); }
+  .finding.quality { border-left-color: var(--serious); }
+  .finding.good    { border-left-color: var(--good); }
+
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .finding-id {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+  .finding.blocker .finding-id {
+    background: var(--critical); color: #fff;
+  }
+  .finding.quality .finding-id {
+    background: var(--serious); color: #fff;
+  }
+  .finding.good .finding-id {
+    background: var(--good); color: #fff;
+  }
+  .finding-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .finding-body {
+    font-size: 0.88rem;
+    color: var(--ink-secondary);
+  }
+  .finding-body p { margin-bottom: 0.5rem; }
+
+  /* Code blocks */
+  pre {
+    background: var(--page);
+    border: 1px solid var(--gridline);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 0.75rem;
+  }
+  code {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+    font-size: 0.85em;
+  }
+  p code, li code {
+    background: var(--page);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--gridline);
+    font-size: 0.82em;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 1.25rem;
+    background: var(--surface);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--gridline);
+  }
+  th {
+    text-align: left;
+    font-weight: 600;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid var(--gridline);
+    color: var(--ink-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--gridline);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* Chips */
+  .chip {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    letter-spacing: 0.02em;
+  }
+  .chip-create { background: var(--blue); color: #fff; }
+  .chip-fix    { background: var(--serious); color: #fff; }
+  .chip-keep   { background: var(--good); color: #fff; }
+  .chip-expand { background: var(--violet); color: #fff; }
+  .chip-rewrite{ background: var(--critical); color: #fff; }
+
+  /* PR sequence */
+  .pr-sequence {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1rem 0;
+  }
+  .pr-card {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--gridline);
+    position: relative;
+  }
+  .pr-card:first-child { border-radius: 6px 6px 0 0; }
+  .pr-card:last-child  { border-radius: 0 0 6px 6px; }
+  .pr-card + .pr-card  { border-top: none; }
+  .pr-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .pr-content h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .pr-content p { font-size: 0.85rem; color: var(--ink-secondary); margin-bottom: 0; }
+  .pr-content .refs {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    margin-top: 0.25rem;
+  }
+
+  /* Good list */
+  .good-list {
+    list-style: none;
+    margin-left: 0;
+  }
+  .good-list li {
+    padding: 0.5rem 0;
+    padding-left: 1.75rem;
+    position: relative;
+  }
+  .good-list li::before {
+    content: "\2713";
+    position: absolute;
+    left: 0;
+    color: var(--good);
+    font-weight: 700;
+  }
+
+  /* Checklist */
+  .checklist {
+    list-style: none;
+    margin-left: 0;
+  }
+  .checklist li {
+    padding: 0.35rem 0;
+    padding-left: 1.75rem;
+    position: relative;
+    font-size: 0.88rem;
+  }
+  .checklist li::before {
+    content: "\25A1";
+    position: absolute;
+    left: 0;
+    font-size: 1rem;
+    color: var(--ink-muted);
+  }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--gridline);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .toc h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-muted);
+    margin-bottom: 0.5rem;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+  .toc li {
+    font-size: 0.88rem;
+    margin-bottom: 0.25rem;
+  }
+  .toc a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+  .toc a:hover { text-decoration: underline; }
+
+  .muted { color: var(--ink-muted); }
+
+  @media (max-width: 640px) {
+    .page-header { padding: 2rem 1rem 1.5rem; }
+    .container { padding: 0 1rem 3rem; }
+    .score-banner { flex-direction: column; text-align: center; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .pr-card { flex-direction: column; gap: 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Architect Review: Windows Server Compliance Profile</h1>
+  <p class="subtitle">GitLab MR #1 &mdash; <code>security.compliance_windows</code> v0.1.0</p>
+  <div class="meta-row">
+    <span>Author: Steve Fulmer (sfulmer@redhat.com)</span>
+    <span>Commit: <code>4aa3cab</code> (2026-05-21)</span>
+    <span>Reviewed: 2026-07-13</span>
+    <span><a href="https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines/-/merge_requests/1">MR #1</a></span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- Score banner -->
+<div class="score-banner">
+  <div class="score-ring">2.8</div>
+  <div class="score-text">
+    <h2>Strong Architecture, Incomplete Execution</h2>
+    <p>Solid understanding of the compliance profile model. Missing critical artifacts for dashboard integration, no tests, 10 of 300+ rules shipped. Not merge-ready — 527 commits behind main. ADR-038 accepted (SCC ephemeral download decision).</p>
+  </div>
+</div>
+
+<!-- Stat tiles -->
+<div class="stat-row">
+  <div class="stat-tile blocker">
+    <div class="value">7</div>
+    <div class="label">Blockers</div>
+  </div>
+  <div class="stat-tile quality">
+    <div class="value">6</div>
+    <div class="label">Quality</div>
+  </div>
+  <div class="stat-tile keep">
+    <div class="value">7</div>
+    <div class="label">Keep As-Is</div>
+  </div>
+  <div class="stat-tile">
+    <div class="value">70</div>
+    <div class="label">Files</div>
+  </div>
+  <div class="stat-tile">
+    <div class="value">3,855</div>
+    <div class="label">Lines Added</div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#blockers">Blockers — Must Change</a></li>
+    <li><a href="#quality">Quality — Should Change</a></li>
+    <li><a href="#split">Split Recommendation</a></li>
+    <li><a href="#legal">Legal Analysis: DISA SCC Distribution</a></li>
+    <li><a href="#crosswalk">Crosswalk Architecture</a></li>
+    <li><a href="#ee">EE Delivery Checklist</a></li>
+    <li><a href="#contrib">Contribution Strategy</a></li>
+    <li><a href="#good">What's Good (Keep)</a></li>
+    <li><a href="#disposition">File Disposition</a></li>
+    <li><a href="#dashboard">Dashboard Changes (Our Side)</a></li>
+  </ol>
+</div>
+
+
+<!-- SECTION 1: BLOCKERS -->
+<div class="section" id="blockers">
+  <h2>1. Blockers — Must Change</h2>
+  <p>These items must be resolved before the collection can integrate with the dashboard or ship as an EE.</p>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.1 Blocker</span>
+      <span class="finding-title">Missing <code>meta/compliance-profile.yml</code></span>
+    </div>
+    <div class="finding-body">
+      <p>The dashboard uses this single file for profile identity, display configuration, platform guards, and certification metadata. Without it, the profile cannot be registered or discovered.</p>
+      <p>Must include: <code>slug</code>, <code>name</code>, <code>framework</code>, <code>version</code>, <code>platform</code>, <code>scanner</code>, <code>remediation_playbook</code>, <code>remediate_jt_name</code>, <code>certification</code> block, <code>platform_spec</code> with <code>os_family: ["Windows"]</code>, and full <code>display</code> config (gauge_label, gauge_unit, severity_map, columns).</p>
+      <p>Reference: any RHEL profile at <code>profiles/rhel9-stig/.../meta/compliance-profile.yml</code>.</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.2 Blocker</span>
+      <span class="finding-title">Missing <code>install.yml</code> and <code>uninstall.yml</code></span>
+    </div>
+    <div class="finding-body">
+      <p>No install playbook exists. This is how profiles register their assessment and remediation Job Templates on Controller. Must create JTs with correct <code>extra_vars</code> embedding profile metadata (slug, remediate_jt_name, remediation_playbook), <code>ask_variables_on_launch: true</code>, <code>ask_inventory_on_launch: true</code>.</p>
+      <p>Reference: <code>profiles/rhel9-stig/install.yml</code> and <code>profiles/supply-chain/install.yml</code>.</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.3 Blocker</span>
+      <span class="finding-title">Results push uses wrong API pattern</span>
+    </div>
+    <div class="finding-body">
+      <p><code>push_results.yml</code> sends the full findings array as <code>body_format: json</code> to a non-existent endpoint. This will OOM on large scans and doesn't match the dashboard's ingest API.</p>
+      <p><strong>Required pattern (ADR-033/034):</strong> Normalizer writes NDJSON files via <code>compose_post_body</code> (preamble + one finding per line). Playbook POSTs each file using <code>uri</code> with <code>src:</code> parameter (streams from disk). Content-Type: <code>application/x-ndjson</code>. Endpoint: <code>/api/compliance/findings/ingest</code>. Must loop per-host (ADR-030).</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.4 Blocker</span>
+      <span class="finding-title">PowerSTIG scan modifies target hosts</span>
+    </div>
+    <div class="finding-body">
+      <p>The <code>normalize_powerstig</code> role runs <code>Start-DscConfiguration -Force</code> which <strong>applies</strong> the DSC configuration before testing it. A scan/audit operation must never modify the target. Fix: use <code>Test-DscConfiguration -Path ... -Detailed</code> directly without <code>Start-DscConfiguration</code>.</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.5 Blocker</span>
+      <span class="finding-title">Zero unit tests</span>
+    </div>
+    <div class="finding-body">
+      <p>Our RHEL profiles have 127 collection tests (19 per XCCDF profile + 44 CycloneDX + 60 cross-profile structure). This collection has none.</p>
+      <p>Minimum: <code>test_compliance_evaluate.py</code> (all check types, operators, severity mapping, error handling), <code>test_cff_filters.py</code> (all 3 filters, status/severity mapping, dual output), <code>test_crosswalk_filters.py</code> (control mapping, summary computation). Target: 40+ tests.</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.6 Blocker</span>
+      <span class="finding-title">Missing proper EE definition for delivery</span>
+    </div>
+    <div class="finding-body">
+      <p>No <code>ee/execution-environment.yml</code> at the profile root level. The EE definitions under <code>extensions/patterns/</code> reference <code>ee-minimal-rhel9</code> with Python deps but don't follow the ansible-builder v3 build pattern our CI uses.</p>
+      <p>Must include: base image, galaxy deps (infra.windows_ops, ansible.windows, community.windows), Python deps (pywinrm, requests-credssp, requests-ntlm), verification steps in <code>append_final</code>.</p>
+    </div>
+  </div>
+
+  <div class="finding blocker">
+    <div class="finding-header">
+      <span class="finding-id">1.7 Blocker</span>
+      <span class="finding-title">License mismatch</span>
+    </div>
+    <div class="finding-body">
+      <p><code>galaxy.yml</code> declares <code>license_file: LICENSE</code> (Apache-2.0) but <code>COPYING</code> contains GPL-3.0. The upstream <code>infra.windows_ops</code> dependency is GPL-3.0. A wrapper collection with GPL deps should be GPL-3.0.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- SECTION 2: QUALITY -->
+<div class="section" id="quality">
+  <h2>2. Quality — Should Change</h2>
+  <p>Important for correctness and maintainability but not strict blockers.</p>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.1 Quality</span>
+      <span class="finding-title">Duplicate evaluation logic</span>
+    </div>
+    <div class="finding-body">
+      <p>Rule evaluation is implemented twice: <code>compliance_evaluate.py</code> (module, 267 lines) and <code>evaluate_rule()</code> in <code>cff_filters.py</code> (100+ lines). Both implement the same operators, check types, and error handling with slight differences. Keep the module, remove the filter function.</p>
+    </div>
+  </div>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.2 Quality</span>
+      <span class="finding-title">Rule schema duplication</span>
+    </div>
+    <div class="finding-body">
+      <p>Each rule has redundant fields: <code>path</code> duplicates <code>check.params.key</code>, <code>expected</code> duplicates <code>check.params.value</code>, <code>check_type</code> duplicates <code>check.type</code>. Pick one schema — recommend the nested <code>check</code> structure.</p>
+    </div>
+  </div>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.3 Quality</span>
+      <span class="finding-title">Only 10 of 248+ rules shipped</span>
+    </div>
+    <div class="finding-body">
+      <p>The <code>infra.windows_ops</code> collection has 248 automated rules for Windows Server 2022 V2R7. Crosswalk profiles reference V-IDs that don't exist in the rules file. Generate the full rules YAML from upstream control matrices (similar to our <code>extract_rule_metadata.py</code>).</p>
+    </div>
+  </div>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.4 Quality</span>
+      <span class="finding-title">Terminology: "Backstage" references</span>
+    </div>
+    <div class="finding-body">
+      <p>Replace "Backstage" with "Ansible Portal" in <code>portal/catalog-info.yml</code>, <code>push_results.yml</code>, and any comments. Replace "compliance cartridge" with "compliance profile".</p>
+    </div>
+  </div>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.5 Quality</span>
+      <span class="finding-title">Extra var names don't match dashboard convention</span>
+    </div>
+    <div class="finding-body">
+      <table>
+        <tr><th>MR uses</th><th>Dashboard expects</th></tr>
+        <tr><td><code>compliance_backstage_url</code></td><td><code>backstage_api_url</code></td></tr>
+        <tr><td><code>compliance_backstage_token</code></td><td><code>ingest_token</code></td></tr>
+        <tr><td><code>compliance_scan_id</code></td><td><code>scan_id</code></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="finding quality">
+    <div class="finding-header">
+      <span class="finding-id">2.6 Quality</span>
+      <span class="finding-title">Missing <code>aap_impact</code> classification</span>
+    </div>
+    <div class="finding-body">
+      <p>Rules don't have <code>aap_impact</code> or <code>aap_impact_reason</code> fields. The dashboard uses these to show remediation warnings. For Windows, <code>breaks-connectivity</code> would apply to rules affecting WinRM (firewall, TLS, service accounts).</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- SECTION 3: SPLIT -->
+<div class="section" id="split">
+  <h2>3. Split Recommendation</h2>
+
+  <h3>Current scope: 5 frameworks in one collection</h3>
+  <table>
+    <tr><th>Framework</th><th>Content Type</th><th>Scanner</th><th>Completeness</th></tr>
+    <tr><td>DISA STIG</td><td>Rules + normalizer + playbooks</td><td>DISA SCC (ephemeral)</td><td>10 rules (stub)</td></tr>
+    <tr><td>CIS Benchmarks</td><td>Normalizer + playbooks (no rules)</td><td>infra.windows_ops</td><td>Wrapper only</td></tr>
+    <tr><td>HIPAA</td><td>Crosswalk mapping only</td><td>N/A (uses CIS/STIG)</td><td>13 controls</td></tr>
+    <tr><td>PCI-DSS v4.0</td><td>Crosswalk mapping only</td><td>N/A (uses CIS/STIG)</td><td>17 controls</td></tr>
+    <tr><td>PowerSTIG</td><td>Alternative scanner</td><td>DSC native</td><td>Full via Microsoft</td></tr>
+  </table>
+
+  <h3>Recommendation: one collection, multiple profiles (ADR-038)</h3>
+  <p><strong>Don't split the collection.</strong> The shared infrastructure (CFF filters, compliance_gather, crosswalk engine) would be duplicated. Instead, register each framework as a separate compliance profile in the dashboard:</p>
+
+  <table>
+    <tr><th>Profile Slug</th><th>Framework</th><th>Scanner</th><th>Certification</th><th>EE Contents</th></tr>
+    <tr><td><code>windows-server-stig</code></td><td>DISA_STIG</td><td>DISA SCC (ephemeral)</td><td>SCAP 1.3 Validated</td><td>SCAP benchmarks + download role + pywinrm</td></tr>
+    <tr><td><code>windows-server-cis-l1</code></td><td>CIS</td><td>infra.windows_ops</td><td>Uncertified</td><td>infra.windows_ops + pywinrm</td></tr>
+    <tr><td><code>windows-server-cis-l2</code></td><td>CIS</td><td>infra.windows_ops</td><td>Uncertified</td><td>infra.windows_ops + pywinrm</td></tr>
+  </table>
+
+  <p><strong>Key decision:</strong> Each profile gets its own EE with different scanner dependencies. STIG uses DISA SCC (certified, downloaded at runtime per ADR-038 §2). CIS uses infra.windows_ops (uncertified but embedded).</p>
+
+  <p><strong>HIPAA and PCI-DSS</strong> are NOT separate profiles — they're crosswalk tabs that install/uninstall with the parent profile (see Section 5 below).</p>
+
+  <p><strong>PowerSTIG</strong> is an alternative scanner for the same STIG framework. Handle via a <code>compliance_scanner</code> variable, not a separate profile.</p>
+</div>
+
+
+<!-- SECTION 4: LEGAL ANALYSIS -->
+<div class="section" id="legal">
+  <h2>4. Legal Analysis: DISA SCC Distribution</h2>
+
+  <h3>The dual-nature problem</h3>
+  <p>DISA Security Compliance Checker (SCC) is <strong>public domain under 17 USC § 105</strong> (government work). However, NIWC Atlantic <a href="https://executivebiz.com/2023/06/ignyte-platform-to-commercialize-navy-developed-security-compliance-checker-software/">signed an exclusive commercial licensing deal</a> with Ignyte Platform for binary redistribution rights. The installer has an undisclosed EULA, creating legal ambiguity.</p>
+
+  <h3>Chocolatey precedent</h3>
+  <p>The Chocolatey community package for SCC (<a href="https://community.chocolatey.org/packages/scap-compliance-checker">scap-compliance-checker</a>) <strong>downloads the installer at install time</strong> from <code>dl.dod.cyber.mil</code> rather than embedding the binary. This is the industry standard approach for avoiding redistribution concerns.</p>
+
+  <h3>Risk assessment</h3>
+  <table>
+    <tr><th>Distribution Method</th><th>Legal Risk</th><th>Reasoning</th></tr>
+    <tr><td>Embed SCC in EE image</td><td><span style="color: var(--critical); font-weight: 600;">HIGH</span></td><td>Potential breach of Ignyte exclusive license, ambiguous EULA terms, no vendor precedent</td></tr>
+    <tr><td>Download at scan time</td><td><span style="color: var(--good); font-weight: 600;">LOW</span></td><td>Direct download from DoD authoritative source, explicit Distribution Statement A, matches Chocolatey pattern</td></tr>
+    <tr><td>Cache after download</td><td><span style="color: var(--good); font-weight: 600;">LOW</span></td><td>Local cache for air-gapped scenarios, not redistribution</td></tr>
+  </table>
+
+  <h3>Architecture: ephemeral download with cache fallback (ADR-038 §2)</h3>
+  <pre>Scan time (Play 0 — localhost/EE):
+  1. Try download SCC from dl.dod.cyber.mil → cache to /tmp/compliance-scc/
+  2. If download fails AND cached copy exists → warn + continue with cached
+  3. If download fails AND no cache → fail with clear error
+
+Play 1 (targets via WinRM):
+  4. win_copy SCC + SCAP benchmark from EE to target
+  5. Run cscc -u (unattended scan)
+  6. fetch XCCDF results back to EE
+  7. Remove SCC + benchmark from target
+
+Play 2 (localhost/EE):
+  8. normalize_xccdf per host (REUSE existing _shared/normalize_common.py)
+  9. Compose NDJSON + POST to API (ADR-033/034)</pre>
+
+  <h3>Key advantages</h3>
+  <ul>
+    <li><strong>SCC outputs standard XCCDF XML</strong> — same format as OpenSCAP. Our existing <code>normalize_common.py</code> parses it unchanged.</li>
+    <li><strong>SCAP benchmark content IS freely redistributable</strong> (public domain, <a href="https://github.com/niwc-atlantic/scap-content-library">hosted on GitHub</a>). This can be pre-baked into the EE.</li>
+    <li><strong>Export control: not an issue.</strong> SCC carries Distribution Statement A, which explicitly permits distribution to foreign nationals and governments.</li>
+  </ul>
+</div>
+
+
+<!-- SECTION 5: CROSSWALK ARCHITECTURE -->
+<div class="section" id="crosswalk">
+  <h2>5. Crosswalk Architecture</h2>
+
+  <h3>HIPAA and PCI-DSS are not profiles</h3>
+  <p>They are <strong>regulatory crosswalk views</strong> computed from existing STIG or CIS scan findings. They do NOT run separate scans or have separate normalizers.</p>
+
+  <h3>Implementation: dynamic tab widgets (extends ADR-027)</h3>
+  <p>Each compliance profile declares crosswalk tabs in its <code>compliance-profile.yml</code> display config. The tabs are <strong>dynamically installed</strong> when the profile is connected and removed when disconnected — no separate install step.</p>
+
+  <pre>display:
+  tabs:
+    - key: "hipaa"
+      label: "HIPAA"
+      icon: "policy"
+      crosswalk_framework: "hipaa"
+      source_framework: "STIG"
+      layout:
+        - widget: crosswalk_summary
+          title: "HIPAA Security Rule — Technical Safeguards"
+          show_gaps: true
+        - widget: crosswalk_controls_table
+          title: "Control Status"</pre>
+
+  <h3>Data flow: client-side join</h3>
+  <p>The crosswalk computation happens <strong>in the dashboard frontend</strong>. It's a join between:</p>
+  <ol>
+    <li>Scan findings (already in the DB from STIG/CIS scans)</li>
+    <li>Control mapping definition (stored in the profile's displayConfig)</li>
+  </ol>
+  <p><strong>No second scan. No backend API changes. No separate normalizer.</strong></p>
+
+  <h3>New widget types required</h3>
+  <table>
+    <tr><th>Widget Type</th><th>Purpose</th><th>Effort</th></tr>
+    <tr><td><code>crosswalk_summary</code></td><td>Shows overall control coverage (pass/fail/partial/gap/unmapped counts)</td><td>1–2 days</td></tr>
+    <tr><td><code>crosswalk_controls_table</code></td><td>Per-control detail with mapped rule statuses</td><td>1–2 days</td></tr>
+  </table>
+
+  <h3>Crosswalk definition data</h3>
+  <p>Steve's <code>hipaa.yml</code> and <code>pci_dss_v4.yml</code> ship inside <code>security.compliance_windows</code> and are referenced by the profile's <code>compliance-profile.yml</code>. The install.yml reads it and includes it in the profile registration payload.</p>
+
+  <p><strong>This extends ADR-027 (Dynamic Tab System) with two new Tier 1 widget types.</strong></p>
+</div>
+
+
+<!-- SECTION 6: EE CHECKLIST -->
+<div class="section" id="ee">
+  <h2>6. EE Delivery Checklist</h2>
+  <p>For this collection to ship as an Execution Environment that works with the dashboard:</p>
+
+  <h3>Build artifacts</h3>
+  <ul class="checklist">
+    <li><code>ee/execution-environment.yml</code> — ansible-builder v3, <code>ee-minimal-rhel9</code> base</li>
+    <li><code>ee/requirements.yml</code> — Galaxy collection requirements</li>
+    <li><code>ee/requirements.txt</code> — Python requirements (pywinrm, credssp, ntlm)</li>
+    <li>Collection source copied into <code>_build/collections/</code> during CI</li>
+    <li>Verification steps in <code>append_final</code> (collection list, python import)</li>
+  </ul>
+
+  <h3>CI/CD integration</h3>
+  <ul class="checklist">
+    <li>Added to <code>build-ee.yml</code> matrix with <code>image_suffix: stig-windows</code></li>
+    <li>GHCR image: <code>ghcr.io/cross-logic/compliance-stig-windows:latest</code></li>
+    <li>Skopeo mirror command documented for PAH deployment</li>
+    <li>EE registered on Controller with correct image pull spec</li>
+  </ul>
+
+  <h3>Install playbook</h3>
+  <ul class="checklist">
+    <li><code>install.yml</code> creates assessment JT with EE reference</li>
+    <li><code>install.yml</code> creates remediation JT with <code>ask_tags_on_launch: true</code></li>
+    <li>Profile metadata embedded as JT <code>extra_vars</code></li>
+    <li><code>remediate_jt_name</code> and <code>remediation_playbook</code> set for Settings tab</li>
+  </ul>
+
+  <h3>Profile registration</h3>
+  <ul class="checklist">
+    <li><code>meta/compliance-profile.yml</code> with <code>platform_spec.os_family: ["Windows"]</code></li>
+    <li>Display config with Windows-appropriate columns and labels</li>
+    <li>Certification block with honest <code>uncertified</code> status</li>
+  </ul>
+</div>
+
+
+<!-- SECTION 7: CONTRIBUTION -->
+<div class="section" id="contrib">
+  <h2>7. Contribution Strategy</h2>
+  <p><strong>We will do the contribution to Steve's repo ourselves.</strong> All fixes should be contributed as PRs to <a href="https://github.com/stevefulme1/compliance-windows"><code>stevefulme1/compliance-windows</code></a> (upstream). The collection is consumed as an EE dependency, not embedded in our repo.</p>
+
+  <h3>Recommended PR sequence</h3>
+  <div class="pr-sequence">
+    <div class="pr-card">
+      <div class="pr-num">1</div>
+      <div class="pr-content">
+        <h4>Core Profile Artifacts</h4>
+        <p>Add <code>compliance-profile.yml</code>, <code>install.yml</code>, <code>uninstall.yml</code>. Fix license to GPL-3.0. Fix terminology.</p>
+        <div class="refs">Addresses: 1.1, 1.2, 1.7, 2.4</div>
+      </div>
+    </div>
+    <div class="pr-card">
+      <div class="pr-num">2</div>
+      <div class="pr-content">
+        <h4>Fix Results Push + Normalizer Safety</h4>
+        <p>Rewrite <code>push_results.yml</code> to NDJSON streaming. Fix PowerSTIG scan to not apply DSC. Align extra var names.</p>
+        <div class="refs">Addresses: 1.3, 1.4, 2.5</div>
+      </div>
+    </div>
+    <div class="pr-card">
+      <div class="pr-num">3</div>
+      <div class="pr-content">
+        <h4>EE Definition + CI</h4>
+        <p>Add proper <code>ee/execution-environment.yml</code>, <code>requirements.yml</code>, <code>requirements.txt</code>. Add verification build steps.</p>
+        <div class="refs">Addresses: 1.6</div>
+      </div>
+    </div>
+    <div class="pr-card">
+      <div class="pr-num">4</div>
+      <div class="pr-content">
+        <h4>Tests</h4>
+        <p>Add unit tests for <code>compliance_evaluate</code>, <code>cff_filters</code>, <code>crosswalk_filters</code>. Target: 40+ tests.</p>
+        <div class="refs">Addresses: 1.5</div>
+      </div>
+    </div>
+    <div class="pr-card">
+      <div class="pr-num">5</div>
+      <div class="pr-content">
+        <h4>Quality Improvements</h4>
+        <p>Consolidate duplicate evaluation logic. Eliminate rule schema duplication. Add <code>aap_impact</code>. Expand rules 10&rarr;248+.</p>
+        <div class="refs">Addresses: 2.1, 2.2, 2.3, 2.6</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>What we do in our repo</h3>
+  <p><strong>Profile-level artifacts (install.yml, uninstall.yml, EE definitions, compliance-profile.yml) live in OUR <code>profiles/</code> directory</strong> since they are specific to our dashboard integration.</p>
+
+  <table>
+    <tr><th>Item</th><th>Effort</th></tr>
+    <tr><td>Add <code>windows-server-stig</code> to GitHub Actions EE build matrix</td><td>0.5 day</td></tr>
+    <tr><td>Add Windows profile to <code>MockDataSeeder.ts</code></td><td>0.5 day</td></tr>
+    <tr><td>Test platform guards with <code>os_family: "Windows"</code></td><td>0.5 day</td></tr>
+    <tr><td>Add skopeo mirror command to deployment docs</td><td>&lt; 1 hour</td></tr>
+  </table>
+</div>
+
+
+<!-- SECTION 8: GOOD -->
+<div class="section" id="good">
+  <h2>8. What's Good (Keep As-Is)</h2>
+
+  <ul class="good-list">
+    <li><strong>CFF filter architecture</strong> — Three distinct filters (<code>to_cff_stig</code>, <code>to_cff_cis</code>, <code>to_cff_powerstig</code>) with dual camelCase/snake_case output. Right pattern for multi-scanner support.</li>
+    <li><strong>Crosswalk engine</strong> — HIPAA and PCI-DSS crosswalks with pass/fail/partial/gap/unmapped per control. Bonus value none of our RHEL profiles have. Clean, reusable filters.</li>
+    <li><strong>Track A pre-assessment</strong> — <code>compliance_gather</code> with <code>Gather-ComplianceData.ps1</code> collecting registry, secpol, auditpol, and services in a single WinRM round-trip. The fast-scan model our assessment doc recommended.</li>
+    <li><strong>Argument specs on all 6 roles</strong> — Typed parameters in <code>meta/argument_specs.yml</code>. Our RHEL profiles don't have these yet.</li>
+    <li><strong>PowerShell script quality</strong> — <code>Gather-ComplianceData.ps1</code> is well-structured with error handling, temp file cleanup, JSON output. Single-round-trip design minimizes WinRM overhead.</li>
+    <li><strong>Multi-scanner design</strong> — Supporting both <code>infra.windows_ops</code> (Ansible-native) and PowerSTIG (DSC-native) via <code>compliance_scanner</code> variable. Matches Tier 1/Tier 2 architecture (ADR-001).</li>
+    <li><strong>Pattern metadata</strong> — <code>extensions/patterns/</code> follows SDP-0005 structure with <code>source_collection</code>, <code>wrapper_collection</code>, <code>normalizer_role</code>, <code>scanner_options</code>.</li>
+  </ul>
+</div>
+
+
+<!-- SECTION 9: DISPOSITION -->
+<div class="section" id="disposition">
+  <h2>9. File-by-File Disposition</h2>
+
+  <table>
+    <tr><th>File</th><th>Action</th><th>Notes</th></tr>
+    <tr><td><code>galaxy.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>License to GPL-3.0, update repo URL</td></tr>
+    <tr><td><code>meta/compliance-profile.yml</code></td><td><span class="chip chip-create">Create</span></td><td>Missing — blocker</td></tr>
+    <tr><td><code>meta/ee_profile.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good metadata</td></tr>
+    <tr><td><code>playbooks/scan-windows-stig.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Add NDJSON streaming</td></tr>
+    <tr><td><code>playbooks/scan-windows-cis.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Add NDJSON streaming</td></tr>
+    <tr><td><code>playbooks/scan-windows-hipaa.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Add NDJSON streaming</td></tr>
+    <tr><td><code>playbooks/scan-windows-pci.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Add NDJSON streaming</td></tr>
+    <tr><td><code>playbooks/scan.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Add NDJSON streaming</td></tr>
+    <tr><td><code>playbooks/remediate.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Remove inline PS Jinja2 injection</td></tr>
+    <tr><td><code>playbooks/remediate-windows-stig.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean</td></tr>
+    <tr><td><code>playbooks/remediate-windows-cis.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean</td></tr>
+    <tr><td><code>playbooks/verify-*.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean</td></tr>
+    <tr><td><code>playbooks/gather_facts.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good Track A pattern</td></tr>
+    <tr><td><code>playbooks/evaluate.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good Track A pattern</td></tr>
+    <tr><td><code>playbooks/tasks/push_results.yml</code></td><td><span class="chip chip-rewrite">Rewrite</span></td><td>Must use NDJSON + uri src</td></tr>
+    <tr><td><code>plugins/modules/compliance_evaluate.py</code></td><td><span class="chip chip-keep">Keep</span></td><td>Authoritative evaluator</td></tr>
+    <tr><td><code>plugins/filter/cff_filters.py</code></td><td><span class="chip chip-fix">Fix</span></td><td>Remove duplicate <code>evaluate_rule()</code></td></tr>
+    <tr><td><code>plugins/filter/crosswalk_filters.py</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean, reusable</td></tr>
+    <tr><td><code>roles/compliance_gather/*</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good architecture</td></tr>
+    <tr><td><code>roles/compliance_evaluate/*</code></td><td><span class="chip chip-fix">Fix</span></td><td>Use module, not filter</td></tr>
+    <tr><td><code>roles/normalize_*/*</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean (fix PowerSTIG DSC)</td></tr>
+    <tr><td><code>roles/compliance_crosswalk/*</code></td><td><span class="chip chip-keep">Keep</span></td><td>Clean, reusable</td></tr>
+    <tr><td><code>rules/stig_windows_server_2022.yml</code></td><td><span class="chip chip-expand">Expand</span></td><td>10 &rarr; 248+ rules</td></tr>
+    <tr><td><code>compliance_profiles/*.yml</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good crosswalk definitions</td></tr>
+    <tr><td><code>extensions/patterns/*</code></td><td><span class="chip chip-keep">Keep</span></td><td>Good SDP metadata</td></tr>
+    <tr><td><code>portal/catalog-info.yml</code></td><td><span class="chip chip-fix">Fix</span></td><td>Terminology</td></tr>
+    <tr><td><code>ee/execution-environment.yml</code></td><td><span class="chip chip-create">Create</span></td><td>Missing — blocker</td></tr>
+    <tr><td><code>install.yml</code></td><td><span class="chip chip-create">Create</span></td><td>Missing — blocker</td></tr>
+    <tr><td><code>uninstall.yml</code></td><td><span class="chip chip-create">Create</span></td><td>Missing — blocker</td></tr>
+    <tr><td><code>tests/*</code></td><td><span class="chip chip-create">Create</span></td><td>Missing — blocker</td></tr>
+    <tr><td><code>LICENSE</code></td><td><span class="chip chip-fix">Fix</span></td><td>Must be GPL-3.0</td></tr>
+  </table>
+</div>
+
+
+<!-- SECTION 10: DASHBOARD -->
+<div class="section" id="dashboard">
+  <h2>10. Dashboard Changes (Our Side)</h2>
+
+  <table>
+    <tr><th>Item</th><th>Effort</th><th>Description</th></tr>
+    <tr>
+      <td>Platform guards for Windows</td>
+      <td>0.5 day</td>
+      <td>Verify <code>os_family: "Windows"</code> works in fact cache lookup. Windows hosts report <code>ansible_os_family: "Windows"</code>.</td>
+    </tr>
+    <tr>
+      <td>MockDataSeeder Windows profile</td>
+      <td>0.5 day</td>
+      <td>Add a Windows STIG profile to mock seed data with Windows-appropriate findings.</td>
+    </tr>
+    <tr>
+      <td>Build matrix update</td>
+      <td>0.5 day</td>
+      <td>Add <code>windows-server-stig</code> to <code>.github/workflows/build-ee.yml</code> matrix.</td>
+    </tr>
+    <tr>
+      <td>crosswalk_summary widget</td>
+      <td>1–2 days</td>
+      <td>New Tier 1 widget type for regulatory control coverage (HIPAA/PCI). Pass/fail/partial/gap/unmapped counts.</td>
+    </tr>
+    <tr>
+      <td>crosswalk_controls_table widget</td>
+      <td>1–2 days</td>
+      <td>New Tier 1 widget type for per-control detail with mapped rule statuses.</td>
+    </tr>
+  </table>
+</div>
+
+<p class="muted" style="margin-top: 3rem; font-size: 0.8rem; text-align: center;">
+  Review generated 2026-07-13 — AAP Compliance Dashboard architect review of <code>security.compliance_windows</code> v0.1.0.<br>
+  Markdown source: <code>review/windows-profile-mr1-review.md</code>
+</p>
+
+</div>
+</body>
+</html>

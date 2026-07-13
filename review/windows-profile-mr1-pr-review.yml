@@ -1,0 +1,381 @@
+---
+# Machine-readable PR review for MR #1: Windows Server Compliance Profile
+# Target: https://gitlab.cee.redhat.com/mferrari/aap-compliance-pipelines/-/merge_requests/1
+# Upstream: https://github.com/stevefulme1/compliance-windows
+#
+# This file is structured for another Claude Code session to parse and execute.
+# Each finding has an action, file paths, and implementation guidance.
+
+review:
+  mr: 1
+  commit: 4aa3cab
+  author: Steve Fulmer (sfulmer@redhat.com)
+  collection: security.compliance_windows
+  version: 0.1.0
+  score: 2.8
+  verdict: changes-requested
+  date: 2026-07-13
+  adr: ADR-038-windows-compliance-profile-architecture.md
+
+  contribution:
+    strategy: upstream
+    target_repo: https://github.com/stevefulme1/compliance-windows
+    note: >
+      All fixes should be contributed as PRs to Steve's repo. The collection
+      is consumed as an EE dependency, not embedded in our profiles/ directory.
+      We will do the contribution ourselves.
+
+  architecture_decisions:
+    - decision: Split into separate profiles per framework (ADR-038 §1)
+      profiles:
+        - slug: windows-server-stig
+          framework: DISA_STIG
+          scanner: DISA SCC (ephemeral download)
+          certification: certified (SCAP 1.3 Validated)
+          ee: SCAP benchmarks + pywinrm + download role
+        - slug: windows-server-cis-l1
+          framework: CIS
+          scanner: infra.windows_ops
+          certification: uncertified
+          ee: infra.windows_ops + pywinrm
+        - slug: windows-server-cis-l2
+          framework: CIS
+          scanner: infra.windows_ops
+          certification: uncertified
+          ee: infra.windows_ops + pywinrm
+
+    - decision: DISA SCC ephemeral download with cache fallback (ADR-038 §2)
+      reason: >
+        SCC cannot be embedded in EE images due to NIWC trade secret licensing
+        (Ignyte exclusive commercial license). Ephemeral download from
+        dl.dod.cyber.mil at scan time is legally clean. Cache fallback for
+        air-gapped environments.
+      download_url: https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/scc-{version}_Windows_bundle.zip
+      cache_path: /tmp/compliance-scc/
+
+    - decision: Regulatory crosswalks as dynamic tab widgets (ADR-038 §4)
+      reason: >
+        HIPAA and PCI-DSS are not separate profiles — they're crosswalk views
+        computed from STIG/CIS findings. Tabs install/uninstall with the
+        parent profile via compliance-profile.yml display config.
+      new_widgets:
+        - crosswalk_summary
+        - crosswalk_controls_table
+
+    - decision: Normalizer reuse (ADR-038 §2)
+      reason: >
+        SCC outputs XCCDF XML — same format as OpenSCAP. Our existing
+        normalize_common.py from profiles/_shared/ parses it unchanged.
+        The Windows STIG normalizer is a thin wrapper, exactly like RHEL.
+
+  findings:
+
+    # ── BLOCKERS ───────────────────────────────────────────────────
+
+    - id: B1
+      severity: blocker
+      title: Missing meta/compliance-profile.yml
+      file: meta/compliance-profile.yml
+      action: create
+      adrs: [ADR-026, ADR-036]
+      guidance: |
+        Create meta/compliance-profile.yml following the RHEL STIG pattern.
+        Reference: profiles/rhel9-stig/.../meta/compliance-profile.yml
+        Required fields: slug, name, framework, version, platform, scanner,
+        remediation_playbook, remediate_jt_name, certification (status,
+        authority, disclaimer), platform_spec (os_family: ["Windows"],
+        os_version: ["2019", "2022", "2025"]), display (gauge_label,
+        gauge_unit, remediation_verb, severity_map, columns).
+        For crosswalk tabs: add display.tabs[] with crosswalk_summary
+        and crosswalk_controls_table widgets referencing HIPAA/PCI profiles.
+
+    - id: B2
+      severity: blocker
+      title: Missing install.yml and uninstall.yml
+      files:
+        - install.yml
+        - uninstall.yml
+      action: create
+      adrs: [ADR-028]
+      guidance: |
+        Create install.yml following profiles/supply-chain/install.yml pattern.
+        Must: create assessment JT (ask_variables_on_launch, ask_inventory_on_launch,
+        use_fact_cache, become_enabled), create remediation JT (ask_tags_on_launch,
+        ask_limit_on_launch), embed profile metadata as extra_vars, include
+        forward-looking /profiles/connect POST with failed_when: false.
+        Create uninstall.yml following profiles/rhel9-stig/uninstall.yml pattern.
+
+    - id: B3
+      severity: blocker
+      title: Results push uses wrong API pattern
+      file: playbooks/tasks/push_results.yml
+      action: rewrite
+      adrs: [ADR-030, ADR-033, ADR-034]
+      guidance: |
+        Current: body_format json to /scans/:id/findings (wrong endpoint, OOM risk).
+        Required: NDJSON streaming via compose_post_body + uri src to /findings/ingest.
+        Pattern: normalizer sets compose_post_body=true + post_body_format=ndjson,
+        writes .ndjson files to disk. Playbook finds .ndjson files and POSTs each
+        via uri with src: parameter (streams from disk, not Jinja2 vars).
+        Must loop per-host (ADR-030).
+        Reference: profiles/rhel9-stig/.../playbooks/run_oscap.yml Play 2.
+        Extra vars: scan_id, ingest_token, backstage_api_url (not compliance_*).
+
+    - id: B4
+      severity: blocker
+      title: PowerSTIG scan modifies target hosts
+      file: roles/normalize_powerstig/tasks/main.yml
+      action: fix
+      line: 292
+      guidance: |
+        Remove: Start-DscConfiguration -Path "$env:TEMP\StigDsc" -Wait -Force
+        Replace with: Test-DscConfiguration -Path "$env:TEMP\StigDsc" -Detailed
+        A scan must never modify the target. Start-DscConfiguration applies
+        the DSC config. Test-DscConfiguration only evaluates compliance.
+
+    - id: B5
+      severity: blocker
+      title: Zero unit tests
+      files:
+        - tests/unit/plugins/modules/test_compliance_evaluate.py
+        - tests/unit/plugins/filter/test_cff_filters.py
+        - tests/unit/plugins/filter/test_crosswalk_filters.py
+      action: create
+      guidance: |
+        Minimum 40 tests. Follow pytest pattern from RHEL profiles.
+        test_compliance_evaluate.py: all check types (registry, secpol,
+        auditpol, service), all 8 operators, severity mapping, error handling,
+        CFF schema compliance, check mode.
+        test_cff_filters.py: to_cff_stig, to_cff_cis, to_cff_powerstig,
+        status mapping, severity mapping, dual camelCase/snake_case, empty input.
+        test_crosswalk_filters.py: map_controls, crosswalk_summary,
+        pass/fail/partial/gap/unmapped computation, empty inputs.
+        Reference: profiles/rhel9-stig/.../tests/unit/plugins/modules/test_normalize_xccdf.py
+
+    - id: B6
+      severity: blocker
+      title: Missing EE definition for profile delivery
+      file: ee/execution-environment.yml
+      action: create
+      adrs: [ADR-031]
+      guidance: |
+        Create ee/execution-environment.yml following ansible-builder v3 format.
+        Base image: registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
+        Galaxy deps: security.compliance_windows, ansible.windows, community.windows,
+        infra.windows_ops (CIS profiles only).
+        Python deps: pywinrm>=0.4.3, requests-credssp, requests-ntlm.
+        prepend_galaxy: COPY _build/collections/
+        For STIG profile: also COPY SCAP benchmarks from niwc-atlantic/scap-content-library.
+        append_final: verification (collection list, python import check).
+        Reference: profiles/supply-chain/ee/execution-environment.yml
+
+    - id: B7
+      severity: blocker
+      title: License mismatch
+      files:
+        - LICENSE
+        - galaxy.yml
+      action: fix
+      guidance: |
+        galaxy.yml declares license_file: LICENSE (Apache-2.0) but COPYING
+        is GPL-3.0. Upstream infra.windows_ops is GPL-3.0. Wrapper collection
+        with GPL deps should be GPL-3.0. Fix LICENSE to GPL-3.0, remove
+        duplicate COPYING file or make LICENSE authoritative.
+
+    # ── QUALITY ────────────────────────────────────────────────────
+
+    - id: Q1
+      severity: quality
+      title: Duplicate evaluation logic
+      files:
+        - plugins/modules/compliance_evaluate.py
+        - plugins/filter/cff_filters.py
+      action: fix
+      guidance: |
+        evaluate_rule() in cff_filters.py duplicates 90% of
+        compliance_evaluate.py module logic. Keep the module as authoritative.
+        Remove evaluate_rule() from cff_filters.py. Update compliance_evaluate
+        role to use the module instead of the filter.
+
+    - id: Q2
+      severity: quality
+      title: Rule schema duplication
+      file: rules/stig_windows_server_2022.yml
+      action: fix
+      guidance: |
+        Each rule has redundant fields: path duplicates check.params.key,
+        expected duplicates check.params.value, check_type duplicates check.type.
+        Pick the nested check structure. Update compliance_evaluate.py to
+        read from check.params only.
+
+    - id: Q3
+      severity: quality
+      title: Only 10 of 248+ rules shipped
+      file: rules/stig_windows_server_2022.yml
+      action: expand
+      guidance: |
+        Expand from 10 sample rules to full 248+ from infra.windows_ops
+        control matrices. Write an extract script similar to our
+        scripts/extract_rule_metadata.py that reads infra.windows_ops
+        task files and generates the rules YAML. Add aap_impact and
+        aap_impact_reason to each rule.
+
+    - id: Q4
+      severity: quality
+      title: Terminology violations
+      files:
+        - portal/catalog-info.yml
+        - playbooks/tasks/push_results.yml
+        - README.md
+      action: fix
+      guidance: |
+        Replace "Backstage" with "Ansible Portal".
+        Replace "compliance cartridge" with "compliance profile".
+        Replace "Backstage plugin" with "AAP Compliance Dashboard".
+
+    - id: Q5
+      severity: quality
+      title: Extra var names don't match dashboard convention
+      file: playbooks/tasks/push_results.yml
+      action: fix
+      guidance: |
+        compliance_backstage_url -> backstage_api_url
+        compliance_backstage_token -> ingest_token
+        compliance_scan_id -> scan_id
+        compliance_results_backend -> remove (always POST to API)
+
+    - id: Q6
+      severity: quality
+      title: Missing aap_impact classification on rules
+      file: rules/stig_windows_server_2022.yml
+      action: fix
+      guidance: |
+        Add aap_impact (safe|breaks-connectivity|breaks-idempotency|high-risk)
+        and aap_impact_reason to each rule. For Windows, breaks-connectivity
+        applies to rules affecting WinRM (firewall, TLS, service accounts).
+
+    # ── KEEP AS-IS ─────────────────────────────────────────────────
+
+    - id: K1
+      severity: keep
+      title: CFF filter architecture
+      files:
+        - plugins/filter/cff_filters.py
+      note: >
+        Three filters (to_cff_stig, to_cff_cis, to_cff_powerstig) with dual
+        camelCase/snake_case output. Correct pattern for multi-scanner support.
+
+    - id: K2
+      severity: keep
+      title: Crosswalk engine
+      files:
+        - plugins/filter/crosswalk_filters.py
+        - compliance_profiles/hipaa.yml
+        - compliance_profiles/pci_dss_v4.yml
+      note: >
+        HIPAA and PCI-DSS crosswalks with pass/fail/partial/gap/unmapped.
+        Clean, reusable. Will be consumed as dynamic tab data.
+
+    - id: K3
+      severity: keep
+      title: Track A pre-assessment
+      files:
+        - roles/compliance_gather/files/Gather-ComplianceData.ps1
+        - roles/compliance_gather/tasks/main.yml
+        - plugins/modules/compliance_evaluate.py
+      note: >
+        Single WinRM round-trip data collection + offline evaluation.
+        Good fast-scan model.
+
+    - id: K4
+      severity: keep
+      title: Argument specs on all roles
+      files:
+        - roles/*/meta/argument_specs.yml
+      note: >
+        All 6 roles have typed argument_specs. Our RHEL profiles
+        don't have these yet — this is ahead of our own standard.
+
+    - id: K5
+      severity: keep
+      title: PowerShell script quality
+      file: roles/compliance_gather/files/Gather-ComplianceData.ps1
+      note: >
+        Well-structured with error handling, temp cleanup, JSON output.
+        Single-round-trip WinRM design.
+
+    - id: K6
+      severity: keep
+      title: Multi-scanner design
+      note: >
+        infra.windows_ops + PowerSTIG via compliance_scanner variable.
+        Matches Tier 1/Tier 2 architecture (ADR-001).
+
+    - id: K7
+      severity: keep
+      title: Pattern metadata
+      files:
+        - extensions/patterns/compliance-windows-stig/metadata.yml
+        - extensions/patterns/compliance-windows-cis/metadata.yml
+      note: >
+        SDP-0005 structure with source_collection, wrapper_collection,
+        normalizer_role, scanner_options.
+
+  pr_sequence:
+    - pr: 1
+      title: "Core Profile Artifacts"
+      findings: [B1, B2, B7, Q4]
+      description: >
+        Add compliance-profile.yml, install.yml, uninstall.yml.
+        Fix license to GPL-3.0. Fix terminology.
+
+    - pr: 2
+      title: "Fix Results Push + Normalizer Safety"
+      findings: [B3, B4, Q5]
+      description: >
+        Rewrite push_results.yml to NDJSON streaming via compose_post_body + uri src.
+        Fix PowerSTIG scan to not apply DSC configuration during audit.
+        Align extra var names with dashboard convention.
+
+    - pr: 3
+      title: "EE Definition + CI"
+      findings: [B6]
+      description: >
+        Add ee/execution-environment.yml for ansible-builder v3.
+        Add ee/requirements.yml and ee/requirements.txt.
+        Add verification build steps.
+
+    - pr: 4
+      title: "Tests"
+      findings: [B5]
+      description: >
+        Add unit tests for compliance_evaluate, cff_filters, crosswalk_filters.
+        Target 40+ tests using pytest.
+
+    - pr: 5
+      title: "Quality Improvements"
+      findings: [Q1, Q2, Q3, Q6]
+      description: >
+        Consolidate duplicate evaluation logic. Eliminate rule schema duplication.
+        Add aap_impact to rules. Expand rules 10 to 248+.
+
+  dashboard_changes:
+    - item: Platform guards for Windows
+      effort: "0.5 day"
+      description: Verify os_family Windows works in fact cache lookup
+
+    - item: MockDataSeeder Windows profile
+      effort: "0.5 day"
+      description: Add Windows STIG profile to mock seed data
+
+    - item: Build matrix update
+      effort: "0.5 day"
+      description: Add windows-server-stig to build-ee.yml matrix
+
+    - item: crosswalk_summary widget
+      effort: "1-2 days"
+      description: New Tier 1 widget type for regulatory control coverage
+
+    - item: crosswalk_controls_table widget
+      effort: "1-2 days"
+      description: New Tier 1 widget type for per-control detail
