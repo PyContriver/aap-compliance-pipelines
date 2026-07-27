@@ -177,13 +177,13 @@ const ComplianceRouter = () => {
     <DynamicTabRefreshContext.Provider value={refreshDynamicTabs}>
       <Page themeId="app">
         <Header
-          title={
-            <Box display="flex" alignItems="center" style={{ gap: 12 }}>
-              <span>Compliance</span>
-              <Chip label="Preview" size="small" variant="outlined" />
+          title="Compliance"
+          subtitle={
+            <Box display="inline-flex" alignItems="center" style={{ gap: 8 }}>
+              <span>Scan, review, and remediate infrastructure compliance</span>
+              <Chip label="Preview" size="small" variant="outlined" style={{ verticalAlign: 'middle' }} />
             </Box>
           }
-          subtitle="Scan, review, and remediate infrastructure compliance"
           style={{ background: 'inherit' }}
         />
         <HeaderTabs
