@@ -216,7 +216,7 @@ The dev shell at `backstage-app/packages/` provides:
 
 ### 2. Portal / RHDH (Production)
 
-Plugins are exported as dynamic plugins using `janus-cli`:
+Plugins are exported as dynamic plugins using `rhdh-cli`:
 
 ```bash
 # Build dynamic plugin packages
@@ -238,16 +238,18 @@ Install in RHDH via `dynamic-plugins.yaml`. See `docs/deployment-guide.md` for f
 
 ## Auth Mode
 
-The `compliance.authMode` setting in `app-config.yaml` controls authentication:
+The `ansible.compliance.authMode` setting in `app-config.yaml` controls authentication (ADR-011 namespace):
 
 - **`development`**: All routes unauthenticated. For local dev with guest auth. Must be set explicitly in `app-config.local.yaml`.
 - **`production`** (default): Only `/health` is unauthenticated. All other routes require Portal identity. Mutating endpoints require `catalogEntityCreatePermission` (admin tier).
 
 ```yaml
-compliance:
-  dataSource: mock           # or 'live'
-  authMode: development      # or 'production'
-  retentionDays: 90
+ansible:
+  compliance:
+    enabled: true
+    dataSource: mock           # or 'live'
+    authMode: development      # or 'production'
+    retentionDays: 90
 ```
 
 ## RBAC Model (Option A+C)

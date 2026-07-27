@@ -44,17 +44,13 @@ backend:
     keys:
       - secret: ${BACKEND_SECRET}
 
-# Compliance plugin settings
-compliance:
-  dataSource: live
-  # Number of days to retain scan findings before cleanup (default: 90)
-  retentionDays: 90
-  # Auth mode: 'development' = all routes unauthenticated (standalone dev),
-  # 'production' = RBAC enforced via Backstage permissions + AAP token pass-through
-  authMode: ${COMPLIANCE_AUTH_MODE:-development}
-
-# AAP Connection — configure via .env (see .env.example)
+# AAP Connection and Compliance plugin settings (ADR-011: ansible.compliance.* namespace)
 ansible:
+  compliance:
+    enabled: true
+    dataSource: live
+    retentionDays: 90
+    authMode: ${COMPLIANCE_AUTH_MODE:-development}
   rhaap:
     baseUrl: ${AAP_HOST}
     checkSSL: false

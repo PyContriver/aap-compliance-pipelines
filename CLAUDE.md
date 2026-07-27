@@ -43,7 +43,7 @@ yarn build            # Build all packages
 
 ## Dynamic Plugin Packaging
 
-Plugins are packaged for Portal/RHDH via `@janus-idp/cli` (`janus-cli`).
+Plugins are packaged for Portal/RHDH via `@red-hat-developer-hub/cli` (`rhdh-cli`).
 Matches the `ansible-rhdh-plugins` downstream patterns exactly.
 
 ```bash
@@ -54,7 +54,7 @@ yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic
 yarn workspace @aap-compliance/plugin-compliance export-dynamic
 ```
 
-Registration configs: `plugins/*/app-config.janus-idp.yaml`
+Registration configs: `plugins/*/app-config.rhdh.yaml`
 Full guide: `docs/deployment-guide.md`
 
 ## Terminology

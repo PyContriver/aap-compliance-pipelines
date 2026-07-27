@@ -1,7 +1,7 @@
 /**
  * Core compliance service — the single entry point for all compliance operations.
  *
- * Checks `compliance.dataSource` in app-config.yaml:
+ * Checks `ansible.compliance.dataSource` in app-config.yaml:
  * - 'mock' (default) → returns mock data, no AAP connection needed
  * - 'live'           → calls Controller API via ControllerClient
  *
@@ -61,7 +61,7 @@ export class ComplianceService {
     this.logger = logger;
 
     // Read the toggle flag — default to 'mock' for safe demos
-    const rawSource = config.getOptionalString('compliance.dataSource') ?? 'mock';
+    const rawSource = config.getOptionalString('ansible.compliance.dataSource') ?? 'mock';
     this.dataSource = rawSource === 'live' ? 'live' : 'mock';
 
     this.logger.info(

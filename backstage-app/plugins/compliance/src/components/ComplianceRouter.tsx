@@ -7,11 +7,11 @@ import {
   Content,
   ErrorPanel,
 } from '@backstage/core-components';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 
 const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
 export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
-import { Typography, Box, Button } from '@material-ui/core';
+import { Typography, Box, Button, Chip } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
 import { ScanLauncher } from './ScanLauncher';
@@ -97,10 +97,21 @@ interface DynamicTabEntry {
   profile: ComplianceProfile;
 }
 
+/** ADR-011 / ADR-010 rule 4: zero-footprint when disabled. */
+function useComplianceEnabled(): boolean {
+  const config = useApi(configApiRef);
+  return config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
+}
+
 const ComplianceRouter = () => {
+  const enabled = useComplianceEnabled();
   const navigate = useNavigate();
   const location = useLocation();
   const api = useApi(complianceApiRef);
+
+  if (!enabled) {
+    return null;
+  }
 
   const [dynamicTabs, setDynamicTabs] = useState<DynamicTabEntry[]>([]);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
@@ -166,7 +177,12 @@ const ComplianceRouter = () => {
     <DynamicTabRefreshContext.Provider value={refreshDynamicTabs}>
       <Page themeId="app">
         <Header
-          title="Compliance"
+          title={
+            <Box display="flex" alignItems="center" style={{ gap: 12 }}>
+              <span>Compliance</span>
+              <Chip label="Preview" size="small" variant="outlined" />
+            </Box>
+          }
           subtitle="Scan, review, and remediate infrastructure compliance"
           style={{ background: 'inherit' }}
         />

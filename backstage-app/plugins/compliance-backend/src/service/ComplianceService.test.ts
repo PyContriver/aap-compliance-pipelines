@@ -51,7 +51,7 @@ function createMockConfig(
 
   return {
     getOptionalString: jest.fn((key: string) => {
-      if (key === 'compliance.dataSource') return dataSource;
+      if (key === 'ansible.compliance.dataSource') return dataSource;
       return undefined;
     }),
     getOptionalConfig: jest.fn((_key: string) => ansibleConfig),

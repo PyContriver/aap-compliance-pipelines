@@ -36,8 +36,8 @@ The downstream `ansible-rhdh-plugins` (self-service, EE build) all use a two-tie
 - If the user cannot launch a JT in AAP, the scan/remediation fails with 403
 
 **Auth modes:**
-- `compliance.authMode: 'development'` -- all routes unauthenticated (local dev with guest auth)
-- `compliance.authMode: 'production'` -- only `/health` unauthenticated, mutating endpoints require `catalogEntityCreatePermission`
+- `ansible.compliance.authMode: 'development'` -- all routes unauthenticated (local dev with guest auth)
+- `ansible.compliance.authMode: 'production'` -- only `/health` unauthenticated, mutating endpoints require `catalogEntityCreatePermission`
 
 ## Consequences
 
