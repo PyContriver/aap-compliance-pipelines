@@ -110,6 +110,17 @@ This produces:
 - `plugins/compliance-backend/dist-dynamic/` -- backend dynamic plugin
 - `plugins/compliance/dist-scalprum/` -- frontend dynamic plugin (Scalprum format)
 
+### Migrating from pre-v0.5.0 deployments
+
+If you have an existing deployment that used the hyphen-separated Scalprum package names, update your `dynamic-plugins.override.yaml` to use dot-separated names:
+
+| Before | After |
+|--------|-------|
+| `aap-compliance-plugin-compliance` | `aap-compliance.plugin-compliance` |
+| `aap-compliance-plugin-compliance-backend` | `aap-compliance.plugin-compliance-backend` |
+
+The old hyphen-separated names will not resolve after upgrading. Update both `dynamicPlugins.frontend` and `dynamicPlugins.backend` keys.
+
 ### Installing in RHDH
 
 1. Copy the exported plugin directories to your RHDH dynamic plugins directory
@@ -142,11 +153,11 @@ dynamicPlugins:
 Add the compliance plugin settings to your RHDH app-config:
 
 ```yaml
-compliance:
-  dataSource: live
-  retentionDays: 90
-
 ansible:
+  compliance:
+    enabled: true
+    dataSource: live
+    retentionDays: 90
   rhaap:
     baseUrl: https://your-aap-gateway.example.com
     checkSSL: true
@@ -203,7 +214,7 @@ After provisioning, verify the settings in the AAP Controller UI:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (ADR-011) |
+| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (Plugin Factory requirement) |
 | `ansible.compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
 | `ansible.compliance.authMode` | `production` | Auth mode: `production` enforces RBAC, `development` allows guest access |
 | `ansible.compliance.retentionDays` | `90` | Days to retain scan findings before cleanup |

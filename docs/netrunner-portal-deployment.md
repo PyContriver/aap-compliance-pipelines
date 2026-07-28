@@ -106,6 +106,21 @@ sudo cp /tmp/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz /var/lib/por
 
 **Important:** Do NOT place plugin source directories or tarballs inside `/var/lib/portal/dynamic-plugins-root/`. The backend plugin scanner scans that entire directory tree — if both source and extracted copies exist, you get `Plugin 'compliance' is already registered`.
 
+### Migrating from pre-v0.5.0 deployments
+
+If upgrading from a deployment that used hyphen-separated Scalprum names, update your `dynamic-plugins.override.yaml` keys:
+
+| Before | After |
+|--------|-------|
+| `aap-compliance-plugin-compliance` | `aap-compliance.plugin-compliance` |
+| `aap-compliance-plugin-compliance-backend` | `aap-compliance.plugin-compliance-backend` |
+
+Also clear the extracted plugin cache before restarting:
+
+```bash
+sudo rm -rf /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-*
+```
+
 ## Step 4: Add to dynamic-plugins.override.yaml
 
 Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:

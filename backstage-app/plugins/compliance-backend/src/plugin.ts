@@ -43,12 +43,10 @@ export const complianceBackendPlugin = createBackendPlugin({
       async init({ logger, config, httpRouter, database, httpAuth, permissions }) {
         logger.info('Initializing compliance backend plugin');
 
-        // ─── Enabled check (ADR-011) ────────────────────────────
+        // ─── Enabled check (Plugin Factory requirement) ─────────
         const enabled = config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
         if (!enabled) {
           logger.info('Compliance plugin disabled (ansible.compliance.enabled is false or absent)');
-          httpRouter.use((_req, res) => res.status(404).json({ error: 'Compliance plugin is disabled' }));
-          httpRouter.addAuthPolicy({ path: '/', allow: 'unauthenticated' });
           return;
         }
 

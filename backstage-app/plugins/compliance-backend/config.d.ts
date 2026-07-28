@@ -2,7 +2,7 @@ export interface Config {
   ansible?: {
     compliance?: {
       /**
-       * Enables or disables the compliance plugin (ADR-011).
+       * Enables or disables the compliance plugin (Plugin Factory requirement).
        * @visibility frontend
        */
       enabled?: boolean;
@@ -24,6 +24,13 @@ export interface Config {
        * @visibility backend
        */
       retentionDays?: number;
+
+      /**
+       * Private Automation Hub registry hostname for EE image pulls.
+       * Falls back to AAP_HOST_URL env var if not set.
+       * @visibility backend
+       */
+      pahRegistry?: string;
     };
   };
 }

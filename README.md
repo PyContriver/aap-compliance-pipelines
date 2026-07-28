@@ -229,7 +229,7 @@ Restart the server. No `.env` changes needed — mock mode ignores AAP credentia
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (ADR-011) |
+| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (Plugin Factory requirement) |
 | `ansible.compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
 | `ansible.compliance.authMode` | `production` | Auth mode: `production` for RBAC, `development` for guest |
 | `ansible.compliance.retentionDays` | `90` | Days to retain scan findings before cleanup |

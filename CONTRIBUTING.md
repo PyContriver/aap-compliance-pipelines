@@ -238,7 +238,7 @@ Install in RHDH via `dynamic-plugins.yaml`. See `docs/deployment-guide.md` for f
 
 ## Auth Mode
 
-The `ansible.compliance.authMode` setting in `app-config.yaml` controls authentication (ADR-011 namespace):
+The `ansible.compliance.authMode` setting in `app-config.yaml` controls authentication (Plugin Factory config namespace):
 
 - **`development`**: All routes unauthenticated. For local dev with guest auth. Must be set explicitly in `app-config.local.yaml`.
 - **`production`** (default): Only `/health` is unauthenticated. All other routes require Portal identity. Mutating endpoints require `catalogEntityCreatePermission` (admin tier).

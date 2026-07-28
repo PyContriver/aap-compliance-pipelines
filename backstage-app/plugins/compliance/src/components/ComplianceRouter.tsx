@@ -7,7 +7,7 @@ import {
   Content,
   ErrorPanel,
 } from '@backstage/core-components';
-import { useApi, configApiRef } from '@backstage/core-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
 
 const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
 export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
@@ -27,6 +27,7 @@ import { InventoryDetail } from './InventoryDetail';
 import { ActiveJobsBanner } from './ActiveJobsBanner';
 import { DynamicProfileTab } from './DynamicProfileTab';
 import { complianceApiRef } from '../api';
+import { useComplianceEnabled } from '../hooks/useComplianceEnabled';
 import type { ComplianceProfile } from '@aap-compliance/common';
 
 /**
@@ -95,12 +96,6 @@ interface DynamicTabEntry {
   id: string;
   label: string;
   profile: ComplianceProfile;
-}
-
-/** ADR-011 / ADR-010 rule 4: zero-footprint when disabled. */
-function useComplianceEnabled(): boolean {
-  const config = useApi(configApiRef);
-  return config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
 }
 
 const ComplianceRouter = () => {
