@@ -44,11 +44,11 @@ backend:
     keys:
       - secret: ${BACKEND_SECRET}
 
-# AAP Connection and Compliance plugin settings (ADR-011: ansible.compliance.* namespace)
+# AAP Connection and Compliance plugin settings (ansible.compliance.* namespace)
 ansible:
   compliance:
     enabled: true
-    dataSource: live
+    dataSource: mock
     retentionDays: 90
     authMode: ${COMPLIANCE_AUTH_MODE:-development}
   rhaap:

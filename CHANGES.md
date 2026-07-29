@@ -30,15 +30,22 @@ Content updated to use dot-separated Scalprum package names (see below).
 
 ## 3. Scalprum package naming (dot-separated)
 
-RHDH's Scalprum loader expects dot-separated package names matching the
-`plugin-manifest.json` convention.
+`rhdh-cli plugin export` generates dot-separated names in `plugin-manifest.json`
+(e.g. `aap-compliance.plugin-compliance`). The `dynamicPlugins.frontend` and
+`dynamicPlugins.backend` keys in config must match these generated names.
 
-| Before (hyphenated) | After (dot-separated) |
-|----------------------|-----------------------|
+This reverses a fix from the May 2026 architect review which switched to
+hyphen-separated names. That fix was correct for `@janus-idp/cli`, but the
+migration to `rhdh-cli` (section 1) changed the generated format. Dot-separated
+is the correct format for `rhdh-cli` v1.10+.
+
+| Before (hyphenated, @janus-idp/cli) | After (dot-separated, rhdh-cli) |
+|--------------------------------------|---------------------------------|
 | `aap-compliance-plugin-compliance` | `aap-compliance.plugin-compliance` |
 | `aap-compliance-plugin-compliance-backend` | `aap-compliance.plugin-compliance-backend` |
 
 Updated in both `app-config.rhdh.yaml` files and `docs/deployment-guide.md`.
+Migration notes added for existing deployments.
 
 ## 4. Config namespace migration (Plugin Factory requirement)
 
@@ -71,8 +78,9 @@ Added `ansible.compliance.enabled` boolean (defaults to `false` when absent).
 
 **Backend** (`plugins/compliance-backend/src/plugin.ts`):
 - Checks `ansible.compliance.enabled` at the start of `init()`
-- When disabled: logs a message, registers a 404 catch-all handler, returns early
-- No database migrations, no service instantiation, no routes — true zero footprint
+- When disabled: logs a message and returns early without registering any routes
+- No database migrations, no service instantiation, no auth policies — true zero footprint
+- Backstage's default 404 handles requests to unregistered plugin paths
 
 **Frontend** (`plugins/compliance/src/hooks/useComplianceEnabled.ts`):
 - New `useComplianceEnabled()` hook reads `ansible.compliance.enabled` via `configApiRef`

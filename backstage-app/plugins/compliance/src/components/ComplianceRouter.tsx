@@ -11,7 +11,7 @@ import { useApi } from '@backstage/core-plugin-api';
 
 const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
 export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
-import { Typography, Box, Button, Chip } from '@material-ui/core';
+import { Typography, Box, Button, Chip, makeStyles } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
 import { ScanLauncher } from './ScanLauncher';
@@ -98,15 +98,17 @@ interface DynamicTabEntry {
   profile: ComplianceProfile;
 }
 
-const ComplianceRouter = () => {
-  const enabled = useComplianceEnabled();
+const useStyles = makeStyles({
+  previewChip: {
+    verticalAlign: 'middle',
+  },
+});
+
+const ComplianceRouterInner = () => {
+  const classes = useStyles();
   const navigate = useNavigate();
   const location = useLocation();
   const api = useApi(complianceApiRef);
-
-  if (!enabled) {
-    return null;
-  }
 
   const [dynamicTabs, setDynamicTabs] = useState<DynamicTabEntry[]>([]);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
@@ -176,7 +178,7 @@ const ComplianceRouter = () => {
           subtitle={
             <Box display="inline-flex" alignItems="center" style={{ gap: 8 }}>
               <span>Scan, review, and remediate infrastructure compliance</span>
-              <Chip label="Preview" size="small" variant="outlined" style={{ verticalAlign: 'middle' }} />
+              <Chip label="Preview" size="small" variant="outlined" className={classes.previewChip} />
             </Box>
           }
           style={{ background: 'inherit' }}
@@ -224,6 +226,12 @@ const ComplianceRouter = () => {
       <ActiveJobsBanner />
     </DynamicTabRefreshContext.Provider>
   );
+};
+
+const ComplianceRouter = () => {
+  const enabled = useComplianceEnabled();
+  if (!enabled) return null;
+  return <ComplianceRouterInner />;
 };
 
 export { ComplianceRouter };

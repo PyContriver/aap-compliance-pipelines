@@ -77,7 +77,7 @@ export class ComplianceService {
 
       if (!baseUrl || !token) {
         throw new Error(
-          'compliance.dataSource is "live" but ansible.rhaap.baseUrl / ansible.rhaap.token are not configured',
+          'ansible.compliance.dataSource is "live" but ansible.rhaap.baseUrl / ansible.rhaap.token are not configured',
         );
       }
 
