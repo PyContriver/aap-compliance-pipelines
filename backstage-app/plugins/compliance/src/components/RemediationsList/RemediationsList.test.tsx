@@ -5,7 +5,7 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { RemediationsList } from './RemediationsList';
-import type { RemediationProfile, RemediationExecution } from '@aap-compliance/common';
+import type { RemediationProfile, RemediationExecution } from '@aap-compliance/common/types';
 
 let mockPermissionAllowed = true;
 jest.mock('@backstage/plugin-permission-react', () => ({

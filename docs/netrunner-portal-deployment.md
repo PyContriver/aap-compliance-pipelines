@@ -106,6 +106,21 @@ sudo cp /tmp/aap-compliance-plugin-compliance-dynamic-<VERSION>.tgz /var/lib/por
 
 **Important:** Do NOT place plugin source directories or tarballs inside `/var/lib/portal/dynamic-plugins-root/`. The backend plugin scanner scans that entire directory tree — if both source and extracted copies exist, you get `Plugin 'compliance' is already registered`.
 
+### Migrating from pre-v0.5.0 deployments
+
+If upgrading from a deployment that used hyphen-separated Scalprum names, update your `dynamic-plugins.override.yaml` keys:
+
+| Before | After |
+|--------|-------|
+| `aap-compliance-plugin-compliance` | `aap-compliance.plugin-compliance` |
+| `aap-compliance-plugin-compliance-backend` | `aap-compliance.plugin-compliance-backend` |
+
+Also clear the extracted plugin cache before restarting:
+
+```bash
+sudo rm -rf /var/lib/portal/dynamic-plugins-root/aap-compliance-plugin-compliance-*
+```
+
 ## Step 4: Add to dynamic-plugins.override.yaml
 
 Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
@@ -140,15 +155,17 @@ Append to `/etc/portal/configs/dynamic-plugins/dynamic-plugins.override.yaml`:
 Append to `/etc/portal/configs/app-config/app-config.production.yaml`:
 
 ```yaml
-compliance:
-  dataSource: live
-  authMode: production
-  retentionDays: 90
+ansible:
+  compliance:
+    enabled: true
+    dataSource: live
+    authMode: production
+    retentionDays: 90
 ```
 
 ## Step 6: Create Knex migration files
 
-`janus-cli export-dynamic` does not package Knex migration TypeScript files into the dist output. The backend plugin crashes on startup with `ENOENT: no such file or directory, scandir '.../dist/database/migrations'`.
+`rhdh-cli plugin export` does not package Knex migration TypeScript files into the dist output. The backend plugin crashes on startup with `ENOENT: no such file or directory, scandir '.../dist/database/migrations'`.
 
 After the first `systemctl restart` (which extracts the tarballs), create the migration JS files manually:
 
@@ -227,7 +244,7 @@ These are documented for future reference — Portal is designed to resist third
 
 | Issue | Symptom | Fix |
 |-------|---------|-----|
-| Missing plugin-manifest.json | `Could not find 'dist-scalprum/plugin-manifest.json'` | `janus-cli` generates this correctly in dist-scalprum; earlier manual deployment missed it |
+| Missing plugin-manifest.json | `Could not find 'dist-scalprum/plugin-manifest.json'` | `rhdh-cli` generates this correctly in dist-scalprum; earlier manual deployment missed it |
 | No integrity hash | `InstallException: No integrity hash provided` | Compute SHA-512 hash and add `integrity:` field to override YAML |
 | Duplicate plugin registration | `Plugin 'compliance' is already registered` | Keep plugin sources OUTSIDE `dynamic-plugins-root/`; use a separate directory |
 | Missing migrations directory | `ENOENT: scandir '.../dist/database/migrations'` | Manually create JS migration files in extracted plugin |

@@ -25,7 +25,7 @@ import StorageIcon from '@material-ui/icons/Storage';
 import { complianceApiRef } from '../../api';
 import { scoreColor, STATUS_COLORS } from '../shared/colors';
 import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
-import type { DashboardStats } from '@aap-compliance/common';
+import type { DashboardStats } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   headerRow: {

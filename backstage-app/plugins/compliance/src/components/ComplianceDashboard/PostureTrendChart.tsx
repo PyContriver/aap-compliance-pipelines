@@ -17,7 +17,7 @@ import {
   Legend,
 } from 'recharts';
 import type { ComplianceApi } from '../../api';
-import type { ComplianceProfile, DashboardStats, PostureSnapshot, RemediationEvent } from '@aap-compliance/common';
+import type { ComplianceProfile, DashboardStats, PostureSnapshot, RemediationEvent } from '@aap-compliance/common/types';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import {
   detectEvents,

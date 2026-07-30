@@ -4,7 +4,7 @@ import { TestApiProvider } from '@backstage/test-utils';
 import { alertApiRef } from '@backstage/core-plugin-api';
 import { HostRiskHeatmapWidget } from './HostRiskHeatmapWidget';
 import { complianceApiRef } from '../../api';
-import type { HostRiskEntry } from '@aap-compliance/common';
+import type { HostRiskEntry } from '@aap-compliance/common/types';
 
 const mockAlertApi = { post: jest.fn() };
 const mockApi = {

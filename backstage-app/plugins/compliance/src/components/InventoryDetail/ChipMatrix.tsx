@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Chip, makeStyles } from '@material-ui/core';
-import type { HostPosture } from '@aap-compliance/common';
+import type { HostPosture } from '@aap-compliance/common/types';
 import { isOutlier, getChipStyle, findSectionGaps } from './hostUtils';
 import { STATUS_COLORS, THRESHOLDS } from '../shared/colors';
 import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';

@@ -19,7 +19,7 @@ import type {
   WorkflowNode,
   JobEvent,
   BaselineTarget,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 // ---------------------------------------------------------------------------
 // Sample mock data constants

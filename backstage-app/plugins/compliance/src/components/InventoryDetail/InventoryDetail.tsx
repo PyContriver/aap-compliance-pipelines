@@ -22,7 +22,7 @@ import AssessmentIcon from '@material-ui/icons/Assessment';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
-import type { DashboardStats, HostPostureResponse, ProfileDisplayConfig } from '@aap-compliance/common';
+import type { DashboardStats, HostPostureResponse, ProfileDisplayConfig } from '@aap-compliance/common/types';
 import { complianceApiRef } from '../../api';
 import { HostPostureView } from './HostPostureView';
 import { LaunchScanDialog } from './LaunchScanDialog';

@@ -18,7 +18,7 @@ import {
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { RemediationProfile, BaselineTarget } from '@aap-compliance/common';
+import type { RemediationProfile, BaselineTarget } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   helperText: {

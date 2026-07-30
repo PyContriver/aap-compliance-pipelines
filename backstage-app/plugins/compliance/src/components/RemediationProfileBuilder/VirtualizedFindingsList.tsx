@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { Box, Chip, Typography, makeStyles } from '@material-ui/core';
-import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common/types';
 import { FindingCard } from './FindingCard';
 import type { RuleSelection } from './FindingCard';
 

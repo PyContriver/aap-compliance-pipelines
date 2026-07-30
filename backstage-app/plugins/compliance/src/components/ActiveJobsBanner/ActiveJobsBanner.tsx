@@ -17,7 +17,7 @@ import CloseIcon from '@material-ui/icons/Close';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import { formatElapsed } from '../shared/formatTime';
-import type { ComplianceScan, RemediationExecution } from '@aap-compliance/common';
+import type { ComplianceScan, RemediationExecution } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   root: {

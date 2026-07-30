@@ -3,7 +3,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { Progress } from '@backstage/core-components';
 import { Typography, Box } from '@material-ui/core';
 import { complianceApiRef } from '../../api';
-import type { ComplianceProfile, MultiHostFinding, ProfileTabDataResponse, TabConfig } from '@aap-compliance/common';
+import type { ComplianceProfile, MultiHostFinding, ProfileTabDataResponse, TabConfig } from '@aap-compliance/common/types';
 import { useDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';
 import {
   SummaryCardWidget,

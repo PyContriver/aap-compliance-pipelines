@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Box, Paper, makeStyles } from '@material-ui/core';
-import type { TabWidget } from '@aap-compliance/common';
+import type { TabWidget } from '@aap-compliance/common/types';
 import { SEVERITY_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({

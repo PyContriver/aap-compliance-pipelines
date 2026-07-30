@@ -13,7 +13,7 @@
  *   - AAP layer: per-user AAP OAuth2 tokens are passed through to
  *     Controller API calls via x-aap-token header. AAP RBAC decides
  *     what inventories/JTs/credentials the user can access.
- *   - Development mode: compliance.authMode = 'development' marks all
+ *   - Development mode: ansible.compliance.authMode = 'development' marks all
  *     routes unauthenticated so ./bin/start.sh mock works without auth.
  */
 import * as path from 'path';
@@ -43,6 +43,13 @@ export const complianceBackendPlugin = createBackendPlugin({
       async init({ logger, config, httpRouter, database, httpAuth, permissions }) {
         logger.info('Initializing compliance backend plugin');
 
+        // ─── Enabled check (Plugin Factory requirement) ─────────
+        const enabled = config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
+        if (!enabled) {
+          logger.info('Compliance plugin disabled (ansible.compliance.enabled is false or absent)');
+          return;
+        }
+
         // ─── Auth mode ──────────────────────────────────────────
         //
         // 'development' (default): all routes unauthenticated — for
@@ -51,7 +58,7 @@ export const complianceBackendPlugin = createBackendPlugin({
         //   routes require Backstage auth. Mutating endpoints are
         //   additionally gated by catalogEntityCreatePermission via
         //   the permissions service in the router.
-        const authMode = config.getOptionalString('compliance.authMode') ?? 'production';
+        const authMode = config.getOptionalString('ansible.compliance.authMode') ?? 'production';
         logger.info(`Compliance auth mode: ${authMode}`);
 
         // ─── Database ───────────────────────────────────────────
@@ -77,7 +84,7 @@ export const complianceBackendPlugin = createBackendPlugin({
         const complianceDb = new ComplianceDatabase(dbClient);
 
         // ─── Data retention cleanup ────────────────────────────
-        const retentionDays = config.getOptionalNumber('compliance.retentionDays') ?? 90;
+        const retentionDays = config.getOptionalNumber('ansible.compliance.retentionDays') ?? 90;
         try {
           const cleanedUp = await complianceDb.cleanupOldFindings(retentionDays);
           if (cleanedUp > 0) {

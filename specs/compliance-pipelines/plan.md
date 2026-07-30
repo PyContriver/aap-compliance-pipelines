@@ -670,7 +670,7 @@ Browser → Portal Frontend → Portal Backend → AAP Gateway
 | 1 | Tests for `ChainView.tsx` (21 tests) | Done |
 | 2 | Tests for `InventoriesList.tsx` (16 tests) | Done |
 | 3 | Tests for `FindingsParser.ts` (43 tests) | Done |
-| 4 | CLI aligned: `rhdh-cli` → `janus-cli` (`@janus-idp/cli`) | Done |
+| 4 | CLI aligned: `@red-hat-developer-hub/cli` (`rhdh-cli`) | Done |
 | 5 | Inventory table redesign (sub-rows, 5 columns, baseline rate) | Done |
 | 6 | Inventory detail: Scan Now button + LaunchScanDialog | Done |
 | 7 | Clickable score cards → authoritative scan results | Done |

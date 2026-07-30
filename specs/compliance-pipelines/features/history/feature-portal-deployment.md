@@ -23,7 +23,7 @@ Package plugins using `@red-hat-developer-hub/cli` (rhdh-cli) matching the `ansi
 ## Implementation Summary
 
 - Export-dynamic packaging: `yarn workspace @aap-compliance/plugin-compliance-backend export-dynamic` and frontend equivalent
-- Registration configs: `plugins/*/app-config.janus-idp.yaml`
+- Registration configs: `plugins/*/app-config.rhdh.yaml`
 - PostgreSQL compatibility fixes: timestamp serialization, migration compatibility
 - Multiple deployment iterations on netrunner (v0.1.0 through v0.4.0)
 - Express body parser limit increased to 50MB for Direct POST payloads

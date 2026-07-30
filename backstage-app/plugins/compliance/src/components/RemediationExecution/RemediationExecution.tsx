@@ -38,7 +38,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
 import { formatElapsed } from '../shared/formatTime';
 import { STATUS_COLORS } from '../shared/colors';
-import type { JobEvent, MultiHostFinding, RemediationSelection, RemediationExecutionStatus } from '@aap-compliance/common';
+import type { JobEvent, MultiHostFinding, RemediationSelection, RemediationExecutionStatus } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   progressSection: {

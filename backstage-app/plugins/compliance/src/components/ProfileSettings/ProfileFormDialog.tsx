@@ -24,8 +24,8 @@ import type {
   ComplianceProfile,
   SaveProfileRequest,
   CertificationStatus,
-} from '@aap-compliance/common';
-import { FRAMEWORK_OPTIONS } from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
+import { FRAMEWORK_OPTIONS } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   formField: {

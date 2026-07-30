@@ -107,7 +107,7 @@ By default the plugin runs in **mock mode** with sample compliance data — no A
 
 ## Data Modes: Mock vs Live
 
-The plugin supports two data modes controlled by `compliance.dataSource` in `app-config.yaml`:
+The plugin supports two data modes controlled by `ansible.compliance.dataSource` in `app-config.yaml`:
 
 ### Mock Mode (default)
 
@@ -115,8 +115,10 @@ Mock mode uses built-in sample data. No AAP instance needed.
 
 ```yaml
 # app-config.yaml
-compliance:
-  dataSource: mock
+ansible:
+  compliance:
+    enabled: true
+    dataSource: mock
 ```
 
 This is the default. The plugin shows:
@@ -165,8 +167,9 @@ GITHUB_INTEGRATION_TOKEN=
 Edit `app-config.yaml` and change the data source:
 
 ```yaml
-compliance:
-  dataSource: live    # Change from 'mock' to 'live'
+ansible:
+  compliance:
+    dataSource: live    # Change from 'mock' to 'live'
 ```
 
 #### Step 3: Handle self-signed certificates (if needed)
@@ -201,8 +204,9 @@ The plugin will now:
 To return to mock mode (e.g., for a demo), simply change `app-config.yaml`:
 
 ```yaml
-compliance:
-  dataSource: mock    # Change back to 'mock'
+ansible:
+  compliance:
+    dataSource: mock    # Change back to 'mock'
 ```
 
 Restart the server. No `.env` changes needed — mock mode ignores AAP credentials.
@@ -225,7 +229,10 @@ Restart the server. No `.env` changes needed — mock mode ignores AAP credentia
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
+| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (Plugin Factory requirement) |
+| `ansible.compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
+| `ansible.compliance.authMode` | `production` | Auth mode: `production` for RBAC, `development` for guest |
+| `ansible.compliance.retentionDays` | `90` | Days to retain scan findings before cleanup |
 | `ansible.rhaap.baseUrl` | `${AAP_HOST}` | AAP Controller URL (from .env) |
 | `ansible.rhaap.checkSSL` | `false` | Verify SSL certificates (set `true` in production) |
 
@@ -365,7 +372,7 @@ The pipeline has been validated end-to-end on AAP 2.6:
 
 Make sure you:
 1. Created `.env` with valid `AAP_HOST` and `AAP_API_TOKEN`
-2. Changed `compliance.dataSource` to `live` in `app-config.yaml`
+2. Changed `ansible.compliance.dataSource` to `live` in `app-config.yaml`
 3. Killed the old server (`lsof -ti:3000 | xargs kill -9`) and restarted with `yarn start`
 
 ### AAP connection errors in live mode

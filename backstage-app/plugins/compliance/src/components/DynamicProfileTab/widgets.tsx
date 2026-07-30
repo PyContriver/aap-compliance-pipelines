@@ -14,8 +14,8 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import { InfoCard } from '@backstage/core-components';
-import type { TabWidget, DisplayColumn } from '@aap-compliance/common';
-import type { MultiHostFinding } from '@aap-compliance/common';
+import type { TabWidget, DisplayColumn } from '@aap-compliance/common/types';
+import type { MultiHostFinding } from '@aap-compliance/common/types';
 import { SEVERITY_COLORS, SURFACE_COLORS, scoreColor } from '../shared/colors';
 import { TABLE_STYLES, CHIP_SIZES } from '../shared/chipStyles';
 

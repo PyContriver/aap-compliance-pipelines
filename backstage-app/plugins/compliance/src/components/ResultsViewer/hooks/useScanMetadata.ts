@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ScanCertification, ProfileDisplayConfig } from '@aap-compliance/common';
+import type { ScanCertification, ProfileDisplayConfig } from '@aap-compliance/common/types';
 import type { ComplianceApi } from '../../../api';
 
 export interface ScanMetadata {

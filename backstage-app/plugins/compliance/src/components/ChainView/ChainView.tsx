@@ -32,7 +32,7 @@ import ErrorIcon from '@material-ui/icons/Error';
 import { complianceApiRef } from '../../api';
 import { formatDuration } from '../shared/formatTime';
 import { STATUS_COLORS } from '../shared/colors';
-import type { ChainResponse } from '@aap-compliance/common';
+import type { ChainResponse } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   stepCard: {

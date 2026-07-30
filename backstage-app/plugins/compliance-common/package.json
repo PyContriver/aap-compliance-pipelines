@@ -11,6 +11,25 @@
     "module": "dist/index.esm.js",
     "types": "dist/index.d.ts"
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./findings": "./src/types/findings.ts",
+    "./profiles": "./src/types/profiles.ts",
+    "./display": "./src/types/display.ts",
+    "./lifecycle": "./src/types/lifecycle.ts",
+    "./api": "./src/types/api.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "types": ["src/types/index.ts"],
+      "findings": ["src/types/findings.ts"],
+      "profiles": ["src/types/profiles.ts"],
+      "display": ["src/types/display.ts"],
+      "lifecycle": ["src/types/lifecycle.ts"],
+      "api": ["src/types/api.ts"]
+    }
+  },
   "backstage": {
     "role": "common-library"
   },

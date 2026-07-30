@@ -11,7 +11,7 @@ import { useApi } from '@backstage/core-plugin-api';
 
 const DynamicTabRefreshContext = createContext<(() => void) | undefined>(undefined);
 export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
-import { Typography, Box, Button } from '@material-ui/core';
+import { Typography, Box, Button, Chip, makeStyles } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
 import { ScanLauncher } from './ScanLauncher';
@@ -27,7 +27,8 @@ import { InventoryDetail } from './InventoryDetail';
 import { ActiveJobsBanner } from './ActiveJobsBanner';
 import { DynamicProfileTab } from './DynamicProfileTab';
 import { complianceApiRef } from '../api';
-import type { ComplianceProfile } from '@aap-compliance/common';
+import { useComplianceEnabled } from '../hooks/useComplianceEnabled';
+import type { ComplianceProfile } from '@aap-compliance/common/types';
 
 /**
  * Error boundary for the Compliance tab.
@@ -97,7 +98,14 @@ interface DynamicTabEntry {
   profile: ComplianceProfile;
 }
 
-const ComplianceRouter = () => {
+const useStyles = makeStyles({
+  previewChip: {
+    verticalAlign: 'middle',
+  },
+});
+
+const ComplianceRouterInner = () => {
+  const classes = useStyles();
   const navigate = useNavigate();
   const location = useLocation();
   const api = useApi(complianceApiRef);
@@ -167,7 +175,12 @@ const ComplianceRouter = () => {
       <Page themeId="app">
         <Header
           title="Compliance"
-          subtitle="Scan, review, and remediate infrastructure compliance"
+          subtitle={
+            <Box display="inline-flex" alignItems="center" style={{ gap: 8 }}>
+              <span>Scan, review, and remediate infrastructure compliance</span>
+              <Chip label="Preview" size="small" variant="outlined" className={classes.previewChip} />
+            </Box>
+          }
           style={{ background: 'inherit' }}
         />
         <HeaderTabs
@@ -213,6 +226,12 @@ const ComplianceRouter = () => {
       <ActiveJobsBanner />
     </DynamicTabRefreshContext.Provider>
   );
+};
+
+const ComplianceRouter = () => {
+  const enabled = useComplianceEnabled();
+  if (!enabled) return null;
+  return <ComplianceRouterInner />;
 };
 
 export { ComplianceRouter };

@@ -1,5 +1,5 @@
 import { detectEvents, buildMultiProfileSeries, buildFilteredSeries } from './trendUtils';
-import type { PostureSnapshot } from '@aap-compliance/common';
+import type { PostureSnapshot } from '@aap-compliance/common/types';
 
 function snap(overrides: Partial<PostureSnapshot> & { compliancePct: number; timestamp: string }): PostureSnapshot {
   return {

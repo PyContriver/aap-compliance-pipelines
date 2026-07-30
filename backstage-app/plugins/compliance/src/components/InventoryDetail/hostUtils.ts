@@ -1,4 +1,4 @@
-import type { HostPosture } from '@aap-compliance/common';
+import type { HostPosture } from '@aap-compliance/common/types';
 import { STATUS_COLORS, THRESHOLDS } from '../shared/colors';
 
 export interface Cluster {

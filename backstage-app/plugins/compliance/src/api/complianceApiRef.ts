@@ -32,7 +32,7 @@ import type {
   RemediationEvent,
   HostPostureResponse,
   HostFindingsResponse,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 /** Interface for the compliance backend API. */
 export interface ComplianceApi {

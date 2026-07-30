@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Typography, ButtonGroup, Button, makeStyles } from '@material-ui/core';
-import type { HostPosture } from '@aap-compliance/common';
+import type { HostPosture } from '@aap-compliance/common/types';
 import { computeClusters, CHIP_THRESHOLD, type Cluster } from './hostUtils';
 import { StripPlot } from './StripPlot';
 import { ChipMatrix } from './ChipMatrix';

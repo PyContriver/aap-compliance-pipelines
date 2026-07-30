@@ -17,7 +17,7 @@ import WarningIcon from '@material-ui/icons/Warning';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import CancelIcon from '@material-ui/icons/Cancel';
-import type { HostPosture, HostFindingSummary } from '@aap-compliance/common';
+import type { HostPosture, HostFindingSummary } from '@aap-compliance/common/types';
 import { isOutlier } from './hostUtils';
 import { scoreColor, SEVERITY_COLORS, STATUS_COLORS, SURFACE_COLORS } from '../shared/colors';
 import { complianceApiRef } from '../../api';

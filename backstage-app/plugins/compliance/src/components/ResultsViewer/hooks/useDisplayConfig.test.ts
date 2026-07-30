@@ -1,5 +1,5 @@
 import { useDisplayConfig } from './useDisplayConfig';
-import type { ProfileDisplayConfig } from '@aap-compliance/common';
+import type { ProfileDisplayConfig } from '@aap-compliance/common/types';
 
 describe('useDisplayConfig (unit — no React render)', () => {
   // useDisplayConfig is a pure memoized function internally.

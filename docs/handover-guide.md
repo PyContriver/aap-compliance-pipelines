@@ -27,7 +27,7 @@ This plugin was built to match the patterns in `ansible-backstage-plugins` (the 
 | Portal components | `Page`, `Header`, `Content`, `InfoCard` | Same | Standard Portal wrappers |
 | API client | `createApiRef` + class, `discoveryApi.getBaseUrl()` | Same | Uses `fetchApi.fetch()` |
 | Tables | `Table`/`TableHead`/`TableBody`/`TableRow`/`TableCell` | Same | We add `Paper variant="outlined"` and `TABLE_STYLES` for consistent headers |
-| Dynamic plugin export | `@janus-idp/cli` (`janus-cli`) | Same | `app-config.janus-idp.yaml` for registration |
+| Dynamic plugin export | `@red-hat-developer-hub/cli` (`rhdh-cli`) | Same | `app-config.rhdh.yaml` for registration |
 | TypeScript config | Extends `@backstage/cli/config/tsconfig.json` | Same | `skipLibCheck: true` |
 | Testing | Jest + `@testing-library/react` + `@backstage/test-utils` | Same | 24 suites, 626 backend/frontend tests + 127 collection unit tests |
 
@@ -181,7 +181,7 @@ cd plugins/compliance-backend/dist-dynamic && npm pack
 cd plugins/compliance/dist-dynamic && npm pack
 ```
 
-Registration config: `plugins/*/app-config.janus-idp.yaml`
+Registration config: `plugins/*/app-config.rhdh.yaml`
 
 ### Deployment
 
@@ -248,4 +248,4 @@ The inventory detail page reads `?profileId=` from the URL to pre-select the cor
 - **Rate limiting**: 30 req/min on `/findings/ingest`
 - **Input validation**: Body size (50MB — raised from 10MB because fix_text enrichment produces large payloads), finding count (50K), parameterized SQL queries throughout
 - **No XSS**: Zero `dangerouslySetInnerHTML` usage
-- **Auth mode**: Default is `production` (enforces RBAC). Development mode (`compliance.authMode: development`) must be set explicitly in `app-config.local.yaml`
+- **Auth mode**: Default is `production` (enforces RBAC). Development mode (`ansible.compliance.authMode: development`) must be set explicitly in `app-config.local.yaml`

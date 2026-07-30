@@ -17,6 +17,7 @@
       "@aap-compliance/plugin-compliance-backend"
     ]
   },
+  "configSchema": "config.d.ts",
   "dependencies": {
     "@aap-compliance/common": "workspace:^",
     "@backstage/backend-defaults": "^0.14.2",
@@ -42,7 +43,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "npx janus-cli package export-dynamic-plugin --no-install --embed-package @aap-compliance/common"
+    "export-dynamic": "npx rhdh-cli plugin export --no-install --embed-package @aap-compliance/common"
   },
   "files": [
     "dist",

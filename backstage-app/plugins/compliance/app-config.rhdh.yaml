@@ -1,10 +1,14 @@
 ---
 dynamicPlugins:
   frontend:
-    aap-compliance-plugin-compliance:
+    aap-compliance.plugin-compliance:
       dynamicRoutes:
         - importName: CompliancePage
           path: /compliance/*
           menuItem:
             icon: security
             text: Compliance
+      pluginConfig:
+        ansible:
+          compliance:
+            enabled: true

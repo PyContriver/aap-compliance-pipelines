@@ -45,17 +45,22 @@ The compliance plugin reads its configuration from the portal `app-config.yaml` 
 |Required or optional
 |Default
 
-|`compliance.dataSource`
+|`ansible.compliance.enabled`
+|Enables or disables the compliance plugin entirely. When `false` or absent, both backend routes and frontend UI render nothing (ADR-011 zero-footprint).
+|Required
+|`false`
+
+|`ansible.compliance.dataSource`
 |Determines the data source mode for the compliance plugin. Set to `live` to connect to a real {PlatformNameShort} instance.
 |Optional
 |`live`
 
-|`compliance.retentionDays`
+|`ansible.compliance.retentionDays`
 |Number of days to retain scan findings before automatic cleanup. Findings older than this threshold are deleted on plugin startup. Scan records (metadata) are preserved for history. Can also be adjusted at runtime from the *Settings* tab.
 |Optional
 |`90`
 
-|`compliance.authMode`
+|`ansible.compliance.authMode`
 |Controls how the plugin enforces authentication and authorization. Set to `production` for full RBAC enforcement via portal permissions and AAP token pass-through.
 |Optional
 |`production`
@@ -63,7 +68,7 @@ The compliance plugin reads its configuration from the portal `app-config.yaml` 
 
 === RBAC permissions
 
-When `compliance.authMode` is set to `production`, the compliance plugin enforces a two-tier permission model following the self-service plugin pattern.
+When `ansible.compliance.authMode` is set to `production`, the compliance plugin enforces a two-tier permission model following the self-service plugin pattern.
 
 [cols="2,3,2", options="header"]
 |===

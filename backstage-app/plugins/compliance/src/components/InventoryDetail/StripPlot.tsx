@@ -12,7 +12,7 @@ import {
   ReferenceArea,
   Customized,
 } from 'recharts';
-import type { HostPosture } from '@aap-compliance/common';
+import type { HostPosture } from '@aap-compliance/common/types';
 import { hostColor, type Cluster } from './hostUtils';
 import { STATUS_COLORS } from '../shared/colors';
 import type { ResolvedDisplayConfig } from '../ResultsViewer/hooks/useDisplayConfig';

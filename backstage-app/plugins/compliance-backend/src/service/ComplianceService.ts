@@ -1,7 +1,7 @@
 /**
  * Core compliance service — the single entry point for all compliance operations.
  *
- * Checks `compliance.dataSource` in app-config.yaml:
+ * Checks `ansible.compliance.dataSource` in app-config.yaml:
  * - 'mock' (default) → returns mock data, no AAP connection needed
  * - 'live'           → calls Controller API via ControllerClient
  *
@@ -61,7 +61,7 @@ export class ComplianceService {
     this.logger = logger;
 
     // Read the toggle flag — default to 'mock' for safe demos
-    const rawSource = config.getOptionalString('compliance.dataSource') ?? 'mock';
+    const rawSource = config.getOptionalString('ansible.compliance.dataSource') ?? 'mock';
     this.dataSource = rawSource === 'live' ? 'live' : 'mock';
 
     this.logger.info(
@@ -77,7 +77,7 @@ export class ComplianceService {
 
       if (!baseUrl || !token) {
         throw new Error(
-          'compliance.dataSource is "live" but ansible.rhaap.baseUrl / ansible.rhaap.token are not configured',
+          'ansible.compliance.dataSource is "live" but ansible.rhaap.baseUrl / ansible.rhaap.token are not configured',
         );
       }
 
@@ -227,7 +227,7 @@ export class ComplianceService {
     // backstage_api_url and scan_id enable the playbook to POST findings
     // directly to the plugin API after normalization (Direct POST pattern).
     const backstageUrl = this.config?.getOptionalString('backend.baseUrl') || '';
-    const pahRegistry = this.config?.getOptionalString('compliance.pahRegistry')
+    const pahRegistry = this.config?.getOptionalString('ansible.compliance.pahRegistry')
       || process.env.AAP_HOST_URL?.replace(/^https?:\/\//, '') || '';
     const extraVars: Record<string, unknown> = {
       compliance_profile: request.profileId,

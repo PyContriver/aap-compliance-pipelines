@@ -110,17 +110,28 @@ This produces:
 - `plugins/compliance-backend/dist-dynamic/` -- backend dynamic plugin
 - `plugins/compliance/dist-scalprum/` -- frontend dynamic plugin (Scalprum format)
 
+### Migrating from pre-v0.5.0 deployments
+
+If you have an existing deployment that used the hyphen-separated Scalprum package names, update your `dynamic-plugins.override.yaml` to use dot-separated names:
+
+| Before | After |
+|--------|-------|
+| `aap-compliance-plugin-compliance` | `aap-compliance.plugin-compliance` |
+| `aap-compliance-plugin-compliance-backend` | `aap-compliance.plugin-compliance-backend` |
+
+The old hyphen-separated names will not resolve after upgrading. Update both `dynamicPlugins.frontend` and `dynamicPlugins.backend` keys.
+
 ### Installing in RHDH
 
 1. Copy the exported plugin directories to your RHDH dynamic plugins directory
-2. Merge the `app-config.janus-idp.yaml` from each plugin into your RHDH app-config
+2. Merge the `app-config.rhdh.yaml` from each plugin into your RHDH app-config
 
-**Frontend registration** (`plugins/compliance/app-config.janus-idp.yaml`):
+**Frontend registration** (`plugins/compliance/app-config.rhdh.yaml`):
 
 ```yaml
 dynamicPlugins:
   frontend:
-    aap-compliance-plugin-compliance:
+    aap-compliance.plugin-compliance:
       dynamicRoutes:
         - importName: CompliancePage
           path: /compliance
@@ -129,12 +140,12 @@ dynamicPlugins:
             text: Compliance
 ```
 
-**Backend registration** (`plugins/compliance-backend/app-config.janus-idp.yaml`):
+**Backend registration** (`plugins/compliance-backend/app-config.rhdh.yaml`):
 
 ```yaml
 dynamicPlugins:
   backend:
-    aap-compliance-plugin-compliance-backend: {}
+    aap-compliance.plugin-compliance-backend: {}
 ```
 
 ### Required RHDH Configuration
@@ -142,11 +153,11 @@ dynamicPlugins:
 Add the compliance plugin settings to your RHDH app-config:
 
 ```yaml
-compliance:
-  dataSource: live
-  retentionDays: 90
-
 ansible:
+  compliance:
+    enabled: true
+    dataSource: live
+    retentionDays: 90
   rhaap:
     baseUrl: https://your-aap-gateway.example.com
     checkSSL: true
@@ -203,9 +214,10 @@ After provisioning, verify the settings in the AAP Controller UI:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
-| `compliance.authMode` | `production` | Auth mode: `production` enforces RBAC, `development` allows guest access |
-| `compliance.retentionDays` | `90` | Days to retain scan findings before cleanup |
+| `ansible.compliance.enabled` | `false` | Enable/disable the compliance plugin (Plugin Factory requirement) |
+| `ansible.compliance.dataSource` | `mock` | Data source: `mock` for sample data, `live` for real AAP |
+| `ansible.compliance.authMode` | `production` | Auth mode: `production` enforces RBAC, `development` allows guest access |
+| `ansible.compliance.retentionDays` | `90` | Days to retain scan findings before cleanup |
 | `ansible.rhaap.baseUrl` | -- | AAP Platform Gateway URL |
 | `ansible.rhaap.checkSSL` | `true` | Verify SSL certificates (set `false` only for self-signed certs in dev) |
 | `ansible.rhaap.token` | -- | AAP API token for backend calls |
@@ -224,7 +236,7 @@ After provisioning, verify the settings in the AAP Controller UI:
 
 ### Auth Mode
 
-The Compliance Dashboard defaults to **production auth mode** (`compliance.authMode: production`), which enforces RBAC on all API routes. For local development, set `compliance.authMode: development` in your `app-config.local.yaml` to enable guest access.
+The Compliance Dashboard defaults to **production auth mode** (`ansible.compliance.authMode: production`), which enforces RBAC on all API routes. For local development, set `ansible.compliance.authMode: development` in your `app-config.local.yaml` to enable guest access.
 
 ### Development (Local)
 
@@ -232,8 +244,10 @@ For local development, configure guest authentication and development auth mode:
 
 ```yaml
 # app-config.local.yaml
-compliance:
-  authMode: development
+ansible:
+  compliance:
+    enabled: true
+    authMode: development
 
 auth:
   providers:

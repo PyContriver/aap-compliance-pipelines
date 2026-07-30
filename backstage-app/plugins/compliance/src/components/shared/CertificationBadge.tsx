@@ -1,6 +1,6 @@
 import React from 'react';
 import { Chip, ChipProps } from '@material-ui/core';
-import type { ScanCertification, CertificationStatus } from '@aap-compliance/common';
+import type { ScanCertification, CertificationStatus } from '@aap-compliance/common/types';
 import { STATUS_COLORS } from './colors';
 
 const COLORS: Record<CertificationStatus, string> = {

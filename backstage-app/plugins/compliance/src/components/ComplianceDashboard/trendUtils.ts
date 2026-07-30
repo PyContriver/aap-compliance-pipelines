@@ -1,4 +1,4 @@
-import type { PostureSnapshot } from '@aap-compliance/common';
+import type { PostureSnapshot } from '@aap-compliance/common/types';
 
 export type EventType = 'normal' | 'regression' | 'improvement';
 

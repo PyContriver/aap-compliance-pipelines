@@ -32,7 +32,7 @@ This matches downstream patterns exactly -- no custom permissions to maintain.
 - Backend: `getUserAapToken(req)` extracts `x-aap-token` header for Controller API calls
 - Backend: `coreServices.httpAuth` + `coreServices.permissions` on mutating endpoints
 - Frontend: `usePermission()` gates on mutating actions (scan, remediate, configure)
-- Config: `compliance.authMode` setting for dev vs production mode
+- Config: `ansible.compliance.authMode` setting for dev vs production mode
 - RBAC deep dive report documenting downstream analysis (`docs/`)
 - Permission dependencies and deployment docs for Portal integration
 

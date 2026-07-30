@@ -16,7 +16,7 @@ import {
 } from '@material-ui/core';
 import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
-import type { HostRiskEntry, TabWidget } from '@aap-compliance/common';
+import type { HostRiskEntry, TabWidget } from '@aap-compliance/common/types';
 import { complianceApiRef } from '../../api';
 import { TABLE_STYLES } from '../shared/chipStyles';
 import { STATUS_COLORS } from '../shared/colors';

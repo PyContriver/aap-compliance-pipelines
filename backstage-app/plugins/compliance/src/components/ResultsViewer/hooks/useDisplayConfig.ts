@@ -4,7 +4,7 @@ import type {
   DisplayColumn,
   SeverityMap,
   ScoreFormula,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 const DEFAULT_COLUMNS: DisplayColumn[] = [
   { field: 'rule_id', label: 'Rule ID' },
