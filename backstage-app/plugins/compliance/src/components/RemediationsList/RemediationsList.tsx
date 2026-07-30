@@ -61,7 +61,7 @@ import type {
   RemediationExecutionStatus,
   AuthoritativeScanResponse,
   BaselineTarget,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 type StatusFilter = 'active' | 'all' | 'draft' | 'archived';
 

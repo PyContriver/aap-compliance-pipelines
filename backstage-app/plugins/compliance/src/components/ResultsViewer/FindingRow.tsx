@@ -20,7 +20,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
-import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common/types';
 import { SEVERITY_COLORS, STATUS_COLORS, FINDING_STATE_COLORS } from '../shared/colors';
 import { CHIP_SIZES, TABLE_STYLES } from '../shared/chipStyles';
 

@@ -66,7 +66,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-import type { ComplianceProfile, PlatformValidationResult } from '@aap-compliance/common';
+import type { ComplianceProfile, PlatformValidationResult } from '@aap-compliance/common/types';
 import { CertificationBadge } from '../shared/CertificationBadge';
 
 interface ProfileOption {

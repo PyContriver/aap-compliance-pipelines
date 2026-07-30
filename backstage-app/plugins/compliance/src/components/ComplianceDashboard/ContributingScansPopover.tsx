@@ -4,7 +4,7 @@ import {
   Popover, Typography, List, ListItem, ListItemText, Divider, IconButton, Tooltip, Box, makeStyles,
 } from '@material-ui/core';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
-import type { ContributingScan } from '@aap-compliance/common';
+import type { ContributingScan } from '@aap-compliance/common/types';
 import { scoreColor } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({

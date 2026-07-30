@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Typography, Tooltip, IconButton, makeStyles } from '@material-ui/core';
 import BookmarkIcon from '@material-ui/icons/Bookmark';
 import BookmarkBorderIcon from '@material-ui/icons/BookmarkBorder';
-import type { InventoryPosture, BaselineTarget } from '@aap-compliance/common';
+import type { InventoryPosture, BaselineTarget } from '@aap-compliance/common/types';
 import { ComplianceGauge, getColor } from './ComplianceGauge';
 import { PinBaselineDialog } from './PinBaselineDialog';
 import { STATUS_COLORS } from '../shared/colors';

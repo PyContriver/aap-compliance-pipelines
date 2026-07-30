@@ -39,7 +39,7 @@ import { PostureTrendChart } from './PostureTrendChart';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { scoreColor, STATUS_COLORS, THRESHOLDS } from '../shared/colors';
-import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common';
+import type { DashboardStats, PostureSnapshot, ComplianceProfile, BaselineTarget } from '@aap-compliance/common/types';
 
 const useStyles = makeStyles(theme => ({
   section: {

@@ -43,7 +43,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import ListIcon from '@material-ui/icons/List';
-import type { MultiHostFinding } from '@aap-compliance/common';
+import type { MultiHostFinding } from '@aap-compliance/common/types';
 import { complianceApiRef } from '../../api';
 import { CertificationBadge } from '../shared/CertificationBadge';
 import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';

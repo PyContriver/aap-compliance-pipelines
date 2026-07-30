@@ -3,7 +3,7 @@ import type {
   BaselineTarget,
   RemediationProfile,
   AuthoritativeScanResponse,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 import type { ComplianceApi } from '../../../api';
 
 export interface BaselineState {

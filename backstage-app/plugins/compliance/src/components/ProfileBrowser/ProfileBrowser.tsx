@@ -26,7 +26,7 @@ import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import PolicyIcon from '@material-ui/icons/Policy';
 import { useApi } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { ComplianceProfile } from '@aap-compliance/common';
+import type { ComplianceProfile } from '@aap-compliance/common/types';
 import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({

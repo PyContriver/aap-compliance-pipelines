@@ -29,7 +29,7 @@ import type {
   ProfileDisplayConfig,
   ExportFormatSpec,
   ScanArtifact,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 interface ExportButtonProps {
   findings: MultiHostFinding[];

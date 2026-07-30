@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding } from '@aap-compliance/common/types';
 
 const severityOrder: Record<FindingSeverity, number> = {
   CAT_I: 0,

@@ -18,7 +18,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import WarningIcon from '@material-ui/icons/Warning';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import SaveIcon from '@material-ui/icons/Save';
-import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common';
+import type { FindingSeverity, FindingState, MultiHostFinding, RemediationProfile } from '@aap-compliance/common/types';
 import { complianceApiRef } from '../../api';
 import { FilterGroup } from '../ResultsViewer/FilterGroup';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';

@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { ChainView } from './ChainView';
 import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
-import type { ChainResponse } from '@aap-compliance/common';
+import type { ChainResponse } from '@aap-compliance/common/types';
 
 const mockNavigate = jest.fn();
 const mockUseParams = jest.fn().mockReturnValue({ executionId: 'exec-abc123' });

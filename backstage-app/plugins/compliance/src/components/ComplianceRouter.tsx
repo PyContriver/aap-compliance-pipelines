@@ -28,7 +28,7 @@ import { ActiveJobsBanner } from './ActiveJobsBanner';
 import { DynamicProfileTab } from './DynamicProfileTab';
 import { complianceApiRef } from '../api';
 import { useComplianceEnabled } from '../hooks/useComplianceEnabled';
-import type { ComplianceProfile } from '@aap-compliance/common';
+import type { ComplianceProfile } from '@aap-compliance/common/types';
 
 /**
  * Error boundary for the Compliance tab.

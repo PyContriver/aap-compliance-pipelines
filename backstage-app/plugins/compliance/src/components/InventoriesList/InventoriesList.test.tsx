@@ -7,7 +7,7 @@ import {
   createMockComplianceApi,
   MOCK_DASHBOARD_STATS,
 } from '../../__testutils__/mockComplianceApi';
-import type { DashboardStats } from '@aap-compliance/common';
+import type { DashboardStats } from '@aap-compliance/common/types';
 
 const mockNavigate = jest.fn();
 

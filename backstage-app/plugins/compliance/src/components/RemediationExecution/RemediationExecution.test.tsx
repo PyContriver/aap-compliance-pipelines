@@ -13,7 +13,7 @@ import type { RuleGroup } from './RemediationExecution';
 import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
 import type { ComplianceApi } from '../../api';
-import type { JobEvent, MultiHostFinding, RemediationSelection } from '@aap-compliance/common';
+import type { JobEvent, MultiHostFinding, RemediationSelection } from '@aap-compliance/common/types';
 
 const mockUseParams = jest.fn().mockReturnValue({ jobId: '99' });
 const mockUseSearchParams = jest.fn().mockReturnValue([new URLSearchParams(), jest.fn()]);

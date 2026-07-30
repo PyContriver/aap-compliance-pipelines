@@ -1,5 +1,5 @@
 import { computeClusters, isOutlier, hostColor, CHIP_THRESHOLD } from './hostUtils';
-import type { HostPosture } from '@aap-compliance/common';
+import type { HostPosture } from '@aap-compliance/common/types';
 
 function host(pct: number, catI = 0): HostPosture {
   return {

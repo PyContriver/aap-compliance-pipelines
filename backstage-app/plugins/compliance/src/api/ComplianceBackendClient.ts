@@ -35,7 +35,7 @@ import type {
   PlatformValidationResult,
   AuthoritativeScanResponse,
   BaselineTarget,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import type { ComplianceApi } from './complianceApiRef';

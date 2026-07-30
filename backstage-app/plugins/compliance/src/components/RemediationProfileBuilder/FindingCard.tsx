@@ -7,7 +7,7 @@ import {
 import SettingsIcon from '@material-ui/icons/Settings';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import InfoIcon from '@material-ui/icons/Info';
-import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common';
+import type { FindingSeverity, MultiHostFinding } from '@aap-compliance/common/types';
 import { STATUS_COLORS } from '../shared/colors';
 
 type RemediationScope = 'failed_only' | 'standardize_all';

@@ -24,7 +24,7 @@ import {
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import Alert from '@material-ui/lab/Alert';
-import type { TabWidget, ComplianceProfile } from '@aap-compliance/common';
+import type { TabWidget, ComplianceProfile } from '@aap-compliance/common/types';
 import { complianceApiRef } from '../../api';
 import { SEVERITY_COLORS, SURFACE_COLORS } from '../shared/colors';
 import { TABLE_STYLES } from '../shared/chipStyles';

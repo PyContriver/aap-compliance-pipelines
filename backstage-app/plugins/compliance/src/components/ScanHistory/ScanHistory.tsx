@@ -53,7 +53,7 @@ import type {
   RemediationExecution,
   ProfileDisplayConfig,
   ScoreFormula,
-} from '@aap-compliance/common';
+} from '@aap-compliance/common/types';
 import { ScanProgress } from '../ScanProgress';
 
 function computeGroupScore(pass: number, fail: number, total: number, formula?: ScoreFormula, scanMeta?: { totalScannedPackages?: number; totalVulnerablePackages?: number }): number {

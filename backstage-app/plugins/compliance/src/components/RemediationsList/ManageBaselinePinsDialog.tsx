@@ -15,7 +15,7 @@ import {
 } from '@material-ui/core';
 import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { complianceApiRef } from '../../api';
-import type { BaselineTarget } from '@aap-compliance/common';
+import type { BaselineTarget } from '@aap-compliance/common/types';
 import { EXECUTION_COLORS } from '../shared/colors';
 
 const useStyles = makeStyles(theme => ({
