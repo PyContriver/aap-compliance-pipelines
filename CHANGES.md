@@ -151,10 +151,18 @@ Historical review files (`review/*.md`) were left untouched.
 | `enabled: false` / absent → 404 + blank | Verified (zero footprint) |
 | Scalprum chunk loading | `aap-compliance.plugin-compliance` chunks served (304) |
 
+## 9. Frontend subpath imports
+
+All frontend imports migrated from barrel `@aap-compliance/common` to
+`@aap-compliance/common/types` subpath. The common library now declares
+`exports` and `typesVersions` in `package.json` with granular subpaths
+(`/types`, `/findings`, `/profiles`, `/display`, `/lifecycle`, `/api`).
+
+Backend imports remain barrel (`@aap-compliance/common`) — the backend
+dynamic plugin bundles the full common library via `--embed-package`, so
+tree-shaking does not apply.
+
 ## Not changed
 
-- **Common library subpath imports**: `@aap-compliance/common` only exports types
-  and one const — no backend-only modules. Barrel imports are safe for Rspack.
-  Subpath migration would touch ~50 imports for no functional benefit.
 - **Historical review files**: `review/architect-review-*.md` left as-is since
   they are point-in-time records.
