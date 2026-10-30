@@ -34,7 +34,7 @@ additional_build_steps:
     # Pin Syft and Grype versions for reproducible builds.
     # Update these when upgrading scanner versions.
     - ENV SYFT_VERSION=1.20.0
-    - ENV GRYPE_VERSION=0.90.0
+    - ENV GRYPE_VERSION=0.92.0
     # Install Syft — SBOM generation
     - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin syft
     # Install Grype — vulnerability matching
