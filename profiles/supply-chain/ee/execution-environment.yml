@@ -49,6 +49,9 @@ additional_build_steps:
     - RUN grype version
     - RUN jq --version
     - RUN oras version
-    # Pre-cache the Grype vulnerability database so targets don't need internet.
-    # Grype runs on the execution node (not on targets), using this cached DB.
-    - RUN grype db update
+    # NOTE: grype db update is skipped at build time due to upstream bugs in
+    # the DB hydration step (UNIQUE constraint failures across 0.90–0.92).
+    # Grype will download the vulnerability DB on first scan instead.
+    # If the execution node has no internet, pre-cache manually:
+    #   grype db update && grype db list
+    # - RUN grype db update
