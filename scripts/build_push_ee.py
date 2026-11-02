@@ -187,10 +187,69 @@ def prepare_build_context(profile_dir, profile_name):
     return build_dir
 
 
-def build_image(build_dir, image_ref, runtime, platform=None):
+CENTOS_REPO_BLOCK = (
+    "RUN printf '"
+    "[centos9-baseos]\\n"
+    "name=CentOS 9 BaseOS\\n"
+    "baseurl=https://mirror.stream.centos.org/9-stream/BaseOS/$basearch/os/\\n"
+    "gpgcheck=0\\n"
+    "enabled=1\\n"
+    "[centos9-appstream]\\n"
+    "name=CentOS 9 AppStream\\n"
+    "baseurl=https://mirror.stream.centos.org/9-stream/AppStream/$basearch/os/\\n"
+    "gpgcheck=0\\n"
+    "enabled=1\\n"
+    "' > /etc/yum.repos.d/centos9.repo "
+    "&& sed -i 's/enabled=1/enabled=0/g' /etc/yum.repos.d/redhat.repo 2>/dev/null; "
+    "sed -i 's/enabled=1/enabled=0/g' /etc/yum.repos.d/ubi.repo 2>/dev/null; true"
+)
+
+
+def patch_containerfile_no_subscription(build_dir):
+    """Patch the generated Containerfile to use CentOS repos instead of RHEL.
+
+    This is a build-time-only workaround for environments without RHEL
+    subscription (local dev, CI without entitlement). The EE definitions
+    themselves remain unchanged and customer-ready for subscribed hosts.
+    """
+    context_dir = os.path.join(build_dir, 'context')
+    containerfile = os.path.join(context_dir, 'Containerfile')
+
+    if not os.path.exists(containerfile):
+        return
+
+    with open(containerfile, 'r') as f:
+        content = f.read()
+
+    lines = content.split('\n')
+    patched = []
+    injected_stages = set()
+
+    for line in lines:
+        # Inject CentOS repos after every FROM ... AS <stage> line,
+        # before any RUN that might hit microdnf
+        if line.strip().startswith('FROM ') and ' AS ' in line:
+            patched.append(line)
+            stage = line.strip().split(' AS ')[-1]
+            if stage not in injected_stages:
+                patched.append(CENTOS_REPO_BLOCK)
+                injected_stages.add(stage)
+        else:
+            patched.append(line)
+
+    with open(containerfile, 'w') as f:
+        f.write('\n'.join(patched))
+
+    print(f'  Patched Containerfile: disabled RHEL repos, enabled CentOS Stream ({len(injected_stages)} stages)')
+
+
+def build_image(build_dir, image_ref, runtime, platform=None, no_subscription=False):
     """Build the EE image using the container runtime."""
     context_dir = os.path.join(build_dir, 'context')
     containerfile = os.path.join(context_dir, 'Containerfile')
+
+    if no_subscription:
+        patch_containerfile_no_subscription(build_dir)
 
     cmd = [runtime, 'build', '-f', containerfile, '-t', image_ref]
 
@@ -316,6 +375,10 @@ def main():
         help='Skip post-build verification',
     )
     parser.add_argument(
+        '--no-subscription', action='store_true',
+        help='Patch builds to use CentOS Stream repos instead of RHEL (for dev/CI without RHEL subscription)',
+    )
+    parser.add_argument(
         '--keep-context', action='store_true',
         help='Keep temporary build context directories (for debugging)',
     )
@@ -382,7 +445,7 @@ def main():
         build_dirs.append(build_dir)
 
         # Build
-        success = build_image(build_dir, ref, runtime, platform=args.platform)
+        success = build_image(build_dir, ref, runtime, platform=args.platform, no_subscription=args.no_subscription)
         if not success:
             print(f'  BUILD FAILED for {profile_name}\n')
             results['failed'].append(profile_name)
