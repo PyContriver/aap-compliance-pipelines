@@ -100,13 +100,9 @@ def detect_runtime():
 def detect_platform():
     """Auto-detect if cross-build is needed.
 
-    AAP Controllers run on x86_64. If we're building on ARM (Apple Silicon),
-    we must cross-build for linux/amd64.
+    Returns None to build for the host's native architecture.
+    Override with --platform if the target Controller has a different arch.
     """
-    import platform
-    machine = platform.machine().lower()
-    if machine in ('arm64', 'aarch64'):
-        return 'linux/amd64'
     return None
 
 
@@ -188,7 +184,8 @@ def prepare_build_context(profile_dir, profile_name):
 
 
 CENTOS_REPO_BLOCK = (
-    "RUN printf '"
+    "RUN rm -f /etc/yum.repos.d/*.repo && "
+    "printf '"
     "[centos9-baseos]\\n"
     "name=CentOS 9 BaseOS\\n"
     "baseurl=https://mirror.stream.centos.org/9-stream/BaseOS/$basearch/os/\\n"
@@ -199,9 +196,7 @@ CENTOS_REPO_BLOCK = (
     "baseurl=https://mirror.stream.centos.org/9-stream/AppStream/$basearch/os/\\n"
     "gpgcheck=0\\n"
     "enabled=1\\n"
-    "' > /etc/yum.repos.d/centos9.repo "
-    "&& sed -i 's/enabled=1/enabled=0/g' /etc/yum.repos.d/redhat.repo 2>/dev/null; "
-    "sed -i 's/enabled=1/enabled=0/g' /etc/yum.repos.d/ubi.repo 2>/dev/null; true"
+    "' > /etc/yum.repos.d/centos9.repo"
 )
 
 
@@ -215,7 +210,14 @@ def patch_containerfile_no_subscription(build_dir):
     context_dir = os.path.join(build_dir, 'context')
     containerfile = os.path.join(context_dir, 'Containerfile')
 
+    print(f'  Checking for Containerfile at: {containerfile}')
     if not os.path.exists(containerfile):
+        print(f'  WARNING: Containerfile not found — patch skipped!')
+        # Try to find it elsewhere in the build dir
+        for root, dirs, files in os.walk(build_dir):
+            for f in files:
+                if f == 'Containerfile':
+                    print(f'  Found Containerfile at: {os.path.join(root, f)}')
         return
 
     with open(containerfile, 'r') as f:
@@ -243,6 +245,21 @@ def patch_containerfile_no_subscription(build_dir):
     print(f'  Patched Containerfile: disabled RHEL repos, enabled CentOS Stream ({len(injected_stages)} stages)')
 
 
+def check_rhel_entitlement(runtime):
+    """Check if RHEL entitlement certs are available in the podman VM."""
+    result = subprocess.run(
+        [runtime, 'machine', 'ssh', 'ls', '/etc/pki/entitlement/'],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0 and '.pem' in result.stdout:
+        return True
+    # Also check local (for RHEL hosts building natively)
+    import glob as _glob
+    if _glob.glob('/etc/pki/entitlement/*.pem'):
+        return True
+    return False
+
+
 def build_image(build_dir, image_ref, runtime, platform=None, no_subscription=False):
     """Build the EE image using the container runtime."""
     context_dir = os.path.join(build_dir, 'context')
@@ -251,7 +268,22 @@ def build_image(build_dir, image_ref, runtime, platform=None, no_subscription=Fa
     if no_subscription:
         patch_containerfile_no_subscription(build_dir)
 
-    cmd = [runtime, 'build', '-f', containerfile, '-t', image_ref]
+    cmd = [runtime, 'build', '--no-cache', '-f', containerfile, '-t', image_ref]
+
+    # RHEL entitlement certs: mounts.conf in the podman VM auto-mounts
+    # /etc/pki/entitlement → /etc/pki/entitlement.  If that config is
+    # missing, warn the user.
+    if not no_subscription:
+        has_entitlement = check_rhel_entitlement(runtime)
+        if has_entitlement:
+            print(f'  RHEL entitlement certs detected (auto-mounted via mounts.conf)')
+        else:
+            print(f'  WARNING: No RHEL entitlement certs found. Build may fail on RHEL repos.')
+            print(f'  Hint: run "podman machine ssh" then "sudo subscription-manager register"')
+            print(f'  Then create /etc/containers/mounts.conf with:')
+            print(f'    /etc/pki/entitlement:/run/secrets/etc-pki-entitlement')
+            print(f'    /etc/rhsm:/run/secrets/rhsm')
+            print(f'  Or use --no-subscription to use CentOS Stream repos instead.')
 
     if platform:
         cmd.extend(['--platform', platform])
@@ -438,6 +470,8 @@ def main():
         # Prepare build context
         print(f'  Preparing build context ...')
         build_dir = prepare_build_context(profile_dir, profile_name)
+        if build_dir:
+            print(f'  Build dir: {build_dir}')
         if not build_dir:
             results['failed'].append(profile_name)
             print()
