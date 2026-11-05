@@ -40,9 +40,28 @@
       failed_when: false
       changed_when: false
 
-    - name: Copy Syft binary from EE if not on target
+    # Map target arch → Syft release arch. EE ships both binaries so an
+    # arm64 Controller EE can still scan x86_64 (or arm64) hosts.
+    - name: Resolve Syft binary arch for this target
+      ansible.builtin.set_fact:
+        _syft_arch: >-
+          {{
+            'amd64' if ansible_architecture in ['x86_64', 'amd64'] else
+            ('arm64' if ansible_architecture in ['aarch64', 'arm64'] else '')
+          }}
+
+    - name: Fail if target architecture is unsupported for Syft copy
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported target architecture '{{ ansible_architecture }}'.
+          EE provides syft-amd64 and syft-arm64 only.
+      when:
+        - _syft_check.rc != 0
+        - _syft_arch | length == 0
+
+    - name: Copy arch-matched Syft binary from EE if not on target
       ansible.builtin.copy:
-        src: /usr/local/bin/syft
+        src: "/usr/local/lib/compliance-scanners/syft/syft-{{ _syft_arch }}"
         dest: /tmp/syft
         mode: '0755'
       when: _syft_check.rc != 0

@@ -35,9 +35,14 @@ additional_build_steps:
     # Update these when upgrading scanner versions.
     - ENV SYFT_VERSION=1.20.0
     - ENV GRYPE_VERSION=0.92.0
-    # Install Syft — SBOM generation
-    - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin syft
-    # Install Grype — vulnerability matching
+    # Install Syft for BOTH amd64 and arm64 so an arm64 EE (e.g. Graviton
+    # Controller) can still copy a matching binary onto x86_64 targets.
+    # Layout:
+    #   /usr/local/lib/compliance-scanners/syft/syft-amd64
+    #   /usr/local/lib/compliance-scanners/syft/syft-arm64
+    #   /usr/local/bin/syft  → native-arch symlink (for EE-local use)
+    - RUN mkdir -p /usr/local/lib/compliance-scanners/syft && curl -sSfL https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz | tar xz -C /tmp && mv /tmp/syft /usr/local/lib/compliance-scanners/syft/syft-amd64 && curl -sSfL https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_arm64.tar.gz | tar xz -C /tmp && mv /tmp/syft /usr/local/lib/compliance-scanners/syft/syft-arm64 && chmod 0755 /usr/local/lib/compliance-scanners/syft/syft-* && NATIVE=$(uname -m) && if [ "$NATIVE" = "x86_64" ]; then NATIVE=amd64; elif [ "$NATIVE" = "aarch64" ]; then NATIVE=arm64; fi && ln -sf /usr/local/lib/compliance-scanners/syft/syft-${NATIVE} /usr/local/bin/syft
+    # Install Grype — vulnerability matching (runs on the execution node / EE only)
     - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin grype
     # Install jq for JSON processing in playbooks
     - RUN microdnf install -y jq && microdnf clean all
@@ -46,6 +51,8 @@ additional_build_steps:
     - RUN ARCH=$(uname -m) && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && curl -sSfL https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz | tar xz -C /usr/local/bin oras
   append_final:
     - RUN syft version
+    - RUN test -x /usr/local/lib/compliance-scanners/syft/syft-amd64
+    - RUN test -x /usr/local/lib/compliance-scanners/syft/syft-arm64
     - RUN grype version
     - RUN jq --version
     - RUN oras version
